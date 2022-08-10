@@ -9,7 +9,11 @@ use clap::{Parser, Subcommand};
 
 use sspds::{
     cli::{
-        filesystem::{parse_composition, parse_packages, read_directory},
+        filesystem::{
+					parse_composition_or_panic as parse_composition,
+					parse_packages_or_panic as parse_packages,
+					read_directory
+				},
         project::Project,
     },
     hacks,
@@ -20,6 +24,123 @@ use sspds::{
         tex::writer::tex_write_composition,
     },
 };
+
+
+/*
+
+What is the functionality of the tool:
+- game hops
+  - count epsilons
+- assumption
+- game description (= composition)
+- package
+- proof types:
+  - code equality
+  - assumption application
+  - hybrid argument (n-wise parallel composition)
+- compute and verify proofs
+- generate latex + proof viewer
+
+What do we need for this:
+- internal representation of multi-step/multi-game-hop proofs
+  - type-checking + rewriting rather than smt
+    - rewriting based on assumption or code equivalence
+	- user says what rewrite rule to use
+- would be nice to pin down directory structure a bit
+  - this sort of reflects the data structure for the entire proof, though
+
+----
+
+UI consists of two elements:
+- CLI
+- Directory Structure
+
+----
+
+$ ssp prove [-u] [real [ideal]]	# prove that games real and ideal are indistinguishable and show epsilons
+                     						# also generates proofviewer html
+																# what happens with bugs in the proof?
+																#   each gamehop is a lemma/claim, and when we can't prove it, it can be flagged
+																# when -u is given, automatically re-prove and re-generate proof viewer, when a file is updated. also host a web-server to host proof viewer and give info on syntax errors
+$ ssp check-syntax [pkg]				# syntax check individual packages
+$ ssp gen-latex									# check syntax and generate latex cryptocode for packages
+
+----
+
+project/
+	ssp.toml  -- this is at least needed to indicate that this is the project root
+	_build/ 	-- only generated, only read by the user
+		code_eq/
+			mapping_ideal
+		proof_viewer/
+		  index.html
+			...
+		latex/
+		  packages/
+			  ...
+			graphs/
+			  ...
+  packages/
+		key.pkg.ssp
+		prf.pkg.ssp
+ 	assumptions/
+		prf/
+			real.comp.ssp
+			ideal.comp.ssp
+			// hard-code these names? allow overrides?
+			// type checker needs to validate that interfaces match up
+			// - oracles
+			// - parameters
+			// - how to deal with security parameter?
+			// - more?
+	games/
+		real.comp.ssp
+		g1.comp.ssp
+		g2.comp.ssp
+		...
+		mapping.comp.ssp
+		ideal.comp.ssp
+  game_hops.toml:
+		real->g1: assumption
+		g1->g2: assumption
+		...
+		mapping->ideal: code equivalence with code_eq/mapping-ideal_invariant.smt
+		order:
+		 - real->g1
+		 - g1 -> g2
+		 - ...
+		 - mapping->ideal
+	code_eq/
+		mapping-ideal_invariant.smt
+
+----
+
+game_hops.toml
+
+[
+	{
+		Reduction: {
+			left: PackageName
+			right: PackageName
+			assumption: AssumptionName
+			optional:
+				name: String
+		}
+	},
+	{
+		CodeEquivalence: {
+			left: PackageName
+			right: PackageName
+			invariant: InvariantPath
+			optional:
+				name: String
+		}
+	},
+	..
+]
+
+*/
+
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -49,8 +170,6 @@ enum Commands {
 
     /// Give information about the provided code
     Explain(Explain),
-
-    Proof(ProofCommand),
 }
 
 //#[derive(Parser)]
@@ -63,16 +182,9 @@ struct ProofCommand {
 
 #[derive(Subcommand)]
 enum Proof {
-    Init {
-        proofname: String,
-        compname_left: String,
-        compname_right: String,
-    },
-    Refresh,
     Build {
         proofname: String,
     },
-    Prove,
 }
 
 #[derive(clap::Args)]
@@ -264,31 +376,5 @@ fn main() {
         Commands::Latex(args) => latex(args),
         Commands::Graph(args) => graph(args),
         Commands::Explain(args) => explain(args),
-        Commands::Proof(command) => {
-            match &command.command {
-                Proof::Init {
-                    proofname,
-                    compname_left,
-                    compname_right,
-                } => {
-                    // TODO: once we have proper projects, we can first read the entire thing
-                    //       and then check that the compositions named here exist and that
-                    //       the proof directory doesn't exist yet
-                    //init_proof_dir(proofname, compname_left, compname_right).unwrap();
-                    let mut project = Project::load().unwrap();
-                    project
-                        .init_proof(proofname, compname_left, &compname_right)
-                        .unwrap();
-                }
-                Proof::Build { proofname } => {
-                    let project = Project::load().unwrap();
-                    project.build_proof(proofname).unwrap();
-                }
-
-                _ => {
-                    todo!()
-                }
-            }
-        }
     }
 }

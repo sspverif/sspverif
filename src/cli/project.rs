@@ -1,12 +1,13 @@
 use std::collections::hash_map::RandomState;
 use std::collections::HashSet;
 use std::fmt::Display;
-use std::io::{Error as IOError, ErrorKind, Result, Write};
+use std::io::{Error as IOError, ErrorKind, Result as IOResult, Write};
 use std::iter::FromIterator;
 use std::path::Path;
 use std::{collections::HashMap, path::PathBuf};
+use super::{Error, Result};
 
-use thiserror::Error;
+use serde_derive::{Deserialize, Serialize};
 
 use crate::hacks;
 use crate::package::{Composition, Package};
@@ -16,175 +17,137 @@ use crate::writers::smt::SmtFmt;
 use super::filesystem::{
     find_project_root, parse_composition, parse_packages, read_compositions_directory,
     read_packages_directory, read_proofs_directory,
+		read_assumptions_directory, parse_assumptions,
+		read_game_hops,
 };
 use super::{CompositionSpec, ProofFile};
 
-use std::fs;
-
-#[derive(Debug, Error)]
-enum Error {
-    ProofExists(String),
-    ProofCheck(String),
-    CompositionMissing(String),
+#[derive(Debug, Serialize, Deserialize)]
+pub enum GameHop {
+	Reduction{
+		left: String,
+		right: String,
+		assumption: String,
+		// we probably have to provide more information here
+	},
+	Equivalence{
+		left: String,
+		right: String,
+		invariant_path: String,
+	}
+	// HybridArgument(...)
 }
 
-impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
+#[derive(Debug)]
+pub struct Assumption {
+	left: String,
+	right: String,
 }
 
 #[derive(Debug)]
 pub struct Project {
     root_dir: PathBuf,
     packages: HashMap<String, Package>,
-    compositions: HashMap<String, Composition>,
-    proofs: Vec<String>,
-}
-
-fn build_proof_file(left: &Composition, right: &Composition) -> ProofFile {
-    let left_params_set: HashSet<_, RandomState> =
-        HashSet::from_iter(left.consts.iter().map(|(name, _)| name).cloned());
-    let right_params_set: HashSet<_, RandomState> =
-        HashSet::from_iter(right.consts.iter().map(|(name, _)| name).cloned());
-
-    let proof_params: Vec<_> = left_params_set.union(&right_params_set).cloned().collect();
-
-    ProofFile {
-        params: proof_params,
-        left: CompositionSpec {
-            composition: left.name.clone(),
-            params: Default::default(),
-        },
-        right: CompositionSpec {
-            composition: right.name.clone(),
-            params: Default::default(),
-        },
-    }
+		assumptions: HashMap<String, Assumption>,
+    games: HashMap<String, Composition>,
+		game_hops: Vec<GameHop>, 
 }
 
 impl Project {
     pub fn load() -> Result<Project> {
         let root = find_project_root()?;
 
-        let mut pkgs_dir = root.clone();
-        pkgs_dir.push("packages");
-        let pkgs_dir_str = pkgs_dir.to_str().unwrap();
-        let pkgs_list = read_packages_directory(pkgs_dir_str);
-
-        let mut comp_dir = root.clone();
-        comp_dir.push("compositions");
-        let comp_dir_str = comp_dir.to_str().unwrap();
-        let comp_list = read_compositions_directory(comp_dir_str);
-
-        let (pkgs_map, _) = parse_packages(&pkgs_list);
-        let comp_map = parse_composition(&comp_list, &pkgs_map);
-
-        let mut proofs_dir = root.clone();
-        proofs_dir.push("proofs");
-        let proofs_dir_str = proofs_dir.to_str().unwrap();
-        let proofs_list = read_proofs_directory(proofs_dir_str);
-
-        println!("comps before proof check: {:#?}", comp_map.keys());
-        println!("proofs before proof check: {:#?}", proofs_list);
+		let pkgs = Self::load_packages(root.clone())?;
+		let games = Self::load_games(root.clone(), &pkgs)?;
+		let assumptions = Self::load_assumptions(root.clone())?;
+		let game_hops = Self::load_game_hops(root.clone(), &games, &assumptions)?;
 
         let project = Project {
             root_dir: root,
-            packages: pkgs_map,
-            compositions: comp_map,
-            proofs: proofs_list,
+            packages: pkgs,
+            games,
+			assumptions,
+            game_hops,
         };
-
-        check_proofs(
-            &project.proofs_path(),
-            &project.proofs,
-            &project.compositions,
-        )?;
 
         Ok(project)
     }
 
-    fn proofs_path(&self) -> PathBuf {
-        let mut path = self.root_dir.clone();
-        path.push("proofs");
+	fn load_packages(root: PathBuf) -> Result<HashMap<String, Package>> {
+        let mut dir = root;
+        dir.push("packages");
+        let dir_str = dir.to_str().unwrap();
 
-        path
-    }
+        let pkgs = read_packages_directory(dir_str)?;
+        let (pkgs, _) = parse_packages(&pkgs)?;
 
-    fn proof_toml_path(&self, proof_name: &str) -> PathBuf {
-        let mut path = self.root_dir.clone();
-        path.push("proofs");
-        path.push(format!("{proof_name}.toml"));
+		Ok(pkgs)
+	}
 
-        path
-    }
+	fn load_games(root: PathBuf, pkgs: &HashMap<String, Package>) -> Result<HashMap<String, Composition>> {
+        let mut dir = root;
+        dir.push("games");
+        let dir_str = dir.to_str().unwrap();
+        let games = read_compositions_directory(dir_str)?;
+        parse_composition(&games, &pkgs)
+	}
 
-    fn proof_dir_path(&self, proof_name: &str) -> PathBuf {
-        let mut path = self.root_dir.clone();
-        path.push("proofs");
-        path.push(proof_name);
+	fn load_assumptions(root: PathBuf) -> Result<HashMap<String, Assumption>> {
+		println!("note: currently not actually reading any assumptions, as this functonality is not implemented.")
+		return Ok(HashMap::new());
+		/* stub for actual functionality:
+			let mut dir = root.clone();
+			dir.push("assumptions");
+			let dir_str = dir.to_str().unwrap();
+			let assumptions = read_assumptions_directory(dir_str)?;
 
-        path
-    }
+			parse_assumptions(&assumptions)
+			*/
+	}
 
-    pub fn init_proof(
-        &mut self,
-        proof_name: &str,
-        left_comp_name: &str,
-        right_comp_name: &str,
-    ) -> std::io::Result<()> {
-        if self.proofs.contains(&proof_name.to_string()) {
-            return Err(IOError::new(
-                ErrorKind::Other,
-                Error::ProofExists(proof_name.into()),
-            ));
-        }
+	fn load_game_hops(root: PathBuf, games: &HashMap<String, Composition>, assumptions: &HashMap<String, Assumption>) -> Result<Vec<GameHop>> {
+        let mut path = root;
+        path.push("game_hops.toml");
 
-        let left = match self.compositions.get(left_comp_name) {
-            Some(comp) => comp,
-            None => {
-                return Err(IOError::new(
-                    ErrorKind::Other,
-                    Error::CompositionMissing(left_comp_name.into()),
-                ));
-            }
-        };
+		let filecontent = std::fs::read(&path)?;
+		let game_hops = toml::from_slice::<Vec<GameHop>>(&filecontent)?;
 
-        let right = match self.compositions.get(right_comp_name) {
-            Some(comp) => comp,
-            None => {
-                return Err(IOError::new(
-                    ErrorKind::Other,
-                    Error::CompositionMissing(right_comp_name.into()),
-                ));
-            }
-        };
+		for (i, hop) in game_hops.iter().enumerate() {
+			match hop {
+				GameHop::Reduction{left, right, assumption} => {
+					if !games.contains_key(left) {
+						return Err(Error::UndefinedGame(left.clone(), format!("left in game hop {i} ({hop:?})")))
+					}
+					if !games.contains_key(right) {
+						return Err(Error::UndefinedGame(right.clone(), format!("right in game hop {i} ({hop:?})")))
+					}
+					if !assumptions.contains_key(assumption) {
+						return Err(Error::UndefinedAssumption(assumption.clone(), format!("in game hop {i} ({hop:?})")))
+					}
+				}
+				GameHop::Equivalence{left, right, ..} => {
+					if !games.contains_key(left) {
+						return Err(Error::UndefinedGame(left.clone(), format!("left in game hop {i} ({hop:?})")))
+					}
+					if !games.contains_key(right) {
+						return Err(Error::UndefinedGame(right.clone(), format!("right in game hop {i} ({hop:?})")))
+					}
+					// TODO check that invariant file exists
+				}
+			}
+		}
 
-        let data = build_proof_file(left, right);
-        let toml_string = toml::to_string_pretty(&data).unwrap();
+		Ok(game_hops)
+	}
+}
 
-        /* Directory Layout:
-            proofs/
-            proofs/{proof_name}.toml
-            proofs/{proof_name}/[...]
-        */
-
-        let proof_file_path = self.proof_toml_path(proof_name);
-        fs::write(proof_file_path, toml_string)?;
-
-        let dir_path = self.proof_dir_path(proof_name);
-        fs::create_dir_all(&dir_path)?;
-
-        self.proofs.push(proof_name.into());
-
-        Ok(())
-    }
-
+/*
+impl Project {
     /*
     TODO in this function:
         - respect the parameter/constants mapping
             - generate paramter functions
-            - fail if types don't match across compositions
+            - fail if types don't match across games
         - concat the snips into full smt file
             - alternatively, don't concat but step by step feed into prover.
               that way, we know about the progress and proof status and can report meaningful data to the user
@@ -194,7 +157,7 @@ impl Project {
         let toml_string = fs::read(proof_file_path)?;
         let data: ProofFile = toml::from_slice(&toml_string)?;
 
-        let left_comp = match self.compositions.get(&data.left.composition) {
+        let left_comp = match self.games.get(&data.left.composition) {
             Some(comp) => comp,
             None => {
                 return Err(IOError::new(
@@ -204,7 +167,7 @@ impl Project {
             }
         };
 
-        let right_comp = match self.compositions.get(&data.right.composition) {
+        let right_comp = match self.games.get(&data.right.composition) {
             Some(comp) => comp,
             None => {
                 return Err(IOError::new(
@@ -241,30 +204,4 @@ impl Project {
     }
 }
 
-fn check_proofs(
-    proofs_path: &Path,
-    proof_list: &[String],
-    comps: &HashMap<String, Composition>,
-) -> Result<()> {
-    for proof_name in proof_list {
-        let mut proof_file_path: PathBuf = proofs_path.to_path_buf();
-        proof_file_path.push(format!("{proof_name}.toml"));
-        let proof_file_contents = fs::read(proof_file_path).unwrap();
-        let proof_file = toml::from_slice::<ProofFile>(&proof_file_contents).unwrap();
-        if comps.get(&proof_file.left.composition).is_none() {
-            return Err(IOError::new(
-                ErrorKind::Other,
-                Error::ProofCheck(proof_file.left.composition),
-            ));
-        }
-
-        if comps.get(&proof_file.right.composition).is_none() {
-            return Err(IOError::new(
-                ErrorKind::Other,
-                Error::ProofCheck(proof_file.right.composition),
-            ));
-        }
-    }
-
-    Ok(())
-}
+*/

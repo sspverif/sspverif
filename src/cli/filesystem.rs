@@ -1,12 +1,15 @@
 use std::collections::HashMap;
 use std::fs;
-use std::io::ErrorKind;
+use std::io::{Error as IOError, Result as IOResult, ErrorKind};
 use std::path::PathBuf;
 
 use crate::package::{Composition, Package};
 use crate::parser::{composition::handle_composition, package::handle_pkg, SspParser};
 
+use crate::cli::{Error, Result};
+
 use super::ProofFile;
+use super::project::Assumption;
 
 #[allow(clippy::type_complexity)]
 pub fn read_directory(dir_path: &str) -> (Vec<(String, String)>, Vec<(String, String)>) {
@@ -40,8 +43,7 @@ pub fn read_directory(dir_path: &str) -> (Vec<(String, String)>, Vec<(String, St
     (pkgs_list, comp_list)
 }
 
-#[allow(clippy::type_complexity)]
-pub fn read_packages_directory(dir_path: &str) -> Vec<(String, String)> {
+pub fn read_packages_directory_or_panic(dir_path: &str) -> Vec<(String, String)> {
     let mut pkgs_list = vec![];
 
     let dir_list = fs::read_dir(dir_path).expect("cannot list directory");
@@ -69,8 +71,23 @@ pub fn read_packages_directory(dir_path: &str) -> Vec<(String, String)> {
     pkgs_list
 }
 
-#[allow(clippy::type_complexity)]
-pub fn read_compositions_directory(dir_path: &str) -> Vec<(String, String)> {
+pub fn read_packages_directory(dir_path: &str) -> IOResult<Vec<(String, String)>> {
+    let mut pkgs_list = vec![];
+
+    for dir_entry in fs::read_dir(dir_path)? {
+        let dir_entry = dir_entry?;
+        if let Some(name) = dir_entry.file_name().to_str() {
+						if name.ends_with(".pkg.ssp") {
+								let filecontent = fs::read_to_string(dir_entry.path())?;
+								pkgs_list.push((name.to_owned(), filecontent));
+						}
+        }
+    }
+
+    Ok(pkgs_list)
+}
+
+pub fn read_compositions_directory_or_panic(dir_path: &str) -> Vec<(String, String)> {
     let mut comp_list = vec![];
 
     let dir_list = fs::read_dir(dir_path).expect("cannot list directory");
@@ -82,20 +99,34 @@ pub fn read_compositions_directory(dir_path: &str) -> Vec<(String, String)> {
                 continue;
             }
             Some(name) => {
-                if name.ends_with(".ssp") {
+                if name.ends_with(".comp.ssp") {
                     let filecontent = fs::read_to_string(dir_entry.path());
                     assert!(filecontent.is_ok(), "cannot read file {}", name);
 
                     let filecontent = filecontent.unwrap().clone();
-                    if name.ends_with(".comp.ssp") {
-                        comp_list.push((name.to_owned(), filecontent));
-                    }
+										comp_list.push((name.to_owned(), filecontent));
                 }
             }
         }
     }
 
     comp_list
+}
+
+pub fn read_compositions_directory(dir_path: &str) -> IOResult<Vec<(String, String)>> {
+    let mut comp_list = vec![];
+
+    for dir_entry in fs::read_dir(dir_path)? {
+				let dir_entry = dir_entry?;
+        if let Some(name) = dir_entry.file_name().to_str() {
+						if name.ends_with(".comp.ssp") {
+								let filecontent = fs::read_to_string(dir_entry.path())?;
+								comp_list.push((name.to_owned(), filecontent));
+						}
+        }
+    }
+
+    Ok(comp_list)
 }
 
 pub fn read_proofs_directory(dir_path: &str) -> Vec<String> {
@@ -130,7 +161,7 @@ pub fn read_proofs_directory(dir_path: &str) -> Vec<String> {
     proof_list
 }
 
-pub fn parse_packages(
+pub fn parse_packages_or_panic(
     pkgs_list: &[(String, String)],
 ) -> (HashMap<String, Package>, HashMap<String, &String>) {
     let pkgs_list: Vec<_> = pkgs_list
@@ -160,8 +191,38 @@ pub fn parse_packages(
 
     (pkgs_map, pkgs_filenames)
 }
+pub fn parse_packages(
+    pkgs_list: &[(String, String)],
+) -> Result<(HashMap<String, Package>, HashMap<String, &String>)> {
+    let pkgs_list: Vec<_> = pkgs_list
+        .iter()
+        .map(|(filename, contents)| {
+            let mut ast = SspParser::parse_package(contents)?;
+            let (pkg_name, pkg) = handle_pkg(ast.next().unwrap());
 
-pub fn parse_composition(
+            Ok((filename, ast, contents, pkg_name, pkg))
+        })
+        .collect::<Result<_>>()?;
+
+    let mut pkgs_map = HashMap::new();
+    let mut pkgs_filenames = HashMap::new();
+
+    for (filename, _, _, pkg_name, pkg) in pkgs_list {
+        if let Some(other_filename) = pkgs_filenames.get(&pkg_name) {
+            panic!(
+                "Package {:?} redefined in {} (originally defined in {})",
+                pkg_name, filename, other_filename
+            )
+        }
+
+        pkgs_map.insert(pkg_name.clone(), pkg);
+        pkgs_filenames.insert(pkg_name, filename);
+    }
+
+    Ok((pkgs_map, pkgs_filenames))
+}
+
+pub fn parse_composition_or_panic(
     comp_list: &[(String, String)],
     pkgs_map: &HashMap<String, Package>,
 ) -> HashMap<String, Composition> {
@@ -189,9 +250,33 @@ pub fn parse_composition(
     comp_map
 }
 
+
+pub fn parse_composition(
+    comp_list: &[(String, String)],
+    pkgs_map: &HashMap<String, Package>,
+) -> Result<HashMap<String, Composition>> {
+    let comp_list: Vec<_> = comp_list
+        .iter()
+        .map(|(filename, contents)| {
+            let mut ast = SspParser::parse_composition(contents)?;
+            let comp = handle_composition(ast.next().unwrap(), pkgs_map);
+            let comp_name = comp.name.clone();
+
+            Ok((filename, contents, ast, comp_name, comp))
+        })
+        .collect::<Result<_>>()?;
+
+    let mut comp_map = HashMap::new();
+    for (_, _, _, comp_name, comp) in comp_list {
+        comp_map.insert(comp_name, comp);
+    }
+
+   Ok(comp_map)
+}
+
 pub const PROJECT_FILE: &str = "ssp.toml";
 
-pub fn find_project_root() -> std::io::Result<std::path::PathBuf> {
+pub fn find_project_root() -> IOResult<std::path::PathBuf> {
     let mut dir = std::env::current_dir()?;
 
     loop {
@@ -212,4 +297,18 @@ pub fn find_project_root() -> std::io::Result<std::path::PathBuf> {
             Some(parent) => dir = parent.into(),
         }
     }
+}
+
+pub fn read_game_hops(dir_path: &str) -> IOResult<Vec<crate::cli::project::GameHop>> {
+	unimplemented!();
+}
+
+pub fn read_assumptions_directory(dir_path: &str) -> IOResult<Vec<(String, String)>> {
+	unimplemented!();
+}
+
+pub fn parse_assumptions(
+    pkgs_list: &[(String, String)],
+) -> Result<HashMap<String, Assumption>> {
+	unimplemented!();
 }
