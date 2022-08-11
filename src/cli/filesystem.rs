@@ -1,14 +1,12 @@
 use std::collections::HashMap;
 use std::fs;
-use std::io::{Error as IOError, Result as IOResult, ErrorKind};
-use std::path::PathBuf;
+use std::io::{ErrorKind, Result as IOResult};
 
 use crate::package::{Composition, Package};
 use crate::parser::{composition::handle_composition, package::handle_pkg, SspParser};
 
-use crate::cli::{Error, Result};
+use crate::cli::Result;
 
-use super::ProofFile;
 use super::project::Assumption;
 
 #[allow(clippy::type_complexity)]
@@ -77,10 +75,10 @@ pub fn read_packages_directory(dir_path: &str) -> IOResult<Vec<(String, String)>
     for dir_entry in fs::read_dir(dir_path)? {
         let dir_entry = dir_entry?;
         if let Some(name) = dir_entry.file_name().to_str() {
-						if name.ends_with(".pkg.ssp") {
-								let filecontent = fs::read_to_string(dir_entry.path())?;
-								pkgs_list.push((name.to_owned(), filecontent));
-						}
+            if name.ends_with(".pkg.ssp") {
+                let filecontent = fs::read_to_string(dir_entry.path())?;
+                pkgs_list.push((name.to_owned(), filecontent));
+            }
         }
     }
 
@@ -104,7 +102,7 @@ pub fn read_compositions_directory_or_panic(dir_path: &str) -> Vec<(String, Stri
                     assert!(filecontent.is_ok(), "cannot read file {}", name);
 
                     let filecontent = filecontent.unwrap().clone();
-										comp_list.push((name.to_owned(), filecontent));
+                    comp_list.push((name.to_owned(), filecontent));
                 }
             }
         }
@@ -117,12 +115,12 @@ pub fn read_compositions_directory(dir_path: &str) -> IOResult<Vec<(String, Stri
     let mut comp_list = vec![];
 
     for dir_entry in fs::read_dir(dir_path)? {
-				let dir_entry = dir_entry?;
+        let dir_entry = dir_entry?;
         if let Some(name) = dir_entry.file_name().to_str() {
-						if name.ends_with(".comp.ssp") {
-								let filecontent = fs::read_to_string(dir_entry.path())?;
-								comp_list.push((name.to_owned(), filecontent));
-						}
+            if name.ends_with(".comp.ssp") {
+                let filecontent = fs::read_to_string(dir_entry.path())?;
+                comp_list.push((name.to_owned(), filecontent));
+            }
         }
     }
 
@@ -250,7 +248,6 @@ pub fn parse_composition_or_panic(
     comp_map
 }
 
-
 pub fn parse_composition(
     comp_list: &[(String, String)],
     pkgs_map: &HashMap<String, Package>,
@@ -271,7 +268,7 @@ pub fn parse_composition(
         comp_map.insert(comp_name, comp);
     }
 
-   Ok(comp_map)
+    Ok(comp_map)
 }
 
 pub const PROJECT_FILE: &str = "ssp.toml";
@@ -300,15 +297,13 @@ pub fn find_project_root() -> IOResult<std::path::PathBuf> {
 }
 
 pub fn read_game_hops(dir_path: &str) -> IOResult<Vec<crate::cli::project::GameHop>> {
-	unimplemented!();
+    unimplemented!();
 }
 
 pub fn read_assumptions_directory(dir_path: &str) -> IOResult<Vec<(String, String)>> {
-	unimplemented!();
+    unimplemented!();
 }
 
-pub fn parse_assumptions(
-    pkgs_list: &[(String, String)],
-) -> Result<HashMap<String, Assumption>> {
-	unimplemented!();
+pub fn parse_assumptions(pkgs_list: &[(String, String)]) -> Result<HashMap<String, Assumption>> {
+    unimplemented!();
 }

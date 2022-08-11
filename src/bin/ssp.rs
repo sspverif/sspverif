@@ -10,10 +10,9 @@ use clap::{Parser, Subcommand};
 use sspds::{
     cli::{
         filesystem::{
-					parse_composition_or_panic as parse_composition,
-					parse_packages_or_panic as parse_packages,
-					read_directory
-				},
+            parse_composition_or_panic as parse_composition,
+            parse_packages_or_panic as parse_packages, read_directory,
+        },
         project::Project,
     },
     hacks,
@@ -24,7 +23,6 @@ use sspds::{
         tex::writer::tex_write_composition,
     },
 };
-
 
 /*
 
@@ -45,7 +43,7 @@ What do we need for this:
 - internal representation of multi-step/multi-game-hop proofs
   - type-checking + rewriting rather than smt
     - rewriting based on assumption or code equivalence
-	- user says what rewrite rule to use
+    - user says what rewrite rule to use
 - would be nice to pin down directory structure a bit
   - this sort of reflects the data structure for the entire proof, though
 
@@ -58,89 +56,86 @@ UI consists of two elements:
 ----
 
 $ ssp prove [-u] [real [ideal]]	# prove that games real and ideal are indistinguishable and show epsilons
-                     						# also generates proofviewer html
-																# what happens with bugs in the proof?
-																#   each gamehop is a lemma/claim, and when we can't prove it, it can be flagged
-																# when -u is given, automatically re-prove and re-generate proof viewer, when a file is updated. also host a web-server to host proof viewer and give info on syntax errors
-$ ssp check-syntax [pkg]				# syntax check individual packages
-$ ssp gen-latex									# check syntax and generate latex cryptocode for packages
+                                 # also generates proofviewer html
+                                # what happens with bugs in the proof?
+                                #   each gamehop is a lemma/claim, and when we can't prove it, it can be flagged
+                                # when -u is given, automatically re-prove and re-generate proof viewer, when a file is updated. also host a web-server to host proof viewer and give info on syntax errors (-u is for update. maybe w for watch?)
+$ ssp check-syntax [pkg]	    # syntax check individual packages
+$ ssp gen-latex                 # check syntax and generate latex cryptocode for packages
 
 ----
 
 project/
-	ssp.toml  -- this is at least needed to indicate that this is the project root
-	_build/ 	-- only generated, only read by the user
-		code_eq/
-			mapping_ideal
-		proof_viewer/
-		  index.html
-			...
-		latex/
-		  packages/
-			  ...
-			graphs/
-			  ...
-  packages/
-		key.pkg.ssp
-		prf.pkg.ssp
- 	assumptions/
-		prf/
-			real.comp.ssp
-			ideal.comp.ssp
-			// hard-code these names? allow overrides?
-			// type checker needs to validate that interfaces match up
-			// - oracles
-			// - parameters
-			// - how to deal with security parameter?
-			// - more?
-	games/
-		real.comp.ssp
-		g1.comp.ssp
-		g2.comp.ssp
-		...
-		mapping.comp.ssp
-		ideal.comp.ssp
-  game_hops.toml:
-		real->g1: assumption
-		g1->g2: assumption
-		...
-		mapping->ideal: code equivalence with code_eq/mapping-ideal_invariant.smt
-		order:
-		 - real->g1
-		 - g1 -> g2
-		 - ...
-		 - mapping->ideal
-	code_eq/
-		mapping-ideal_invariant.smt
+    ssp.toml  -- this is at least needed to indicate that this is the project root
+    _build/ 	-- only generated, only read by the user
+        code_eq/
+            mapping_ideal
+        proof_viewer/
+            index.html
+            ...
+        latex/
+            packages/
+                ...
+            graphs/
+                ...
+    packages/
+        key.pkg.ssp
+        prf.pkg.ssp
+    assumptions/
+        prf/
+            real.comp.ssp
+            ideal.comp.ssp
+            // hard-code these names? allow overrides?
+            //     maybe for now allow all names
+            // type checker needs to validate that interfaces match up
+            // - oracles
+            // - parameters
+            // - how to deal with security parameter?
+            // - more?
+    games/
+        real.comp.ssp
+        g1.comp.ssp
+        g2.comp.ssp
+        ...
+        mapping.comp.ssp
+        ideal.comp.ssp
+    game_hops.toml
+        // rough description:
+        // real->g1: assumption
+        // g1->g2: assumption
+        // ...
+        // mapping->ideal: code equivalence with code_eq/mapping-ideal_invariant.smt
+    code_eq/
+        mapping-ideal_invariant.smt
 
 ----
 
-game_hops.toml
+game_hops.toml:
 
+This would be the contents is JSONy notation. We'll see how that looks like in toml.
 [
-	{
-		Reduction: {
-			left: PackageName
-			right: PackageName
-			assumption: AssumptionName
-			optional:
-				name: String
-		}
-	},
-	{
-		CodeEquivalence: {
-			left: PackageName
-			right: PackageName
-			invariant: InvariantPath
-			optional:
-				name: String
-		}
-	},
-	..
+    {
+        Reduction: {
+            left: PackageName
+            right: PackageName
+            assumption: AssumptionName
+            optional:
+                name: String
+        }
+    },
+    {
+        Equivalence: {
+            left: PackageName
+            right: PackageName
+            invariant: InvariantPath
+            optional:
+                name: String
+        }
+    },
+    ..
 ]
 
 */
-
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -170,6 +165,8 @@ enum Commands {
 
     /// Give information about the provided code
     Explain(Explain),
+
+    Prove,
 }
 
 //#[derive(Parser)]
@@ -182,9 +179,7 @@ struct ProofCommand {
 
 #[derive(Subcommand)]
 enum Proof {
-    Build {
-        proofname: String,
-    },
+    Build { proofname: String },
 }
 
 #[derive(clap::Args)]
@@ -342,6 +337,13 @@ fn latex(args: &LaTeX) {
     }
 }
 
+use sspds::project;
+
+fn prove() {
+    let proj = project::Project::load().unwrap();
+    proj.prove().unwrap();
+}
+
 fn explain(args: &Explain) {
     let (pkgs_list, comp_list) = read_directory(&args.dirname);
     let (pkgs_map, _pkgs_filenames) = parse_packages(&pkgs_list);
@@ -376,5 +378,6 @@ fn main() {
         Commands::Latex(args) => latex(args),
         Commands::Graph(args) => graph(args),
         Commands::Explain(args) => explain(args),
+        Commands::Prove => prove(),
     }
 }

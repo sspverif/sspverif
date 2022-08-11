@@ -1,47 +1,37 @@
-use std::collections::hash_map::RandomState;
-use std::collections::HashSet;
-use std::fmt::Display;
-use std::io::{Error as IOError, ErrorKind, Result as IOResult, Write};
-use std::iter::FromIterator;
-use std::path::Path;
-use std::{collections::HashMap, path::PathBuf};
 use super::{Error, Result};
+use std::{collections::HashMap, path::PathBuf};
 
 use serde_derive::{Deserialize, Serialize};
 
-use crate::hacks;
 use crate::package::{Composition, Package};
 use crate::writers::smt::writer::CompositionSmtWriter;
 use crate::writers::smt::SmtFmt;
 
 use super::filesystem::{
     find_project_root, parse_composition, parse_packages, read_compositions_directory,
-    read_packages_directory, read_proofs_directory,
-		read_assumptions_directory, parse_assumptions,
-		read_game_hops,
+    read_packages_directory,
 };
-use super::{CompositionSpec, ProofFile};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum GameHop {
-	Reduction{
-		left: String,
-		right: String,
-		assumption: String,
-		// we probably have to provide more information here
-	},
-	Equivalence{
-		left: String,
-		right: String,
-		invariant_path: String,
-	}
-	// HybridArgument(...)
+    Reduction {
+        left: String,
+        right: String,
+        assumption: String,
+        // we probably have to provide more information here
+    },
+    Equivalence {
+        left: String,
+        right: String,
+        invariant_path: String,
+    },
+    // TODO: HybridArgument(...)
 }
 
 #[derive(Debug)]
 pub struct Assumption {
-	left: String,
-	right: String,
+    left: String,
+    right: String,
 }
 
 #[derive(Debug)]
