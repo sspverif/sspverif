@@ -9,7 +9,7 @@ use std::iter::FromIterator;
 use std::collections::HashMap;
 
 use crate::package::Composition;
-use crate::writers::smt::exprs::SmtFmt;
+use crate::writers::smt::SmtFmt;
 
 use serde_derive::{Deserialize, Serialize};
 
@@ -95,6 +95,8 @@ impl ResolvedEquivalence {
         hacks::declare_par_Maybe(&mut buf)?;
         hacks::declare_Tuple(&mut buf, 2)?;
         write!(buf, "(declare-sort Bits_n 0)")?;
+        write!(buf, "(declare-sort Bits_m 0)")?;
+        write!(buf, "(declare-sort Bits_p 0)")?;
         write!(buf, "(declare-sort Bits_* 0)")?;
 
         /*
@@ -106,13 +108,13 @@ impl ResolvedEquivalence {
 
         for comp in [left, right] {
             let (comp, _, samp) = crate::transforms::transform_all(&comp).unwrap();
-            let mut writer = CompositionSmtWriter::new(&comp, samp);
+            let mut writer = CompositionSmtWriter::new(&comp, &samp);
             for line in writer.smt_composition_all() {
                 line.write_smt_to(&mut buf)?;
             }
         }
 
-        write!(buf, "(check-sat)")?;
+        writeln!(buf, "(check-sat)")?;
 
         let (writer, rx) = std::sync::mpsc::channel::<Vec<u8>>();
 
@@ -127,41 +129,82 @@ impl ResolvedEquivalence {
 
         writer.send(buf).unwrap();
 
-        std::thread::sleep(std::time::Duration::from_millis(1250));
-
         let mut z3_outbuf = [0u8; 1 << 14];
         let mut z3_stdout = z3_proc.stdout.unwrap();
         let mut bytes_read = 0;
         let mut z3_outstr: String;
+
         loop {
+            //println!("waiting for prover response...");
             bytes_read += z3_stdout.read(&mut z3_outbuf[bytes_read..])?;
 
             z3_outstr = String::from_utf8(z3_outbuf[..bytes_read].to_vec()).unwrap();
-            print!("read {bytes_read} bytes from z3: {z3_outstr}");
 
-            if z3_outstr.ends_with("sat") {
+            if z3_outstr.ends_with("sat\n") {
                 break;
             }
         }
 
-        println!("data: {z3_outstr}.");
-
-        /*
-        // send data to prover and handle response
-        match proc.communicate_bytes(Some(&buf))? {
-            (Some(stdout_data), Some(stderr_data)) => {
-                let data = String::from_utf8(stdout_data).unwrap();
-                let err = String::from_utf8(stderr_data).unwrap();
-                println!("data: {data}.");
-                println!("err: {err}.");
+        match z3_outstr.as_str() {
+            "sat\n" => {
+                println!("prover accepted definitions.");
+                // noting to do, ist works, let's continue
+            }
+            "unsat\n" => {
+                // TOODO returns this as an error...
+                println!("this is weird! The definitions made the code unsat. This could be a bug, please report this! Aborting now.");
+                return Ok(());
             }
             _ => {
-                unreachable!("")
+                // TODO also make this an error
+                println!(
+                    r#"Expected output "sat" from the prover, got the following:
+{z3_outstr}
+aborting."#
+                );
+                return Ok(());
             }
-        } */
+        }
 
-        // TODO handle response, don't really expect any
         writer.send(self.invariant.clone()).unwrap();
+
+        // we don't really expect a response on the invariant, but we have to wait for something.
+        // also it's nice to know that the user invariant doesn't make the system unsat
+        let check_sat = "(check-sat)".as_bytes().to_vec();
+
+        writer.send(check_sat.clone()).unwrap();
+
+        loop {
+            //println!("waiting for prover response...");
+            bytes_read += z3_stdout.read(&mut z3_outbuf[bytes_read..])?;
+
+            z3_outstr = String::from_utf8(z3_outbuf[..bytes_read].to_vec()).unwrap();
+
+            if z3_outstr.ends_with("sat\n") {
+                break;
+            }
+        }
+
+        match z3_outstr.as_str() {
+            "sat\n" => {
+                println!("prover accepted invariant.");
+                // noting to do, ist works, let's continue
+            }
+            "unsat\n" => {
+                // TOODO returns this as an error...
+                println!("The invariant made the code unsat. This is probably a bug invariant.");
+                return Ok(());
+            }
+            _ => {
+                // TODO also make this an error
+                println!(
+                    r#"Unexpected response to the invariant from the prover:
+{z3_outstr}
+aborting."#
+                );
+                return Ok(());
+            }
+        }
 
         // TODO write epilogue and handle response
 

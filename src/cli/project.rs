@@ -38,32 +38,32 @@ pub struct Assumption {
 pub struct Project {
     root_dir: PathBuf,
     packages: HashMap<String, Package>,
-		assumptions: HashMap<String, Assumption>,
+    assumptions: HashMap<String, Assumption>,
     games: HashMap<String, Composition>,
-		game_hops: Vec<GameHop>, 
+    game_hops: Vec<GameHop>,
 }
 
 impl Project {
     pub fn load() -> Result<Project> {
         let root = find_project_root()?;
 
-		let pkgs = Self::load_packages(root.clone())?;
-		let games = Self::load_games(root.clone(), &pkgs)?;
-		let assumptions = Self::load_assumptions(root.clone())?;
-		let game_hops = Self::load_game_hops(root.clone(), &games, &assumptions)?;
+        let pkgs = Self::load_packages(root.clone())?;
+        let games = Self::load_games(root.clone(), &pkgs)?;
+        let assumptions = Self::load_assumptions(root.clone())?;
+        let game_hops = Self::load_game_hops(root.clone(), &games, &assumptions)?;
 
         let project = Project {
             root_dir: root,
             packages: pkgs,
             games,
-			assumptions,
+            assumptions,
             game_hops,
         };
 
         Ok(project)
     }
 
-	fn load_packages(root: PathBuf) -> Result<HashMap<String, Package>> {
+    fn load_packages(root: PathBuf) -> Result<HashMap<String, Package>> {
         let mut dir = root;
         dir.push("packages");
         let dir_str = dir.to_str().unwrap();
@@ -71,64 +71,90 @@ impl Project {
         let pkgs = read_packages_directory(dir_str)?;
         let (pkgs, _) = parse_packages(&pkgs)?;
 
-		Ok(pkgs)
-	}
+        Ok(pkgs)
+    }
 
-	fn load_games(root: PathBuf, pkgs: &HashMap<String, Package>) -> Result<HashMap<String, Composition>> {
+    fn load_games(
+        root: PathBuf,
+        pkgs: &HashMap<String, Package>,
+    ) -> Result<HashMap<String, Composition>> {
         let mut dir = root;
         dir.push("games");
         let dir_str = dir.to_str().unwrap();
         let games = read_compositions_directory(dir_str)?;
         parse_composition(&games, &pkgs)
-	}
+    }
 
-	fn load_assumptions(root: PathBuf) -> Result<HashMap<String, Assumption>> {
-		println!("note: currently not actually reading any assumptions, as this functonality is not implemented.")
-		return Ok(HashMap::new());
-		/* stub for actual functionality:
-			let mut dir = root.clone();
-			dir.push("assumptions");
-			let dir_str = dir.to_str().unwrap();
-			let assumptions = read_assumptions_directory(dir_str)?;
+    fn load_assumptions(root: PathBuf) -> Result<HashMap<String, Assumption>> {
+        println!("note: currently not actually reading any assumptions, as this functonality is not implemented.");
+        return Ok(HashMap::new());
+        /* stub for actual functionality:
+        let mut dir = root.clone();
+        dir.push("assumptions");
+        let dir_str = dir.to_str().unwrap();
+        let assumptions = read_assumptions_directory(dir_str)?;
 
-			parse_assumptions(&assumptions)
-			*/
-	}
+        parse_assumptions(&assumptions)
+        */
+    }
 
-	fn load_game_hops(root: PathBuf, games: &HashMap<String, Composition>, assumptions: &HashMap<String, Assumption>) -> Result<Vec<GameHop>> {
+    fn load_game_hops(
+        root: PathBuf,
+        games: &HashMap<String, Composition>,
+        assumptions: &HashMap<String, Assumption>,
+    ) -> Result<Vec<GameHop>> {
         let mut path = root;
         path.push("game_hops.toml");
 
-		let filecontent = std::fs::read(&path)?;
-		let game_hops = toml::from_slice::<Vec<GameHop>>(&filecontent)?;
+        let filecontent = std::fs::read(&path)?;
+        let game_hops = toml::from_slice::<Vec<GameHop>>(&filecontent)?;
 
-		for (i, hop) in game_hops.iter().enumerate() {
-			match hop {
-				GameHop::Reduction{left, right, assumption} => {
-					if !games.contains_key(left) {
-						return Err(Error::UndefinedGame(left.clone(), format!("left in game hop {i} ({hop:?})")))
-					}
-					if !games.contains_key(right) {
-						return Err(Error::UndefinedGame(right.clone(), format!("right in game hop {i} ({hop:?})")))
-					}
-					if !assumptions.contains_key(assumption) {
-						return Err(Error::UndefinedAssumption(assumption.clone(), format!("in game hop {i} ({hop:?})")))
-					}
-				}
-				GameHop::Equivalence{left, right, ..} => {
-					if !games.contains_key(left) {
-						return Err(Error::UndefinedGame(left.clone(), format!("left in game hop {i} ({hop:?})")))
-					}
-					if !games.contains_key(right) {
-						return Err(Error::UndefinedGame(right.clone(), format!("right in game hop {i} ({hop:?})")))
-					}
-					// TODO check that invariant file exists
-				}
-			}
-		}
+        for (i, hop) in game_hops.iter().enumerate() {
+            match hop {
+                GameHop::Reduction {
+                    left,
+                    right,
+                    assumption,
+                } => {
+                    if !games.contains_key(left) {
+                        return Err(Error::UndefinedGame(
+                            left.clone(),
+                            format!("left in game hop {i} ({hop:?})"),
+                        ));
+                    }
+                    if !games.contains_key(right) {
+                        return Err(Error::UndefinedGame(
+                            right.clone(),
+                            format!("right in game hop {i} ({hop:?})"),
+                        ));
+                    }
+                    if !assumptions.contains_key(assumption) {
+                        return Err(Error::UndefinedAssumption(
+                            assumption.clone(),
+                            format!("in game hop {i} ({hop:?})"),
+                        ));
+                    }
+                }
+                GameHop::Equivalence { left, right, .. } => {
+                    if !games.contains_key(left) {
+                        return Err(Error::UndefinedGame(
+                            left.clone(),
+                            format!("left in game hop {i} ({hop:?})"),
+                        ));
+                    }
+                    if !games.contains_key(right) {
+                        return Err(Error::UndefinedGame(
+                            right.clone(),
+                            format!("right in game hop {i} ({hop:?})"),
+                        ));
+                    }
+                    // TODO check that invariant file exists
+                }
+            }
+        }
 
-		Ok(game_hops)
-	}
+        Ok(game_hops)
+    }
 }
 
 /*

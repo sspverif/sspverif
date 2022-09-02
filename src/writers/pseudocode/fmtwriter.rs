@@ -31,7 +31,9 @@ impl<W: Write> FmtWriter<W> {
                 self.write_string(x)?;
                 self.write_string(" /* local identifier */ ")?;
             }
-            Identifier::Params { name, .. } => {
+            Identifier::Params {
+                name_in_pkg: name, ..
+            } => {
                 self.write_string(name)?;
                 self.write_string(&format!(" /* param identifier */ "))?;
             }
@@ -111,7 +113,7 @@ impl<W: Write> FmtWriter<W> {
                 self.write_string(")")?;
             }
             Expression::FnCall(name, args) => {
-                self.write_string(name)?;
+                self.write_string(&name.ident())?;
                 self.write_string("(")?;
                 let mut maybe_comma = "";
                 for arg in args {
@@ -232,7 +234,10 @@ impl<W: Write> FmtWriter<W> {
                 }
 
                 self.write_string(" <- invoke ")?;
-                self.write_expression(&Expression::FnCall(name.clone(), args.clone()))?;
+                self.write_expression(&Expression::FnCall(
+                    Identifier::Scalar(name.clone()),
+                    args.clone(),
+                ))?;
                 if let Some(target_inst_name) = target_inst_name {
                     self.write_string(&format!(
                         "; /* with target instance name {} */",
