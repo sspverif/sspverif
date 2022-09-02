@@ -1,0 +1,62 @@
+composition Left
+ {
+const n: Integer;
+const m: Integer;
+const p: Integer;
+const zeron: Bits(n);
+const zerom: Bits(m);
+const encn: fn Bits(n),Bits(n),Bits(n) -> Bits(m);
+const encm: fn Bits(n),Bits(m),Bits(n) -> Bits(p);
+
+
+instance keys_top =
+        Keys
+          {
+          n: n,
+          }
+
+instance keys_bottom =
+        Keys
+          {
+          n: n,
+          }
+
+instance gate =
+        Gate
+          {
+          n: n,
+          m: m,
+          p: p,
+          zeron: zeron,
+          }
+
+instance enc =
+        Enc0
+          {
+          n: n,
+          m: m,
+          p: p,
+          zeron: zeron,
+          zerom: zerom,
+          encn: encn,
+          encm: encm,
+          }
+
+
+compose { 
+     adversary:
+        { GETAOUT:  keys_top,
+          SETBIT:  keys_top,
+          GBLG:  gate,
+          GETKEYSIN: keys_bottom,
+        },
+     gate:
+        { ENCN:  enc,
+          ENCM:  enc,
+          GETKEYSOUT: keys_bottom,
+        },
+     enc:
+        { GETKEYSIN: keys_top,
+        },
+        }
+ }

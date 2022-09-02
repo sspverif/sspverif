@@ -1,0 +1,75 @@
+package Keys {
+    params {
+        n: Integer,
+    }
+
+    state {
+        T: Table(Integer,Table(Bool,Bits(n))),
+        z: Table(Integer,Bool),
+        aflag: Table(Integer,Bool),
+        bflag: Table(Integer,Bool),
+    }
+
+    oracle GETKEYSIN(h: Integer) -> Table(Bool,Bits(n)) {
+        assert (z[h] != None as Bool);
+        assert ((aflag[h]==Some(true)) or (bflag[h]==Some(true)));
+        Z <- Unwrap(T[h]);
+        return Z;
+    }
+
+    oracle GETKEYSOUT(h: Integer) -> Table(Bool,Bits(n)) {
+        assert (z[h] != None as Bool);
+        assert ((aflag[h]==Some(true)) and (bflag[h]==Some(true)));
+        Z <- Unwrap(T[h]);
+        return Z;
+    }
+
+    oracle GETAOUT(h: Integer) -> Bits(n) {
+        aflag[h] <- Some(true);
+        assert ((aflag[h]==Some(true)) or (bflag[h]==Some(true)));
+        Z <- Unwrap(T[h]);
+        zz <- Unwrap(z[h]);
+        k <- Unwrap(Z[zz]);
+        return k;
+    }
+
+    oracle GETINAOUT(h: Integer) -> Bits(n) {
+        aflag[h] <- Some(true);
+        assert ((aflag[h]==Some(true)) or (bflag[h]==Some(true)));
+        Z <- Unwrap(T[h]);
+        zz <- Unwrap(z[h]);
+        k <- Unwrap(Z[not zz]);
+        return k;
+    }
+
+    oracle GETAIN(h: Integer) -> Bits(n) {
+        assert (aflag[h]==Some(true));
+        assert ((aflag[h]==Some(true)) or (bflag[h]==Some(true)));
+        Z <- Unwrap(T[h]);
+        zz <- Unwrap(z[h]);
+        k <- Unwrap(Z[zz]);
+        return k;
+    }
+
+    oracle GETINAIN(h: Integer) -> Bits(n) {
+        assert (aflag[h] == Some(true));
+        assert ((aflag[h]==Some(true)) or (bflag[h]==Some(true)));
+        Z <- Unwrap(T[h]);
+        zz <- Unwrap(z[h]);
+        k <- Unwrap(Z[not zz]);
+        return k;
+    }
+
+    oracle GETBIT(h: Integer) -> Bool {
+        assert (z[h] != None as Bool);
+        zz <- Unwrap(z[h]);
+        return zz;
+    }
+
+    oracle SETBIT(h: Integer, zz:Bool) -> () {
+        assert (z[h] == None as Bool);
+        z[h] <- Some(zz);
+        return ;
+    }
+
+}

@@ -1,0 +1,11 @@
+[[Hops]]
+    [Hops.Equivalence]
+    left = "Left"
+    right = "Right"
+    invariant_path = "invariant-GBLG.smt2"
+#[[Hops]]
+#    [Hops.Equivalence]
+#    left = "Asd"
+#    right = "rte"
+#    invariant_path = "s;lvksf"
+    
