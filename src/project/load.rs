@@ -73,9 +73,26 @@ pub(crate) fn games(
     Ok(games)
 }
 
-pub(crate) fn assumptions(root: PathBuf) -> Result<HashMap<String, Assumption>> {
+pub(crate) fn assumptions(_root: PathBuf) -> Result<HashMap<String, Assumption>> {
     println!("note: currently not actually reading any assumptions, as this functonality is not implemented.");
     return Ok(HashMap::new());
+}
+
+// TODO: add a HybridArgument variant
+#[derive(Debug, Serialize, Deserialize)]
+pub enum TomlGameHop {
+    Reduction {
+        left: String,
+        right: String,
+        assumption: String,
+        // we probably have to provide more information here,
+        // in order to easily figure out how to perform the rewrite
+    },
+    Equivalence {
+        left: String,
+        right: String,
+        invariant_path: String,
+    },
 }
 
 pub(crate) fn game_hops(
@@ -83,25 +100,30 @@ pub(crate) fn game_hops(
     games: &HashMap<String, Composition>,
     assumptions: &HashMap<String, Assumption>,
 ) -> Result<Vec<GameHop>> {
-    let mut path = root;
+    let mut path = root.clone();
     path.push(GAMEHOPS_FILE);
 
     let filecontent = std::fs::read(&path)?;
 
     #[derive(Deserialize)]
     struct Hops {
-        Hops: Vec<GameHop>,
+        #[serde(rename = "Hops")]
+        hops: Vec<TomlGameHop>,
     }
 
-    let Hops { Hops: game_hops } = toml_edit::easy::from_slice::<Hops>(&filecontent).unwrap();
+    let Hops { hops: toml_hops } = toml_edit::easy::from_slice::<Hops>(&filecontent).unwrap();
+    let hops: Vec<GameHop> = toml_hops
+        .into_iter()
+        .map(|toml_hop| toml_hop.into())
+        .collect();
 
-    for (i, hop) in game_hops.iter().enumerate() {
+    for (i, hop) in hops.iter().enumerate() {
         match hop {
-            GameHop::Reduction {
+            GameHop::Reduction(Reduction {
                 left,
                 right,
                 assumption,
-            } => {
+            }) => {
                 if !games.contains_key(left) {
                     return Err(Error::UndefinedGame(
                         left.clone(),
@@ -121,23 +143,38 @@ pub(crate) fn game_hops(
                     ));
                 }
             }
-            GameHop::Equivalence { left, right, .. } => {
+            GameHop::Equivalence(eq) => {
+                let Equivalence {
+                    left,
+                    right,
+                    invariant_path: _,
+                } = &eq;
                 if !games.contains_key(left) {
                     return Err(Error::UndefinedGame(
                         left.clone(),
                         format!("left in game hop {i} ({hop:?})"),
                     ));
                 }
+
                 if !games.contains_key(right) {
                     return Err(Error::UndefinedGame(
                         right.clone(),
                         format!("right in game hop {i} ({hop:?})"),
                     ));
+                };
+
+                let path = eq.get_invariant_path(&root);
+                if !path.exists() {
+                    return Err(Error::EquivalenceInvariantFileNotFound {
+                        hop_index: i,
+                        left: left.clone(),
+                        right: right.clone(),
+                        invariant_path: path,
+                    });
                 }
-                // TODO check that invariant file exists
             }
         }
     }
 
-    Ok(game_hops)
+    Ok(hops)
 }

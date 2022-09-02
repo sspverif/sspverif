@@ -9,13 +9,9 @@ use serde_derive::{Deserialize, Serialize};
 use std::io::ErrorKind;
 use std::{collections::HashMap, path::PathBuf};
 
-use error::Result;
+use error::{Error, Result};
 
-use crate::hacks;
 use crate::package::{Composition, Package};
-use crate::writers::smt::exprs::SmtFmt;
-use crate::writers::smt::writer::CompositionSmtWriter;
-use std::io::Write;
 
 pub const PROJECT_FILE: &str = "ssp.toml";
 pub const GAMEHOPS_FILE: &str = "game_hops.toml";
@@ -27,23 +23,43 @@ pub const ASSUMPTIONS_DIR: &str = "assumptions";
 pub const PACKAGE_EXT: &str = ".pkg.ssp";
 pub const GAME_EXT: &str = ".comp.ssp"; // TODO maybe change this to .game.ssp later, and also rename the Composition type
 
+mod equivalence;
 mod load;
+mod reduction;
+
+use equivalence::Equivalence;
+use reduction::Reduction;
 
 // TODO: add a HybridArgument variant
 #[derive(Debug, Serialize, Deserialize)]
 pub enum GameHop {
-    Reduction {
-        left: String,
-        right: String,
-        assumption: String,
-        // we probably have to provide more information here,
-        // in order to easily figure out how to perform the rewrite
-    },
-    Equivalence {
-        left: String,
-        right: String,
-        invariant_path: String,
-    },
+    Reduction(Reduction),
+    Equivalence(Equivalence),
+}
+
+impl From<load::TomlGameHop> for GameHop {
+    fn from(toml_hop: load::TomlGameHop) -> Self {
+        match toml_hop {
+            load::TomlGameHop::Reduction {
+                left,
+                right,
+                assumption,
+            } => GameHop::Reduction(Reduction {
+                left,
+                right,
+                assumption,
+            }),
+            load::TomlGameHop::Equivalence {
+                left,
+                right,
+                invariant_path,
+            } => GameHop::Equivalence(Equivalence {
+                left,
+                right,
+                invariant_path,
+            }),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -65,16 +81,16 @@ pub struct Project {
 
 impl Project {
     pub fn load() -> Result<Project> {
-        let root = find_project_root()?;
+        let root_dir = find_project_root()?;
 
-        let pkgs = load::packages(root.clone())?;
-        let games = load::games(root.clone(), &pkgs)?;
-        let assumptions = load::assumptions(root.clone())?;
-        let game_hops = load::game_hops(root.clone(), &games, &assumptions)?;
+        let packages = load::packages(root_dir.clone())?;
+        let games = load::games(root_dir.clone(), &packages)?;
+        let assumptions = load::assumptions(root_dir.clone())?;
+        let game_hops = load::game_hops(root_dir.clone(), &games, &assumptions)?;
 
         let project = Project {
-            root_dir: root,
-            packages: pkgs,
+            root_dir,
+            packages,
             games,
             assumptions,
             game_hops,
@@ -92,72 +108,44 @@ impl Project {
                     println!("skipping reductions for now, not implemented");
                     continue;
                 }
-                GameHop::Equivalence {
-                    left,
-                    right,
-                    invariant_path,
-                } => {
-                    let left_game = &self.games[left];
-                    let right_game = &self.games[right];
-                    prove_equivalence(left_game, right_game, invariant_path)?;
+                GameHop::Equivalence(eq) => {
+                    eq.resolve(self)?.prove()?;
                 }
             }
         }
 
         Ok(())
     }
-}
 
-fn prove_equivalence(left: &Composition, right: &Composition, inv_path: &str) -> Result<()> {
-    /*
-    TODO in this function:
-        - respect the parameter/constants mapping
-        - generate paramter functions
-        - fail if types don't match across games
-    */
+    pub fn explain_game(&self, game_name: &str) -> Result<String> {
+        let game = match self.get_game(game_name) {
+            Some(game) => game,
+            None => {
+                return Err(Error::CompositionMissing(game_name.to_string()));
+            }
+        };
 
-    let mut proc = subprocess::Popen::create(
-        &["z3", "-in", "-smt2"],
-        subprocess::PopenConfig {
-            stdin: subprocess::Redirection::Pipe,
-            stdout: subprocess::Redirection::Pipe,
-            stderr: subprocess::Redirection::Pipe,
-            ..subprocess::PopenConfig::default()
-        },
-    )
-    .unwrap();
+        let mut buf = String::new();
+        let mut w = crate::writers::pseudocode::fmtwriter::FmtWriter::new(&mut buf);
+        let (game, _, _) = crate::transforms::transform_explain(&game)?;
 
-    let mut buf = Vec::<u8>::new();
-
-    hacks::declare_par_Maybe(&mut buf)?;
-    hacks::declare_Tuple(&mut buf, 2)?;
-    write!(buf, "(declare-sort Bits_n 0)")?;
-    write!(buf, "(declare-sort Bits_* 0)")?;
-    write!(buf, "(declare-fun f (Bits_n Bits_n) Bits_n)")?;
-
-    for comp in [left, right] {
-        let (comp, _, samp) = crate::transforms::transform_all(&comp).unwrap();
-        let mut writer = CompositionSmtWriter::new(&comp, samp);
-        for line in writer.smt_composition_all() {
-            line.write_smt_to(&mut buf)?;
+        println!("Explaining game {game_name}:");
+        for inst in game.pkgs {
+            let pkg = inst.pkg;
+            w.write_package(&pkg).unwrap();
         }
+
+        Ok(buf)
+        //tex_write_composition(&comp, Path::new(&args.output));
     }
 
-    write!(buf, "(check-sat)")?;
-
-    match proc.communicate_bytes(Some(&buf)).unwrap() {
-        (Some(stdout_data), Some(stderr_data)) => {
-            let data = String::from_utf8(stdout_data).unwrap();
-            let err = String::from_utf8(stderr_data).unwrap();
-            println!("data: {data}.");
-            println!("err: {err}.");
-        }
-        _ => {
-            unreachable!("")
-        }
+    pub fn get_game<'a>(&'a self, name: &str) -> Option<&'a Composition> {
+        self.games.get(name)
     }
 
-    Ok(())
+    pub fn get_root_dir(&self) -> PathBuf {
+        self.root_dir.clone()
+    }
 }
 
 fn find_project_root() -> std::io::Result<std::path::PathBuf> {

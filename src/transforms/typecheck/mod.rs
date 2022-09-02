@@ -7,7 +7,7 @@ mod pkg;
 mod scope;
 
 use composition::typecheck_comp;
-use errors::TypeCheckError;
+pub use errors::TypeCheckError;
 pub use scope::Scope;
 
 use crate::package::Composition;

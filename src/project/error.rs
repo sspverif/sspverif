@@ -1,4 +1,5 @@
-use std::io::Error as IOError;
+use crate::transforms::typecheck::TypeCheckError;
+use std::{io::Error as IOError, path::PathBuf};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -25,6 +26,17 @@ pub enum Error {
     TomlParseError(#[from] toml::de::Error),
     #[error("package {0} defined in both {1} and {2}")]
     RedefinedPackage(String, String, String),
+    #[error("composisitions {0} and {1} have mismatching const/param {2}")]
+    CompositionParamMismatch(String, String, String),
+    #[error("couldn't open invariant file at {invariant_path} of game hop {hop_index}, going from {left} to {right} ")]
+    EquivalenceInvariantFileNotFound {
+        hop_index: usize,
+        left: String,
+        right: String,
+        invariant_path: PathBuf,
+    },
+    #[error("type error: {0}")]
+    TypecheckError(#[from] TypeCheckError),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
