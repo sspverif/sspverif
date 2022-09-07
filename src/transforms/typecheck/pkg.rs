@@ -10,7 +10,6 @@ pub fn typecheck_pkg(pkg: &Package, scope: &mut Scope) -> Result<Package, TypeCh
         params,
         state,
         oracles,
-        name: pkg_name,
         ..
     } = pkg;
 
@@ -25,9 +24,10 @@ pub fn typecheck_pkg(pkg: &Package, scope: &mut Scope) -> Result<Package, TypeCh
     let mut typed_oracles = vec![];
 
     for oracle in oracles {
+        // kept around so we don't have to get it out when we want to debug it next time
         let OracleDef {
             sig: OracleSig {
-                name: oracle_name, ..
+                name: _oracle_name, ..
             },
             ..
         } = &oracle;

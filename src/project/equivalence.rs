@@ -1,21 +1,23 @@
+use crate::project::{
+    error::{Error, Result},
+    Project,
+};
+
 use crate::hacks;
-use crate::writers::smt::writer::CompositionSmtWriter;
-use std::io::Write;
-use std::{collections::HashSet, io::Read};
-
-use super::error::{Error, Result};
-use std::iter::FromIterator;
-
-use std::collections::HashMap;
-
 use crate::package::Composition;
-use crate::writers::smt::SmtFmt;
+use crate::writers::smt::writer::CompositionSmtWriter;
+
+use std::fmt::Write;
+use std::io::Write as IOWrite;
+use std::iter::FromIterator;
+use std::mem::swap;
+use std::path::{Path, PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    io::Read,
+};
 
 use serde_derive::{Deserialize, Serialize};
-
-use std::path::{Path, PathBuf};
-
-use super::Project;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Equivalence {
@@ -50,12 +52,17 @@ impl Equivalence {
         };
 
         let inv_path = self.get_invariant_path(&project.get_root_dir());
-        let invariant = std::fs::read(inv_path)?;
+        let invariant = std::fs::read_to_string(inv_path)?;
+
+        let left_smt_file = project.get_smt_game_file(&self.left)?;
+        let right_smt_file = project.get_smt_game_file(&self.right)?;
 
         Ok(ResolvedEquivalence {
             left,
             right,
             invariant,
+            left_smt_file,
+            right_smt_file,
         })
     }
 }
@@ -66,149 +73,172 @@ impl Equivalence {
 pub struct ResolvedEquivalence {
     left: Composition,
     right: Composition,
-    invariant: Vec<u8>,
+    invariant: String,
+
+    left_smt_file: std::fs::File,
+    right_smt_file: std::fs::File,
 }
 
 impl ResolvedEquivalence {
-    pub fn prove(&self) -> Result<()> {
+    pub fn prove(&mut self) -> Result<()> {
         let ResolvedEquivalence {
             left,
             right,
             invariant,
+            ref mut left_smt_file,
+            ref mut right_smt_file,
         } = self;
 
         // check that the parameters shared by both are of the same type
         check_matching_parameters(left, right)?;
 
-        let z3_proc = std::process::Command::new("z3")
+        // prepare the data we send to the prover
+        let mut definitions = String::new();
+        //        let mut definitions = Vec::<u8>::new();
+
+        write!(definitions, "{}", hacks::MaybeDeclaration)?;
+        write!(definitions, "{}", hacks::TuplesDeclaration(2..3))?;
+        write!(definitions, "(declare-sort Bits_n 0)")?;
+        write!(definitions, "(declare-sort Bits_m 0)")?;
+        write!(definitions, "(declare-sort Bits_p 0)")?;
+        write!(definitions, "(declare-sort Bits_* 0)")?;
+
+        // TODO generate Bits_x sorts
+
+        for (comp, smt_file) in [(left, left_smt_file), (right, right_smt_file)] {
+            let (comp, _, samp) = crate::transforms::transform_all(&comp).unwrap();
+            let mut writer = CompositionSmtWriter::new(&comp, &samp);
+            for line in writer.smt_composition_all() {
+                write!(smt_file, "{line}")?;
+                write!(definitions, "{line}")?;
+            }
+        }
+
+        let mut z3_comm = Communicator::new_z3()?;
+
+        write!(z3_comm, "{definitions}")?;
+        write!(z3_comm, "(check-sat)\n")?;
+
+        println!("sent definitions, waiting for sat... ");
+        expect_sat(&mut z3_comm)?;
+        println!("received.");
+
+        write!(z3_comm, "{invariant}").unwrap();
+        write!(z3_comm, "(check-sat)\n")?;
+
+        println!("sent invariant, waiting for sat... ");
+        expect_sat(&mut z3_comm)?;
+        println!("received.");
+
+        // TODO write epilogue and handle response
+
+        z3_comm.close();
+        z3_comm.join()?;
+
+        Ok(())
+    }
+}
+
+fn expect_sat(comm: &mut Communicator) -> Result<()> {
+    let (_, read) = comm.read_until("sat\n")?;
+    expect_sat_str(&read)
+}
+
+fn expect_sat_str(data: &str) -> Result<()> {
+    match data {
+        "sat\n" => Ok(()),
+        _ => Err(Error::ExpectedSatError(data.to_string())),
+    }
+}
+
+struct Communicator {
+    stdout: std::process::ChildStdout,
+    chan: Option<std::sync::mpsc::Sender<String>>,
+    thrd: Option<std::thread::JoinHandle<Result<()>>>,
+    buf: Vec<u8>,
+    pos: usize,
+}
+
+impl Communicator {
+    fn new_z3() -> Result<Self> {
+        let cmd = std::process::Command::new("z3")
             .args(["-in", "-smt2"])
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::inherit())
             .spawn()?;
 
-        let mut z3_stdin = z3_proc.stdin.unwrap();
+        let (send, recv) = std::sync::mpsc::channel();
 
-        // prepare the data we send to the prover
-        let mut buf = Vec::<u8>::new();
+        let mut stdin = cmd.stdin.unwrap();
+        let stdout = cmd.stdout.unwrap();
 
-        hacks::declare_par_Maybe(&mut buf)?;
-        hacks::declare_Tuple(&mut buf, 2)?;
-        write!(buf, "(declare-sort Bits_n 0)")?;
-        write!(buf, "(declare-sort Bits_m 0)")?;
-        write!(buf, "(declare-sort Bits_p 0)")?;
-        write!(buf, "(declare-sort Bits_* 0)")?;
-
-        /*
-        TODO generate Bits_x sorts
-        TODO generate paramter functions
-            - i.e. encryption, prf, ...
-            - this already exists on the other branch, should be easy
-        */
-
-        for comp in [left, right] {
-            let (comp, _, samp) = crate::transforms::transform_all(&comp).unwrap();
-            let mut writer = CompositionSmtWriter::new(&comp, &samp);
-            for line in writer.smt_composition_all() {
-                line.write_smt_to(&mut buf)?;
+        let thrd = std::thread::spawn(move || {
+            for data in recv {
+                write!(stdin, "{data}")?;
             }
-        }
-
-        writeln!(buf, "(check-sat)")?;
-
-        let (writer, rx) = std::sync::mpsc::channel::<Vec<u8>>();
-
-        // writer thread
-        std::thread::spawn(move || {
-            for data in rx {
-                if let Err(e) = z3_stdin.write_all(&data) {
-                    eprintln!("error in writer thread: {e}");
-                }
-            }
+            Ok(())
         });
 
-        writer.send(buf).unwrap();
+        let buf = vec![0u8; 1 << 20];
 
-        let mut z3_outbuf = [0u8; 1 << 14];
-        let mut z3_stdout = z3_proc.stdout.unwrap();
-        let mut bytes_read = 0;
-        let mut z3_outstr: String;
+        Ok(Communicator {
+            stdout,
+            chan: Some(send),
+            thrd: Some(thrd),
+            buf,
+            pos: 0,
+        })
+    }
 
+    fn read_until(&mut self, pattern: &str) -> Result<(usize, String)> {
         loop {
-            //println!("waiting for prover response...");
-            bytes_read += z3_stdout.read(&mut z3_outbuf[bytes_read..])?;
+            self.pos += self.stdout.read(&mut self.buf[self.pos..])?;
+            let data = String::from_utf8(self.buf[..self.pos].to_vec())?;
 
-            z3_outstr = String::from_utf8(z3_outbuf[..bytes_read].to_vec()).unwrap();
+            if let Some(match_start) = data.find(pattern) {
+                let match_end = match_start + pattern.len();
 
-            if z3_outstr.ends_with("sat\n") {
-                break;
+                let ret = data[..match_end].to_string();
+                let rest_bs = data[match_end..].as_bytes();
+
+                self.buf.fill(0);
+                let written = self.buf.write(rest_bs)?;
+                self.pos = written;
+
+                return Ok((match_start, ret));
             }
         }
+    }
 
-        match z3_outstr.as_str() {
-            "sat\n" => {
-                println!("prover accepted definitions.");
-                // noting to do, ist works, let's continue
-            }
-            "unsat\n" => {
-                // TOODO returns this as an error...
-                println!("this is weird! The definitions made the code unsat. This could be a bug, please report this! Aborting now.");
-                return Ok(());
-            }
-            _ => {
-                // TODO also make this an error
-                println!(
-                    r#"Expected output "sat" from the prover, got the following:
-{z3_outstr}
-aborting."#
-                );
-                return Ok(());
-            }
+    fn close(&mut self) {
+        let mut none = None;
+        swap(&mut self.chan, &mut none)
+    }
+
+    fn join(&mut self) -> Result<()> {
+        if let None = self.thrd {
+            return Ok(());
         }
 
-        writer.send(self.invariant.clone()).unwrap();
+        let mut thrd = None;
+        swap(&mut thrd, &mut self.thrd);
 
-        // we don't really expect a response on the invariant, but we have to wait for something.
-        // also it's nice to know that the user invariant doesn't make the system unsat
-        let check_sat = "(check-sat)".as_bytes().to_vec();
+        thrd.unwrap().join().expect("error joining thread")
+    }
+}
 
-        writer.send(check_sat.clone()).unwrap();
-
-        loop {
-            //println!("waiting for prover response...");
-            bytes_read += z3_stdout.read(&mut z3_outbuf[bytes_read..])?;
-
-            z3_outstr = String::from_utf8(z3_outbuf[..bytes_read].to_vec()).unwrap();
-
-            if z3_outstr.ends_with("sat\n") {
-                break;
-            }
-        }
-
-        match z3_outstr.as_str() {
-            "sat\n" => {
-                println!("prover accepted invariant.");
-                // noting to do, ist works, let's continue
-            }
-            "unsat\n" => {
-                // TOODO returns this as an error...
-                println!("The invariant made the code unsat. This is probably a bug invariant.");
-                return Ok(());
-            }
-            _ => {
-                // TODO also make this an error
-                println!(
-                    r#"Unexpected response to the invariant from the prover:
-{z3_outstr}
-aborting."#
-                );
+impl std::fmt::Write for Communicator {
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        if let Some(ref chan) = self.chan {
+            if let Err(_) = chan.send(s.to_string()) {
+                return Err(std::fmt::Error);
+            } else {
                 return Ok(());
             }
         }
 
-        // TODO write epilogue and handle response
-
-        Ok(())
+        panic!("writing to closed communicator");
     }
 }
 

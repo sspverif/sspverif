@@ -5,7 +5,6 @@ use serde_derive::{Deserialize, Serialize};
 
 use crate::package::{Composition, Package};
 use crate::writers::smt::writer::CompositionSmtWriter;
-use crate::writers::smt::SmtFmt;
 
 use super::filesystem::{
     find_project_root, parse_composition, parse_packages, read_compositions_directory,

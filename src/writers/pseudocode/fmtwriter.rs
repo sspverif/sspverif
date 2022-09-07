@@ -1,4 +1,4 @@
-use std::fmt::{write, Write};
+use std::fmt::Write;
 
 use crate::expressions::Expression;
 use crate::identifier::Identifier;
@@ -8,7 +8,7 @@ use crate::types::Type;
 
 type Result = std::fmt::Result;
 
-pub struct FmtWriter<W: Write> {
+pub struct FmtWriter<W: std::fmt::Write> {
     w: W,
     indent_lvl: usize,
 }

@@ -8,18 +8,14 @@ use sspds::types::Type;
 use clap::{Parser, Subcommand};
 
 use sspds::{
-    cli::{
-        filesystem::{
-            parse_composition_or_panic as parse_composition,
-            parse_packages_or_panic as parse_packages, read_directory,
-        },
-        project::Project,
+    cli::filesystem::{
+        parse_composition_or_panic as parse_composition, parse_packages_or_panic as parse_packages,
+        read_directory,
     },
     hacks,
     package::{Composition, Edge, Export},
     writers::{
-        pseudocode::writer::Writer,
-        smt::{writer::CompositionSmtWriter, SmtFmt},
+        pseudocode::writer::Writer, smt::writer::CompositionSmtWriter,
         tex::writer::tex_write_composition,
     },
 };
@@ -260,9 +256,8 @@ fn smt(name: &str) {
 
     let mut w = std::io::stdout();
 
-    hacks::declare_par_Maybe(&mut w);
-    hacks::declare_Tuple(&mut w, 2);
-    hacks::declare_Empty(&mut w);
+    write!(w, "{}", hacks::MaybeDeclaration).unwrap();
+    write!(w, "{}", hacks::TuplesDeclaration(2..3)).unwrap();
 
     let mut names : Vec<_> = comp_map.keys().collect();
     names.sort();
@@ -297,7 +292,8 @@ fn smt(name: &str) {
 
         let mut writer = CompositionSmtWriter::new(&comp, &samp);
         for line in writer.smt_composition_all() {
-            line.write_smt_to(&mut std::io::stdout()).unwrap();
+            write!(&mut std::io::stdout(), "{line}").unwrap();
+            //line.fmt(&mut std::io::stdout()).unwrap();
         }
     }
 

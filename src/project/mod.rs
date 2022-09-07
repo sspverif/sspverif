@@ -146,6 +146,21 @@ impl Project {
     pub fn get_root_dir(&self) -> PathBuf {
         self.root_dir.clone()
     }
+
+    pub fn get_smt_game_file(&self, game_name: &str) -> Result<std::fs::File> {
+        let mut path = self.root_dir.clone();
+
+        path.push("_build/code_eq/games/");
+        std::fs::create_dir_all(&path)?;
+
+        path.push(format!("{game_name}.smt2"));
+        let f = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open(path)?;
+
+        Ok(f)
+    }
 }
 
 fn find_project_root() -> std::io::Result<std::path::PathBuf> {

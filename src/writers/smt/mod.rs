@@ -3,6 +3,3 @@ pub mod state_helpers;
 pub mod writer;
 
 pub mod expr_expr;
-mod fmt;
-
-pub use fmt::SmtFmt;

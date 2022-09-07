@@ -1,5 +1,4 @@
 use crate::expressions::Expression;
-use crate::identifier::Identifier;
 use crate::types::Type;
 
 use super::errors::{ErrorLocation, ExpressionResult, TypeCheckError, TypeResult};

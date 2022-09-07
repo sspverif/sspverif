@@ -1,11 +1,9 @@
-use std::io::{Result, Write};
+use std::fmt::Display;
 
 use crate::types::Type;
-use crate::writers::smt::SmtFmt;
 
 pub fn smt_to_string<T: Into<SmtExpr>>(t: T) -> String {
-    let expr: SmtExpr = t.into();
-    expr.to_string()
+    t.into().to_string()
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord,Eq, PartialEq)]
@@ -56,23 +54,23 @@ impl<T1: Into<SmtExpr>, T2: Into<SmtExpr>, T3: Into<SmtExpr>, T4: Into<SmtExpr>>
     }
 }
 
-impl SmtFmt for SmtExpr {
-    fn write_smt_to<T: Write>(&self, write: &mut T) -> Result<()> {
+impl Display for SmtExpr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SmtExpr::Comment(str) => write!(write, "; {}", str),
-            SmtExpr::Atom(str) => write!(write, "{}", str),
+            SmtExpr::Comment(str) => write!(f, "; {}", str),
+            SmtExpr::Atom(str) => write!(f, "{}", str),
             SmtExpr::List(lst) => {
                 let mut peek = lst.iter().peekable();
 
-                write!(write, "(")?;
+                write!(f, "(")?;
                 while let Some(elem) = peek.next() {
-                    elem.write_smt_to(write)?;
+                    elem.fmt(f)?;
 
                     if peek.peek().is_some() {
-                        write!(write, " ")?;
+                        write!(f, " ")?;
                     }
                 }
-                write!(write, ")")
+                write!(f, ")\n")
             }
         }
     }

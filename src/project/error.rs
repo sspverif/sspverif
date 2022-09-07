@@ -37,6 +37,14 @@ pub enum Error {
     },
     #[error("type error: {0}")]
     TypecheckError(#[from] TypeCheckError),
+    #[error("error parsing utf-8: {0}")]
+    FromUtf8Error(#[from] std::string::FromUtf8Error),
+    #[error("error in interaction with child process: {0}")]
+    ChildProcessInteractionError(#[from] expectrl::Error),
+    #[error(r#""expected "sat" from prover, got {0}""#)]
+    ExpectedSatError(String),
+    #[error("got a formatting error")]
+    FmtError(#[from] std::fmt::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
