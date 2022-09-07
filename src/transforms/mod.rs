@@ -3,11 +3,12 @@ use crate::package::Composition;
 pub mod resolveoracles;
 pub mod returnify;
 pub mod samplify;
+pub mod tableinitialize;
 pub mod treeify;
+pub mod type_extract;
 pub mod typecheck;
 pub mod unwrapify;
 pub mod varspecify;
-pub mod tableinitialize;
 
 pub trait Transformation {
     type Err;
@@ -22,12 +23,16 @@ pub fn transform_all(
     (
         Composition,
         <typecheck::Transformation as Transformation>::Aux,
+        <type_extract::Transformation as Transformation>::Aux,
         <samplify::Transformation as Transformation>::Aux,
     ),
     <typecheck::Transformation as Transformation>::Err,
 > {
     let (comp, scope) =
         typecheck::Transformation::new_with_empty_scope(comp.clone()).transform()?;
+    let (comp, types) = type_extract::Transformation(&comp)
+        .transform()
+        .expect("type extraction transformation failed unexpectedly");
     let (comp, samplinginfo) = samplify::Transformation(&comp)
         .transform()
         .expect("samplify transformation failed unexpectedly");
@@ -50,7 +55,7 @@ pub fn transform_all(
         .transform()
         .expect("tableinitialize transformation failed unexpectedly");
 
-    Ok((comp, scope, samplinginfo))
+    Ok((comp, scope, types, samplinginfo))
 }
 
 pub fn transform_explain(

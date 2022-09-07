@@ -4,7 +4,7 @@ pub struct MaybeDeclaration;
 
 impl Display for MaybeDeclaration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
-        write!(
+        writeln!(
             f,
             "(declare-datatypes ((Maybe 1)) ((par (T) ((mk-some (maybe-get T)) (mk-none)))))"
         )
@@ -28,9 +28,9 @@ impl Display for TupleDeclaration {
             .collect::<Vec<_>>()
             .join(" ");
 
-        write!(
+        writeln!(
             f,
-            "(declare-datatypes ((Tuple{n} {n})) ((par ({types}) ((mk-tuple{n} {ds})))))\n"
+            "(declare-datatypes ((Tuple{n} {n})) ((par ({types}) ((mk-tuple{n} {ds})))))"
         )
     }
 }
@@ -46,5 +46,14 @@ impl Display for TuplesDeclaration {
         }
 
         Ok(())
+    }
+}
+
+pub struct BitsDeclaration(pub String);
+
+impl Display for BitsDeclaration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
+        let BitsDeclaration(id) = self;
+        writeln!(f, "(declare-sort Bits_{id} 0)")
     }
 }

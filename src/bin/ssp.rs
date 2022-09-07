@@ -267,7 +267,7 @@ fn smt(name: &str) {
         println!("; {}", name);
 
         //println!("{:#?}", comp);
-        let (comp, scope, samp) = match sspds::transforms::transform_all(&comp) {
+        let (comp, scope, _, samp) = match sspds::transforms::transform_all(&comp) {
             Ok(x) => x,
             Err(e) => {
                 panic!("found an error in composition {}: {:?}", name, e)

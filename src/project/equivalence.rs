@@ -1,6 +1,9 @@
-use crate::project::{
-    error::{Error, Result},
-    Project,
+use crate::{
+    project::{
+        error::{Error, Result},
+        Project,
+    },
+    types::Type,
 };
 
 use crate::hacks;
@@ -56,6 +59,7 @@ impl Equivalence {
 
         let left_smt_file = project.get_smt_game_file(&self.left)?;
         let right_smt_file = project.get_smt_game_file(&self.right)?;
+        let decl_smt_file = project.get_smt_decl_file(&self.left, &self.right)?;
 
         Ok(ResolvedEquivalence {
             left,
@@ -63,6 +67,7 @@ impl Equivalence {
             invariant,
             left_smt_file,
             right_smt_file,
+            decl_smt_file,
         })
     }
 }
@@ -77,6 +82,7 @@ pub struct ResolvedEquivalence {
 
     left_smt_file: std::fs::File,
     right_smt_file: std::fs::File,
+    decl_smt_file: std::fs::File,
 }
 
 impl ResolvedEquivalence {
@@ -87,32 +93,54 @@ impl ResolvedEquivalence {
             invariant,
             ref mut left_smt_file,
             ref mut right_smt_file,
+            ref mut decl_smt_file,
         } = self;
 
         // check that the parameters shared by both are of the same type
         check_matching_parameters(left, right)?;
 
-        // prepare the data we send to the prover
+        // apply transformations
+        let (comp_left, _, types_left, samp_left) =
+            crate::transforms::transform_all(&left).unwrap();
+        let (comp_right, _, types_right, samp_right) =
+            crate::transforms::transform_all(&right).unwrap();
+
+        // get bits types
+        let bits_types = types_left.union(&types_right).filter_map(|t| match t {
+            Type::Bits(x) => Some(x.clone()),
+            _ => None,
+        });
+
+        // prepare the buffer for the data we send to the prover
         let mut definitions = String::new();
-        //        let mut definitions = Vec::<u8>::new();
 
-        write!(definitions, "{}", hacks::MaybeDeclaration)?;
-        write!(definitions, "{}", hacks::TuplesDeclaration(2..3))?;
-        write!(definitions, "(declare-sort Bits_n 0)")?;
-        write!(definitions, "(declare-sort Bits_m 0)")?;
-        write!(definitions, "(declare-sort Bits_p 0)")?;
-        write!(definitions, "(declare-sort Bits_* 0)")?;
-
-        // TODO generate Bits_x sorts
-
-        for (comp, smt_file) in [(left, left_smt_file), (right, right_smt_file)] {
-            let (comp, _, samp) = crate::transforms::transform_all(&comp).unwrap();
-            let mut writer = CompositionSmtWriter::new(&comp, &samp);
-            for line in writer.smt_composition_all() {
-                write!(smt_file, "{line}")?;
-                write!(definitions, "{line}")?;
-            }
+        // write bits types declarations
+        for id in bits_types {
+            write!(definitions, "{}", hacks::BitsDeclaration(id.clone()))?;
+            write!(decl_smt_file, "{}", hacks::BitsDeclaration(id))?;
         }
+
+        // write other type declarations
+        write!(definitions, "{}", hacks::MaybeDeclaration)?;
+        write!(decl_smt_file, "{}", hacks::MaybeDeclaration)?;
+        write!(definitions, "{}", hacks::TuplesDeclaration(1..32))?;
+        write!(decl_smt_file, "{}", hacks::TuplesDeclaration(1..32))?;
+
+        // write left game code
+        let mut left_writer = CompositionSmtWriter::new(&comp_left, &samp_left);
+        for line in left_writer.smt_composition_all() {
+            write!(left_smt_file, "{line}")?;
+            write!(definitions, "{line}")?;
+        }
+
+        // write right game code
+        let mut right_writer = CompositionSmtWriter::new(&comp_right, &samp_right);
+        for line in right_writer.smt_composition_all() {
+            write!(right_smt_file, "{line}")?;
+            write!(definitions, "{line}")?;
+        }
+
+        ///////// start talking to prover
 
         let mut z3_comm = Communicator::new_z3()?;
 
