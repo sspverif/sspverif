@@ -12,9 +12,10 @@ pub mod writers;
 
 pub mod hacks;
 
-pub mod cli;
 pub mod parser;
 
 pub mod testdata;
 
 pub mod project;
+
+pub mod util;

@@ -128,7 +128,7 @@ pub(crate) fn game_hops(
                 left,
                 right,
                 assumption,
-                direction,
+                ..
             }) => {
                 if !games.contains_key(left) {
                     return Err(Error::UndefinedGame(
@@ -168,16 +168,6 @@ pub(crate) fn game_hops(
                         format!("right in game hop {i} ({hop:?})"),
                     ));
                 };
-
-                let path = eq.get_invariant_path(&root);
-                if !path.exists() {
-                    return Err(Error::EquivalenceInvariantFileNotFound {
-                        hop_index: i,
-                        left: left.clone(),
-                        right: right.clone(),
-                        invariant_path: path,
-                    });
-                }
             }
         }
     }

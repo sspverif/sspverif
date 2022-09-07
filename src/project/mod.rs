@@ -30,6 +30,7 @@ mod reduction;
 use equivalence::Equivalence;
 use reduction::Reduction;
 
+use self::equivalence::ResolvedEquivalence;
 use self::reduction::{Direction, ResolvedReduction};
 
 // TODO: add a HybridArgument variant
@@ -46,7 +47,7 @@ impl From<load::TomlGameHop> for GameHop {
                 left,
                 right,
                 assumption,
-                direction,
+                ..
             } => GameHop::Reduction(Reduction {
                 left,
                 right,
@@ -109,9 +110,7 @@ impl Project {
         for (i, game_hop) in self.game_hops.iter().enumerate() {
             match game_hop {
                 GameHop::Reduction(red) => self.resolve_reduction(&red, i)?.prove()?,
-                GameHop::Equivalence(eq) => {
-                    eq.resolve(self)?.prove()?;
-                }
+                GameHop::Equivalence(eq) => self.resolve_equivalence(eq)?.prove()?,
             }
         }
 
@@ -173,6 +172,37 @@ impl Project {
         })
     }
 
+    pub fn resolve_equivalence(&self, eq: &Equivalence) -> Result<ResolvedEquivalence> {
+        let Equivalence { left, right, .. } = eq;
+        let left_err = Error::UndefinedGame(
+            eq.left.to_string(),
+            format!("in resolving the equivalence between {left} and {right}"),
+        );
+        let right_err = Error::UndefinedGame(
+            eq.right.to_string(),
+            format!("in resolving the equivalence between {left} and {right}"),
+        );
+
+        let left = self.get_game(&eq.left).ok_or(left_err)?.clone();
+        let right = self.get_game(&eq.right).ok_or(right_err)?.clone();
+
+        let inv_path = self.get_invariant_path(&eq.invariant_path);
+        let invariant = std::fs::read_to_string(inv_path)?;
+
+        let left_smt_file = self.get_smt_game_file(&eq.left)?;
+        let right_smt_file = self.get_smt_game_file(&eq.right)?;
+        let decl_smt_file = self.get_smt_decl_file(&eq.left, &eq.right)?;
+
+        Ok(ResolvedEquivalence {
+            left,
+            right,
+            invariant,
+            left_smt_file,
+            right_smt_file,
+            decl_smt_file,
+        })
+    }
+
     pub fn get_game<'a>(&'a self, name: &str) -> Option<&'a Composition> {
         self.games.get(name)
     }
@@ -217,6 +247,15 @@ impl Project {
             .open(path)?;
 
         Ok(f)
+    }
+
+    fn get_invariant_path(&self, invariant_path: &str) -> PathBuf {
+        let path = PathBuf::from(invariant_path);
+        if path.is_absolute() {
+            path
+        } else {
+            self.root_dir.join(path)
+        }
     }
 }
 
