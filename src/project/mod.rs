@@ -30,6 +30,8 @@ mod reduction;
 use equivalence::Equivalence;
 use reduction::Reduction;
 
+use self::reduction::{Direction, ResolvedReduction};
+
 // TODO: add a HybridArgument variant
 #[derive(Debug, Serialize, Deserialize)]
 pub enum GameHop {
@@ -44,10 +46,12 @@ impl From<load::TomlGameHop> for GameHop {
                 left,
                 right,
                 assumption,
+                direction,
             } => GameHop::Reduction(Reduction {
                 left,
                 right,
                 assumption,
+                direction: Direction::Unspecified,
             }),
             load::TomlGameHop::Equivalence {
                 left,
@@ -62,7 +66,7 @@ impl From<load::TomlGameHop> for GameHop {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Assumption {
     left: String,
     right: String,
@@ -102,12 +106,9 @@ impl Project {
     // we might want to return a proof trace here instead
     // we could then extract the proof viewer output and other useful info trom the trace
     pub fn prove(&self) -> Result<()> {
-        for game_hop in &self.game_hops {
+        for (i, game_hop) in self.game_hops.iter().enumerate() {
             match game_hop {
-                GameHop::Reduction { .. } => {
-                    println!("skipping reductions for now, not implemented");
-                    continue;
-                }
+                GameHop::Reduction(red) => self.resolve_reduction(&red, i)?.prove()?,
                 GameHop::Equivalence(eq) => {
                     eq.resolve(self)?.prove()?;
                 }
@@ -118,12 +119,10 @@ impl Project {
     }
 
     pub fn explain_game(&self, game_name: &str) -> Result<String> {
-        let game = match self.get_game(game_name) {
-            Some(game) => game,
-            None => {
-                return Err(Error::CompositionMissing(game_name.to_string()));
-            }
-        };
+        let game = self.get_game(game_name).ok_or(Error::UndefinedGame(
+            game_name.to_string(),
+            format!("in explain"),
+        ))?;
 
         let mut buf = String::new();
         let mut w = crate::writers::pseudocode::fmtwriter::FmtWriter::new(&mut buf);
@@ -139,8 +138,47 @@ impl Project {
         //tex_write_composition(&comp, Path::new(&args.output));
     }
 
+    pub fn resolve_reduction(&self, reduction: &Reduction, i: usize) -> Result<ResolvedReduction> {
+        let left = self
+            .get_game(&reduction.left)
+            .ok_or(Error::UndefinedGame(
+                reduction.left.clone(),
+                format!("in left of reduction {i}"),
+            ))?
+            .clone();
+
+        let right = self
+            .get_game(&reduction.right)
+            .ok_or(Error::UndefinedGame(
+                reduction.right.clone(),
+                format!("in right of reduction {i}"),
+            ))?
+            .clone();
+
+        let assumption = self
+            .get_assumption(&reduction.assumption)
+            .ok_or(Error::UndefinedAssumption(
+                reduction.assumption.clone(),
+                format!("in reduction {i}"),
+            ))?
+            .clone();
+
+        let assumption_name = reduction.assumption.clone();
+
+        Ok(ResolvedReduction {
+            left,
+            right,
+            assumption,
+            assumption_name,
+        })
+    }
+
     pub fn get_game<'a>(&'a self, name: &str) -> Option<&'a Composition> {
         self.games.get(name)
+    }
+
+    pub fn get_assumption<'a>(&'a self, name: &str) -> Option<&'a Assumption> {
+        self.assumptions.get(name)
     }
 
     pub fn get_root_dir(&self) -> PathBuf {

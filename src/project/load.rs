@@ -8,6 +8,8 @@ use crate::parser::composition::handle_composition;
 use crate::parser::package::handle_pkg;
 use crate::parser::SspParser;
 
+extern crate toml_edit;
+
 pub(crate) fn packages(root: PathBuf) -> Result<HashMap<String, Package>> {
     let mut dir = root;
     dir.push(PACKAGES_DIR);
@@ -43,8 +45,6 @@ pub(crate) fn packages(root: PathBuf) -> Result<HashMap<String, Package>> {
     Ok(pkgs)
 }
 
-extern crate toml_edit;
-
 pub(crate) fn games(
     root: PathBuf,
     pkgs: &HashMap<String, Package>,
@@ -73,9 +73,13 @@ pub(crate) fn games(
     Ok(games)
 }
 
-pub(crate) fn assumptions(_root: PathBuf) -> Result<HashMap<String, Assumption>> {
-    println!("note: currently not actually reading any assumptions, as this functonality is not implemented.");
-    return Ok(HashMap::new());
+pub(crate) fn assumptions(root: PathBuf) -> Result<HashMap<String, Assumption>> {
+    let mut path = root;
+    path.push("assumptions.toml");
+    let filecontent = std::fs::read(&path)?;
+
+    let assumptions = toml_edit::easy::from_slice::<HashMap<String, Assumption>>(&filecontent)?;
+    return Ok(assumptions);
 }
 
 // TODO: add a HybridArgument variant
@@ -85,6 +89,7 @@ pub enum TomlGameHop {
         left: String,
         right: String,
         assumption: String,
+        direction: String,
         // we probably have to provide more information here,
         // in order to easily figure out how to perform the rewrite
     },
@@ -123,6 +128,7 @@ pub(crate) fn game_hops(
                 left,
                 right,
                 assumption,
+                direction,
             }) => {
                 if !games.contains_key(left) {
                     return Err(Error::UndefinedGame(

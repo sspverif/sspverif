@@ -23,7 +23,7 @@ pub enum Error {
         pest::error::LineColLocation,
     ),
     #[error("toml parse error: {0}")]
-    TomlParseError(#[from] toml::de::Error),
+    TomlParseError(#[from] toml_edit::de::Error),
     #[error("package {0} defined in both {1} and {2}")]
     RedefinedPackage(String, String, String),
     #[error("composisitions {0} and {1} have mismatching const/param {2}")]

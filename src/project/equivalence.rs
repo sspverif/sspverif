@@ -44,15 +44,18 @@ impl Equivalence {
     // resolve fetches the compositions/games from the project and reads the invariant file.
     // this way, the data is neatly available when we want to operate on it
     pub fn resolve(&self, project: &Project) -> Result<ResolvedEquivalence> {
-        let left = match project.get_game(&self.left) {
-            Some(game) => game.clone(),
-            _ => return Err(Error::CompositionMissing(self.left.clone())),
-        };
+        let Equivalence { left, right, .. } = self;
+        let left_err = Error::UndefinedGame(
+            self.left.to_string(),
+            format!("in resolving the equivalence between {left} and {right}"),
+        );
+        let right_err = Error::UndefinedGame(
+            self.right.to_string(),
+            format!("in resolving the equivalence between {left} and {right}"),
+        );
 
-        let right = match project.get_game(&self.right) {
-            Some(game) => game.clone(),
-            _ => return Err(Error::CompositionMissing(self.right.clone())),
-        };
+        let left = project.get_game(&self.left).ok_or(left_err)?.clone();
+        let right = project.get_game(&self.right).ok_or(right_err)?.clone();
 
         let inv_path = self.get_invariant_path(&project.get_root_dir());
         let invariant = std::fs::read_to_string(inv_path)?;
