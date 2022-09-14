@@ -14,12 +14,17 @@ pub struct Communicator {
 
 impl Communicator {
     pub fn new_z3() -> Result<Self> {
-        let cmd = std::process::Command::new("z3")
-            .args(["-in", "-smt2"])
+        let mut cmd = std::process::Command::new("z3");
+        cmd.args(["-in", "-smt2"])
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::inherit())
-            .spawn()?;
+            .stderr(std::process::Stdio::inherit());
+
+        Self::new_from_cmd(cmd)
+    }
+
+    pub fn new_from_cmd(mut cmd: std::process::Command) -> Result<Self> {
+        let cmd = cmd.spawn()?;
 
         let (send, recv) = std::sync::mpsc::channel();
 
