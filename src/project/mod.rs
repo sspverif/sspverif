@@ -23,15 +23,17 @@ pub const ASSUMPTIONS_DIR: &str = "assumptions";
 pub const PACKAGE_EXT: &str = ".pkg.ssp";
 pub const GAME_EXT: &str = ".comp.ssp"; // TODO maybe change this to .game.ssp later, and also rename the Composition type
 
+mod assumption;
 mod equivalence;
 mod load;
 mod reduction;
+mod util;
 
-use equivalence::Equivalence;
-use reduction::Reduction;
+pub use assumption::Assumption;
+use equivalence::{Equivalence, ResolvedEquivalence};
+use reduction::{Reduction, ResolvedReduction};
 
-use self::equivalence::ResolvedEquivalence;
-use self::reduction::{Direction, ResolvedReduction};
+use self::assumption::ResolvedAssumption;
 
 // TODO: add a HybridArgument variant
 #[derive(Debug, Serialize, Deserialize)]
@@ -52,7 +54,7 @@ impl From<load::TomlGameHop> for GameHop {
                 left,
                 right,
                 assumption,
-                direction: Direction::Unspecified,
+                //direction: Direction::Unspecified,
             }),
             load::TomlGameHop::Equivalence {
                 left,
@@ -65,12 +67,6 @@ impl From<load::TomlGameHop> for GameHop {
             }),
         }
     }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct Assumption {
-    left: String,
-    right: String,
 }
 
 pub mod error;
@@ -154,13 +150,14 @@ impl Project {
             ))?
             .clone();
 
-        let assumption = self
-            .get_assumption(&reduction.assumption)
-            .ok_or(Error::UndefinedAssumption(
-                reduction.assumption.clone(),
-                format!("in reduction {i}"),
-            ))?
-            .clone();
+        let assumption =
+            self.get_assumption(&reduction.assumption)
+                .ok_or(Error::UndefinedAssumption(
+                    reduction.assumption.clone(),
+                    format!("in reduction {i}"),
+                ))?;
+
+        let assumption = self.resolve_assumption(assumption)?;
 
         let assumption_name = reduction.assumption.clone();
 
@@ -201,6 +198,23 @@ impl Project {
             right_smt_file,
             decl_smt_file,
         })
+    }
+
+    pub fn resolve_assumption(&self, ass: &Assumption) -> Result<ResolvedAssumption> {
+        let Assumption { left, right, .. } = ass;
+        let left_err = Error::UndefinedGame(
+            left.to_string(),
+            format!("in resolving the assumption of {left} and {right}"),
+        );
+        let right_err = Error::UndefinedGame(
+            right.to_string(),
+            format!("in resolving the assumption of {left} and {right}"),
+        );
+
+        let left = self.get_game(left).ok_or(left_err)?.clone();
+        let right = self.get_game(right).ok_or(right_err)?.clone();
+
+        Ok(ResolvedAssumption { left, right })
     }
 
     pub fn get_game<'a>(&'a self, name: &str) -> Option<&'a Composition> {
