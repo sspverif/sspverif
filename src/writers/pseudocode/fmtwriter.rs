@@ -11,13 +11,15 @@ type Result = std::fmt::Result;
 pub struct FmtWriter<W: std::fmt::Write> {
     w: W,
     indent_lvl: usize,
+    annotate: bool,
 }
 
 impl<W: Write> FmtWriter<W> {
-    pub fn new(w: W) -> Self {
+    pub fn new(w: W, annotate: bool) -> Self {
         FmtWriter {
             w: w,
             indent_lvl: 0,
+            annotate: annotate
         }
     }
 
@@ -25,21 +27,29 @@ impl<W: Write> FmtWriter<W> {
         match id {
             Identifier::Scalar(x) => {
                 self.write_string(x)?;
-                self.write_string(" /* scalar identifier */ ")?;
+                if self.annotate {
+                    self.write_string(" /* scalar identifier */ ")?;
+                }
             }
             Identifier::Local(x) => {
                 self.write_string(x)?;
-                self.write_string(" /* local identifier */ ")?;
+                if self.annotate {
+                    self.write_string(" /* local identifier */ ")?;
+                }
             }
             Identifier::Params {
                 name_in_pkg: name, ..
             } => {
                 self.write_string(name)?;
-                self.write_string(&format!(" /* param identifier */ "))?;
+                if self.annotate {
+                    self.write_string(&format!(" /* param identifier */ "))?;
+                }
             }
             Identifier::State { name, .. } => {
                 self.write_string(name)?;
-                self.write_string(&format!(" /* state identifier */ "))?;
+                if self.annotate {
+                    self.write_string(&format!(" /* state identifier */ "))?;
+                }
             }
         }
 
@@ -86,9 +96,11 @@ impl<W: Write> FmtWriter<W> {
             Expression::Typed(t, bexp) => {
                 let expr = &**bexp;
                 self.write_expression(&expr)?;
-                self.write_string(" /* of type ")?;
-                self.write_type(t)?;
-                self.write_string(" */ ")?;
+                if self.annotate {
+                    self.write_string(" /* of type ")?;
+                    self.write_type(t)?;
+                    self.write_string(" */ ")?;
+                }
             }
             Expression::BooleanLiteral(x) => {
                 self.write_string(x)?;
@@ -232,10 +244,12 @@ impl<W: Write> FmtWriter<W> {
 
                 self.write_string(" <-$ ")?;
                 self.write_type(t)?;
-                if let Some(sample_id) = sample_id {
-                    self.write_string(&format!("; /* with sample_id {} */\n", sample_id))?;
-                } else {
-                    self.write_string(&format!("; /* sample_id not assigned */\n"))?;
+                if self.annotate {
+                    if let Some(sample_id) = sample_id {
+                        self.write_string(&format!("; /* with sample_id {} */\n", sample_id))?;
+                    } else {
+                        self.write_string(&format!("; /* sample_id not assigned */\n"))?;
+                    }
                 }
             }
             Statement::InvokeOracle {
@@ -259,18 +273,20 @@ impl<W: Write> FmtWriter<W> {
                     Identifier::Scalar(name.clone()),
                     args.clone(),
                 ))?;
-                if let Some(target_inst_name) = target_inst_name {
-                    self.write_string(&format!(
-                        "; /* with target instance name {} */",
-                        target_inst_name
-                    ))?;
-                } else {
-                    self.write_string(&format!("; /* target instance name not assigned */"))?;
-                }
-                if let Some(tipe) = opt_tipe {
-                    self.write_string(&format!(" /* return type {:?} */", tipe))?;
-                } else {
-                    self.write_string(&format!(" /* return type unknown */"))?;
+                if self.annotate {
+                    if let Some(target_inst_name) = target_inst_name {
+                        self.write_string(&format!(
+                            "; /* with target instance name {} */",
+                            target_inst_name
+                        ))?;
+                    } else {
+                        self.write_string(&format!("; /* target instance name not assigned */"))?;
+                    }
+                    if let Some(tipe) = opt_tipe {
+                        self.write_string(&format!(" /* return type {:?} */", tipe))?;
+                    } else {
+                        self.write_string(&format!(" /* return type unknown */"))?;
+                    }
                 }
                 self.write_string(&format!("\n"))?;
             }
