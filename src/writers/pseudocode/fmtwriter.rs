@@ -143,6 +143,27 @@ impl<W: Write> FmtWriter<W> {
                 self.write_string(" - ")?;
                 self.write_expression(right)?;
             }
+            Expression::Or(exprs) => {
+                self.write_string("(")?;
+                let mut maybe_or = "";
+                for expr in exprs {
+                    self.write_string(maybe_or)?;
+                    self.write_expression(expr)?;
+                    maybe_or = " or ";
+                }
+                self.write_string(")")?;
+            }
+            Expression::And(exprs) => {
+                self.write_string("(")?;
+                let mut maybe_and = "";
+                for expr in exprs {
+                    self.write_string(maybe_and)?;
+                    self.write_expression(expr)?;
+                    maybe_and = " and ";
+                }
+                self.write_string(")")?;
+            }
+
             Expression::Unwrap(expr) => {
                 self.write_string("Unwrap(")?;
                 self.write_expression(expr)?;
