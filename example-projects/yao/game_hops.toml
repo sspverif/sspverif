@@ -1,8 +1,13 @@
+#[[Hops]]
+#    [Hops.Equivalence]
+#    left = "Left"
+#    right = "Right"
+#    invariant_path = "invariant-GBLG.smt2"
 [[Hops]]
-    [Hops.Equivalence]
+    [Hops.Reduction]
     left = "Left"
     right = "Right"
-    invariant_path = "invariant-GBLG.smt2"
+	assumption = "LeftRight"
 #[[Hops]]
 #    [Hops.Equivalence]
 #    left = "Asd"
