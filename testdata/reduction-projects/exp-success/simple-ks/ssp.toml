@@ -1,0 +1,22 @@
+[assumptions]
+
+[assumptions.prf-top]
+left = "PrfTopReal"
+right = "PrfTopIdeal"
+
+[assumptions.prf-bottom]
+left = "PrfBottomReal"
+right = "PrfBottomIdeal"
+
+[[game_hops]]
+[game_hops.Reduction]
+assumption = "prf-top"
+left = "KsReal"
+right = "KsSemireal"
+
+
+[[game_hops]]
+[game_hops.Reduction]
+assumption = "prf-bottom"
+left = "KsSemireal"
+right = "KsIdeal"

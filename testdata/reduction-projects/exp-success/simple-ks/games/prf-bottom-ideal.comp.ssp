@@ -1,0 +1,31 @@
+composition PrfBottomIdeal {
+    const n: Integer;
+    const f: fn Bits(n),Bits(*) -> Bits(n);
+
+    instance key_middle = Key_middle_ideal{
+        n: n,
+    }
+
+    instance prf = Prf2{
+        f: f,
+        n: n,
+    }
+
+    instance key_bottom = Key_bottom_ideal{
+        n: n,
+    }
+
+    compose { 
+        adversary: {
+            SET:  key_middle,
+            EVAL2: prf,
+            GET: key_bottom,
+            HON: key_bottom,
+        },
+        prf: {
+            GET:  key_middle,
+            HON:  key_middle,
+            SET:  key_bottom,
+        },
+    }
+}

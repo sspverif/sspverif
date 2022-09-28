@@ -1,7 +1,7 @@
 use serde_derive::{Deserialize, Serialize};
 
 use crate::package::Composition;
-use crate::project::util::{diff, matches_assumption2, walk_up_paths, DiffRow};
+use crate::project::util::{diff, matches_assumption, walk_up_paths, DiffRow};
 use crate::project::{Assumption, Result};
 
 use super::assumption::ResolvedAssumption;
@@ -72,6 +72,8 @@ impl ResolvedReduction {
         let game_diff = diff(left, right);
         let assumption_diff = diff(&assumption.left, &assumption.right);
 
+        println!("game diff: {game_diff:#?}");
+
         if game_diff.is_same() {
             panic!("same game I suppose??");
         }
@@ -98,8 +100,10 @@ impl ResolvedReduction {
         //println!("left root: {left_root}");
         //println!("right root: {right_root}");
 
-        assert!(matches_assumption2(left_comp_slice, &assumption.left));
-        assert!(matches_assumption2(right_comp_slice, &assumption.right));
+        println!("applying assumption {assumption_name}.");
+
+        assert!(matches_assumption(left_comp_slice, &assumption.left));
+        assert!(matches_assumption(right_comp_slice, &assumption.right));
 
         Ok(())
     }

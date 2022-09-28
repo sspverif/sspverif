@@ -1,0 +1,21 @@
+package Prf {
+    params {
+        f: fn Bits(n),Bits(*) -> Bits(n),
+        n: Integer,
+    }
+
+    import oracles {
+        GET(h: Integer) -> Bits(n),
+        SET(h: Integer, k: Bits(n), hon: Bool) -> Integer,
+        HON(h: Integer) -> Bool,
+    }
+
+    oracle EVAL(h: Integer, m: Bits(*)) -> (Integer,Bits(*)) {
+        k <- invoke GET(h);
+        hon <- invoke HON(h);
+        y <- f(k,m);
+        hh <- (h, m);
+        _ <- invoke SET(hh, y, hon);
+        return hh;
+    }
+}

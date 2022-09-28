@@ -3,19 +3,19 @@
 left = "Left"
 right = "Right"
 
-#[[Hops]]
-#    [Hops.Equivalence]
-#    left = "Left"
-#    right = "Right"
-#    invariant_path = "invariant-GBLG.smt2"
 [[game_hops]]
-    [game_hops.Reduction]
-    left = "Left"
-    right = "Right"
-	assumption = "LeftRight"
-#[[Hops]]
-#    [Hops.Equivalence]
-#    left = "Asd"
-#    right = "rte"
-#    invariant_path = "s;lvksf"
+
+[game_hops.Reduction]
+
+left = "Left"
+right = "Right"
+assumption = "LeftRight"
+
+#[[game_hops]]
+#
+#[game_hops.Equivalence]
+#
+#left = "Asd"
+#right = "rte"
+#invariant_path = "s;lvksf"
     

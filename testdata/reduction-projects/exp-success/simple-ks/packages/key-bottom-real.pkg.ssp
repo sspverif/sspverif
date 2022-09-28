@@ -1,0 +1,29 @@
+package Key_bottom_real {
+    params {
+        n: Integer,
+    }
+
+    state {
+        T: Table(((Integer, Bits(*)), Bits(*)), Bits(n)),
+        H: Table(((Integer, Bits(*)), Bits(*)), Bool),
+    }
+
+    oracle GET(h: ((Integer, Bits(*)), Bits(*))) -> Bits(n) {
+        assert (T[h] != None as Bits(n));
+        k <- Unwrap(T[h]);
+        return k;
+    }
+
+    oracle HON(h: ((Integer, Bits(*)), Bits(*))) -> Bool {
+        assert (T[h] != None as Bits(n));
+        hon <- Unwrap(H[h]);
+        return hon;
+    }
+
+    oracle SET(h: ((Integer, Bits(*)), Bits(*)), k: Bits(n), hon: Bool) -> ((Integer, Bits(*)), Bits(*)) {
+        assert (T[h] == None as Bits(n));
+        T[h] <- Some(k);
+        H[h] <- Some(hon);
+        return h;
+    }
+}

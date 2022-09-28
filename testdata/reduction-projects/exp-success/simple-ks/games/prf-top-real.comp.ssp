@@ -1,0 +1,31 @@
+composition PrfTopReal {
+    const n: Integer;
+    const f: fn Bits(n),Bits(*) -> Bits(n);
+
+    instance key_top = Key_top_ideal{
+        n: n,
+    }
+
+    instance prf = Prf{
+        f: f,
+        n: n,
+    }
+
+    instance key_middle = Key_middle_real{
+        n: n,
+    }
+
+    compose { 
+        adversary: {
+            SET:  key_top,
+            EVAL: prf,
+            GET: key_middle,
+            HON: key_middle,
+        },
+        prf: {
+            GET:  key_top,
+            HON:  key_top,
+            SET:  key_middle,
+        },
+    }
+}

@@ -5,6 +5,7 @@ use std::{
 
 use crate::package::{Composition, Edge, Export, OracleSig};
 
+use super::{assumption, Result};
 #[derive(Clone, Debug)]
 pub struct DiffCell {
     pub pkg_offset: usize,
@@ -100,7 +101,7 @@ pub fn diff(left: &Composition, right: &Composition) -> Diff {
 
 //pub fn build_subcomposition(comp: &Composition, roots: &[usize], exports: &[(usize, OracleSig)]) -> Composition
 
-pub fn matches_assumption2(game: CompositionSlice, assumption: &Composition) -> bool {
+pub fn matches_assumption(game: CompositionSlice, assumption: &Composition) -> bool {
     let game_exports: HashMap<_, _> = game
         .exports
         .iter()
@@ -117,6 +118,21 @@ pub fn matches_assumption2(game: CompositionSlice, assumption: &Composition) -> 
 
     // check that game does not export too many oracles
     if !game_sigs.is_subset(&assumption_sigs) {
+        println!("game: {}", game.comp.name);
+        println!("assumption: {}", assumption.name);
+
+        println!("game sigs not a subset of assumption sigs.");
+
+        println!("game sigs:");
+        for sig in game_sigs {
+            println!("  {sig:?}");
+        }
+
+        println!("assumption sigs:");
+        for sig in assumption_sigs {
+            println!("  {sig:?}");
+        }
+
         return false;
     }
 
@@ -127,67 +143,6 @@ pub fn matches_assumption2(game: CompositionSlice, assumption: &Composition) -> 
         let diff = traverse(game.comp, assumption, game_idx, assumption_idx);
         if !diff.is_same() {
             panic!("Assumption doesn't match:\n - sig: {:?}\n - game pkg: {:?} at index {}\n - assumption pkg: {:?} at index {}\n", sig, game.comp.pkgs[game_idx], game_idx, assumption.pkgs[assumption_idx], assumption_idx);
-        }
-    }
-
-    true
-}
-
-pub fn matches_assumption(left: &Composition, assumption: &Composition, left_idx: usize) -> bool {
-    let left_sigs_to_idx: HashMap<_, _> = left
-        .edges
-        .iter()
-        .filter(|Edge(from, _, _)| *from == left_idx)
-        .map(|Edge(from, to, sig)| (sig.to_owned(), *to))
-        .collect();
-    let left_exported_sigs: HashSet<_> = left
-        .exports
-        .iter()
-        .filter(|Export(idx, _)| *idx == left_idx)
-        .map(|Export(_, sig)| sig.to_owned())
-        .collect();
-
-    let assumption_sigs_to_idx: HashMap<_, _> = assumption
-        .exports
-        .iter()
-        .map(|Export(idx, sig)| (sig.to_owned(), *idx))
-        .collect();
-
-    let left_pointing_to_idx: HashSet<_> = left
-        .edges
-        .iter()
-        .filter(|Edge(_, to, _)| *to == left_idx)
-        .map(|Edge(_, _, sig)| sig.to_owned())
-        .collect();
-
-    let left_incoming =
-        HashSet::from_iter(left_exported_sigs.union(&left_pointing_to_idx).cloned());
-
-    let assumption_exported_sigs: HashSet<_> = assumption_sigs_to_idx.keys().cloned().collect();
-
-    assert!(
-        left_incoming.is_subset(&assumption_exported_sigs),
-        "left: {:?} | assumption: {:?}",
-        left_exported_sigs,
-        assumption_exported_sigs
-    );
-
-    assert!(check_parameters_match(left, assumption));
-
-    for sig in &left_exported_sigs {
-        let left_idx = left_sigs_to_idx[sig];
-        let assumption_idx = assumption_sigs_to_idx[sig];
-
-        let Diff(diff_rows) = traverse(left, assumption, left_idx, assumption_idx);
-
-        for DiffRow(mut left, mut assumption) in diff_rows {
-            let diff = (left.pkg_offset, assumption.pkg_offset);
-
-            left.path.push((left_idx, sig.clone()));
-            assumption.path.push((assumption_idx, sig.clone()));
-
-            panic!("found a difference! \n left_idx {}\n assumption_idx {}\n diff {:?}\n left_path {:?}\n assumption_path {:?}", left_idx, assumption_idx, diff, &left.path, &assumption.path);
-            return false;
         }
     }
 
@@ -325,4 +280,63 @@ pub fn walk_up_paths<'a>(comp: &'a Composition, diff: &[DiffCell]) -> Compositio
     }
 
     return CompositionSlice { comp, exports };
+}
+
+use super::Error;
+
+fn match_package_indices(
+    game: &Composition,
+    assumption: &Composition,
+    game_path: &[DiffCell],
+    assumption_path: &[DiffCell],
+) -> Result<Vec<(usize, usize)>> {
+    let game_map = package_match_table(game, game_path, "game")?;
+    let assumption_map = package_match_table(assumption, assumption_path, "assumption")?;
+
+    let mut game_keys: Vec<_> = game_map.keys().collect();
+    let mut assumption_keys: Vec<_> = assumption_map.keys().collect();
+
+    game_keys.sort();
+    assumption_keys.sort();
+
+    assert_eq!(game_keys, assumption_keys);
+
+    let keys = game_keys;
+
+    let res: Vec<_> = keys
+        .iter()
+        .map(|key| (game_map[key], assumption_map[key]))
+        .collect();
+
+    Ok(res)
+}
+
+fn package_match_table<'a>(
+    game: &'a Composition,
+    path: &[DiffCell],
+    name: &str,
+) -> Result<HashMap<(String, Vec<(&'a String, String)>), usize>> {
+    let mut res = HashMap::new();
+
+    for cell in path {
+        let DiffCell {
+            pkg_offset: idx, ..
+        } = cell;
+        let inst = &game.pkgs[*idx];
+        let mut param_keys: Vec<_> = inst.params.keys().collect();
+        param_keys.sort();
+        let params: Vec<_> = param_keys
+            .into_iter()
+            .map(|key| (key, inst.params[key].clone()))
+            .collect();
+
+        if let Some(other_idx) = res.insert((inst.pkg.name.clone(), params), *idx) {
+            return Err(Error::ProofCheck(format!(
+                "already have a package like {:?} at index {other_idx} in {name}",
+                inst,
+            )));
+        }
+    }
+
+    Ok(res)
 }

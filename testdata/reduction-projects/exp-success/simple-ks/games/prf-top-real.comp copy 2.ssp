@@ -1,0 +1,31 @@
+composition Left {
+    const n: Integer;
+    const f: fn Bits(n),Bits(*) -> Bits(n);
+
+    instance key_top = Key_top_ideal{
+        n: n,
+    }
+
+    instance prf_left = Prf{
+        f: f,
+        n: n,
+    }
+
+    instance key_bottom = Key_bottom_real{
+        n: n,
+    }
+
+    compose { 
+        adversary: {
+            SET:  key_top,
+            EVAL: prf_left,
+            GET: key_bottom,
+            HON: key_bottom,
+        },
+        prf_left: {
+            GET:  key_top,
+            HON:  key_top,
+            SET:  key_bottom,
+        },
+    }
+}

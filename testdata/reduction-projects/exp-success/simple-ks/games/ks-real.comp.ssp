@@ -1,0 +1,47 @@
+composition KsReal {
+    const n: Integer;
+    const f: fn Bits(n),Bits(*) -> Bits(n);
+
+    instance key_top = Key_top_ideal{
+        n: n,
+    }
+
+    instance prf_top = Prf{
+        f: f,
+        n: n,
+    }
+
+    instance key_middle = Key_middle_real{
+        n: n,
+    }
+
+    instance prf_bottom = Prf2{
+        f: f,
+        n: n,
+    }
+
+    instance key_bottom = Key_bottom_real{
+        n: n,
+    }
+
+
+    compose { 
+        adversary: {
+            SET:  key_top,
+            EVAL: prf_top,
+            EVAL2: prf_bottom,
+            GET:  key_bottom,
+            HON:  key_bottom,
+        },
+        prf_top: {
+            GET:  key_top,
+            HON:  key_top,
+            SET:  key_middle,
+        },
+        prf_bottom: {
+            GET:  key_middle,
+            HON:  key_middle,
+            SET:  key_bottom,
+        },
+    }
+}
