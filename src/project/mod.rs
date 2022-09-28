@@ -82,11 +82,9 @@ pub struct Project {
 impl Project {
     pub fn load() -> Result<Project> {
         let root_dir = find_project_root()?;
-
         let packages = load::packages(root_dir.clone())?;
         let games = load::games(root_dir.clone(), &packages)?;
-        let assumptions = load::assumptions(root_dir.clone())?;
-        let game_hops = load::game_hops(root_dir.clone(), &games, &assumptions)?;
+        let (game_hops, assumptions) = load::toml_file(root_dir.clone(), &games)?;
 
         let project = Project {
             root_dir,

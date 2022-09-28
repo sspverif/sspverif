@@ -10,6 +10,68 @@ use crate::parser::SspParser;
 
 extern crate toml_edit;
 
+/*
+[assumptions]
+[assumptions.LeftRight]
+left = "Left"
+right = "Right"
+
+[[game_hops]]
+
+[game_hops.Reduction]
+
+left = "Left"
+right = "Right"
+assumption = "LeftRight"
+ */
+
+// TODO: add a HybridArgument variant
+#[derive(Debug, Serialize, Deserialize)]
+pub enum TomlGameHop {
+    Reduction {
+        left: String,
+        right: String,
+        assumption: String,
+        //direction: String,
+        // we probably have to provide more information here,
+        // in order to easily figure out how to perform the rewrite
+    },
+    Equivalence {
+        left: String,
+        right: String,
+        invariant_path: String,
+    },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TomlStructure {
+    game_hops: Vec<TomlGameHop>,
+    assumptions: HashMap<String, Assumption>,
+}
+
+pub(crate) fn toml_file(
+    root: PathBuf,
+    games: &HashMap<String, Composition>,
+) -> Result<(Vec<GameHop>, HashMap<String, Assumption>)> {
+    let mut path = root.clone();
+    path.push(PROJECT_FILE);
+
+    let filecontent = std::fs::read(&path)?;
+    let toml_data = toml_edit::easy::from_slice::<TomlStructure>(&filecontent).unwrap();
+
+    validate_assumptions(&toml_data.assumptions, games)?;
+
+    let hops: Vec<GameHop> = toml_data
+        .game_hops
+        .into_iter()
+        .map(|toml_hop| toml_hop.into())
+        .collect();
+
+    validate_game_hops(&hops, games, &toml_data.assumptions)?;
+
+    Ok((hops, toml_data.assumptions))
+}
+
 pub(crate) fn packages(root: PathBuf) -> Result<HashMap<String, Package>> {
     let mut dir = root;
     dir.push(PACKAGES_DIR);
@@ -73,55 +135,34 @@ pub(crate) fn games(
     Ok(games)
 }
 
-pub(crate) fn assumptions(root: PathBuf) -> Result<HashMap<String, Assumption>> {
-    let mut path = root;
-    path.push("assumptions.toml");
-    let filecontent = std::fs::read(&path)?;
-
-    let assumptions = toml_edit::easy::from_slice::<HashMap<String, Assumption>>(&filecontent)?;
-    return Ok(assumptions);
-}
-
-// TODO: add a HybridArgument variant
-#[derive(Debug, Serialize, Deserialize)]
-pub enum TomlGameHop {
-    Reduction {
-        left: String,
-        right: String,
-        assumption: String,
-        //direction: String,
-        // we probably have to provide more information here,
-        // in order to easily figure out how to perform the rewrite
-    },
-    Equivalence {
-        left: String,
-        right: String,
-        invariant_path: String,
-    },
-}
-
-pub(crate) fn game_hops(
-    root: PathBuf,
-    games: &HashMap<String, Composition>,
+pub(crate) fn validate_assumptions(
     assumptions: &HashMap<String, Assumption>,
-) -> Result<Vec<GameHop>> {
-    let mut path = root.clone();
-    path.push(GAMEHOPS_FILE);
+    games: &HashMap<String, Composition>,
+) -> Result<()> {
+    for (name, Assumption { left, right }) in assumptions.iter() {
+        if !games.contains_key(left) {
+            return Err(Error::UndefinedGame(
+                left.clone(),
+                format!("left in assumption {name}"),
+            ));
+        }
 
-    let filecontent = std::fs::read(&path)?;
-
-    #[derive(Deserialize)]
-    struct Hops {
-        #[serde(rename = "Hops")]
-        hops: Vec<TomlGameHop>,
+        if !games.contains_key(right) {
+            return Err(Error::UndefinedGame(
+                right.clone(),
+                format!("right in assumption {name}"),
+            ));
+        }
     }
 
-    let Hops { hops: toml_hops } = toml_edit::easy::from_slice::<Hops>(&filecontent).unwrap();
-    let hops: Vec<GameHop> = toml_hops
-        .into_iter()
-        .map(|toml_hop| toml_hop.into())
-        .collect();
+    return Ok(());
+}
 
+fn validate_game_hops(
+    hops: &[GameHop],
+    games: &HashMap<String, Composition>,
+    assumptions: &HashMap<String, Assumption>,
+) -> Result<()> {
     for (i, hop) in hops.iter().enumerate() {
         match hop {
             GameHop::Reduction(Reduction {
@@ -172,5 +213,5 @@ pub(crate) fn game_hops(
         }
     }
 
-    Ok(hops)
+    Ok(())
 }
