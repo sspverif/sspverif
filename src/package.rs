@@ -1,5 +1,7 @@
-use crate::statement::CodeBlock;
+use crate::statement::{CodeBlock,Statement};
+use crate::expressions::Expression;
 use crate::types::Type;
+
 
 use std::collections::HashMap;
 use std::fmt;
@@ -39,6 +41,33 @@ impl fmt::Display for OracleSig {
 pub struct OracleDef {
     pub sig: OracleSig,
     pub code: CodeBlock,
+}
+
+impl OracleDef {
+    pub fn called_oracles(&self) -> Vec<OracleSig> {
+        let mut result = Vec::new();
+        let mut called_oracles_helper = |cb:&CodeBlock| {
+            for stmt in &cb.0 {
+                match stmt {
+                    Statement::InvokeOracle{name, args, tipe:Some(tipe), ..} => {
+                        result.push(OracleSig{name:name.clone(),
+                                              args:args.iter().map(|e| {
+                                                  if let Expression::Typed(t, _) = e {
+                                                      ("".into(), t.clone())
+                                                  } else {
+                                                      panic!("OracleDef called_oracles() only to be called after typing")
+                                                  }
+                                              }).collect(),
+                                              tipe:tipe.clone()});
+                    }
+                    _ => {}
+                }
+            }
+        };
+
+        called_oracles_helper(&self.code);
+        result
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
