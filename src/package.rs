@@ -37,13 +37,13 @@ impl fmt::Display for OracleSig {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OracleDef {
     pub sig: OracleSig,
     pub code: CodeBlock,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Package {
     pub name: String,
     pub params: Vec<(String, Type)>,

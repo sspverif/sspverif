@@ -2,10 +2,10 @@ use crate::expressions::Expression;
 use crate::identifier::Identifier;
 use crate::types::Type;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CodeBlock(pub Vec<Statement>);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Statement {
     Abort,
     Return(Option<Expression>),

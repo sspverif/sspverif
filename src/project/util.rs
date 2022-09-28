@@ -5,7 +5,7 @@ use std::{
 
 use crate::package::{Composition, Edge, Export, OracleSig};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DiffCell {
     pub pkg_offset: usize,
     pub path: Vec<(usize, OracleSig)>,
@@ -21,7 +21,7 @@ impl DiffCell {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DiffRow(pub DiffCell, pub DiffCell);
 
 impl DiffRow {
@@ -46,6 +46,7 @@ impl DiffRow {
     }
 }
 
+#[derive(Debug)]
 pub struct Diff(pub Vec<DiffRow>);
 
 impl Diff {
