@@ -54,3 +54,14 @@ impl<R: pest::RuleType> From<pest::error::Error<R>> for Error {
         Error::PestParseError(format!("{:?}", e.variant), e.location, e.line_col)
     }
 }
+
+impl<'a, R: pest::RuleType> From<(&'a str, pest::error::Error<R>)> for Error {
+    fn from(e: (&'a str, pest::error::Error<R>)) -> Error {
+        let (filename, e) = e;
+        Error::PestParseError(
+            format!("{:?} in {filename}", e.variant),
+            e.location,
+            e.line_col,
+        )
+    }
+}

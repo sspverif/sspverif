@@ -87,7 +87,11 @@ pub(crate) fn packages(root: PathBuf) -> Result<HashMap<String, Package>> {
             if filename.ends_with(PACKAGE_EXT) {
                 let contents = std::fs::read_to_string(dir_entry.path())?;
 
-                let mut ast = SspParser::parse_package(&contents)?;
+                let parse_result = SspParser::parse_package(&contents);
+                if let Err(e) = parse_result {
+                    return Err((filename, e).into());
+                }
+                let mut ast = parse_result.unwrap();
                 let (pkg_name, pkg) = handle_pkg(ast.next().unwrap());
 
                 if let Some(other_filename) = pkgs_filenames.get(&pkg_name) {
@@ -122,8 +126,11 @@ pub(crate) fn games(
         if let Some(name) = dir_entry.file_name().to_str() {
             if name.ends_with(GAME_EXT) {
                 let filecontent = std::fs::read_to_string(dir_entry.path())?;
-
-                let mut ast = SspParser::parse_composition(&filecontent)?;
+                let parse_result = SspParser::parse_composition(&filecontent);
+                if let Err(e) = parse_result {
+                    return Err((name, e).into());
+                }
+                let mut ast = parse_result.unwrap();
                 let comp = handle_composition(ast.next().unwrap(), pkgs);
                 let comp_name = comp.name.clone();
 
