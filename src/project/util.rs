@@ -284,12 +284,26 @@ pub fn walk_up_paths<'a>(comp: &'a Composition, diff: &[DiffCell]) -> Compositio
 
 use super::Error;
 
-fn match_package_indices(
+pub(crate) fn match_package_indices(
     game: &Composition,
     assumption: &Composition,
     game_path: &[DiffCell],
     assumption_path: &[DiffCell],
 ) -> Result<Vec<(usize, usize)>> {
+    let game_count = game_path
+        .iter()
+        .map(|DiffCell { pkg_offset, .. }| *pkg_offset)
+        .collect::<HashSet<_>>()
+        .len();
+    let assumption_count = assumption_path
+        .iter()
+        .map(|DiffCell { pkg_offset, .. }| *pkg_offset)
+        .collect::<HashSet<_>>()
+        .len();
+
+    assert_eq!(game_count, assumption_count);
+    let count = game_count;
+
     let game_map = package_match_table(game, game_path, "game")?;
     let assumption_map = package_match_table(assumption, assumption_path, "assumption")?;
 
@@ -302,6 +316,7 @@ fn match_package_indices(
     assert_eq!(game_keys, assumption_keys);
 
     let keys = game_keys;
+    assert_eq!(keys.len(), count);
 
     let res: Vec<_> = keys
         .iter()
