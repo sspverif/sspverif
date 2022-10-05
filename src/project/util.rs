@@ -287,15 +287,15 @@ use super::Error;
 pub(crate) fn match_package_indices(
     game: &Composition,
     assumption: &Composition,
-    game_path: &[DiffCell],
-    assumption_path: &[DiffCell],
-) -> Result<Vec<(usize, usize)>> {
-    let game_count = game_path
+    game_cells: &[DiffCell],
+    assumption_cells: &[DiffCell],
+) -> Result<HashMap<usize, usize>> {
+    let game_count = game_cells
         .iter()
         .map(|DiffCell { pkg_offset, .. }| *pkg_offset)
         .collect::<HashSet<_>>()
         .len();
-    let assumption_count = assumption_path
+    let assumption_count = assumption_cells
         .iter()
         .map(|DiffCell { pkg_offset, .. }| *pkg_offset)
         .collect::<HashSet<_>>()
@@ -304,8 +304,8 @@ pub(crate) fn match_package_indices(
     assert_eq!(game_count, assumption_count);
     let count = game_count;
 
-    let game_map = package_match_table(game, game_path, "game")?;
-    let assumption_map = package_match_table(assumption, assumption_path, "assumption")?;
+    let game_map = package_match_table(game, game_cells, "game")?;
+    let assumption_map = package_match_table(assumption, assumption_cells, "assumption")?;
 
     let mut game_keys: Vec<_> = game_map.keys().collect();
     let mut assumption_keys: Vec<_> = assumption_map.keys().collect();
@@ -328,12 +328,12 @@ pub(crate) fn match_package_indices(
 
 fn package_match_table<'a>(
     game: &'a Composition,
-    path: &[DiffCell],
+    cells: &[DiffCell],
     name: &str,
 ) -> Result<HashMap<(String, Vec<(&'a String, String)>), usize>> {
     let mut res = HashMap::new();
 
-    for cell in path {
+    for cell in cells {
         let DiffCell {
             pkg_offset: idx, ..
         } = cell;
