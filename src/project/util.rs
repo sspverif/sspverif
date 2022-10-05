@@ -313,14 +313,16 @@ pub(crate) fn match_package_indices(
     game_keys.sort();
     assumption_keys.sort();
 
+    // TODO: This is not correct if game cut is a subset of assumption!
     assert_eq!(game_keys, assumption_keys);
 
+    // Fails if there is the same (pkgname, params) multiple times in the composition
     let keys = game_keys;
     assert_eq!(keys.len(), count);
 
-    let res: Vec<_> = keys
+    let res = keys
         .iter()
-        .map(|key| (game_map[key], assumption_map[key]))
+        .map(|key| (assumption_map[key], game_map[key]))
         .collect();
 
     Ok(res)
