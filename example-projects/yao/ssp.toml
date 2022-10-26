@@ -10,6 +10,8 @@ right = "Right"
 left = "Left"
 right = "Right"
 assumption = "LeftRight"
+leftmap = [["keys_top", "keys_top"], ["keys_bottom", "keys_bottom"]]
+rightmap = [["keys_top", "keys_top"], ["keys_bottom", "keys_bottom"]]
 
 #[[game_hops]]
 #

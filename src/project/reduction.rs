@@ -21,6 +21,8 @@ pub struct Reduction {
     pub right: String,
     //pub direction: Direction, // unclear if we need it
     pub assumption: String,
+    pub leftmap: Vec<(String, String)>,
+    pub rightmap: Vec<(String, String)>,
     // we probably have to provide more information here,
     // in order to easily figure out how to perform the rewrite
 }
@@ -30,6 +32,8 @@ pub struct ResolvedReduction {
     pub right: Composition,
     pub assumption: ResolvedAssumption,
     pub assumption_name: String,
+    pub leftmap: Vec<(usize, usize)>,
+    pub rightmap: Vec<(usize, usize)>,
 }
 
 /*
@@ -67,6 +71,8 @@ impl ResolvedReduction {
             right,
             assumption,
             assumption_name,
+            leftmap,
+            rightmap,
         } = self;
 
         let game_diff = diff(left, right);

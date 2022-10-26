@@ -48,11 +48,15 @@ impl From<load::TomlGameHop> for GameHop {
                 left,
                 right,
                 assumption,
+                leftmap,
+                rightmap,
                 ..
             } => GameHop::Reduction(Reduction {
                 left,
                 right,
                 assumption,
+                leftmap,
+                rightmap,
                 //direction: Direction::Unspecified,
             }),
             load::TomlGameHop::Equivalence {

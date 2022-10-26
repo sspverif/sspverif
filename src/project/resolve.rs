@@ -7,6 +7,7 @@ use super::{
 };
 
 impl Project {
+    // i is passed for error reporting only
     pub fn resolve_reduction(&self, reduction: &Reduction, i: usize) -> Result<ResolvedReduction> {
         let left = self
             .get_game(&reduction.left)
@@ -35,11 +36,36 @@ impl Project {
 
         let assumption_name = reduction.assumption.clone();
 
+        let leftmap : Result<Vec<_>> = reduction.leftmap.iter().map(|(from, to)|{
+            let gameindex = left.pkgs.iter().position(|pkg| &pkg.name == from).ok_or(Error::UndefinedMapping(
+                    from.clone(),
+                    format!("in reduction {i}, left game")))?;
+            let assumptionindex = assumption.left.pkgs.iter().position(|pkg| &pkg.name == to).ok_or(Error::UndefinedMapping(
+                    to.clone(),
+                    format!("in reduction {i}, left assumption")))?;
+            Ok((gameindex, assumptionindex))
+        }).collect();
+        let leftmap = leftmap?;
+
+        let rightmap : Result<Vec<_>> = reduction.rightmap.iter().map(|(from, to)|{
+            let gameindex = right.pkgs.iter().position(|pkg| &pkg.name == from).ok_or(Error::UndefinedMapping(
+                    from.clone(),
+                    format!("in reduction {i}, right game")))?;
+            let assumptionindex = assumption.right.pkgs.iter().position(|pkg| &pkg.name == to).ok_or(Error::UndefinedMapping(
+                    to.clone(),
+                    format!("in reduction {i}, right assumption")))?;
+            Ok((gameindex, assumptionindex))
+        }).collect();
+        let rightmap = rightmap?;
+
+        
         Ok(ResolvedReduction {
             left,
             right,
             assumption,
             assumption_name,
+            leftmap,
+            rightmap,
         })
     }
 

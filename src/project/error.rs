@@ -14,6 +14,8 @@ pub enum Error {
     UndefinedGame(String, String),
     #[error("undefined assumption {0} referenced here: {1}")]
     UndefinedAssumption(String, String),
+    #[error("undefined mapping {0} referenced here: {1}")]
+    UndefinedMapping(String, String),
     #[error("io error: {0}")]
     IOError(#[from] IOError),
     #[error("parse error: {0} at {1:?} / {2:?}")]
