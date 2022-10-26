@@ -55,10 +55,11 @@ impl ResolvedEquivalence {
             crate::transforms::transform_all(&right).unwrap();
 
         // get bits types
-        let bits_types = types_left.union(&types_right).filter_map(|t| match t {
+        let mut bits_types : Vec<_> = types_left.union(&types_right).filter_map(|t| match t {
             Type::Bits(x) => Some(x.clone()),
             _ => None,
-        });
+        }).collect();
+        bits_types.sort();
 
         // prepare the buffer for the data we send to the prover
         let mut definitions = String::new();
