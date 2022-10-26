@@ -10,8 +10,8 @@ right = "Right"
 left = "Left"
 right = "Right"
 assumption = "LeftRight"
-leftmap = [["keys_top", "keys_top"], ["keys_bottom", "keys_bottom"]]
-rightmap = [["keys_top", "keys_top"], ["keys_bottom", "keys_bottom"]]
+leftmap = [["keys_top", "keys_top"], ["keys_bottom", "keys_bottom"],["gate","gate"], ["enc", "enc"]]
+rightmap = [["keys_top", "keys_bottom"], ["keys_bottom", "keys_top"],["simgate", "simgate"],["ev", "ev"]]
 
 #[[game_hops]]
 #
