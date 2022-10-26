@@ -4,8 +4,8 @@ use std::collections::{HashSet,HashMap};
 use std::iter::FromIterator;
 
 use crate::package::{Composition,PackageInstance,Edge};
-use crate::project::util::{diff, matches_assumption, walk_up_paths, DiffRow};
-use crate::project::{Assumption, Result};
+//use crate::project::util::{diff, matches_assumption, walk_up_paths, DiffRow};
+use crate::project::Result;
 
 use super::assumption::ResolvedAssumption;
 use super::Error;
@@ -87,22 +87,22 @@ impl ResolvedReduction {
             left,
             right,
             assumption,
-            assumption_name,
             leftmap,
             rightmap,
+            ..
         } = self;
 
         // PackageInstances are only mentioned once
-        if ! (leftmap.iter().map(|(from, to)| from).all_unique()) {
+        if ! (leftmap.iter().map(|(from, _to)| from).all_unique()) {
             return Err(Error::ProofCheck(format!("leftmap has duplicate from")));
         }
-        if ! (leftmap.iter().map(|(from, to)| to).all_unique()) {
+        if ! (leftmap.iter().map(|(_from, to)| to).all_unique()) {
             return Err(Error::ProofCheck(format!("leftmap has duplicate to")));
         }
-        if ! (rightmap.iter().map(|(from, to)| from).all_unique()) {
+        if ! (rightmap.iter().map(|(from, _to)| from).all_unique()) {
             return Err(Error::ProofCheck(format!("rightmap has duplicate from")));
         }
-        if ! (rightmap.iter().map(|(from, to)| to).all_unique()) {
+        if ! (rightmap.iter().map(|(_from, to)| to).all_unique()) {
             return Err(Error::ProofCheck(format!("rightmap has duplicate to")));
         }
 
@@ -137,18 +137,16 @@ impl ResolvedReduction {
         // Every PackageInstance in the game, which is mapped
         // only calls other mapped package instances
         for Edge(from, to, _sig) in &left.edges {
-            if (
-                leftmap.iter().find(|(gameidx,_)|gameidx == to).is_none() &&
-                    ! leftmap.iter().find(|(gameidx,_)|gameidx == from).is_none()
-            ) {
+            if leftmap.iter().find(|(gameidx,_)|gameidx == to).is_none() &&
+                ! leftmap.iter().find(|(gameidx,_)|gameidx == from).is_none()
+             {
                 return Err(Error::ProofCheck(format!("Left Game: Mapped package {} calls unmappedpackage {}", left.pkgs[*from].name, left.pkgs[*to].name)));
             }
         }
         for Edge(from, to, _sig) in &right.edges {
-            if (
-                rightmap.iter().find(|(gameidx,_)|gameidx == to).is_none() &&
-                    ! rightmap.iter().find(|(gameidx,_)|gameidx == from).is_none()
-            ) {
+            if rightmap.iter().find(|(gameidx,_)|gameidx == to).is_none() &&
+                ! rightmap.iter().find(|(gameidx,_)|gameidx == from).is_none()
+             {
                 return Err(Error::ProofCheck(format!("Right Game: Mapped package {} calls unmappedpackage {}", right.pkgs[*from].name, right.pkgs[*to].name)));
             }
         }

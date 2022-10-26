@@ -28,7 +28,7 @@ mod equivalence;
 mod load;
 mod reduction;
 mod resolve;
-mod util;
+//mod util;
 
 pub use assumption::Assumption;
 use equivalence::Equivalence;
