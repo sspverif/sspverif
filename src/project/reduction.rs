@@ -185,7 +185,7 @@ impl ResolvedReduction {
         }
 
         for name in unmapped_left.keys() {
-            if ! same_package(unmapped_left[name], unmapped_right[name]) {
+            if unmapped_left[name] != unmapped_right[name] {
                 return Err(Error::ProofCheck(format!("Packages with name {} have different sort",name)));
             }
         }
