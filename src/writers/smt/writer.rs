@@ -674,7 +674,7 @@ mod tests {
 
         write!(&mut str, "{out}").unwrap();
 
-        assert_eq!(str, "(let ((x 42)) x)");
+        assert_eq!(str, "(let ((x 42)\n)\n x)\n");
 
         Ok(())
     }
