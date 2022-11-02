@@ -1,9 +1,9 @@
-use serde_derive::{Deserialize, Serialize};
 use itertools::Itertools;
-use std::collections::{HashSet,HashMap};
+use serde_derive::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 
-use crate::package::{Composition,PackageInstance,Edge};
+use crate::package::{Composition, Edge, PackageInstance};
 //use crate::project::util::{diff, matches_assumption, walk_up_paths, DiffRow};
 use crate::project::Result;
 
@@ -72,7 +72,6 @@ fn same_package(left: &PackageInstance, right: &PackageInstance) -> bool {
     left.pkg == right.pkg
 }
 
-
 impl ResolvedReduction {
     /// Prove needs to verify four aspects
     /// - Mapping is Valid
@@ -93,104 +92,131 @@ impl ResolvedReduction {
         } = self;
 
         // PackageInstances are only mentioned once
-        if ! (leftmap.iter().map(|(from, _to)| from).all_unique()) {
+        if !(leftmap.iter().map(|(from, _to)| from).all_unique()) {
             return Err(Error::ProofCheck(format!("leftmap has duplicate from")));
         }
-        if ! (leftmap.iter().map(|(_from, to)| to).all_unique()) {
+        if !(leftmap.iter().map(|(_from, to)| to).all_unique()) {
             return Err(Error::ProofCheck(format!("leftmap has duplicate to")));
         }
-        if ! (rightmap.iter().map(|(from, _to)| from).all_unique()) {
+        if !(rightmap.iter().map(|(from, _to)| from).all_unique()) {
             return Err(Error::ProofCheck(format!("rightmap has duplicate from")));
         }
-        if ! (rightmap.iter().map(|(_from, to)| to).all_unique()) {
+        if !(rightmap.iter().map(|(_from, to)| to).all_unique()) {
             return Err(Error::ProofCheck(format!("rightmap has duplicate to")));
         }
 
         // Mapping may only occure with the same package type
-        let mismatches_left : Vec<_> = leftmap.iter().filter(|(from, to)|{
-            ! same_package(&left.pkgs[*from], &assumption.left.pkgs[*to])
-        }).map(|(from,to)|{
-            format!("{} and {} have different types",
-                    left.pkgs[*from].name, assumption.left.pkgs[*to].name)
-        }).collect();
-        if ! mismatches_left.is_empty() {
-            return Err(Error::ProofCheck(format!("leftmap has incompatible package instances: {}", mismatches_left.join(", "))));
+        let mismatches_left: Vec<_> = leftmap
+            .iter()
+            .filter(|(from, to)| !same_package(&left.pkgs[*from], &assumption.left.pkgs[*to]))
+            .map(|(from, to)| {
+                format!(
+                    "{} and {} have different types",
+                    left.pkgs[*from].name, assumption.left.pkgs[*to].name
+                )
+            })
+            .collect();
+        if !mismatches_left.is_empty() {
+            return Err(Error::ProofCheck(format!(
+                "leftmap has incompatible package instances: {}",
+                mismatches_left.join(", ")
+            )));
         }
-        let mismatches_right : Vec<_> = rightmap.iter().filter(|(from, to)|{
-            ! same_package(&right.pkgs[*from], &assumption.right.pkgs[*to])
-        }).map(|(from,to)|{
-            format!("{} and {} have different types",
-                    right.pkgs[*from].name, assumption.right.pkgs[*to].name)
-        }).collect();
-        if ! mismatches_right.is_empty() {
-            return Err(Error::ProofCheck(format!("rightmap has incompatible package instances: {}", mismatches_right.join(", "))));
+        let mismatches_right: Vec<_> = rightmap
+            .iter()
+            .filter(|(from, to)| !same_package(&right.pkgs[*from], &assumption.right.pkgs[*to]))
+            .map(|(from, to)| {
+                format!(
+                    "{} and {} have different types",
+                    right.pkgs[*from].name, assumption.right.pkgs[*to].name
+                )
+            })
+            .collect();
+        if !mismatches_right.is_empty() {
+            return Err(Error::ProofCheck(format!(
+                "rightmap has incompatible package instances: {}",
+                mismatches_right.join(", ")
+            )));
         }
 
         // Every PackageInstance in the assumptions is mapped
         if assumption.left.pkgs.len() != leftmap.len() {
-            return Err(Error::ProofCheck(format!("Some package instances in leftasusmption are not mapped")));
+            return Err(Error::ProofCheck(format!(
+                "Some package instances in leftasusmption are not mapped"
+            )));
         }
         if assumption.right.pkgs.len() != rightmap.len() {
-            return Err(Error::ProofCheck(format!("Some package instances in rightasusmption are not mapped")));
+            return Err(Error::ProofCheck(format!(
+                "Some package instances in rightasusmption are not mapped"
+            )));
         }
 
         // Every PackageInstance in the game, which is mapped
         // only calls other mapped package instances
         for Edge(from, to, _sig) in &left.edges {
-            if leftmap.iter().find(|(gameidx,_)|gameidx == to).is_none() &&
-                ! leftmap.iter().find(|(gameidx,_)|gameidx == from).is_none()
-             {
-                return Err(Error::ProofCheck(format!("Left Game: Mapped package {} calls unmappedpackage {}", left.pkgs[*from].name, left.pkgs[*to].name)));
+            if leftmap.iter().find(|(gameidx, _)| gameidx == to).is_none()
+                && !leftmap
+                    .iter()
+                    .find(|(gameidx, _)| gameidx == from)
+                    .is_none()
+            {
+                return Err(Error::ProofCheck(format!(
+                    "Left Game: Mapped package {} calls unmappedpackage {}",
+                    left.pkgs[*from].name, left.pkgs[*to].name
+                )));
             }
         }
         for Edge(from, to, _sig) in &right.edges {
-            if rightmap.iter().find(|(gameidx,_)|gameidx == to).is_none() &&
-                ! rightmap.iter().find(|(gameidx,_)|gameidx == from).is_none()
-             {
-                return Err(Error::ProofCheck(format!("Right Game: Mapped package {} calls unmappedpackage {}", right.pkgs[*from].name, right.pkgs[*to].name)));
+            if rightmap.iter().find(|(gameidx, _)| gameidx == to).is_none()
+                && !rightmap
+                    .iter()
+                    .find(|(gameidx, _)| gameidx == from)
+                    .is_none()
+            {
+                return Err(Error::ProofCheck(format!(
+                    "Right Game: Mapped package {} calls unmappedpackage {}",
+                    right.pkgs[*from].name, right.pkgs[*to].name
+                )));
             }
         }
 
         // The PackageInstances in the games which are *not* mapped need to be identical
-        let unmapped_left : HashMap<_,_> = left
+        let unmapped_left: HashMap<_, _> = left
             .pkgs
             .iter()
             .enumerate()
-            .filter(|(i, _)| leftmap
-                    .iter()
-                    .find(|(gameidx,_)|gameidx == i)
-                    .is_none())
-            .map(|(_, pkginst)|{
-                (pkginst.name.clone(), pkginst)
-            })
+            .filter(|(i, _)| leftmap.iter().find(|(gameidx, _)| gameidx == i).is_none())
+            .map(|(_, pkginst)| (pkginst.name.clone(), pkginst))
             .collect();
-        let unmapped_right : HashMap<_,_> = right
+        let unmapped_right: HashMap<_, _> = right
             .pkgs
             .iter()
             .enumerate()
-            .filter(|(i, _)| rightmap
-                    .iter()
-                    .find(|(gameidx,_)|gameidx == i)
-                    .is_none())
-            .map(|(_, pkginst)|{
-                (pkginst.name.clone(), pkginst)
-            })
+            .filter(|(i, _)| rightmap.iter().find(|(gameidx, _)| gameidx == i).is_none())
+            .map(|(_, pkginst)| (pkginst.name.clone(), pkginst))
             .collect();
 
-        if HashSet::<_>::from_iter(unmapped_left.keys()) != HashSet::<_>::from_iter(unmapped_right.keys()) {
-            return Err(Error::ProofCheck(format!("unmapped mapckage instances not equal: {:?} and {:?}", unmapped_left.keys(), unmapped_right.keys())));
-
+        if HashSet::<_>::from_iter(unmapped_left.keys())
+            != HashSet::<_>::from_iter(unmapped_right.keys())
+        {
+            return Err(Error::ProofCheck(format!(
+                "unmapped mapckage instances not equal: {:?} and {:?}",
+                unmapped_left.keys(),
+                unmapped_right.keys()
+            )));
         }
 
         for name in unmapped_left.keys() {
             if unmapped_left[name] != unmapped_right[name] {
-                return Err(Error::ProofCheck(format!("Packages with name {} have different sort",name)));
+                return Err(Error::ProofCheck(format!(
+                    "Packages with name {} have different sort",
+                    name
+                )));
             }
         }
-        
+
         Ok(())
     }
-
 }
 
 #[cfg(test)]
@@ -271,17 +297,17 @@ mod tests {
                 PackageInstance {
                     pkg: pkg_a.clone(),
                     params: HashMap::new(),
-                    name: "leftA1".to_string(),
+                    name: "rightA1".to_string(),
                 },
                 PackageInstance {
                     pkg: pkg_a.clone(),
                     params: HashMap::new(),
-                    name: "leftA2".to_string(),
+                    name: "rightA2".to_string(),
                 },
                 PackageInstance {
                     pkg: pkg_b.clone(),
                     params: HashMap::new(),
-                    name: "leftB3".to_string(),
+                    name: "rightB3".to_string(),
                 },
             ],
 
@@ -331,6 +357,8 @@ mod tests {
         let reduction = ResolvedReduction {
             left,
             right,
+            leftmap: vec![(0, 0), (2, 1)],
+            rightmap: vec![(0, 0), (2, 1)],
             assumption: ResolvedAssumption {
                 left: assumption_left,
                 right: assumption_right,
@@ -338,6 +366,8 @@ mod tests {
             assumption_name: "assumption_name".to_string(),
         };
 
-        reduction.prove();
+        reduction
+            .prove()
+            .expect_err("expect proving err but prove passed");
     }
 }
