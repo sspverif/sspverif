@@ -97,12 +97,10 @@ pub fn typecheck_comp(
         scope.enter();
         for Edge(from, _, sig) in edges {
             if *from == id {
-                scope.declare(
+                scope.declare_oracle(
                     Identifier::new_scalar(sig.name.as_str()),
-                    Type::Oracle(
-                        sig.args.clone().into_iter().map(|(_, tipe)| tipe).collect(),
-                        Box::new(sig.tipe.clone()),
-                    ),
+                    sig.args.clone().into_iter().map(|(_, tipe)| tipe).collect(),
+                    sig.tipe.clone(),
                 )?;
             }
         }

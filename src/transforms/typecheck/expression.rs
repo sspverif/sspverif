@@ -1,3 +1,4 @@
+use super::Type as ScopeType;
 use crate::expressions::Expression;
 use crate::types::Type;
 
@@ -83,7 +84,7 @@ pub fn typify(expr: &Expression, scope: &Scope) -> ExpressionResult {
                 )),
                 Expression::None(t) => Ok(Expression::Typed(t.clone(), Box::new(expr.clone()))),
                 Expression::Identifier(id) => {
-                    if let Some(t) = scope.lookup(id) {
+                    if let Some(ScopeType::Type(t)) = scope.lookup(id) {
                         //eprintln!("DEBUG typify Unwrap Identifier {id:?}, found type {t:?}");
                         if let Type::Maybe(inner_t) = t {
                             Ok(Expression::Typed(*inner_t, Box::new(expr.clone())))
@@ -106,7 +107,7 @@ pub fn typify(expr: &Expression, scope: &Scope) -> ExpressionResult {
                     }
                 }
                 Expression::TableAccess(id, _) => {
-                    if let Some(Type::Table(_, t_val)) = scope.lookup(id) {
+                    if let Some(ScopeType::Type(Type::Table(_, t_val))) = scope.lookup(id) {
                         //eprintln!("DEBUG typify Unwrap of TableAccess on Identifier({id:?}) that maps to {t_val:?}");
                         Ok(Expression::Typed(*t_val, Box::new(expr.clone())))
                     } else {
@@ -466,7 +467,7 @@ pub fn typify(expr: &Expression, scope: &Scope) -> ExpressionResult {
         }
 
         Expression::FnCall(id, args) => {
-            if let Some(Type::Fn(arg_types, ret_type)) = scope.lookup(id) {
+            if let Some(ScopeType::Type(Type::Fn(arg_types, ret_type))) = scope.lookup(id) {
                 // 1. check that arg types match args
                 if args.len() != arg_types.len() {
                     return Err(TypeCheckError::TypeMismatch(
@@ -524,7 +525,7 @@ pub fn typify(expr: &Expression, scope: &Scope) -> ExpressionResult {
         }
 
         Expression::Identifier(id) => {
-            if let Some(t) = scope.lookup(id) {
+            if let Some(ScopeType::Type(t)) = scope.lookup(id) {
                 Ok(Expression::Typed(
                     t,
                     Box::new(Expression::Identifier(id.clone())),
@@ -538,7 +539,7 @@ pub fn typify(expr: &Expression, scope: &Scope) -> ExpressionResult {
             }
         }
         Expression::TableAccess(id, expr) => match scope.lookup(id) {
-            Some(Type::Table(t_idx, t_val)) => {
+            Some(ScopeType::Type(Type::Table(t_idx, t_val))) => {
                 let expr_ = typify(expr, scope)?;
                 let t_expr = get_type(&expr_, scope)?;
                 if *t_idx == t_expr {
@@ -556,7 +557,7 @@ pub fn typify(expr: &Expression, scope: &Scope) -> ExpressionResult {
                     ))
                 }
             }
-            Some(t) => Err(TypeCheckError::TypeMismatchVague(
+            Some(ScopeType::Type(t)) => Err(TypeCheckError::TypeMismatchVague(
                 ErrorLocation::Unknown,
                 "table access on non-table value".to_string(),
                 Some(id.to_expression()),

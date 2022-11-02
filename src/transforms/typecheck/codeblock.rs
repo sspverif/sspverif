@@ -1,6 +1,7 @@
 use super::errors::{ErrorLocation, TypeCheckError};
 use super::expression::{get_type, typify};
 use super::scope::Scope;
+use super::Type as ScopeType;
 
 use crate::identifier::Identifier;
 use crate::statement::{CodeBlock, Statement};
@@ -74,7 +75,7 @@ impl TypedCodeBlock {
 
                     let typed_expr = typify(expr, scope)?;
                     let expr_type = get_type(&typed_expr, scope)?;
-                    if let Some(id_type) = scope.lookup(id) {
+                    if let Some(ScopeType::Type(id_type)) = scope.lookup(id) {
                         if let Some(idx) = opt_idx {
                             let typed_idx = typify(idx, scope)?;
                             let idx_type = get_type(&typed_idx, scope)?;
@@ -158,7 +159,7 @@ impl TypedCodeBlock {
                         }
 
                         for (ident, t) in idents.iter().zip(types.iter()) {
-                            if let Some(t_ident) = scope.lookup(ident) {
+                            if let Some(ScopeType::Type(t_ident)) = scope.lookup(ident) {
                                 if &t_ident != t {
                                     return Err(TypeCheckError::TypeMismatch(
                                         ErrorLocation::Unknown,
@@ -183,7 +184,7 @@ impl TypedCodeBlock {
                 Statement::Sample(id, opt_idx, sample_id, sample_type) => {
                     //println!("scope: {:?}", scope);
 
-                    if let Some(id_type) = scope.lookup(id) {
+                    if let Some(ScopeType::Type(id_type)) = scope.lookup(id) {
                         if let Some(idx) = opt_idx {
                             let typed_idx = typify(idx, scope)?;
                             let idx_type = get_type(&typed_idx, scope)?;
@@ -264,14 +265,14 @@ impl TypedCodeBlock {
                     let oracle_entry = oracle_entry.unwrap().clone();
 
                     let (arg_types, ret_type) =
-                        if let Type::Oracle(arg_types, ret_type) = oracle_entry.clone() {
+                        if let ScopeType::Oracle(arg_types, ret_type) = oracle_entry.clone() {
                             (arg_types, ret_type)
                         } else {
                             return Err(TypeCheckError::TypeMismatchVague(
                                 ErrorLocation::Unknown,
                                 format!("name {:} resolved to non-oracle type", name),
                                 None,
-                                oracle_entry,
+                                Type::Empty,
                             ));
                         };
 
@@ -287,8 +288,8 @@ impl TypedCodeBlock {
                                 arg_types.len()
                             ),
                             None,
-                            oracle_entry,
-                            Type::Fn(arg_types, ret_type),
+                            Type::Empty,
+                            Type::Fn(arg_types, Box::new(ret_type)),
                         ));
                     }
 
@@ -308,7 +309,7 @@ impl TypedCodeBlock {
 
                         typified_args.push(typified_arg);
                     }
-                    if let Some(id_type) = scope.lookup(id) {
+                    if let Some(ScopeType::Type(id_type)) = scope.lookup(id) {
                         if let Some(idx) = opt_idx {
                             let typed_idx = typify(idx, scope)?;
                             let idx_type = get_type(&typed_idx, scope)?;
@@ -325,13 +326,13 @@ impl TypedCodeBlock {
                                         *k,
                                     ));
                                 }
-                                if Type::Maybe(v.clone()) != *ret_type {
+                                if Type::Maybe(v.clone()) != ret_type {
                                     return Err(TypeCheckError::TypeMismatch(
                                         ErrorLocation::Unknown,
                                         "value type of the table does not match".to_string(),
                                         None,
                                         *v,
-                                        *ret_type,
+                                        ret_type,
                                     ));
                                 }
                             } else {
@@ -340,20 +341,20 @@ impl TypedCodeBlock {
                                     "table access on non-table".to_string(),
                                     None,
                                     id_type,
-                                    Type::Table(Box::new(idx_type), Box::new(*ret_type)),
+                                    Type::Table(Box::new(idx_type), Box::new(ret_type)),
                                 ));
                             }
-                        } else if id_type != *ret_type.clone() {
+                        } else if id_type != ret_type.clone() {
                             return Err(TypeCheckError::TypeMismatch(
                                 ErrorLocation::Unknown,
                                 format!("sampling into variable {:?} of different type", id),
                                 None,
                                 id_type,
-                                *ret_type,
+                                ret_type,
                             ));
                         }
                     } else {
-                        scope.declare(id.clone(), *ret_type.clone())?;
+                        scope.declare(id.clone(), ret_type.clone())?;
                     }
 
                     let opt_idx = if opt_idx.is_some() {
@@ -368,7 +369,7 @@ impl TypedCodeBlock {
                         name: name.clone(),
                         args: typified_args,
                         target_inst_name: target_inst_name.clone(),
-                        tipe: Some(*ret_type.clone()),
+                        tipe: Some(ret_type.clone()),
                     })
                 }
                 Statement::IfThenElse(expr, ifcode, elsecode) => {

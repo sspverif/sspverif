@@ -1,6 +1,7 @@
 use super::errors::ScopeError;
+use super::Type;
 use crate::identifier::Identifier;
-use crate::types::Type;
+use crate::types;
 use std::collections::{HashMap, HashSet};
 
 // TODO
@@ -40,11 +41,24 @@ impl Scope {
         self.types.clone()
     }
 
+    pub fn declare_oracle(
+        &mut self,
+        id: Identifier,
+        arg_types: Vec<types::Type>,
+        ret_type: types::Type,
+    ) -> Result<(), ScopeError> {
+        self.declare(id, Type::Oracle(arg_types, ret_type))
+    }
+
     /* Error conditions:
      *  - No scope at all
      *  - Identifier exists somewhere in the scope tower already
      */
-    pub fn declare(&mut self, id: Identifier, t: Type) -> Result<(), ScopeError> {
+    pub fn declare<I: Into<Type> + Clone>(
+        &mut self,
+        id: Identifier,
+        t: I,
+    ) -> Result<(), ScopeError> {
         /* Only needed for debug printing
         match &id {
             Identifier::Local(name)
@@ -63,12 +77,12 @@ impl Scope {
         }
         */
 
-        self.types.insert(t.clone());
+        self.types.insert(t.clone().into());
         //let bt = Backtrace::capture();
         //println!("declaring: {:?} {:?} {}", id, t, bt);
         if self.lookup(&id) == None {
             if let Some(last) = self.entries.last_mut() {
-                last.insert(id, t);
+                last.insert(id, t.into());
                 Ok(())
             } else {
                 panic!("scope declare: scope stack is empty");
@@ -109,8 +123,9 @@ impl Scope {
 
 #[cfg(test)]
 mod test {
+    use super::super::Type;
     use crate::identifier::Identifier;
-    use crate::types::Type;
+    use crate::types;
 
     use super::Scope;
 
@@ -124,7 +139,7 @@ mod test {
     #[test]
     fn declare_then_lookup_succeeds() {
         let id = Identifier::Local("test_id".to_string());
-        let t = Type::Integer;
+        let t = types::Type::Integer;
 
         let mut scope = Scope::new();
         scope.enter();
@@ -133,20 +148,25 @@ mod test {
             .expect("declare failed");
         let t_ = scope.lookup(&id).expect("lookup failed");
 
-        assert_eq!(t, t_, "lookup returned wrong type");
+        // TODO: use this instead, once it doesn't require nightly:
+        //assert_matches!(t_, Type::Type(t_), "t_ should be a real type, found {t_:?}");
+
+        if let Type::Type(t_) = t_ {
+            assert_eq!(t, t_, "lookup returned wrong type");
+        } else {
+            panic!("t_ should be a real type, found {t_:?}");
+        }
     }
 
     #[test]
     fn gone_after_leave() {
         let id = Identifier::Local("test_id".to_string());
-        let t = Type::Integer;
+        let t = types::Type::Integer;
 
         let mut scope = Scope::new();
         scope.enter();
         scope.enter();
-        scope
-            .declare(id.clone(), t.clone())
-            .expect("declare failed");
+        scope.declare(id.clone(), t).expect("declare failed");
         scope.leave();
 
         assert_eq!(None, scope.lookup(&id));
@@ -156,8 +176,8 @@ mod test {
     fn still_there_after_enter_and_leave() {
         let id = Identifier::Local("test_id".to_string());
         let id2 = Identifier::Local("test_id2".to_string());
-        let t = Type::Integer;
-        let t2 = Type::String;
+        let t = types::Type::Integer;
+        let t2 = types::Type::String;
 
         let mut scope = Scope::new();
         scope.enter();
@@ -171,6 +191,13 @@ mod test {
 
         let t_ = scope.lookup(&id).expect("lookup failed");
 
-        assert_eq!(t, t_, "lookup returned wrong type");
+        // TODO: use this instead, once it doesn't require nightly:
+        //assert_matches!(t_, Type::Type(t_), "t_ should be a real type, found {t_:?}");
+
+        if let Type::Type(t_) = t_ {
+            assert_eq!(t, t_, "lookup returned wrong type");
+        } else {
+            panic!("t_ should be a real type, found {t_:?}");
+        }
     }
 }
