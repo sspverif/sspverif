@@ -1,7 +1,6 @@
-use crate::statement::{CodeBlock,Statement};
 use crate::expressions::Expression;
+use crate::statement::{CodeBlock, Statement};
 use crate::types::Type;
-
 
 use std::collections::HashMap;
 use std::fmt;
@@ -53,12 +52,17 @@ pub struct Package {
 }
 
 impl Package {
-    pub fn called_oracles(&self, oracle:&OracleDef) -> Vec<OracleSig> {
+    pub fn called_oracles(&self, oracle: &OracleDef) -> Vec<OracleSig> {
         let mut result = Vec::new();
-        let mut called_oracles_helper = |cb:&CodeBlock| {
+        let mut called_oracles_helper = |cb: &CodeBlock| {
             for stmt in &cb.0 {
                 match stmt {
-                    Statement::InvokeOracle{name, args, tipe:Some(tipe), ..} => {
+                    Statement::InvokeOracle {
+                        name,
+                        args,
+                        tipe: Some(tipe),
+                        ..
+                    } => {
                         let found = self.imports.iter().find(|sig|{
                             sig.name == *name && sig.tipe == *tipe &&
                                 sig.args.iter().zip(args.iter()).all(|(l,r)| {
