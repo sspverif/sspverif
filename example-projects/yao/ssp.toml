@@ -4,7 +4,6 @@ left = "Left"
 right = "Right"
 
 [[game_hops]]
-
 [game_hops.Reduction]
 
 left = "Left"
@@ -13,11 +12,10 @@ assumption = "LeftRight"
 leftmap = [["keys_top", "keys_top"], ["keys_bottom", "keys_bottom"],["gate","gate"], ["enc", "enc"]]
 rightmap = [["keys_top", "keys_bottom"], ["keys_bottom", "keys_top"],["simgate", "simgate"],["ev", "ev"]]
 
-#[[game_hops]]
-#
-#[game_hops.Equivalence]
-#
-#left = "Asd"
-#right = "rte"
-#invariant_path = "s;lvksf"
-    
+[[game_hops]]
+[game_hops.Equivalence]
+
+left = "Left"
+right = "Right"
+invariant_path = "./invariant-GBLG.smt2"
+trees.GBLG = [["foo", []], ["bar", ["foo"]]]

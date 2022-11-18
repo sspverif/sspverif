@@ -63,10 +63,12 @@ impl From<load::TomlGameHop> for GameHop {
                 left,
                 right,
                 invariant_path,
+                trees,
             } => GameHop::Equivalence(Equivalence {
                 left,
                 right,
                 invariant_path,
+                trees,
             }),
         }
     }
@@ -160,14 +162,32 @@ impl Project {
         Ok(f)
     }
 
-    pub fn get_smt_decl_file(
+    pub fn get_smt_base_decl_file(
         &self,
         left_game_name: &str,
         right_game_name: &str,
     ) -> Result<std::fs::File> {
         let mut path = self.root_dir.clone();
 
-        path.push("_build/code_eq/decls/");
+        path.push("_build/code_eq/base_decls/");
+        std::fs::create_dir_all(&path)?;
+
+        path.push(format!("{left_game_name}_{right_game_name}.smt2"));
+        let f = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open(path)?;
+
+        Ok(f)
+    }
+    pub fn get_smt_const_decl_file(
+        &self,
+        left_game_name: &str,
+        right_game_name: &str,
+    ) -> Result<std::fs::File> {
+        let mut path = self.root_dir.clone();
+
+        path.push("_build/code_eq/const_decls/");
         std::fs::create_dir_all(&path)?;
 
         path.push(format!("{left_game_name}_{right_game_name}.smt2"));

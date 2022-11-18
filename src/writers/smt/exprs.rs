@@ -6,7 +6,7 @@ pub fn smt_to_string<T: Into<SmtExpr>>(t: T) -> String {
     t.into().to_string()
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord,Eq, PartialEq)]
+#[derive(Debug, Clone, PartialOrd, Ord, Eq, PartialEq)]
 pub enum SmtExpr {
     Comment(String),
     Atom(String),
@@ -28,6 +28,32 @@ impl From<&str> for SmtExpr {
 impl From<String> for SmtExpr {
     fn from(atom: String) -> Self {
         SmtExpr::Atom(atom)
+    }
+}
+
+impl<V: Into<SmtExpr>> From<SmtNot<V>> for SmtExpr {
+    fn from(value: SmtNot<V>) -> Self {
+        SmtExpr::List(vec!["not".into(), value.0.into()])
+    }
+}
+
+impl From<SmtAnd> for SmtExpr {
+    fn from(terms: SmtAnd) -> Self {
+        let mut list: Vec<SmtExpr> = vec!["and".into()];
+        list.extend(terms.0);
+        SmtExpr::List(list)
+    }
+}
+
+impl<PRE: Into<SmtExpr>, POST: Into<SmtExpr>> From<SmtImplies<PRE, POST>> for SmtExpr {
+    fn from(value: SmtImplies<PRE, POST>) -> Self {
+        SmtExpr::List(vec!["=>".into(), value.0.into(), value.1.into()])
+    }
+}
+
+impl<B: Into<SmtExpr>> From<SmtAssert<B>> for SmtExpr {
+    fn from(asrt: SmtAssert<B>) -> Self {
+        SmtExpr::List(vec!["assert".into(), asrt.0.into()])
     }
 }
 
@@ -91,6 +117,35 @@ impl From<Type> for SmtExpr {
                 SmtExpr::Atom("Array".into()),
                 (*t_idx).into(),
                 Type::Maybe(t_val).into(),
+            ]),
+            Type::Tuple(types) => SmtExpr::List({
+                let mut els = vec![SmtExpr::Atom(format!("Tuple{}", types.len()))];
+                for t in types {
+                    els.push(t.into());
+                }
+                els
+            }),
+            _ => {
+                panic!("not implemented: {:?}", t)
+            }
+        }
+    }
+}
+
+impl From<&Type> for SmtExpr {
+    fn from(t: &Type) -> SmtExpr {
+        match t {
+            Type::Bits(length) => {
+                // TODO make sure we define this somewhere
+                SmtExpr::Atom(format!("Bits_{}", length))
+            }
+            Type::Maybe(t) => SmtExpr::List(vec![SmtExpr::Atom("Maybe".into()), (&**t).into()]),
+            Type::Boolean => SmtExpr::Atom("Bool".to_string()),
+            Type::Integer => SmtExpr::Atom("Int".into()),
+            Type::Table(t_idx, t_val) => SmtExpr::List(vec![
+                SmtExpr::Atom("Array".into()),
+                (&**t_idx).into(),
+                Type::Maybe(t_val.clone()).into(),
             ]),
             Type::Tuple(types) => SmtExpr::List({
                 let mut els = vec![SmtExpr::Atom(format!("Tuple{}", types.len()))];
@@ -247,6 +302,17 @@ where
     pub con: C,
     pub expr: E,
 }
+
+pub struct SmtAssert<B: Into<SmtExpr>>(pub B);
+
+pub struct SmtNot<V: Into<SmtExpr>>(pub V);
+
+pub struct SmtAnd(pub Vec<SmtExpr>);
+
+pub struct SmtImplies<PRE, POST>(pub PRE, pub POST)
+where
+    PRE: Into<SmtExpr>,
+    POST: Into<SmtExpr>;
 
 pub enum SspSmtVar {
     CompositionContext,

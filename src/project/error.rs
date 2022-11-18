@@ -26,6 +26,8 @@ pub enum Error {
     ),
     #[error("toml parse error: {0}")]
     TomlParseError(#[from] toml_edit::de::Error),
+    #[error("proof tree validation failed: {0}")]
+    ProofTreeValidationError(String),
     #[error("package {0} defined in both {1} and {2}")]
     RedefinedPackage(String, String, String),
     #[error("composisitions {0} and {1} have mismatching const/param {2}")]

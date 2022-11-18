@@ -109,7 +109,7 @@ impl PackageInstance {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Edge(pub usize, pub usize, pub OracleSig);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Export(pub usize, pub OracleSig);
 
 #[derive(Debug, Clone, PartialEq, Eq)]

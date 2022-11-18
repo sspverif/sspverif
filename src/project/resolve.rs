@@ -36,29 +36,48 @@ impl Project {
 
         let assumption_name = reduction.assumption.clone();
 
-        let leftmap : Result<Vec<_>> = reduction.leftmap.iter().map(|(from, to)|{
-            let gameindex = left.pkgs.iter().position(|pkg| &pkg.name == from).ok_or(Error::UndefinedMapping(
-                    from.clone(),
-                    format!("in reduction {i}, left game")))?;
-            let assumptionindex = assumption.left.pkgs.iter().position(|pkg| &pkg.name == to).ok_or(Error::UndefinedMapping(
-                    to.clone(),
-                    format!("in reduction {i}, left assumption")))?;
-            Ok((gameindex, assumptionindex))
-        }).collect();
+        let leftmap: Result<Vec<_>> = reduction
+            .leftmap
+            .iter()
+            .map(|(from, to)| {
+                let gameindex = left.pkgs.iter().position(|pkg| &pkg.name == from).ok_or(
+                    Error::UndefinedMapping(from.clone(), format!("in reduction {i}, left game")),
+                )?;
+                let assumptionindex = assumption
+                    .left
+                    .pkgs
+                    .iter()
+                    .position(|pkg| &pkg.name == to)
+                    .ok_or(Error::UndefinedMapping(
+                        to.clone(),
+                        format!("in reduction {i}, left assumption"),
+                    ))?;
+                Ok((gameindex, assumptionindex))
+            })
+            .collect();
         let leftmap = leftmap?;
 
-        let rightmap : Result<Vec<_>> = reduction.rightmap.iter().map(|(from, to)|{
-            let gameindex = right.pkgs.iter().position(|pkg| &pkg.name == from).ok_or(Error::UndefinedMapping(
-                    from.clone(),
-                    format!("in reduction {i}, right game")))?;
-            let assumptionindex = assumption.right.pkgs.iter().position(|pkg| &pkg.name == to).ok_or(Error::UndefinedMapping(
-                    to.clone(),
-                    format!("in reduction {i}, right assumption")))?;
-            Ok((gameindex, assumptionindex))
-        }).collect();
+        let rightmap: Result<Vec<_>> = reduction
+            .rightmap
+            .iter()
+            .map(|(from, to)| {
+                let gameindex = right.pkgs.iter().position(|pkg| &pkg.name == from).ok_or(
+                    Error::UndefinedMapping(from.clone(), format!("in reduction {i}, right game")),
+                )?;
+                let assumptionindex = assumption
+                    .right
+                    .pkgs
+                    .iter()
+                    .position(|pkg| &pkg.name == to)
+                    .ok_or(Error::UndefinedMapping(
+                        to.clone(),
+                        format!("in reduction {i}, right assumption"),
+                    ))?;
+                Ok((gameindex, assumptionindex))
+            })
+            .collect();
         let rightmap = rightmap?;
 
-        
         Ok(ResolvedReduction {
             left,
             right,
@@ -70,33 +89,45 @@ impl Project {
     }
 
     pub fn resolve_equivalence(&self, eq: &Equivalence) -> Result<ResolvedEquivalence> {
-        let Equivalence { left, right, .. } = eq;
+        let Equivalence {
+            left,
+            right,
+            invariant_path,
+            trees,
+            ..
+        } = eq;
+        let trees = trees.clone();
+
         let left_err = Error::UndefinedGame(
-            eq.left.to_string(),
+            left.to_string(),
             format!("in resolving the equivalence between {left} and {right}"),
         );
         let right_err = Error::UndefinedGame(
-            eq.right.to_string(),
+            right.to_string(),
             format!("in resolving the equivalence between {left} and {right}"),
         );
 
-        let left = self.get_game(&eq.left).ok_or(left_err)?.clone();
-        let right = self.get_game(&eq.right).ok_or(right_err)?.clone();
+        let left_game = self.get_game(left).ok_or(left_err)?.clone();
+        let right_game = self.get_game(right).ok_or(right_err)?.clone();
 
-        let inv_path = self.get_invariant_path(&eq.invariant_path);
+        let inv_path = self.get_invariant_path(invariant_path);
         let invariant = std::fs::read_to_string(inv_path)?;
 
-        let left_smt_file = self.get_smt_game_file(&eq.left)?;
-        let right_smt_file = self.get_smt_game_file(&eq.right)?;
-        let decl_smt_file = self.get_smt_decl_file(&eq.left, &eq.right)?;
+        let left_smt_file = self.get_smt_game_file(left)?;
+        let right_smt_file = self.get_smt_game_file(right)?;
+        let base_decl_smt_file = self.get_smt_base_decl_file(left, right)?;
+        let const_decl_smt_file = self.get_smt_const_decl_file(left, right)?;
 
         Ok(ResolvedEquivalence {
-            left,
-            right,
+            left: left_game,
+            right: right_game,
             invariant,
+            trees,
+
             left_smt_file,
             right_smt_file,
-            decl_smt_file,
+            base_decl_smt_file,
+            const_decl_smt_file,
         })
     }
 

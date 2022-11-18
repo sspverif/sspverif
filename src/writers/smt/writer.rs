@@ -86,14 +86,60 @@ impl<'a> CompositionSmtWriter<'a> {
         states
     }
 
+    pub fn smt_sort_return(&self, inst_name: &str, oracle_name: &str) -> SmtExpr {
+        format!("Return_{}_{}_{}", self.comp.name, inst_name, oracle_name).into()
+    }
+
+    pub fn smt_sort_composition_state(&self) -> SmtExpr {
+        self.comp_helper.smt_sort()
+    }
+
     fn smt_pkg_return(&self, inst: &PackageInstance) -> Vec<SmtExpr> {
         let mut smts = vec![];
 
         for osig in inst.get_oracle_sigs() {
+<<<<<<< HEAD
             smts.push(
                 SmtReturnState::new(&self.comp.name, &inst.name, osig)
                     .smt_declare_datatype(self.comp_helper.smt_sort()),
             )
+=======
+            let mut constructor = vec![
+                SmtExpr::Atom(format!(
+                    "mk-return-{}-{}-{}",
+                    self.comp.name, inst.name, osig.name
+                )),
+                SmtExpr::List(vec![
+                    SmtExpr::Atom(format!(
+                        "return-{}-{}-{}-state",
+                        self.comp.name, inst.name, osig.name
+                    )),
+                    self.comp_helper.smt_sort(),
+                ]),
+            ];
+
+            if Type::Empty != osig.tipe {
+                constructor.push(SmtExpr::List(vec![
+                    SmtExpr::Atom(format!(
+                        "return-{}-{}-{}-value",
+                        self.comp.name, inst.name, osig.name
+                    )),
+                    osig.tipe.into(),
+                ]));
+            }
+
+            smts.push(SmtExpr::List(vec![
+                SmtExpr::Atom("declare-datatype".to_string()),
+                self.smt_sort_return(&inst.name, &osig.name),
+                SmtExpr::List(vec![
+                    SmtExpr::List(vec![SmtExpr::Atom(format!(
+                        "mk-abort-{}-{}-{}",
+                        self.comp.name, inst.name, osig.name
+                    ))]),
+                    SmtExpr::List(constructor),
+                ]),
+            ]))
+>>>>>>> c9b2902 (progress on lemma structure and prover interaction)
         }
         smts
     }

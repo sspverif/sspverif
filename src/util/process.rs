@@ -23,6 +23,16 @@ impl Communicator {
         Self::new_from_cmd(cmd)
     }
 
+    pub fn new_cvc4() -> Result<Self> {
+        let mut cmd = std::process::Command::new("cvc4");
+        cmd.args(["--lang=smt2", "--incremental"])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::inherit());
+
+        Self::new_from_cmd(cmd)
+    }
+
     pub fn new_from_cmd(mut cmd: std::process::Command) -> Result<Self> {
         let cmd = cmd.spawn()?;
 
@@ -31,9 +41,16 @@ impl Communicator {
         let mut stdin = cmd.stdin.unwrap();
         let stdout = cmd.stdout.unwrap();
 
+        let mut debug = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open("/tmp/debugfile")?;
+
         let thrd = std::thread::spawn(move || {
             for data in recv {
                 write!(stdin, "{data}")?;
+                write!(debug, "{data}")?;
+                stdin.flush()?;
             }
             Ok(())
         });
@@ -61,12 +78,18 @@ impl Communicator {
                 let rest_bs = data[match_end..].as_bytes();
 
                 self.buf.fill(0);
-                let written = self.buf.write(rest_bs)?;
-                self.pos = written;
+                self.pos = rest_bs.len();
+                self.buf[..self.pos].copy_from_slice(&rest_bs);
 
                 return Ok((match_start, ret));
             }
         }
+    }
+
+    pub fn read_until_end(&mut self) -> Result<String> {
+        let mut data = String::from_utf8(self.buf[..self.pos].to_vec())?;
+        self.stdout.read_to_string(&mut data)?;
+        Ok(data)
     }
 
     pub fn close(&mut self) {
