@@ -200,6 +200,25 @@ impl Project {
         Ok(f)
     }
 
+    pub fn get_epilogue_smt_file(
+        &self,
+        left_game_name: &str,
+        right_game_name: &str,
+    ) -> Result<std::fs::File> {
+        let mut path = self.root_dir.clone();
+
+        path.push("_build/code_eq/epilogue/");
+        std::fs::create_dir_all(&path)?;
+
+        path.push(format!("{left_game_name}_{right_game_name}.smt2"));
+        let f = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open(path)?;
+
+        Ok(f)
+    }
+
     fn get_invariant_path(&self, invariant_path: &str) -> PathBuf {
         let path = PathBuf::from(invariant_path);
         if path.is_absolute() {

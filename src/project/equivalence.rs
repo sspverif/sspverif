@@ -38,6 +38,7 @@ pub struct ResolvedEquivalence {
     pub right_decl_smt_file: std::fs::File,
     pub base_decl_smt_file: std::fs::File,
     pub const_decl_smt_file: std::fs::File,
+    pub epilogue_smt_file: std::fs::File,
 }
 
 impl ResolvedEquivalence {
@@ -52,6 +53,7 @@ impl ResolvedEquivalence {
             right_decl_smt_file,
             base_decl_smt_file,
             const_decl_smt_file,
+            epilogue_smt_file,
 
             trees,
         } = self;
@@ -313,6 +315,7 @@ impl ResolvedEquivalence {
         write!(right_decl_smt_file, "{rght_declarations}")?;
 
         write!(const_decl_smt_file, "{const_declarations}")?;
+        write!(epilogue_smt_file, "{epilogue}")?;
 
         // start talking to prover
 
