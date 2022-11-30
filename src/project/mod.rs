@@ -147,7 +147,7 @@ impl Project {
         self.root_dir.clone()
     }
 
-    pub fn get_smt_game_file(&self, game_name: &str) -> Result<std::fs::File> {
+    pub fn get_game_smt_file(&self, game_name: &str) -> Result<std::fs::File> {
         let mut path = self.root_dir.clone();
 
         path.push("_build/code_eq/games/");
@@ -162,7 +162,7 @@ impl Project {
         Ok(f)
     }
 
-    pub fn get_smt_base_decl_file(
+    pub fn get_base_decl_smt_file(
         &self,
         left_game_name: &str,
         right_game_name: &str,
@@ -180,7 +180,8 @@ impl Project {
 
         Ok(f)
     }
-    pub fn get_smt_const_decl_file(
+
+    pub fn get_const_decl_smt_file(
         &self,
         left_game_name: &str,
         right_game_name: &str,

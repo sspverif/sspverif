@@ -34,8 +34,8 @@ pub struct ResolvedEquivalence {
     pub invariant: String,
     pub trees: HashMap<String, ProofTreeSpec>,
 
-    pub left_smt_file: std::fs::File,
-    pub right_smt_file: std::fs::File,
+    pub left_decl_smt_file: std::fs::File,
+    pub right_decl_smt_file: std::fs::File,
     pub base_decl_smt_file: std::fs::File,
     pub const_decl_smt_file: std::fs::File,
 }
@@ -47,10 +47,12 @@ impl ResolvedEquivalence {
             left,
             right,
             invariant,
-            ref mut left_smt_file,
-            ref mut right_smt_file,
+
+            left_decl_smt_file,
+            right_decl_smt_file,
             base_decl_smt_file,
             const_decl_smt_file,
+
             trees,
         } = self;
 
@@ -74,36 +76,33 @@ impl ResolvedEquivalence {
         bits_types.sort();
 
         // prepare the buffer for the data we send to the prover
-        let mut definitions = String::new();
+        let mut base_declarations = String::new();
+        let mut left_declarations = String::new();
+        let mut rght_declarations = String::new();
 
         // write bits types declarations
         for id in bits_types {
-            write!(definitions, "{}", hacks::BitsDeclaration(id.clone()))?;
-            write!(base_decl_smt_file, "{}", hacks::BitsDeclaration(id))?;
+            write!(base_declarations, "{}", hacks::BitsDeclaration(id))?;
         }
 
         // write other type declarations
-        write!(definitions, "{}", hacks::MaybeDeclaration)?;
-        write!(base_decl_smt_file, "{}", hacks::MaybeDeclaration)?;
-        write!(definitions, "{}", hacks::TuplesDeclaration(1..32))?;
-        write!(base_decl_smt_file, "{}", hacks::TuplesDeclaration(1..32))?;
+        write!(base_declarations, "{}", hacks::MaybeDeclaration)?;
+        write!(base_declarations, "{}", hacks::TuplesDeclaration(1..32))?;
 
         // write left game code
         let mut left_writer = CompositionSmtWriter::new(&comp_left, &samp_left);
         for line in left_writer.smt_composition_all() {
-            write!(left_smt_file, "{line}")?;
-            write!(definitions, "{line}")?;
+            write!(left_declarations, "{line}")?;
         }
 
         // write right game code
         let mut right_writer = CompositionSmtWriter::new(&comp_right, &samp_right);
         for line in right_writer.smt_composition_all() {
-            write!(right_smt_file, "{line}")?;
-            write!(definitions, "{line}")?;
+            write!(rght_declarations, "{line}")?;
         }
 
         //// Declarations
-        let mut declarations = String::new();
+        let mut const_declarations = String::new();
 
         // write declaration of left (old) state constant
         let decl_state_left: SmtExpr = (
@@ -112,8 +111,7 @@ impl ResolvedEquivalence {
             left_writer.smt_sort_composition_state(),
         )
             .into();
-        write!(declarations, "{decl_state_left}")?;
-        write!(const_decl_smt_file, "{decl_state_left}")?;
+        write!(const_declarations, "{decl_state_left}")?;
 
         // write declaration of right (old) state constant
         let decl_state_right: SmtExpr = (
@@ -122,8 +120,7 @@ impl ResolvedEquivalence {
             right_writer.smt_sort_composition_state(),
         )
             .into();
-        write!(declarations, "{decl_state_right}")?;
-        write!(const_decl_smt_file, "{decl_state_right}")?;
+        write!(const_declarations, "{decl_state_right}")?;
 
         // write declarations of arguments
         for Export(_, sig) in &left.exports {
@@ -135,8 +132,7 @@ impl ResolvedEquivalence {
                     arg_type,
                 )
                     .into();
-                write!(declarations, "{decl_arg}")?;
-                write!(const_decl_smt_file, "{decl_arg}")?;
+                write!(const_declarations, "{decl_arg}")?;
             }
         }
 
@@ -153,15 +149,14 @@ impl ResolvedEquivalence {
                 left_writer.smt_sort_return(inst_name, oracle_name),
             )
                 .into();
-            write!(declarations, "{decl_return_left}")?;
-            write!(const_decl_smt_file, "{decl_return_left}")?;
+            write!(const_declarations, "{decl_return_left}")?;
 
             let mut cmdline: Vec<SmtExpr> = vec![
                 format!("oracle-{comp_name}-{inst_name}-{oracle_name}").into(),
                 "state-left".into(),
             ];
 
-            for (arg_name, arg_type) in &sig.args {
+            for (arg_name, _arg_type) in &sig.args {
                 cmdline.push(format!("arg-{oracle_name}-{arg_name}").into());
             }
 
@@ -170,8 +165,7 @@ impl ResolvedEquivalence {
                 rhs: SmtExpr::List(cmdline),
             })
             .into();
-            write!(declarations, "{constrain_return}")?;
-            write!(const_decl_smt_file, "{constrain_return}")?;
+            write!(const_declarations, "{constrain_return}")?;
         }
 
         // write declarations of right return constants and constrain them
@@ -187,15 +181,14 @@ impl ResolvedEquivalence {
                 right_writer.smt_sort_return(inst_name, oracle_name),
             )
                 .into();
-            write!(declarations, "{decl_return_right}")?;
-            write!(const_decl_smt_file, "{decl_return_right}")?;
+            write!(const_declarations, "{decl_return_right}")?;
 
             let mut cmdline = vec![
                 format!("oracle-{comp_name}-{inst_name}-{oracle_name}").into(),
                 "state-right".into(),
             ];
 
-            for (arg_name, arg_type) in &sig.args {
+            for (arg_name, _arg_type) in &sig.args {
                 cmdline.push(format!("arg-{oracle_name}-{arg_name}").into());
             }
 
@@ -204,14 +197,13 @@ impl ResolvedEquivalence {
                 rhs: SmtExpr::List(cmdline),
             })
             .into();
-            write!(declarations, "{constrain_return}")?;
-            write!(const_decl_smt_file, "{constrain_return}")?;
+            write!(const_declarations, "{constrain_return}")?;
         }
 
         // write epilogue code
         let mut epilogue = String::new();
         for (oracle_name, tree) in trees {
-            write!(epilogue, "; oracle {oracle_name}")?;
+            write!(epilogue, "; oracle {oracle_name}\n")?;
 
             let sig = left
                 .exports
@@ -269,6 +261,23 @@ impl ResolvedEquivalence {
                 SmtExpr::List(tmp)
             };
 
+            /*
+            implicint deps:
+            - randomness mapping
+            - invariant holds on old state
+
+            (push 1)
+            (assert (not (=>
+                (and
+                    (implicit dependencies)
+                    (explicit dependencies)
+                )
+                (current lemma)
+            )))
+            (check-sat)
+            (pop 1)
+            */
+
             for (lemma_name, deps) in tree {
                 write!(epilogue, "; lemma {lemma_name}\n")?;
 
@@ -298,35 +307,27 @@ impl ResolvedEquivalence {
             }
         }
 
-        /*
-        implicint deps:
-        - randomness mapping
-        - invariant holds on old state
+        // write data to files
+        write!(base_decl_smt_file, "{base_declarations}")?;
+        write!(left_decl_smt_file, "{left_declarations}")?;
+        write!(right_decl_smt_file, "{rght_declarations}")?;
 
-        (push 1)
-        (assert (not (=>
-            (and
-                (implicit dependencies)
-                (explicit dependencies)
-            )
-            (current lemma)
-        )))
-        (check-sat)
-        (pop 1)
-        */
+        write!(const_decl_smt_file, "{const_declarations}")?;
 
-        ///////// start talking to prover
+        // start talking to prover
 
         let mut prover_comm = Communicator::new_cvc4()?;
 
-        write!(prover_comm, "{definitions}")?;
+        write!(prover_comm, "{base_declarations}")?;
+        write!(prover_comm, "{left_declarations}")?;
+        write!(prover_comm, "{rght_declarations}")?;
         write!(prover_comm, "(check-sat)\n")?;
 
         println!("sent definitions, waiting for sat... ");
         expect_sat(&mut prover_comm)?;
         println!("received.");
 
-        write!(prover_comm, "{declarations}")?;
+        write!(prover_comm, "{const_declarations}")?;
         write!(prover_comm, "(check-sat)\n")?;
 
         println!("sent declarations and basic constraints, waiting for sat... ");

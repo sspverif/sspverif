@@ -5,7 +5,6 @@ use super::scope::Scope;
 use crate::package::{Composition, Edge, Export, PackageInstance};
 
 use crate::identifier::Identifier;
-use crate::types::Type;
 
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;

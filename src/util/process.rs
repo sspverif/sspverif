@@ -25,7 +25,7 @@ impl Communicator {
 
     pub fn new_cvc4() -> Result<Self> {
         let mut cmd = std::process::Command::new("cvc4");
-        cmd.args(["--lang=smt2", "--incremental"])
+        cmd.args(["--lang=smt2", "--incremental", "--produce-models"])
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::inherit());

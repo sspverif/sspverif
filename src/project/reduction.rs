@@ -226,7 +226,7 @@ mod tests {
     use crate::package::{
         Composition, Edge, Export, OracleDef, OracleSig, Package, PackageInstance,
     };
-    use crate::project::assumption::{self, ResolvedAssumption};
+    use crate::project::assumption::ResolvedAssumption;
     use crate::statement::CodeBlock;
     use crate::types::Type;
 

@@ -113,10 +113,10 @@ impl Project {
         let inv_path = self.get_invariant_path(invariant_path);
         let invariant = std::fs::read_to_string(inv_path)?;
 
-        let left_smt_file = self.get_smt_game_file(left)?;
-        let right_smt_file = self.get_smt_game_file(right)?;
-        let base_decl_smt_file = self.get_smt_base_decl_file(left, right)?;
-        let const_decl_smt_file = self.get_smt_const_decl_file(left, right)?;
+        let left_decl_smt_file = self.get_game_smt_file(left)?;
+        let right_decl_smt_file = self.get_game_smt_file(right)?;
+        let base_decl_smt_file = self.get_base_decl_smt_file(left, right)?;
+        let const_decl_smt_file = self.get_const_decl_smt_file(left, right)?;
 
         Ok(ResolvedEquivalence {
             left: left_game,
@@ -124,8 +124,8 @@ impl Project {
             invariant,
             trees,
 
-            left_smt_file,
-            right_smt_file,
+            left_decl_smt_file,
+            right_decl_smt_file,
             base_decl_smt_file,
             const_decl_smt_file,
         })
