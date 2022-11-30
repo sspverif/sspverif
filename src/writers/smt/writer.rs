@@ -8,7 +8,7 @@ use crate::transforms::samplify::SampleInfo;
 use crate::types::Type;
 
 use crate::writers::smt::{
-    exprs::{smt_to_string, SmtExpr, SmtIs, SmtIte, SmtLet, SspSmtVar},
+    exprs::{smt_to_string, SmtExpr, SmtIte, SmtLet, SspSmtVar},
     state_helpers::{SmtCompositionContext, SmtPackageState, SmtReturnState},
 };
 
@@ -98,48 +98,10 @@ impl<'a> CompositionSmtWriter<'a> {
         let mut smts = vec![];
 
         for osig in inst.get_oracle_sigs() {
-<<<<<<< HEAD
             smts.push(
                 SmtReturnState::new(&self.comp.name, &inst.name, osig)
                     .smt_declare_datatype(self.comp_helper.smt_sort()),
             )
-=======
-            let mut constructor = vec![
-                SmtExpr::Atom(format!(
-                    "mk-return-{}-{}-{}",
-                    self.comp.name, inst.name, osig.name
-                )),
-                SmtExpr::List(vec![
-                    SmtExpr::Atom(format!(
-                        "return-{}-{}-{}-state",
-                        self.comp.name, inst.name, osig.name
-                    )),
-                    self.comp_helper.smt_sort(),
-                ]),
-            ];
-
-            if Type::Empty != osig.tipe {
-                constructor.push(SmtExpr::List(vec![
-                    SmtExpr::Atom(format!(
-                        "return-{}-{}-{}-value",
-                        self.comp.name, inst.name, osig.name
-                    )),
-                    osig.tipe.into(),
-                ]));
-            }
-
-            smts.push(SmtExpr::List(vec![
-                SmtExpr::Atom("declare-datatype".to_string()),
-                self.smt_sort_return(&inst.name, &osig.name),
-                SmtExpr::List(vec![
-                    SmtExpr::List(vec![SmtExpr::Atom(format!(
-                        "mk-abort-{}-{}-{}",
-                        self.comp.name, inst.name, osig.name
-                    ))]),
-                    SmtExpr::List(constructor),
-                ]),
-            ]))
->>>>>>> c9b2902 (progress on lemma structure and prover interaction)
         }
         smts
     }
@@ -161,7 +123,6 @@ impl<'a> CompositionSmtWriter<'a> {
     ) -> SmtExpr {
         let PackageInstance { name: pkgname, .. } = inst;
         let OracleSig {
-            name: oracle_name,
             tipe: oracle_return_tipe,
             ..
         } = sig;
@@ -611,7 +572,7 @@ impl<'a> CompositionSmtWriter<'a> {
     }
 
     fn smt_composition_paramfuncs(&self) -> Vec<SmtExpr> {
-        let mut fns = self
+        let fns = self
             .comp
             .consts
             .iter()
@@ -648,7 +609,8 @@ impl<'a> CompositionSmtWriter<'a> {
     }
 
     fn smt_composition_randomness(&mut self) -> Vec<SmtExpr> {
-        let mut result : Vec<_> = self.sample_info
+        let mut result: Vec<_> = self
+            .sample_info
             .tipes
             .iter()
             .map(|tipe| {

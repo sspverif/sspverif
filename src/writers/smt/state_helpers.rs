@@ -1,6 +1,6 @@
+use crate::package::OracleSig;
 use crate::transforms::samplify::SampleInfo;
 use crate::types::Type;
-use crate::package::OracleSig;
 
 use crate::writers::smt::exprs::{smt_to_string, SmtExpr, SmtLet, SspSmtVar};
 
@@ -137,9 +137,10 @@ impl<'a> SmtCompositionContext<'a> {
     pub fn smt_set_pkg_state(&self, target: &str, new: &SmtExpr, body: SmtExpr) -> SmtExpr {
         // initialize list with constructor name
         let mut tmp = vec![self.smt_constructor()];
-        let latest_state = SmtExpr::List(vec![SmtExpr::Atom("select".into()),
-                                              SspSmtVar::CompositionContext.into(),
-                                              SspSmtVar::ContextLength.into(),
+        let latest_state = SmtExpr::List(vec![
+            SmtExpr::Atom("select".into()),
+            SspSmtVar::CompositionContext.into(),
+            SspSmtVar::ContextLength.into(),
         ]);
 
         // add values for the package states, replacing target
@@ -162,25 +163,28 @@ impl<'a> SmtCompositionContext<'a> {
         }
 
         SmtLet {
-            bindings: vec![(
-                smt_to_string(SspSmtVar::CompositionContext),
-                SmtExpr::List(vec![
-                    SmtExpr::Atom("store".into()),
-                    SspSmtVar::CompositionContext.into(),
+            bindings: vec![
+                (
+                    smt_to_string(SspSmtVar::CompositionContext),
+                    SmtExpr::List(vec![
+                        SmtExpr::Atom("store".into()),
+                        SspSmtVar::CompositionContext.into(),
+                        SmtExpr::List(vec![
+                            SmtExpr::Atom("+".into()),
+                            SmtExpr::Atom("1".into()),
+                            SspSmtVar::ContextLength.into(),
+                        ]),
+                        SmtExpr::List(tmp),
+                    ]),
+                ),
+                (
+                    smt_to_string(SspSmtVar::ContextLength),
                     SmtExpr::List(vec![
                         SmtExpr::Atom("+".into()),
                         SmtExpr::Atom("1".into()),
-                        SspSmtVar::ContextLength.into()]),
-                    SmtExpr::List(tmp),
-                ])
-            ),(
-                smt_to_string(SspSmtVar::ContextLength),
-                SmtExpr::List(vec![
-                    SmtExpr::Atom("+".into()),
-                    SmtExpr::Atom("1".into()),
-                    SspSmtVar::ContextLength.into()
-                ])
-            )
+                        SspSmtVar::ContextLength.into(),
+                    ]),
+                ),
             ],
             body,
         }
@@ -190,9 +194,10 @@ impl<'a> SmtCompositionContext<'a> {
     pub fn smt_set_rand_ctr(&self, target_sample_id: u32, new: &SmtExpr, body: SmtExpr) -> SmtExpr {
         // initialize list with constructor name
         let mut tmp = vec![self.smt_constructor()];
-        let latest_state = SmtExpr::List(vec![SmtExpr::Atom("select".into()),
-                                              SspSmtVar::CompositionContext.into(),
-                                              SspSmtVar::ContextLength.into(),
+        let latest_state = SmtExpr::List(vec![
+            SmtExpr::Atom("select".into()),
+            SspSmtVar::CompositionContext.into(),
+            SspSmtVar::ContextLength.into(),
         ]);
 
         // copy values for the package states
@@ -224,7 +229,7 @@ impl<'a> SmtCompositionContext<'a> {
                     SspSmtVar::CompositionContext.into(),
                     SspSmtVar::ContextLength.into(),
                     SmtExpr::List(tmp),
-                ])
+                ]),
             )],
             body,
         }
@@ -342,9 +347,6 @@ impl<'a> SmtPackageState<'a> {
     }
 }
 
-
-
-
 #[derive(Clone, Debug)]
 pub struct SmtReturnState<'a> {
     comp_name: &'a str,
@@ -358,11 +360,7 @@ pub struct SmtReturnState<'a> {
  */
 
 impl<'a> SmtReturnState<'a> {
-    pub fn new(
-        comp_name: &'a str,
-        inst_name: &'a str,
-        sig: OracleSig,
-    ) -> SmtReturnState<'a> {
+    pub fn new(comp_name: &'a str, inst_name: &'a str, sig: OracleSig) -> SmtReturnState<'a> {
         SmtReturnState {
             comp_name,
             inst_name,
@@ -371,7 +369,7 @@ impl<'a> SmtReturnState<'a> {
     }
 
     pub fn smt_declare_datatype(&self, comp_sort: SmtExpr) -> SmtExpr {
-        let mut constructor = vec![
+        let constructor = vec![
             self.smt_constructor_atom(),
             SmtExpr::List(vec![
                 self.smt_access_states_atom(),
@@ -379,7 +377,7 @@ impl<'a> SmtReturnState<'a> {
                     SmtExpr::Atom("Array".into()),
                     SmtExpr::Atom("Int".into()),
                     comp_sort,
-                ])
+                ]),
             ]),
             SmtExpr::List(vec![
                 self.smt_access_states_length_atom(),
@@ -389,78 +387,90 @@ impl<'a> SmtReturnState<'a> {
                 self.smt_access_value_atom(),
                 Type::Maybe(Box::new(self.sig.tipe.clone())).into(),
             ]),
-            SmtExpr::List(vec![
-                self.smt_access_is_abort_atom(),
-                Type::Boolean.into(),
-            ]),
+            SmtExpr::List(vec![self.smt_access_is_abort_atom(), Type::Boolean.into()]),
         ];
 
         SmtExpr::List(vec![
             SmtExpr::Atom("declare-datatype".to_string()),
             self.smt_sort(),
-            SmtExpr::List(vec![
-                SmtExpr::List(constructor),
-            ]),
+            SmtExpr::List(vec![SmtExpr::List(constructor)]),
         ])
     }
 
-    pub fn smt_constructor(&self, state: SmtExpr, statelen: SmtExpr, value: SmtExpr, isabort: SmtExpr) -> SmtExpr {
+    pub fn smt_constructor(
+        &self,
+        state: SmtExpr,
+        statelen: SmtExpr,
+        value: SmtExpr,
+        isabort: SmtExpr,
+    ) -> SmtExpr {
         SmtExpr::List(vec![
-            SmtExpr::Atom(format!("mk-return-{}-{}-{}", self.comp_name, self.inst_name, self.sig.name)),
-            state, statelen, value, isabort
+            SmtExpr::Atom(format!(
+                "mk-return-{}-{}-{}",
+                self.comp_name, self.inst_name, self.sig.name
+            )),
+            state,
+            statelen,
+            value,
+            isabort,
         ])
     }
 
     pub fn smt_constructor_atom(&self) -> SmtExpr {
-        SmtExpr::Atom(format!("mk-return-{}-{}-{}", self.comp_name, self.inst_name, self.sig.name))
+        SmtExpr::Atom(format!(
+            "mk-return-{}-{}-{}",
+            self.comp_name, self.inst_name, self.sig.name
+        ))
     }
 
     pub fn smt_sort(&self) -> SmtExpr {
-        SmtExpr::Atom(format!("Return_{}_{}_{}", self.comp_name, self.inst_name, self.sig.name))
+        SmtExpr::Atom(format!(
+            "Return_{}_{}_{}",
+            self.comp_name, self.inst_name, self.sig.name
+        ))
     }
 
     pub fn smt_access_states_atom(&self) -> SmtExpr {
-        SmtExpr::Atom(format!("return-{}-{}-{}-state", self.comp_name, self.inst_name, self.sig.name))
+        SmtExpr::Atom(format!(
+            "return-{}-{}-{}-state",
+            self.comp_name, self.inst_name, self.sig.name
+        ))
     }
 
     pub fn smt_access_states_fn(&self, on: SmtExpr) -> SmtExpr {
-        SmtExpr::List(vec![
-            self.smt_access_states_atom(),
-            on
-        ])
+        SmtExpr::List(vec![self.smt_access_states_atom(), on])
     }
 
-
     pub fn smt_access_states_length_atom(&self) -> SmtExpr {
-        SmtExpr::Atom(format!("return-{}-{}-{}-state-length", self.comp_name, self.inst_name, self.sig.name))
+        SmtExpr::Atom(format!(
+            "return-{}-{}-{}-state-length",
+            self.comp_name, self.inst_name, self.sig.name
+        ))
     }
 
     pub fn smt_access_states_length_fn(&self, on: SmtExpr) -> SmtExpr {
-        SmtExpr::List(vec![
-            self.smt_access_states_length_atom(),
-            on
-        ])
+        SmtExpr::List(vec![self.smt_access_states_length_atom(), on])
     }
 
     pub fn smt_access_is_abort_atom(&self) -> SmtExpr {
-        SmtExpr::Atom(format!("return-{}-{}-{}-is-abort", self.comp_name, self.inst_name, self.sig.name))
+        SmtExpr::Atom(format!(
+            "return-{}-{}-{}-is-abort",
+            self.comp_name, self.inst_name, self.sig.name
+        ))
     }
 
     pub fn smt_access_is_abort_fn(&self, on: SmtExpr) -> SmtExpr {
-        SmtExpr::List(vec![
-            self.smt_access_is_abort_atom(),
-            on
-        ])
+        SmtExpr::List(vec![self.smt_access_is_abort_atom(), on])
     }
 
     pub fn smt_access_value_atom(&self) -> SmtExpr {
-        SmtExpr::Atom(format!("return-{}-{}-{}-value", self.comp_name, self.inst_name, self.sig.name))
+        SmtExpr::Atom(format!(
+            "return-{}-{}-{}-value",
+            self.comp_name, self.inst_name, self.sig.name
+        ))
     }
 
     pub fn smt_access_value_fn(&self, on: SmtExpr) -> SmtExpr {
-        SmtExpr::List(vec![
-            self.smt_access_value_atom(),
-            on
-        ])
+        SmtExpr::List(vec![self.smt_access_value_atom(), on])
     }
 }

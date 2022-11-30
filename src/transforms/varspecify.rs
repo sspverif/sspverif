@@ -44,7 +44,7 @@ fn var_specify_helper(inst: &PackageInstance, block: CodeBlock, comp_name: &str)
                     },
                     args,
                 )
-            } else if params.clone().iter().any(|(id_, name_in_comp)| id == *id_) {
+            } else if params.clone().iter().any(|(id_, _name_in_comp)| id == *id_) {
                 Expression::FnCall(
                     Identifier::Params {
                         name_in_pkg: id.clone(),
@@ -66,7 +66,7 @@ fn var_specify_helper(inst: &PackageInstance, block: CodeBlock, comp_name: &str)
                     pkgname: name.clone(),
                     compname: comp_name.into(),
                 })
-            } else if params.clone().iter().any(|(id_, name_in_comp)| id == *id_) {
+            } else if params.clone().iter().any(|(id_, _name_in_comp)| id == *id_) {
                 Expression::Identifier(Identifier::Params {
                     name_in_pkg: id.clone(),
                     pkgname: name.clone(),

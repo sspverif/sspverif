@@ -1,6 +1,6 @@
 use crate::hacks;
 use crate::package::{Composition, Export};
-use crate::util::process::Communicator;
+use crate::util::prover_process::{Communicator, ProverResponse};
 use crate::writers::smt::exprs::{SmtAnd, SmtAssert, SmtEq2, SmtExpr, SmtImplies, SmtNot};
 use crate::writers::smt::writer::CompositionSmtWriter;
 use crate::{
@@ -82,6 +82,9 @@ impl ResolvedEquivalence {
         let mut left_declarations = String::new();
         let mut rght_declarations = String::new();
 
+        // write logic to us
+        write!(base_declarations, "(set-logic ALL)\n")?;
+
         // write bits types declarations
         for id in bits_types {
             write!(base_declarations, "{}", hacks::BitsDeclaration(id))?;
@@ -90,6 +93,7 @@ impl ResolvedEquivalence {
         // write other type declarations
         write!(base_declarations, "{}", hacks::MaybeDeclaration)?;
         write!(base_declarations, "{}", hacks::TuplesDeclaration(1..32))?;
+        write!(base_declarations, "{}", hacks::EmptyDeclaration)?;
 
         // write left game code
         let mut left_writer = CompositionSmtWriter::new(&comp_left, &samp_left);
@@ -110,7 +114,11 @@ impl ResolvedEquivalence {
         let decl_state_left: SmtExpr = (
             "declare-const",
             "state-left",
-            left_writer.smt_sort_composition_state(),
+            (
+                "Array",
+                crate::types::Type::Integer,
+                left_writer.smt_sort_composition_state(),
+            ),
         )
             .into();
         write!(const_declarations, "{decl_state_left}")?;
@@ -119,10 +127,32 @@ impl ResolvedEquivalence {
         let decl_state_right: SmtExpr = (
             "declare-const",
             "state-right",
-            right_writer.smt_sort_composition_state(),
+            (
+                "Array",
+                crate::types::Type::Integer,
+                right_writer.smt_sort_composition_state(),
+            ),
         )
             .into();
         write!(const_declarations, "{decl_state_right}")?;
+
+        // write declarations of state lenghts
+        let state_length_left_old = "state-length-left-old";
+        let state_length_left_new = "state-length-left-new";
+        let state_length_right_old = "state-length-right-old";
+        let state_length_right_new = "state-length-right-new";
+        let state_lenghts = &[
+            state_length_left_old,
+            state_length_left_new,
+            state_length_right_old,
+            state_length_right_new,
+        ];
+
+        for state_length in state_lenghts {
+            let decl_state_length: SmtExpr =
+                ("declare-const", *state_length, &crate::types::Type::Integer).into();
+            write!(const_declarations, "{decl_state_length}")?;
+        }
 
         // write declarations of arguments
         for Export(_, sig) in &left.exports {
@@ -156,6 +186,7 @@ impl ResolvedEquivalence {
             let mut cmdline: Vec<SmtExpr> = vec![
                 format!("oracle-{comp_name}-{inst_name}-{oracle_name}").into(),
                 "state-left".into(),
+                state_length_left_old.into(),
             ];
 
             for (arg_name, _arg_type) in &sig.args {
@@ -188,6 +219,7 @@ impl ResolvedEquivalence {
             let mut cmdline = vec![
                 format!("oracle-{comp_name}-{inst_name}-{oracle_name}").into(),
                 "state-right".into(),
+                state_length_right_old.into(),
             ];
 
             for (arg_name, _arg_type) in &sig.args {
@@ -324,31 +356,35 @@ impl ResolvedEquivalence {
         write!(prover_comm, "{base_declarations}")?;
         write!(prover_comm, "{left_declarations}")?;
         write!(prover_comm, "{rght_declarations}")?;
-        write!(prover_comm, "(check-sat)\n")?;
+        //write!(prover_comm, "(check-sat)\n")?;
 
         println!("sent definitions, waiting for sat... ");
         expect_sat(&mut prover_comm)?;
+        //expect_sat(&mut prover_comm)?;
         println!("received.");
 
         write!(prover_comm, "{const_declarations}")?;
-        write!(prover_comm, "(check-sat)\n")?;
+        //write!(prover_comm, "(check-sat)\n")?;
 
         println!("sent declarations and basic constraints, waiting for sat... ");
         expect_sat(&mut prover_comm)?;
+        //expect_sat(&mut prover_comm)?;
         println!("received.");
 
         write!(prover_comm, "{invariant}").unwrap();
-        write!(prover_comm, "(check-sat)\n")?;
+        //write!(prover_comm, "(check-sat)\n")?;
 
         println!("sent invariant, waiting for sat... ");
         expect_sat(&mut prover_comm)?;
+        //expect_sat(&mut prover_comm)?;
         println!("received.");
 
         write!(prover_comm, "{epilogue}").unwrap();
-        write!(prover_comm, "(check-sat)\n")?;
+        //write!(prover_comm, "(check-sat)\n")?;
 
         println!("sent epilogue, waiting for sat... ");
         expect_sat(&mut prover_comm)?;
+        //expect_sat(&mut prover_comm)?;
         println!("received.");
 
         prover_comm.close();
@@ -363,14 +399,9 @@ impl ResolvedEquivalence {
 }
 
 fn expect_sat(comm: &mut Communicator) -> Result<()> {
-    let (_, read) = comm.read_until("sat\n")?;
-    expect_sat_str(&read)
-}
-
-fn expect_sat_str(data: &str) -> Result<()> {
-    match data {
-        "sat\n" => Ok(()),
-        _ => Err(Error::ExpectedSatError(data.to_string())),
+    match comm.check_sat()? {
+        ProverResponse::Sat => Ok(()),
+        resp => Err(Error::ExpectedSatError(resp)),
     }
 }
 

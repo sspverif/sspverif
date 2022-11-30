@@ -114,7 +114,7 @@ This would be the contents is JSONy notation. We'll see how that looks like in t
 use clap::{Parser, Subcommand};
 use sspds::project::{self, error::Result};
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 #[clap(propagate_version = true)]
 struct Cli {
@@ -122,7 +122,7 @@ struct Cli {
     command: Commands,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 enum Commands {
     /// Give information about the provided code
     Explain(Explain),
@@ -131,7 +131,7 @@ enum Commands {
     Prove,
 }
 
-#[derive(clap::Args)]
+#[derive(clap::Args, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Explain {
     game_name: String,

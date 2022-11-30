@@ -1,4 +1,4 @@
-use crate::transforms::typecheck::TypeCheckError;
+use crate::{transforms::typecheck::TypeCheckError, util::prover_process::ProverResponse};
 use std::{io::Error as IOError, path::PathBuf};
 use thiserror::Error;
 
@@ -45,8 +45,12 @@ pub enum Error {
     FromUtf8Error(#[from] std::string::FromUtf8Error),
     #[error("error in interaction with child process: {0}")]
     ChildProcessInteractionError(#[from] expectrl::Error),
+    #[error("error interactiv with prover process: {0}")]
+    ProcessError(#[from] crate::util::process::Error),
+    #[error("error interactiv with prover process: {0}")]
+    ProverProcessError(#[from] crate::util::prover_process::Error),
     #[error(r#""expected "sat" from prover, got {0}""#)]
-    ExpectedSatError(String),
+    ExpectedSatError(ProverResponse),
     #[error("got a formatting error")]
     FmtError(#[from] std::fmt::Error),
 }

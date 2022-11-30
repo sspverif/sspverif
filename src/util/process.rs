@@ -1,4 +1,15 @@
-use crate::project::error::Result;
+//use crate::project::error::Result;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("error parsing utf8: {0}")]
+    Utf8Error(#[from] std::string::FromUtf8Error),
+    #[error("io error: {0}")]
+    IOError(#[from] std::io::Error),
+}
+
+type Result<T> = std::result::Result<T, Error>;
 
 use std::io::Read;
 use std::io::Write as IOWrite;
@@ -64,6 +75,27 @@ impl Communicator {
             buf,
             pos: 0,
         })
+    }
+
+    pub fn read_until_pred<T, P: Fn(usize, &str) -> (usize, Option<T>)>(
+        &mut self,
+        p: P,
+    ) -> Result<T> {
+        loop {
+            let read_cnt = self.stdout.read(&mut self.buf[self.pos..])?;
+            self.pos += read_cnt;
+
+            let data = String::from_utf8(self.buf[..self.pos].to_vec())?;
+            if let (data_read, Some(v)) = p(read_cnt, &data) {
+                let rest_bs = data[data_read..].as_bytes().to_owned();
+
+                self.buf.fill(0);
+                self.pos = rest_bs.len();
+                self.buf[..self.pos].copy_from_slice(&rest_bs);
+
+                return Ok(v);
+            }
+        }
     }
 
     pub fn read_until(&mut self, pattern: &str) -> Result<(usize, String)> {

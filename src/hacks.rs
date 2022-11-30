@@ -57,3 +57,11 @@ impl Display for BitsDeclaration {
         writeln!(f, "(declare-sort Bits_{id} 0)")
     }
 }
+
+pub struct EmptyDeclaration;
+
+impl Display for EmptyDeclaration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
+        writeln!(f, "(declare-datatype Empty ((mk-empty)) )")
+    }
+}
