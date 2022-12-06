@@ -12,7 +12,7 @@ pub struct Transformation<'a>(pub &'a Composition);
 #[derive(Clone)]
 pub struct SampleInfo {
     pub tipes: Vec<Type>,
-    pub count: u32,
+    pub count: usize,
 }
 
 impl<'a> super::Transformation for Transformation<'a> {
@@ -20,7 +20,7 @@ impl<'a> super::Transformation for Transformation<'a> {
     type Aux = SampleInfo;
 
     fn transform(&self) -> Result<(Composition, SampleInfo), Error> {
-        let mut ctr = 1u32;
+        let mut ctr = 1usize;
         let mut samplings = HashSet::new();
 
         let insts: Result<Vec<_>, _> = self
@@ -50,7 +50,7 @@ impl<'a> super::Transformation for Transformation<'a> {
 
 pub fn samplify(
     cb: &CodeBlock,
-    ctr: &mut u32,
+    ctr: &mut usize,
     sampletypes: &mut HashSet<Type>,
 ) -> Result<CodeBlock, Error> {
     let mut newcode = Vec::new();

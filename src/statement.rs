@@ -12,7 +12,7 @@ pub enum Statement {
     Assign(Identifier, Option<Expression>, Expression),
     Parse(Vec<Identifier>, Expression),
     IfThenElse(Expression, CodeBlock, CodeBlock),
-    Sample(Identifier, Option<Expression>, Option<u32>, Type),
+    Sample(Identifier, Option<Expression>, Option<usize>, Type),
     InvokeOracle {
         id: Identifier,
         opt_idx: Option<Expression>,

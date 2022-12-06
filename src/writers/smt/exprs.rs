@@ -31,6 +31,12 @@ impl From<String> for SmtExpr {
     }
 }
 
+impl From<usize> for SmtExpr {
+    fn from(num: usize) -> Self {
+        SmtExpr::Atom(format!("{num}"))
+    }
+}
+
 impl<V: Into<SmtExpr>> From<SmtNot<V>> for SmtExpr {
     fn from(value: SmtNot<V>) -> Self {
         SmtExpr::List(vec!["not".into(), value.0.into()])
@@ -57,6 +63,12 @@ impl<B: Into<SmtExpr>> From<SmtAssert<B>> for SmtExpr {
     }
 }
 
+impl<V: Into<SmtExpr>> From<SmtWrap<V>> for SmtExpr {
+    fn from(val: SmtWrap<V>) -> Self {
+        SmtExpr::List(vec![val.0.into()])
+    }
+}
+
 impl<T1: Into<SmtExpr>, T2: Into<SmtExpr>> From<(T1, T2)> for SmtExpr {
     fn from(lst: (T1, T2)) -> SmtExpr {
         let (v1, v2) = lst;
@@ -77,6 +89,42 @@ impl<T1: Into<SmtExpr>, T2: Into<SmtExpr>, T3: Into<SmtExpr>, T4: Into<SmtExpr>>
     fn from(lst: (T1, T2, T3, T4)) -> SmtExpr {
         let (v1, v2, v3, v4) = lst;
         SmtExpr::List(vec![v1.into(), v2.into(), v3.into(), v4.into()])
+    }
+}
+
+impl<
+        T1: Into<SmtExpr>,
+        T2: Into<SmtExpr>,
+        T3: Into<SmtExpr>,
+        T4: Into<SmtExpr>,
+        T5: Into<SmtExpr>,
+    > From<(T1, T2, T3, T4, T5)> for SmtExpr
+{
+    fn from(lst: (T1, T2, T3, T4, T5)) -> SmtExpr {
+        let (v1, v2, v3, v4, v5) = lst;
+        SmtExpr::List(vec![v1.into(), v2.into(), v3.into(), v4.into(), v5.into()])
+    }
+}
+
+impl<
+        T1: Into<SmtExpr>,
+        T2: Into<SmtExpr>,
+        T3: Into<SmtExpr>,
+        T4: Into<SmtExpr>,
+        T5: Into<SmtExpr>,
+        T6: Into<SmtExpr>,
+    > From<(T1, T2, T3, T4, T5, T6)> for SmtExpr
+{
+    fn from(lst: (T1, T2, T3, T4, T5, T6)) -> SmtExpr {
+        let (v1, v2, v3, v4, v5, v6) = lst;
+        SmtExpr::List(vec![
+            v1.into(),
+            v2.into(),
+            v3.into(),
+            v4.into(),
+            v5.into(),
+            v6.into(),
+        ])
     }
 }
 
@@ -245,18 +293,18 @@ impl From<SspSmtVar> for SmtExpr {
         match v {
             SspSmtVar::CompositionContext => "__global_state".into(),
             SspSmtVar::ContextLength => "__state_length".into(),
-            SspSmtVar::SelfState => SmtExpr::Atom("__self_state".into()),
-            SspSmtVar::ReturnValue => SmtExpr::Atom("__ret".into()),
+            SspSmtVar::SelfState => "__self_state".into(),
+            SspSmtVar::ReturnValue => "__ret".into(),
             SspSmtVar::OracleReturnConstructor {
                 compname,
                 pkgname,
                 oname,
-            } => SmtExpr::Atom(format!("mk-return-{}-{}-{}", compname, pkgname, oname)),
+            } => format!("mk-return-{}-{}-{}", compname, pkgname, oname).into(),
             SspSmtVar::OracleAbort {
                 compname,
                 pkgname,
                 oname,
-            } => SmtExpr::Atom(format!("mk-abort-{}-{}-{}", compname, pkgname, oname)),
+            } => format!("mk-abort-{}-{}-{}", compname, pkgname, oname).into(),
         }
     }
 }
@@ -308,6 +356,8 @@ pub struct SmtAssert<B: Into<SmtExpr>>(pub B);
 pub struct SmtNot<V: Into<SmtExpr>>(pub V);
 
 pub struct SmtAnd(pub Vec<SmtExpr>);
+
+pub struct SmtWrap<V: Into<SmtExpr>>(pub V);
 
 pub struct SmtImplies<PRE, POST>(pub PRE, pub POST)
 where

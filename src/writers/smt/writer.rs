@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::expressions::Expression;
 use crate::identifier::Identifier;
-use crate::package::{Composition, OracleSig, PackageInstance};
+use crate::package::{Composition, OracleDef, OracleSig, PackageInstance};
 use crate::statement::{CodeBlock, Statement};
 use crate::transforms::samplify::SampleInfo;
 use crate::types::Type;
@@ -12,7 +12,9 @@ use crate::writers::smt::{
     state_helpers::{SmtCompositionContext, SmtPackageState, SmtReturnState},
 };
 
+use super::contexts::GameContext;
 use super::exprs::{SmtAs, SmtEq2};
+use super::{names, sorts};
 
 pub struct CompositionSmtWriter<'a> {
     pub comp: &'a Composition,
@@ -53,7 +55,7 @@ impl<'a> CompositionSmtWriter<'a> {
             .unwrap_or_else(|| panic!("error looking up smt state helper: {}", instname))
     }
 
-    fn get_randomness(&self, sample_id: u32) -> SmtExpr {
+    fn get_randomness(&self, sample_id: usize) -> SmtExpr {
         (
             self.comp_helper.smt_accessor_rand(sample_id),
             SmtExpr::List(vec![
@@ -206,7 +208,7 @@ impl<'a> CompositionSmtWriter<'a> {
                      */
                     let sample_id = sample_id.expect("found a None sample_id");
 
-                    let ctr = self.get_randomness(sample_id);
+                    let ctr = self.get_randomness(sample_id as usize);
 
                     let rand_tipe: SmtExpr = tipe.clone().into();
                     let rand_fn_name = format!(
@@ -238,7 +240,7 @@ impl<'a> CompositionSmtWriter<'a> {
                     SmtLet {
                         bindings,
                         body: self.comp_helper.smt_set_rand_ctr(
-                            sample_id,
+                            sample_id as usize,
                             &("+", "1", ctr).into(),
                             result.unwrap(),
                         ),
@@ -504,59 +506,58 @@ impl<'a> CompositionSmtWriter<'a> {
         )
     */
 
+    fn smt_define_oracle_fn(&self, inst: &PackageInstance, def: &OracleDef) -> SmtExpr {
+        let code = &def.code;
+        let mut args = vec![
+            (
+                names::var_globalstate_name(),
+                sorts::Array {
+                    key: crate::types::Type::Integer,
+                    value: names::gamestate_sort_name(&self.comp.name),
+                },
+            )
+                .into(),
+            (names::var_state_length_name(), crate::types::Type::Integer).into(),
+        ];
+
+        let rest_args = def.sig.args.iter().cloned().map(|arg| arg.into());
+        args.extend(rest_args);
+
+        let game_name = &self.comp.name;
+        let inst_name = &inst.name;
+        let oracle_name = &def.sig.name;
+
+        let gctx = GameContext::new(&self.comp);
+
+        (
+            "define-fun",
+            names::oracle_function_name(game_name, inst_name, oracle_name),
+            SmtExpr::List(args.clone()),
+            names::return_sort_name(game_name, inst_name, oracle_name),
+            SmtLet {
+                bindings: vec![(
+                    names::var_selfstate_name(),
+                    gctx.smt_access_gamestate_pkgstate(
+                        (
+                            "select",
+                            SspSmtVar::CompositionContext,
+                            SspSmtVar::ContextLength,
+                        ),
+                        inst_name,
+                    )
+                    .unwrap(),
+                )],
+                body: self.code_smt_helper(code.clone(), &def.sig, inst),
+            },
+        )
+            .into()
+    }
+
     fn smt_pkg_code(&self, inst: &PackageInstance) -> Vec<SmtExpr> {
         inst.pkg
             .oracles
             .iter()
-            .map(|def| {
-                let code = &def.code;
-                let mut args = vec![
-                    SmtExpr::List(vec![
-                        SspSmtVar::CompositionContext.into(),
-                        SmtExpr::List(vec![
-                            SmtExpr::Atom("Array".into()),
-                            SmtExpr::Atom("Int".into()),
-                            self.comp_helper.smt_sort(),
-                        ]),
-                    ]),
-                    SmtExpr::List(vec![
-                        SspSmtVar::ContextLength.into(),
-                        SmtExpr::Atom("Int".into()),
-                    ]),
-                ];
-
-                for (name, tipe) in def.sig.args.clone() {
-                    args.push(SmtExpr::List(vec![SmtExpr::Atom(name), tipe.into()]))
-                }
-
-                SmtExpr::List(vec![
-                    SmtExpr::Atom(String::from("define-fun")),
-                    SmtExpr::Atom(format!(
-                        "oracle-{}-{}-{}",
-                        self.comp.name, inst.name, def.sig.name
-                    )),
-                    SmtExpr::List(args),
-                    SmtExpr::Atom(format!(
-                        "Return_{}_{}_{}",
-                        self.comp.name, inst.name, def.sig.name
-                    )),
-                    SmtLet {
-                        bindings: vec![(
-                            smt_to_string(SspSmtVar::SelfState),
-                            self.comp_helper.smt_access_pkg(
-                                &inst.name,
-                                SmtExpr::List(vec![
-                                    SmtExpr::Atom("select".into()),
-                                    SspSmtVar::CompositionContext.into(),
-                                    SspSmtVar::ContextLength.into(),
-                                ]),
-                            ),
-                        )],
-                        body: self.code_smt_helper(code.clone(), &def.sig, inst),
-                    }
-                    .into(),
-                ])
-            })
+            .map(|def| self.smt_define_oracle_fn(inst, def))
             .collect()
     }
 

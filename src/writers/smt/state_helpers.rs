@@ -86,11 +86,11 @@ impl<'a> SmtCompositionContext<'a> {
         (self.smt_accessor_param(param_name), term).into()
     }
 
-    pub fn smt_accessor_rand(&self, sample_id: u32) -> SmtExpr {
+    pub fn smt_accessor_rand(&self, sample_id: usize) -> SmtExpr {
         // TODO check that sample id is in bounds
         format!("composition-rand-{}-{}", self.comp_name, sample_id).into()
     }
-    pub fn smt_access_rand(&self, sample_id: u32, term: SmtExpr) -> SmtExpr {
+    pub fn smt_access_rand(&self, sample_id: usize, term: SmtExpr) -> SmtExpr {
         (self.smt_accessor_rand(sample_id), term).into()
     }
 
@@ -191,7 +191,12 @@ impl<'a> SmtCompositionContext<'a> {
         .into()
     }
 
-    pub fn smt_set_rand_ctr(&self, target_sample_id: u32, new: &SmtExpr, body: SmtExpr) -> SmtExpr {
+    pub fn smt_set_rand_ctr(
+        &self,
+        target_sample_id: usize,
+        new: &SmtExpr,
+        body: SmtExpr,
+    ) -> SmtExpr {
         // initialize list with constructor name
         let mut tmp = vec![self.smt_constructor()];
         let latest_state = SmtExpr::List(vec![

@@ -20,7 +20,7 @@ impl<'a> super::Transformation for Transformation<'a> {
             .map(|inst| {
                 let mut newinst = inst.clone();
                 for (i, oracle) in newinst.pkg.oracles.clone().iter().enumerate() {
-                    let mut ctr = 1u32;
+                    let mut ctr = 1usize;
                     newinst.pkg.oracles[i].code = unwrapify(&oracle.code, &mut ctr)?;
                 }
                 Ok(newinst)
@@ -36,7 +36,7 @@ impl<'a> super::Transformation for Transformation<'a> {
     }
 }
 
-fn replace_unwrap(expr: &Expression, ctr: &mut u32) -> (Expression, Vec<(Expression, String)>) {
+fn replace_unwrap(expr: &Expression, ctr: &mut usize) -> (Expression, Vec<(Expression, String)>) {
     let ((local_ctr, result), newexpr) =
         expr.mapfold((*ctr, Vec::new()), |(map_ctr, mut ac), e| {
             let tmpe = e.clone();
@@ -79,7 +79,7 @@ replace_unwrap([0])
 [0] wurde zu foo <- bar(unwrap-12-x)
 */
 
-pub fn unwrapify(cb: &CodeBlock, ctr: &mut u32) -> Result<CodeBlock, Error> {
+pub fn unwrapify(cb: &CodeBlock, ctr: &mut usize) -> Result<CodeBlock, Error> {
     let mut newcode = Vec::new();
     for stmt in cb.0.clone() {
         match stmt {
@@ -204,7 +204,7 @@ mod test {
                               Expression::Typed(Type::Integer,Box::new(
                                   Identifier::new_scalar("unwrap-1").to_expression())))
         };
-        let mut ctr = 1u32;
+        let mut ctr = 1usize;
         assert_eq!(newcode, unwrapify(&code, &mut ctr).unwrap());
     }
 
@@ -240,7 +240,7 @@ mod test {
                               Expression::Typed(Type::Integer,Box::new(
                                 Identifier::new_scalar("unwrap-2").to_expression())))
         };
-        let mut ctr = 1u32;
+        let mut ctr = 1usize;
         assert_eq!(newcode, unwrapify(&code, &mut ctr).unwrap());
     }
 
@@ -270,7 +270,7 @@ mod test {
                                       Expression::Typed(Type::Integer,Box::new(
                                         Identifier::new_scalar("unwrap-2").to_expression())))
         };
-        let mut ctr = 1u32;
+        let mut ctr = 1usize;
         assert_eq!(newcode, unwrapify(&code, &mut ctr).unwrap());
     }
 
@@ -293,7 +293,7 @@ mod test {
                               Expression::Typed(Type::Integer, Box::new(
                                   Identifier::new_scalar("unwrap-1").to_expression())))
         };
-        let mut ctr = 1u32;
+        let mut ctr = 1usize;
         assert_eq!(newcode, unwrapify(&code, &mut ctr).unwrap());
     }
 }
