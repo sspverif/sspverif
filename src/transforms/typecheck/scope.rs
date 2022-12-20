@@ -154,7 +154,7 @@ mod test {
         if let Type::Type(t_) = t_ {
             assert_eq!(t, t_, "lookup returned wrong type");
         } else {
-            panic!("t_ should be a real type, found {t_:?}");
+            panic!("t_ should be a real type, found {:?}", t_);
         }
     }
 
@@ -197,7 +197,7 @@ mod test {
         if let Type::Type(t_) = t_ {
             assert_eq!(t, t_, "lookup returned wrong type");
         } else {
-            panic!("t_ should be a real type, found {t_:?}");
+            panic!("t_ should be a real type, found {:?}", t_);
         }
     }
 }
