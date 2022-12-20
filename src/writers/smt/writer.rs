@@ -240,7 +240,8 @@ impl<'a> CompositionSmtWriter<'a> {
                     let ctr = self.get_randomness(sample_id).unwrap_or_else(|| {
                         let max_known_sample_id = self.sample_info.count;
                         panic!(
-                            "found sample id {sample_id} that exceeds highest expected {max_known_sample_id}"
+                            "found sample id {} that exceeds highest expected {}",
+                            sample_id, max_known_sample_id
                         )
                     });
 
