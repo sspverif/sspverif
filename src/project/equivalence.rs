@@ -2,7 +2,7 @@ use crate::package::{Composition, Export};
 use crate::util::prover_process::{Communicator, ProverResponse};
 use crate::writers::smt::exprs::{SmtAnd, SmtAssert, SmtEq2, SmtExpr, SmtImplies, SmtNot};
 use crate::writers::smt::writer::CompositionSmtWriter;
-use crate::writers::smt::{contexts, declare, sorts as smt_sorts};
+use crate::writers::smt::{contexts, declare};
 use crate::{hacks, types};
 use crate::{
     project::error::{Error, Result},
@@ -115,22 +115,12 @@ impl ResolvedEquivalence {
         let mut const_declarations = String::new();
 
         // write declaration of left (old) state constant
-        let decl_state_left = declare::declare_const(
-            "state-left".to_string(),
-            smt_sorts::Array {
-                key: types::Type::Integer,
-                value: gctx_left.smt_sort_gamestate(),
-            },
-        );
+        let decl_state_left =
+            declare::declare_const("state-left".to_string(), gctx_left.smt_sort_gamestates());
 
         // write declaration of right (old) state constant
-        let decl_state_right = declare::declare_const(
-            "state-right".to_string(),
-            smt_sorts::Array {
-                key: types::Type::Integer,
-                value: gctx_right.smt_sort_gamestate(),
-            },
-        );
+        let decl_state_right =
+            declare::declare_const("state-right".to_string(), gctx_right.smt_sort_gamestates());
 
         write!(const_declarations, "{decl_state_left}")?;
         write!(const_declarations, "{decl_state_right}")?;
@@ -163,12 +153,12 @@ impl ResolvedEquivalence {
             }
         }
 
-        for ((decl_ret, constrain)) in build_returns(&left, Side::Left) {
+        for (decl_ret, constrain) in build_returns(&left, Side::Left) {
             write!(const_declarations, "{decl_ret}")?;
             write!(const_declarations, "{constrain}")?;
         }
 
-        for ((decl_ret, constrain)) in build_returns(&right, Side::Right) {
+        for (decl_ret, constrain) in build_returns(&right, Side::Right) {
             write!(const_declarations, "{decl_ret}")?;
             write!(const_declarations, "{constrain}")?;
         }
@@ -402,7 +392,13 @@ fn build_returns(game: &Composition, game_side: Side) -> Vec<(SmtExpr, SmtExpr)>
                 .iter()
                 .map(|(arg_name, _)| oracle_arg_name(oracle_name, arg_name).into());
 
-            let invok = octx.smt_invoke_oracle(args).unwrap();
+            let invok = octx
+                .smt_invoke_oracle(
+                    format!("state-{game_side}"),
+                    format!("state-length-{game_side}-old"),
+                    args,
+                )
+                .unwrap();
 
             let constrain_return: SmtExpr = SmtAssert(SmtEq2 {
                 lhs: return_name,
@@ -415,11 +411,6 @@ fn build_returns(game: &Composition, game_side: Side) -> Vec<(SmtExpr, SmtExpr)>
         .collect()
 }
 
-fn build_state(game: &Composition, game_side: Side) -> SmtExpr {
-    let gctx = contexts::GameContext::new(game);
-    gctx.smt_sort_gamestate()
-}
-
 enum Side {
     Left,
     Right,
@@ -428,8 +419,8 @@ enum Side {
 impl Display for Side {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Left => write!(f, "left"),
-            Right => write!(f, "right"),
+            Side::Left => write!(f, "left"),
+            Side::Right => write!(f, "right"),
         }
     }
 }

@@ -61,7 +61,7 @@ pub fn gamestate_selector_rand_name(game_name: &str, sample_id: usize) -> String
 }
 
 pub fn pkgstate_sort_name(game_name: &str, inst_name: &str) -> String {
-    format!("State_{game_name}_-{inst_name}")
+    format!("State_{game_name}_{inst_name}")
 }
 
 pub fn pkgstate_selector_name(game_name: &str, inst_name: &str, field_name: &str) -> String {
@@ -86,4 +86,8 @@ pub fn var_state_length_name() -> String {
 
 pub fn var_ret_name() -> String {
     "__ret".to_string()
+}
+
+pub fn fn_sample_rand_name<S: Into<SmtExpr>>(game_name: &str, rand_sort: S) -> String {
+    format!("__sample-rand-{}-{}", game_name, rand_sort.into())
 }

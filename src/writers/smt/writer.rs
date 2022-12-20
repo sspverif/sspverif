@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::expressions::Expression;
 use crate::identifier::Identifier;
 use crate::package::{Composition, OracleDef, OracleSig, PackageInstance};
@@ -7,12 +5,9 @@ use crate::statement::{CodeBlock, Statement};
 use crate::transforms::samplify::SampleInfo;
 use crate::types::Type;
 
-use crate::writers::smt::{
-    exprs::{smt_to_string, SmtExpr, SmtIte, SmtLet, SspSmtVar},
-    state_helpers::{SmtCompositionContext, SmtPackageState, SmtReturnState},
-};
+use crate::writers::smt::exprs::{smt_to_string, SmtExpr, SmtIte, SmtLet};
 
-use super::contexts::GameContext;
+use super::contexts::{GameContext, GlobalContext, OracleContext, PackageInstanceContext};
 use super::exprs::{SmtAs, SmtEq2};
 use super::{names, sorts};
 
@@ -20,56 +15,48 @@ pub struct CompositionSmtWriter<'a> {
     pub comp: &'a Composition,
 
     sample_info: &'a SampleInfo,
-    state_helpers: HashMap<String, SmtPackageState<'a>>,
-    comp_helper: SmtCompositionContext<'a>,
 }
 
 impl<'a> CompositionSmtWriter<'a> {
     pub fn new(comp: &'a Composition, samp: &'a SampleInfo) -> CompositionSmtWriter<'a> {
-        let mut csw = CompositionSmtWriter {
+        CompositionSmtWriter {
             comp,
             sample_info: samp,
-            state_helpers: Default::default(),
-            comp_helper: SmtCompositionContext::new(
-                &comp.name,
-                comp.pkgs.iter().map(|inst| &inst.name as &str).collect(),
-                &comp.consts,
-                samp,
-            ),
-        };
-
-        for inst in &csw.comp.pkgs {
-            csw.state_helpers.insert(
-                inst.name.clone(),
-                SmtPackageState::new(&csw.comp.name, &inst.name, inst.pkg.state.clone()),
-            );
         }
-
-        csw
     }
 
-    // returns the state helper for the package of a given package instance
-    fn get_state_helper(&'a self, instname: &str) -> &'a SmtPackageState<'a> {
-        self.state_helpers
-            .get(instname)
-            .unwrap_or_else(|| panic!("error looking up smt state helper: {}", instname))
+    fn get_game_context(&self) -> GameContext<'a> {
+        GameContext::new(self.comp)
     }
 
-    fn get_randomness(&self, sample_id: usize) -> SmtExpr {
-        (
-            self.comp_helper.smt_accessor_rand(sample_id),
-            SmtExpr::List(vec![
-                SmtExpr::Atom("select".into()),
-                SspSmtVar::CompositionContext.into(),
-                SspSmtVar::ContextLength.into(),
-            ]),
-        )
-            .into()
+    fn get_package_instance_context(&self, inst_name: &str) -> Option<PackageInstanceContext<'a>> {
+        self.get_game_context().pkg_inst_ctx_by_name(inst_name)
+    }
+
+    fn get_oracle_context(&self, inst_name: &str, oracle_name: &str) -> Option<OracleContext<'a>> {
+        self.get_package_instance_context(inst_name)?
+            .oracle_ctx_by_name(oracle_name)
+    }
+
+    fn get_randomness(&self, sample_id: usize) -> Option<SmtExpr> {
+        let game_context = self.get_game_context();
+        let gamestate = (
+            "select",
+            names::var_globalstate_name(),
+            names::var_state_length_name(),
+        );
+
+        game_context.smt_access_gamestate_rand(self.sample_info, gamestate, sample_id)
     }
 
     // builds a single (declare-datatype ...) expression for package instance `inst`
     fn smt_pkg_state(&self, inst: &PackageInstance) -> SmtExpr {
-        self.get_state_helper(&inst.name).smt_declare_datatype()
+        self.get_package_instance_context(&inst.name)
+            .expect(&format!(
+                "game {} does not contain package instance with name {}",
+                self.comp.name, &inst.name
+            ))
+            .smt_declare_pkgstate()
     }
 
     // build the (declare-datatype ...) expressions for all package states and the joint composition state
@@ -83,29 +70,34 @@ impl<'a> CompositionSmtWriter<'a> {
             .map(|pkg| self.smt_pkg_state(pkg))
             .collect();
 
-        states.push(self.comp_helper.smt_declare_datatype());
+        states.push(
+            self.get_game_context()
+                .smt_declare_gamestate(self.sample_info),
+        );
 
         states
     }
 
     pub fn smt_sort_return(&self, inst_name: &str, oracle_name: &str) -> SmtExpr {
-        format!("Return_{}_{}_{}", self.comp.name, inst_name, oracle_name).into()
+        names::return_sort_name(&self.comp.name, inst_name, oracle_name).into()
     }
 
     pub fn smt_sort_composition_state(&self) -> SmtExpr {
-        self.comp_helper.smt_sort()
+        names::gamestate_sort_name(&self.comp.name).into()
     }
 
     fn smt_pkg_return(&self, inst: &PackageInstance) -> Vec<SmtExpr> {
-        let mut smts = vec![];
+        let pkg_inst_ctx = self.get_package_instance_context(&inst.name).unwrap();
 
-        for osig in inst.get_oracle_sigs() {
-            smts.push(
-                SmtReturnState::new(&self.comp.name, &inst.name, osig)
-                    .smt_declare_datatype(self.comp_helper.smt_sort()),
-            )
-        }
-        smts
+        inst.get_oracle_sigs()
+            .iter()
+            .map(|osig| {
+                pkg_inst_ctx
+                    .oracle_ctx_by_name(&osig.name)
+                    .unwrap()
+                    .smt_declare_return()
+            })
+            .collect()
     }
 
     pub fn smt_composition_return(&self) -> Vec<SmtExpr> {
@@ -123,15 +115,17 @@ impl<'a> CompositionSmtWriter<'a> {
         sig: &OracleSig,
         inst: &PackageInstance,
     ) -> SmtExpr {
-        let PackageInstance { name: pkgname, .. } = inst;
+        let PackageInstance {
+            name: inst_name, ..
+        } = inst;
         let OracleSig {
             tipe: oracle_return_tipe,
+            name: oracle_name,
             ..
         } = sig;
 
-        let return_state_helper = SmtReturnState::new(&self.comp.name, pkgname, sig.clone());
-
-        //eprintln!("DEBUG code_smt_helper start {pkgname}.{oracle_name}");
+        let game_context = self.get_game_context();
+        let oracle_context = self.get_oracle_context(&inst.name, &sig.name).unwrap();
 
         let mut result = None;
         for stmt in block.0.iter().rev() {
@@ -144,47 +138,80 @@ impl<'a> CompositionSmtWriter<'a> {
                 .into(),
                 Statement::Return(None) => {
                     // (mk-return-{name} statevarname expr)
-                    self.comp_helper.smt_set_pkg_state(
-                        &inst.name,
-                        &SspSmtVar::SelfState.into(),
-                        return_state_helper.smt_constructor(
-                            SspSmtVar::CompositionContext.into(),
-                            SspSmtVar::ContextLength.into(),
-                            SmtExpr::List(vec![
-                                SmtExpr::Atom("mk-some".into()),
-                                SmtExpr::Atom("mk-empty".into()),
-                            ]),
-                            SmtExpr::Atom("false".into()),
-                        ),
-                    )
+                    let var_gamestates = names::var_globalstate_name();
+                    let old_gamestate = GlobalContext::smt_latest_gamestate();
+                    let var_selfstate = names::var_selfstate_name();
+                    let new_gamestate = game_context
+                        .smt_update_gamestate_pkgstate(
+                            old_gamestate,
+                            self.sample_info,
+                            &inst.name,
+                            var_selfstate,
+                        )
+                        .unwrap();
+
+                    let some_empty = ("mk-some", "mk-empty");
+                    let var_state_len = names::var_state_length_name();
+                    let body = oracle_context.smt_construct_return(
+                        var_gamestates,
+                        var_state_len,
+                        some_empty,
+                        "false",
+                    );
+
+                    game_context.smt_push_global_gamestate(new_gamestate, body)
                 }
                 Statement::Return(Some(expr)) => {
                     // (mk-return-{name} statevarname expr)
-                    self.comp_helper.smt_set_pkg_state(
-                        &inst.name,
-                        &SspSmtVar::SelfState.into(),
-                        return_state_helper.smt_constructor(
-                            SspSmtVar::CompositionContext.into(),
-                            SspSmtVar::ContextLength.into(),
-                            Expression::Some(Box::new(expr.clone())).into(),
-                            SmtExpr::Atom("false".into()),
-                        ),
-                    )
+
+                    let var_gamestates = names::var_globalstate_name();
+                    let old_gamestate = GlobalContext::smt_latest_gamestate();
+                    let var_selfstate = names::var_selfstate_name();
+                    let new_gamestate = game_context
+                        .smt_update_gamestate_pkgstate(
+                            old_gamestate,
+                            self.sample_info,
+                            &inst.name,
+                            var_selfstate,
+                        )
+                        .unwrap();
+
+                    let var_state_len = names::var_state_length_name();
+                    let body = oracle_context.smt_construct_return(
+                        var_gamestates,
+                        var_state_len,
+                        Expression::Some(Box::new(expr.clone())),
+                        "false",
+                    );
+
+                    game_context.smt_push_global_gamestate(new_gamestate, body)
                 }
                 Statement::Abort => {
                     // mk-abort-{name}
-                    self.comp_helper
-                        .smt_set_pkg_state(
+
+                    let var_gamestates = names::var_globalstate_name();
+                    let old_gamestate = GlobalContext::smt_latest_gamestate();
+                    let var_selfstate = names::var_selfstate_name();
+                    let var_state_len = names::var_state_length_name();
+
+                    let new_gamestate = game_context
+                        .smt_update_gamestate_pkgstate(
+                            old_gamestate,
+                            self.sample_info,
                             &inst.name,
-                            &SspSmtVar::SelfState.into(),
-                            return_state_helper.smt_constructor(
-                                SspSmtVar::CompositionContext.into(),
-                                SspSmtVar::ContextLength.into(),
-                                Expression::None(oracle_return_tipe.clone()).into(),
-                                SmtExpr::Atom("true".into()),
-                            ),
+                            var_selfstate,
                         )
-                        .into()
+                        .unwrap();
+
+                    let none = Expression::None(oracle_return_tipe.clone());
+                    let body = oracle_context.smt_construct_return(
+                        var_gamestates,
+                        var_state_len,
+                        none,
+                        "true",
+                    );
+
+                    game_context.smt_push_global_gamestate(new_gamestate, body)
                 }
                 // TODO actually use the type that we sample to know how far to advance the randomness tape
                 Statement::Sample(ident, opt_idx, sample_id, tipe) => {
@@ -201,6 +228,7 @@ impl<'a> CompositionSmtWriter<'a> {
                      *
                      * ,
                      *   let (ident = rand(access(counter)) (
+                     *       // TODO update this to the new context-based helpers structure
                      *       comp_helper.smt_set(counter, counter+1, body)
                      * ))
                      * )
@@ -208,14 +236,15 @@ impl<'a> CompositionSmtWriter<'a> {
                      */
                     let sample_id = sample_id.expect("found a None sample_id");
 
-                    let ctr = self.get_randomness(sample_id as usize);
+                    // ctr is the current "i-th sampling for sample id sample_id"
+                    let ctr = self.get_randomness(sample_id).unwrap_or_else(|| {
+                        let max_known_sample_id = self.sample_info.count;
+                        panic!(
+                            "found sample id {sample_id} that exceeds highest expected {max_known_sample_id}"
+                        )
+                    });
 
-                    let rand_tipe: SmtExpr = tipe.clone().into();
-                    let rand_fn_name = format!(
-                        "__sample-rand-{}-{}",
-                        self.comp.name,
-                        smt_to_string(rand_tipe.clone())
-                    );
+                    let rand_fn_name = names::fn_sample_rand_name(&self.comp.name, tipe);
 
                     let rand_val: SmtExpr =
                         (rand_fn_name, format!("{sample_id}"), ctr.clone()).into();
@@ -237,13 +266,15 @@ impl<'a> CompositionSmtWriter<'a> {
                         .filter(|(x, _)| x != "_")
                         .collect();
 
+                    let cur_gamestate = GlobalContext::smt_latest_gamestate();
+                    let new_gamestate = game_context
+                        .smt_increment_gamestate_rand(cur_gamestate, self.sample_info, sample_id)
+                        .unwrap();
+
                     SmtLet {
                         bindings,
-                        body: self.comp_helper.smt_set_rand_ctr(
-                            sample_id as usize,
-                            &("+", "1", ctr).into(),
-                            result.unwrap(),
-                        ),
+                        body: game_context
+                            .smt_overwrite_latest_global_gamestate(new_gamestate, result.unwrap()),
                     }
                     .into()
                 }
@@ -259,13 +290,7 @@ impl<'a> CompositionSmtWriter<'a> {
                                 unreachable!()
                             };
 
-                            (
-                                ident.clone(),
-                                SmtExpr::List(vec![
-                                    SmtExpr::Atom(format!("el{}", i + 1)),
-                                    expr.clone().into(),
-                                ]),
-                            )
+                            (ident.clone(), (format!("el{}", i + 1), expr.clone()).into())
                         })
                         .collect();
 
@@ -290,27 +315,48 @@ impl<'a> CompositionSmtWriter<'a> {
                     name,
                     args,
                     target_inst_name: Some(target),
-                    tipe: Some(called_tipe),
+                    tipe: Some(_),
                 } => {
-                    let called_return_state_helper = SmtReturnState::new(
-                        &self.comp.name,
-                        target,
-                        OracleSig {
-                            name: name.clone(),
-                            args: Vec::new(),
-                            tipe: called_tipe.clone(),
-                        },
+                    let called_oracle_context = self.get_oracle_context(target, name).unwrap();
+                    let this_oracle_context =
+                        self.get_oracle_context(&inst.name, oracle_name).unwrap();
+
+                    let game_context = self.get_game_context();
+                    let then_body = game_context.smt_push_global_gamestate(
+                        game_context
+                            .smt_update_gamestate_pkgstate(
+                                GlobalContext::smt_latest_gamestate(),
+                                self.sample_info,
+                                &inst.name,
+                                names::var_selfstate_name(),
+                            )
+                            .unwrap(),
+                        this_oracle_context.smt_construct_abort(
+                            names::var_globalstate_name(),
+                            names::var_state_length_name(),
+                        ),
                     );
 
+                    let let_bindings = vec![
+                        (
+                            names::var_globalstate_name(),
+                            called_oracle_context.smt_access_return_state(names::var_ret_name()),
+                        )
+                            .into(),
+                        (
+                            names::var_state_length_name(),
+                            called_oracle_context
+                                .smt_access_return_state_length(names::var_ret_name()),
+                        )
+                            .into(),
+                    ];
+
                     let smt_expr = SmtLet {
-                        bindings: vec![(smt_to_string(SspSmtVar::ReturnValue), {
+                        bindings: vec![(names::var_ret_name(), {
                             let mut cmdline = vec![
-                                SmtExpr::Atom(format!(
-                                    "oracle-{}-{}-{}",
-                                    self.comp.name, target, name
-                                )),
-                                SspSmtVar::CompositionContext.into(),
-                                SspSmtVar::ContextLength.into(),
+                                names::oracle_function_name(&self.comp.name, target, name).into(),
+                                names::var_globalstate_name().into(),
+                                names::var_state_length_name().into(),
                             ];
 
                             for arg in args {
@@ -320,58 +366,23 @@ impl<'a> CompositionSmtWriter<'a> {
                             SmtExpr::List(cmdline)
                         })],
                         body: SmtIte {
-                            cond: called_return_state_helper
-                                .smt_access_is_abort_fn(SspSmtVar::ReturnValue.into()),
+                            cond: called_oracle_context
+                                .smt_access_return_is_abort(names::var_ret_name()),
                             then: SmtLet {
-                                bindings: vec![
-                                    (
-                                        smt_to_string(SspSmtVar::CompositionContext),
-                                        called_return_state_helper
-                                            .smt_access_states_fn(SspSmtVar::ReturnValue.into()),
-                                    ),
-                                    (
-                                        smt_to_string(SspSmtVar::ContextLength),
-                                        called_return_state_helper.smt_access_states_length_fn(
-                                            SspSmtVar::ReturnValue.into(),
-                                        ),
-                                    ),
-                                ],
-                                body: self.comp_helper.smt_set_pkg_state(
-                                    &inst.name,
-                                    &SspSmtVar::SelfState.into(),
-                                    return_state_helper.smt_constructor(
-                                        SspSmtVar::CompositionContext.into(),
-                                        SspSmtVar::ContextLength.into(),
-                                        Expression::None(oracle_return_tipe.clone()).into(),
-                                        SmtExpr::Atom("true".into()),
-                                    ),
-                                ),
+                                bindings: let_bindings.clone(),
+                                body: then_body,
                             },
                             els: SmtLet {
                                 bindings: {
-                                    let mut bindings = vec![
-                                        (
-                                            smt_to_string(SspSmtVar::CompositionContext),
-                                            called_return_state_helper.smt_access_states_fn(
-                                                SspSmtVar::ReturnValue.into(),
-                                            ),
-                                        ),
-                                        (
-                                            smt_to_string(SspSmtVar::ContextLength),
-                                            called_return_state_helper.smt_access_states_length_fn(
-                                                SspSmtVar::ReturnValue.into(),
-                                            ),
-                                        ),
-                                    ];
+                                    let mut bindings = let_bindings.clone();
 
                                     if id.ident() != "_" {
                                         bindings.push((
                                             id.ident(),
                                             SmtExpr::List(vec![
                                                 SmtExpr::Atom("maybe-get".into()),
-                                                called_return_state_helper.smt_access_value_fn(
-                                                    SspSmtVar::ReturnValue.into(),
-                                                ),
+                                                called_oracle_context
+                                                    .smt_access_return_value(names::var_ret_name()),
                                             ]),
                                         ));
                                     }
@@ -384,17 +395,21 @@ impl<'a> CompositionSmtWriter<'a> {
                     };
 
                     if opt_idx.is_some() {
-                        SmtExpr::List(vec![
-                            SmtExpr::Atom("store".into()),
-                            id.to_expression().into(),
-                            opt_idx.clone().unwrap().into(),
-                            smt_expr.into(),
-                        ])
+                        (
+                            "store",
+                            id.to_expression(),
+                            opt_idx.clone().unwrap(),
+                            smt_expr,
+                        )
+                            .into()
                     } else {
                         smt_expr.into()
                     }
                 }
                 Statement::Assign(ident, opt_idx, expr) => {
+                    let inst_context = self.get_package_instance_context(&inst.name).unwrap();
+                    let oracle_context = self.get_oracle_context(&inst.name, oracle_name).unwrap();
+
                     let (t, inner) = if let Expression::Typed(t, i) = expr {
                         (t.clone(), *i.clone())
                     } else {
@@ -405,10 +420,7 @@ impl<'a> CompositionSmtWriter<'a> {
 
                     // first build the unwrap expression, if we have to
                     let outexpr = if let Expression::Unwrap(inner) = &inner {
-                        SmtExpr::List(vec![
-                            SmtExpr::Atom("maybe-get".into()),
-                            SmtExpr::Atom(smt_to_string(*inner.clone())),
-                        ])
+                        ("maybe-get", *inner.clone()).into()
                     } else {
                         expr.clone().into() // TODO maybe this should be inner??
                     };
@@ -416,34 +428,42 @@ impl<'a> CompositionSmtWriter<'a> {
                     // then build the table store smt expression, in case we have to
                     let outexpr = if let Some(idx) = opt_idx {
                         let oldvalue = match &ident {
-                            &Identifier::State { name, pkgname, .. } => self
-                                .get_state_helper(pkgname)
-                                .smt_access(name, SspSmtVar::SelfState.into()),
+                            &Identifier::State { name, pkgname, .. } => {
+                                assert_eq!(pkgname, inst_name, "failed assertion: in an oracle in instance {inst_name} I found a state identifier with {pkgname}. I assumed these would always be equal.");
+                                inst_context
+                                    .smt_access_pkgstate(names::var_selfstate_name(), name)
+                                    .unwrap()
+                            }
                             Identifier::Local(_) => ident.to_expression().into(),
                             _ => {
                                 unreachable!("")
                             }
                         };
 
-                        SmtExpr::List(vec![
-                            SmtExpr::Atom("store".into()),
-                            oldvalue,
-                            idx.clone().into(),
-                            outexpr,
-                        ])
+                        ("store", oldvalue, idx.clone(), outexpr).into()
                     } else {
                         outexpr
                     };
 
                     // build the actual smt assignment
                     let smtout = match ident {
-                        Identifier::State { name, pkgname, .. } => SmtLet {
-                            bindings: vec![(
-                                smt_to_string(SspSmtVar::SelfState),
-                                self.get_state_helper(pkgname).smt_set(name, &outexpr),
-                            )],
-                            body: result.unwrap(),
-                        },
+                        Identifier::State { name, pkgname, .. } => {
+                            assert_eq!(pkgname, inst_name, "failed assertion: in an oracle in instance {inst_name} I found a state identifier with {pkgname}. I assumed these would always be equal.");
+                            SmtLet {
+                                bindings: vec![(
+                                    names::var_selfstate_name(),
+                                    inst_context
+                                        .smt_update_pkgstate(
+                                            names::var_selfstate_name(),
+                                            name,
+                                            outexpr,
+                                        )
+                                        .unwrap()
+                                        .into(),
+                                )],
+                                body: result.unwrap(),
+                            }
+                        }
 
                         Identifier::Local(name) => SmtLet {
                             bindings: vec![(name.clone(), outexpr)]
@@ -471,11 +491,10 @@ impl<'a> CompositionSmtWriter<'a> {
                                     tipe: Type::Maybe(Box::new(t)),
                                 },
                             },
-                            then: SspSmtVar::OracleAbort {
-                                compname: self.comp.name.clone(),
-                                pkgname: pkgname.into(),
-                                oname: sig.name.clone(),
-                            },
+                            then: oracle_context.smt_construct_abort(
+                                names::var_globalstate_name(),
+                                names::var_state_length_name(),
+                            ),
                             els: smtout,
                         }
                         .into()
@@ -527,7 +546,7 @@ impl<'a> CompositionSmtWriter<'a> {
         let inst_name = &inst.name;
         let oracle_name = &def.sig.name;
 
-        let gctx = GameContext::new(&self.comp);
+        let game_context = GameContext::new(&self.comp);
 
         (
             "define-fun",
@@ -537,15 +556,16 @@ impl<'a> CompositionSmtWriter<'a> {
             SmtLet {
                 bindings: vec![(
                     names::var_selfstate_name(),
-                    gctx.smt_access_gamestate_pkgstate(
-                        (
-                            "select",
-                            SspSmtVar::CompositionContext,
-                            SspSmtVar::ContextLength,
-                        ),
-                        inst_name,
-                    )
-                    .unwrap(),
+                    game_context
+                        .smt_access_gamestate_pkgstate(
+                            (
+                                "select",
+                                names::var_globalstate_name(),
+                                names::var_state_length_name(),
+                            ),
+                            inst_name,
+                        )
+                        .unwrap(),
                 )],
                 body: self.code_smt_helper(code.clone(), &def.sig, inst),
             },

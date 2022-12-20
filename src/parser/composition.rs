@@ -164,12 +164,15 @@ pub fn handle_comp_spec_list(
         }
     };
 
+    let mut consts = Vec::from_iter(consts);
+    consts.sort();
+
     Composition {
         edges,
         exports,
         name: comp_name.to_owned(),
         pkgs: instances,
-        consts: Vec::from_iter(consts),
+        consts,
     }
 }
 
