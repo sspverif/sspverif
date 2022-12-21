@@ -47,7 +47,7 @@ impl Communicator {
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::inherit());
 
-        Ok(Self(process::Communicator::new_from_cmd(cmd)?))
+        Ok(Self(process::Communicator::new_from_cmd(cmd, None)?))
     }
 
     pub fn new_cvc4() -> Result<Self> {
@@ -57,7 +57,20 @@ impl Communicator {
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::inherit());
 
-        Ok(Self(process::Communicator::new_from_cmd(cmd)?))
+        Ok(Self(process::Communicator::new_from_cmd(cmd, None)?))
+    }
+
+    pub fn new_cvc4_with_transcript(transcript: std::fs::File) -> Result<Self> {
+        let mut cmd = std::process::Command::new("cvc4");
+        cmd.args(["--lang=smt2", "--incremental", "--produce-models"])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::inherit());
+
+        Ok(Self(process::Communicator::new_from_cmd(
+            cmd,
+            Some(transcript),
+        )?))
     }
 
     pub fn check_sat(&mut self) -> Result<ProverResponse> {

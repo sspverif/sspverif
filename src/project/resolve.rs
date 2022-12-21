@@ -118,6 +118,7 @@ impl Project {
         let base_decl_smt_file = self.get_base_decl_smt_file(left, right)?;
         let const_decl_smt_file = self.get_const_decl_smt_file(left, right)?;
         let epilogue_smt_file = self.get_epilogue_smt_file(left, right)?;
+        let joined_smt_file = self.get_joined_smt_file(left, right)?;
 
         Ok(ResolvedEquivalence {
             left: left_game,
@@ -130,6 +131,7 @@ impl Project {
             base_decl_smt_file,
             const_decl_smt_file,
             epilogue_smt_file,
+            joined_smt_file,
         })
     }
 

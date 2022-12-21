@@ -157,6 +157,7 @@ impl Project {
         let f = std::fs::OpenOptions::new()
             .create(true)
             .write(true)
+            .truncate(true)
             .open(path)?;
 
         Ok(f)
@@ -176,6 +177,7 @@ impl Project {
         let f = std::fs::OpenOptions::new()
             .create(true)
             .write(true)
+            .truncate(true)
             .open(path)?;
 
         Ok(f)
@@ -195,6 +197,7 @@ impl Project {
         let f = std::fs::OpenOptions::new()
             .create(true)
             .write(true)
+            .truncate(true)
             .open(path)?;
 
         Ok(f)
@@ -214,6 +217,27 @@ impl Project {
         let f = std::fs::OpenOptions::new()
             .create(true)
             .write(true)
+            .truncate(true)
+            .open(path)?;
+
+        Ok(f)
+    }
+
+    pub fn get_joined_smt_file(
+        &self,
+        left_game_name: &str,
+        right_game_name: &str,
+    ) -> Result<std::fs::File> {
+        let mut path = self.root_dir.clone();
+
+        path.push("_build/code_eq/joined/");
+        std::fs::create_dir_all(&path)?;
+
+        path.push(format!("{left_game_name}_{right_game_name}.smt2"));
+        let f = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
             .open(path)?;
 
         Ok(f)

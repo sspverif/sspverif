@@ -40,6 +40,7 @@ pub struct ResolvedEquivalence {
     pub base_decl_smt_file: std::fs::File,
     pub const_decl_smt_file: std::fs::File,
     pub epilogue_smt_file: std::fs::File,
+    pub joined_smt_file: std::fs::File,
 }
 
 impl ResolvedEquivalence {
@@ -55,6 +56,7 @@ impl ResolvedEquivalence {
             base_decl_smt_file,
             const_decl_smt_file,
             epilogue_smt_file,
+            joined_smt_file,
 
             trees,
         } = self;
@@ -102,13 +104,13 @@ impl ResolvedEquivalence {
         // write left game code
         let mut left_writer = CompositionSmtWriter::new(&left, &samp_left);
         for line in left_writer.smt_composition_all() {
-            write!(left_declarations, "{line}")?;
+            writeln!(left_declarations, "{line}")?;
         }
 
         // write right game code
         let mut right_writer = CompositionSmtWriter::new(&right, &samp_right);
         for line in right_writer.smt_composition_all() {
-            write!(rght_declarations, "{line}")?;
+            writeln!(rght_declarations, "{line}")?;
         }
 
         //// Declarations
@@ -122,8 +124,8 @@ impl ResolvedEquivalence {
         let decl_state_right =
             declare::declare_const("state-right".to_string(), gctx_right.smt_sort_gamestates());
 
-        write!(const_declarations, "{decl_state_left}")?;
-        write!(const_declarations, "{decl_state_right}")?;
+        writeln!(const_declarations, "{decl_state_left}")?;
+        writeln!(const_declarations, "{decl_state_right}")?;
 
         // write declarations of state lenghts
         let state_length_left_old = "state-length-left-old";
@@ -280,40 +282,33 @@ impl ResolvedEquivalence {
 
         // start talking to prover
 
-        let mut prover_comm = Communicator::new_cvc4()?;
+        let mut prover_comm =
+            Communicator::new_cvc4_with_transcript(joined_smt_file.try_clone().unwrap())?;
 
         write!(prover_comm, "{base_declarations}")?;
         write!(prover_comm, "{left_declarations}")?;
         write!(prover_comm, "{rght_declarations}")?;
-        //write!(prover_comm, "(check-sat)\n")?;
 
         println!("sent definitions, waiting for sat... ");
         expect_sat(&mut prover_comm)?;
-        //expect_sat(&mut prover_comm)?;
         println!("received.");
 
         write!(prover_comm, "{const_declarations}")?;
-        //write!(prover_comm, "(check-sat)\n")?;
 
         println!("sent declarations and basic constraints, waiting for sat... ");
         expect_sat(&mut prover_comm)?;
-        //expect_sat(&mut prover_comm)?;
         println!("received.");
 
         write!(prover_comm, "{invariant}").unwrap();
-        //write!(prover_comm, "(check-sat)\n")?;
 
         println!("sent invariant, waiting for sat... ");
         expect_sat(&mut prover_comm)?;
-        //expect_sat(&mut prover_comm)?;
         println!("received.");
 
         write!(prover_comm, "{epilogue}").unwrap();
-        //write!(prover_comm, "(check-sat)\n")?;
 
         println!("sent epilogue, waiting for sat... ");
         expect_sat(&mut prover_comm)?;
-        //expect_sat(&mut prover_comm)?;
         println!("received.");
 
         prover_comm.close();
