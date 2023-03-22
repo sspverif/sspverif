@@ -86,6 +86,19 @@ impl<'a> CompositionSmtWriter<'a> {
         names::gamestate_sort_name(&self.comp.name).into()
     }
 
+    fn smt_pkg_intermediate_state(&self, inst: &PackageInstance) -> Vec<SmtExpr> {
+        let pkg_inst_ctx = self.get_package_instance_context(&inst.name).unwrap();
+
+        let mut declares = vec![];
+
+        for i in 0..inst.pkg.oracles.len() {
+            let octx = pkg_inst_ctx.oracle_ctx_by_oracle_offs(i).unwrap();
+            declares.push(octx.smt_declare_intermediate_states());
+        }
+
+        return declares;
+    }
+
     fn smt_pkg_return(&self, inst: &PackageInstance) -> Vec<SmtExpr> {
         let pkg_inst_ctx = self.get_package_instance_context(&inst.name).unwrap();
 
@@ -106,6 +119,15 @@ impl<'a> CompositionSmtWriter<'a> {
             .clone()
             .iter()
             .flat_map(|inst| self.smt_pkg_return(inst))
+            .collect()
+    }
+
+    pub fn smt_composition_intermediate_state(&self) -> Vec<SmtExpr> {
+        self.comp
+            .pkgs
+            .clone()
+            .iter()
+            .flat_map(|inst| self.smt_pkg_intermediate_state(inst))
             .collect()
     }
 
@@ -668,10 +690,12 @@ impl<'a> CompositionSmtWriter<'a> {
         let paramfuncs = self.smt_composition_paramfuncs();
         let state = self.smt_composition_state();
         let ret = self.smt_composition_return();
+        let interm = self.smt_composition_intermediate_state();
         let code = self.smt_composition_code();
 
         rand.into_iter()
             .chain(paramfuncs.into_iter())
+            .chain(interm.into_iter())
             .chain(state.into_iter())
             .chain(ret.into_iter())
             .chain(code.into_iter())

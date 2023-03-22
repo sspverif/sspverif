@@ -1,4 +1,8 @@
 use crate::expressions::Expression;
+use crate::identifier::Identifier;
+use crate::package::OracleDef;
+use crate::statement::{CodeBlock, Statement};
+use crate::types::Type;
 
 use super::super::exprs::SmtExpr;
 use super::super::{declare, names};
@@ -12,6 +16,11 @@ impl<'a> OracleContext<'a> {
             inst_offs: self.inst_offs,
         }
     }
+
+    pub fn oracle_def(&self) -> &OracleDef {
+        &self.game_ctx.game.pkgs[self.inst_offs].pkg.oracles[self.oracle_offs]
+    }
+
     pub fn smt_sort_return(&self) -> SmtExpr {
         let game = self.game_ctx.game;
         let inst = &game.pkgs[self.inst_offs];
@@ -54,7 +63,7 @@ impl<'a> OracleContext<'a> {
             ),
         ];
 
-        declare::declare_datatype(
+        declare::declare_single_constructor_datatype(
             &names::return_sort_name(game_name, inst_name, oracle_name),
             &names::return_constructor_name(game_name, inst_name, oracle_name),
             fields.into_iter(),
@@ -238,5 +247,176 @@ impl<'a> OracleContext<'a> {
         }
 
         Some(SmtExpr::List(cmdline))
+    }
+
+    // funciton die fuer jeden checkpoint eine liste aller bisher definierten variablen zurueckgibt
+    // sounds like a job for scope, but that is long gone at this poitn...
+    pub fn checkpoints(&self) -> Vec<(String, Vec<(String, SmtExpr)>)> {
+        let game = self.game_ctx.game;
+        let inst = &game.pkgs[self.inst_offs];
+        let odef = &inst.pkg.oracles[self.oracle_offs];
+        let CodeBlock(code) = &odef.code;
+
+        let mut locals = vec![];
+        let mut checkpoints = vec![];
+
+        self.checkpoints_inner(code, &mut locals, &mut checkpoints, &[]);
+
+        checkpoints
+    }
+
+    // function that generates a single datatype with one constructor per checkpoint (i.e. one of the above lists)
+    pub fn smt_declare_intermediate_states(&self) -> SmtExpr {
+        let game = self.game_ctx.game;
+        let inst = &game.pkgs[self.inst_offs];
+        let osig = &inst.pkg.oracles[self.oracle_offs].sig;
+
+        let game_name = &game.name;
+        let inst_name = &inst.name;
+        let oracle_name = &osig.name;
+
+        let checkpoints = self.checkpoints();
+
+        declare::declare_datatype(
+            &names::intermediate_oracle_state_sort_name(game_name, inst_name, oracle_name),
+            checkpoints.into_iter(),
+        )
+    }
+
+    fn checkpoints_inner(
+        &self,
+        code: &[Statement],
+        locals: &mut Vec<(String, SmtExpr)>,
+        checkpoints: &mut Vec<(String, Vec<(String, SmtExpr)>)>,
+        path: &[usize],
+    ) {
+        let gctx = &self.game_ctx;
+        let ictx = gctx.pkg_inst_ctx_by_offs(self.inst_offs).unwrap();
+        let octx = ictx.oracle_ctx_by_oracle_offs(self.oracle_offs).unwrap();
+
+        let game_name = &self.game_ctx.game.name;
+        let inst_name = ictx.pkg_inst_name();
+        let oracle_name = &octx.oracle_def().sig.name;
+
+        for (i, stmt) in code.iter().enumerate() {
+            let mut new_path = path.to_vec();
+            new_path.push(i);
+
+            let path_str: Vec<String> = new_path.iter().map(usize::to_string).collect();
+            let path_str = path_str.join("-");
+
+            match &stmt {
+                Statement::Sample(id, opt_idx, _, tipe)
+                | Statement::InvokeOracle {
+                    id,
+                    opt_idx,
+                    tipe: Some(tipe),
+                    ..
+                } => match opt_idx {
+                    Some(Expression::Typed(idx_type, _)) => locals.push((
+                        id.ident(),
+                        Type::Table(Box::new(tipe.clone()), Box::new(idx_type.clone())).into(),
+                    )),
+
+                    None => locals.push((id.ident(), tipe.into())),
+                    Some(_) => unreachable!(),
+                },
+
+                Statement::Assign(id, opt_idx, value) => match (opt_idx, value) {
+                    (Some(Expression::Typed(idx_type, _)), Expression::Typed(tipe, _)) => locals
+                        .push((
+                            id.ident(),
+                            Type::Table(Box::new(tipe.clone()), Box::new(idx_type.clone())).into(),
+                        )),
+
+                    (None, Expression::Typed(tipe, _)) => locals.push((id.ident(), tipe.into())),
+                    (Some(_), _) => unreachable!(),
+                    (None, _) => unreachable!(),
+                },
+                Statement::Parse(ids, Expression::Typed(Type::Tuple(tipes), _)) => {
+                    assert_eq!(ids.len(), tipes.len());
+
+                    let pairs = ids
+                        .iter()
+                        .map(Identifier::ident)
+                        .zip(tipes.iter().map(|t| t.into()));
+                    locals.extend(pairs);
+                }
+                Statement::Parse(ids, _) => unreachable!(),
+
+                Statement::IfThenElse(_, CodeBlock(ifcode), CodeBlock(elsecode)) => {
+                    self.checkpoints_inner(ifcode, locals, checkpoints, &new_path);
+                    self.checkpoints_inner(elsecode, locals, checkpoints, &new_path);
+                }
+
+                Statement::Abort => checkpoints.push((
+                    names::oracle_intermediate_state_abort_constructor_name(
+                        game_name,
+                        inst_name,
+                        oracle_name,
+                        &new_path,
+                    ),
+                    locals
+                        .iter()
+                        .map(|(var_name, expr)| {
+                            let name = names::oracle_intermediate_state_abort_selector_name(
+                                game_name,
+                                inst_name,
+                                oracle_name,
+                                &new_path,
+                                var_name,
+                            );
+                            (name, expr.clone())
+                        })
+                        .collect(),
+                )),
+                Statement::Return(_) => checkpoints.push((
+                    names::oracle_intermediate_state_return_constructor_name(
+                        game_name,
+                        inst_name,
+                        oracle_name,
+                        &new_path,
+                    ),
+                    locals
+                        .iter()
+                        .map(|(var_name, expr)| {
+                            let name = names::oracle_intermediate_state_return_selector_name(
+                                game_name,
+                                inst_name,
+                                oracle_name,
+                                &new_path,
+                                var_name,
+                            );
+                            (name, expr.clone())
+                        })
+                        .collect(),
+                )),
+                Statement::InvokeOracle {
+                    tipe: None, name, ..
+                } => checkpoints.push((
+                    names::oracle_intermediate_state_oracleinvoc_constructor_name(
+                        game_name,
+                        inst_name,
+                        &oracle_name,
+                        name,
+                        &path,
+                    ),
+                    locals
+                        .iter()
+                        .map(|(var_name, expr)| {
+                            let name = names::oracle_intermediate_state_oracleinvoc_selector_name(
+                                game_name,
+                                inst_name,
+                                oracle_name,
+                                name,
+                                &new_path,
+                                var_name,
+                            );
+                            (name, expr.clone())
+                        })
+                        .collect(),
+                )),
+            };
+        }
     }
 }

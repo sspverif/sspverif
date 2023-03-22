@@ -152,7 +152,7 @@ impl<'a> GameContext<'a> {
 
         let fields = pkgstate_fields.chain(const_fields).chain(rand_fields);
 
-        declare::declare_datatype(
+        declare::declare_single_constructor_datatype(
             &names::gamestate_sort_name(game_name),
             &names::gamestate_constructor_name(game_name),
             fields,

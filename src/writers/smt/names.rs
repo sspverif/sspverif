@@ -68,6 +68,10 @@ pub fn pkgstate_selector_name(game_name: &str, inst_name: &str, field_name: &str
     format!("state-{game_name}-{inst_name}-{field_name}")
 }
 
+pub fn pkgstate_selector_intermediate_name(game_name: &str, inst_name: &str) -> String {
+    format!("state--intermediate-{game_name}-{inst_name}")
+}
+
 pub fn pkgstate_constructor_name(game_name: &str, inst_name: &str) -> String {
     format!("mk-state-{game_name}-{inst_name}")
 }
@@ -90,4 +94,134 @@ pub fn var_ret_name() -> String {
 
 pub fn fn_sample_rand_name<S: Into<SmtExpr>>(game_name: &str, rand_sort: S) -> String {
     format!("__sample-rand-{}-{}", game_name, rand_sort.into())
+}
+
+pub fn intermediate_oracle_state_sort_name(
+    game_name: &str,
+    inst_name: &str,
+    oracle_name: &str,
+) -> String {
+    format!("IntermediateOracleState_{game_name}_{inst_name}_{oracle_name}")
+}
+
+pub fn intermediate_package_instance_state_sort_name(game_name: &str, inst_name: &str) -> String {
+    format!("IntermediatePackageInstanceState_{game_name}_{inst_name}")
+}
+
+pub fn intermediate_package_instance_state_constructor_name(
+    game_name: &str,
+    inst_name: &str,
+    oracle_name: &str,
+) -> String {
+    format!("intermediate-package-instance-state_{game_name}_{inst_name}_{oracle_name}")
+}
+
+pub fn intermediate_package_instance_state_constructor_name_none(
+    game_name: &str,
+    inst_name: &str,
+) -> String {
+    format!("no-intermediate-package-instance-state_{game_name}_{inst_name}")
+}
+
+pub fn intermediate_package_instance_state_selector_name(
+    game_name: &str,
+    inst_name: &str,
+    oracle_name: &str,
+) -> String {
+    format!("intermediate-package-instance-state-get_{game_name}_{inst_name}_{oracle_name}")
+}
+
+pub fn oracle_intermediate_state_return_constructor_name(
+    game_name: &str,
+    inst_name: &str,
+    oracle_name: &str,
+    path: &[usize],
+) -> String {
+    let path_str: String = path
+        .iter()
+        .map(usize::to_string)
+        .collect::<Vec<_>>()
+        .join("-");
+
+    format!("oracle-intermediate-state-return_{game_name}_{inst_name}_{oracle_name}_{path_str}")
+}
+
+pub fn oracle_intermediate_state_abort_constructor_name(
+    game_name: &str,
+    inst_name: &str,
+    oracle_name: &str,
+    path: &[usize],
+) -> String {
+    let path_str: String = path
+        .iter()
+        .map(usize::to_string)
+        .collect::<Vec<_>>()
+        .join("-");
+
+    format!("oracle-intermediate-state-abort_{game_name}_{inst_name}_{oracle_name}_{path_str}")
+}
+
+pub fn oracle_intermediate_state_oracleinvoc_constructor_name(
+    game_name: &str,
+    inst_name: &str,
+    oracle_name: &str,
+    dst_oracle_name: &str,
+    path: &[usize],
+) -> String {
+    let path_str: String = path
+        .iter()
+        .map(usize::to_string)
+        .collect::<Vec<_>>()
+        .join("-");
+
+    format!("oracle-intermediate-state-oracleinvoc_{game_name}_{inst_name}_{oracle_name}_{dst_oracle_name}_{path_str}")
+}
+
+pub fn oracle_intermediate_state_return_selector_name(
+    game_name: &str,
+    inst_name: &str,
+    oracle_name: &str,
+    path: &[usize],
+    var_name: &str,
+) -> String {
+    let path_str: String = path
+        .iter()
+        .map(usize::to_string)
+        .collect::<Vec<_>>()
+        .join("-");
+
+    format!("oracle-intermediate-state-return_{game_name}_{inst_name}_{oracle_name}_{path_str}_{var_name}")
+}
+
+pub fn oracle_intermediate_state_abort_selector_name(
+    game_name: &str,
+    inst_name: &str,
+    oracle_name: &str,
+    path: &[usize],
+    var_name: &str,
+) -> String {
+    let path_str: String = path
+        .iter()
+        .map(usize::to_string)
+        .collect::<Vec<_>>()
+        .join("-");
+
+    format!("oracle-intermediate-state-abort_{game_name}_{inst_name}_{oracle_name}_{path_str}_{var_name}")
+}
+
+pub fn oracle_intermediate_state_oracleinvoc_selector_name(
+    game_name: &str,
+    inst_name: &str,
+    oracle_name: &str,
+    dst_oracle_name: &str,
+    path: &[usize],
+    var_name: &str,
+) -> String {
+    let path_str: String = path
+        .iter()
+        .map(usize::to_string)
+        .collect::<Vec<_>>()
+        .join("-");
+
+    format!("oracle-intermediate-state-oracleinvoc_{game_name}_{inst_name}_{oracle_name}_{dst_oracle_name}_{path_str}_{var_name}")
 }

@@ -65,7 +65,15 @@ impl<'a> PackageInstanceContext<'a> {
             )
         });
 
-        declare::declare_datatype(
+        let fields = fields.chain(
+            vec![(
+                names::pkgstate_selector_intermediate_name(game_name, inst_name),
+                names::intermediate_package_instance_state_sort_name(game_name, inst_name).into(),
+            )]
+            .into_iter(),
+        );
+
+        declare::declare_single_constructor_datatype(
             &names::pkgstate_sort_name(game_name, inst_name),
             &names::pkgstate_constructor_name(game_name, inst_name),
             fields,
@@ -140,4 +148,47 @@ impl<'a> PackageInstanceContext<'a> {
 
         Some(SmtExpr::List(constructor_fncall))
     }
+
+    // we need a type that has all the oracle intermediate states as as sumtype sort
+    fn smt_declare_intermediate_oraclestates(&self) -> SmtExpr {
+        let game = self.game_ctx.game;
+        let inst = &game.pkgs[self.inst_offs];
+
+        let game_name = &game.name;
+        let inst_name = &inst.name;
+
+        let mut fields = vec![(
+            names::intermediate_package_instance_state_constructor_name_none(game_name, inst_name),
+            vec![],
+        )];
+
+        for i in 0..inst.pkg.oracles.len() {
+            let octx = self.oracle_ctx_by_oracle_offs(i).unwrap();
+            let oracle_name = &octx.oracle_def().sig.name;
+            let oracle_sort_name =
+                names::intermediate_oracle_state_sort_name(game_name, inst_name, oracle_name);
+            let oracle_const_name = names::intermediate_package_instance_state_constructor_name(
+                game_name,
+                inst_name,
+                oracle_name,
+            );
+
+            let oracle_sel_name = names::intermediate_package_instance_state_selector_name(
+                game_name,
+                inst_name,
+                oracle_name,
+            );
+
+            fields.push((
+                oracle_const_name,
+                vec![(oracle_sel_name, oracle_sort_name.into())],
+            ));
+        }
+
+        let sort_name = names::intermediate_package_instance_state_sort_name(game_name, inst_name);
+
+        declare::declare_datatype(&sort_name, fields.into_iter())
+    }
+
+    // we need to add that sort to the oracle state
 }
