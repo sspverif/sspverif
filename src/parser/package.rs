@@ -294,7 +294,9 @@ pub fn handle_code(code: Pair<Rule>, file_name: &str) -> CodeBlock {
                         let upper_bound = handle_expression(parsed.remove(4));
                         let body = handle_code(parsed.remove(4), file_name);
 
-                        if decl_var_name != bound_var_name {}
+                        if decl_var_name != bound_var_name {
+                            todo!("return proper error here")
+                        }
 
                         let lower_bound = match lower_bound_type {
                             "<" => Expression::Add(

@@ -43,6 +43,7 @@ pub struct PackageInstance {
     pub types: Vec<(Type, Type)>,
     pub pkg: Package,
     pub name: String,
+    pub multi_instance_indeces: Vec<(String, Type)>,
 }
 
 impl PackageInstance {
@@ -59,8 +60,30 @@ impl PackageInstance {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Edge(pub usize, pub usize, pub OracleSig);
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MultiInstanceEdge {
+    // name, from, to. name: from <= name < to
+    // expressions are normalized to fit the above
+    pub loopvars: Vec<(String, Expression, Expression)>,
+    pub source_pkgidx: usize,
+    pub source_instance_idx: Option<Expression>,
+    pub dest_pkgidx: usize,
+    pub dest_instance_idx: Option<Expression>,
+    pub oracle_sig: OracleSig,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Export(pub usize, pub OracleSig);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MultiInstanceExport {
+    // name, from, to. name: from <= name < to
+    // expressions are normalized to fit the above
+    pub loopvars: Vec<(String, Expression, Expression)>,
+    pub dest_pkgidx: usize,
+    pub dest_instance_idx: Option<Expression>,
+    pub oracle_sig: OracleSig,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SplitExport(pub usize, pub SplitOracleSig);
