@@ -18,7 +18,7 @@ composition MODSec0 {
     }
   }
 
-for dd: 1 <= dd <= d+1 {
+for dd: 1 <= dd <= (d+1) {
   instance keys[dd] = Keys {
     params {
       n:  n,

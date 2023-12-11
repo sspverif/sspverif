@@ -475,6 +475,7 @@ fn transform_codeblock(
             Statement::InvokeOracle {
                 id,
                 opt_idx,
+                opt_dst_inst_idx,
                 name,
                 target_inst_name: Some(target_inst_name),
                 args,
@@ -510,6 +511,7 @@ fn transform_codeblock(
                                 id: Identifier::new_scalar("_"),
                                 name: name.to_string(),
                                 opt_idx: None,
+                                opt_dst_inst_idx: None,
                                 args: args.clone(),
                                 target_inst_name: Some(target_inst_name.to_string()),
                                 tipe: None,
@@ -535,6 +537,7 @@ fn transform_codeblock(
                     CodeBlock(vec![Statement::InvokeOracle {
                         id: id.clone(),
                         opt_idx: opt_idx.clone(),
+                        opt_dst_inst_idx: opt_dst_inst_idx.clone(),
                         name: last_sig.name.clone(),
                         args: args.clone(),
                         target_inst_name: Some(target_inst_name.to_string()),

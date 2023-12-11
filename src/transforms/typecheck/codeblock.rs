@@ -278,12 +278,16 @@ impl TypedCodeBlock {
                 Statement::InvokeOracle {
                     id,
                     opt_idx,
+                    opt_dst_inst_idx,
                     name,
                     args,
                     target_inst_name,
                     tipe: _,
                     file_pos,
                 } => {
+                    println!(
+                        "TODO: in typecheck/codeblock.rs, check that opt_dst_inst_idx is valid"
+                    );
                     let oracle_entry = scope.lookup(&Identifier::new_scalar(name));
                     if oracle_entry.is_none() {
                         return Err(TypeCheckError::Undefined(
@@ -399,6 +403,7 @@ impl TypedCodeBlock {
                     new_block.push(Statement::InvokeOracle {
                         id: id.clone(),
                         opt_idx: opt_idx.clone(),
+                        opt_dst_inst_idx: opt_dst_inst_idx.clone(),
                         name: name.clone(),
                         args: typified_args,
                         target_inst_name: target_inst_name.clone(),

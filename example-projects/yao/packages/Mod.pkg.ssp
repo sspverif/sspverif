@@ -18,9 +18,9 @@ package Mod {
 
     oracle Garble(C: Table(Integer,Table(Integer,(Integer,Integer,Table((Bool,Bool),Bool)))),
                   x:Table(Integer,Bool)) 
-                 -> ((Table(Integer,Table(Integer,Table(Bits(p), Bool)))),
+                 -> (Table(Integer,Table(Integer,Table(Bits(p), Bool))),
                      Table(Integer, Bits(n)),
-                     Table(Integer,Table((Bool,Bool),Bits(n))))
+                     Table(Integer,Table(Bool, Bits(n))))
 
                      {
         xtilde <- new Table(Integer, Bits(n));
@@ -35,14 +35,15 @@ package Mod {
         Tabletemp      <- new Table(Integer,(Integer,Integer,Table((Bool,Bool),Bool)));
         Tabletemptilde <- new Table(Integer,Table(Bits(p), Bool));
         for i: 1 <= i <= d {
-        assert (not (C[i] == None as Table(Integer,(Integer,Integer,Table((Bool,Bool),Bool)))));
-        Tabletemp <- Unwrap(C[i]);
-        Tabletemptilde <- invoke GBL[i](Tabletemp);
-        Ctilde[i] <- Some(Tabletemp);}
+            assert (not (C[i] == None as Table(Integer,(Integer,Integer,Table((Bool,Bool),Bool)))));
+            Tabletemp <- Unwrap(C[i]);
+            Tabletemptilde <- invoke GBL[i](Tabletemp);
+            Ctilde[i] <- Some(Tabletemptilde);
+        }
         tmp  <- new Table(Bool,Bits(n));
         dinf <- new Table(Integer, Table(Bool,Bits(n)));
         for jj: 1 <= jj <= w {
-             tmp <- invoke GETKEYSIN[d+1](i);
+             tmp <- invoke GETKEYSIN[(d+1)](jj);
              dinf[jj] <- Some(tmp);
         }
         return (Ctilde,xtilde,dinf);

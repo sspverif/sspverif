@@ -175,6 +175,7 @@ pub fn unwrapify(cb: &CodeBlock, ctr: &mut usize) -> Result<CodeBlock, Error> {
             Statement::InvokeOracle {
                 id,
                 opt_idx,
+                opt_dst_inst_idx,
                 name,
                 args,
                 target_inst_name,
@@ -197,6 +198,7 @@ pub fn unwrapify(cb: &CodeBlock, ctr: &mut usize) -> Result<CodeBlock, Error> {
                 newcode.push(Statement::InvokeOracle {
                     id,
                     opt_idx,
+                    opt_dst_inst_idx,
                     name,
                     args,
                     target_inst_name,

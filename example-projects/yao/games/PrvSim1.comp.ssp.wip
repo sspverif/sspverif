@@ -1,4 +1,4 @@
-composition PrvSim0 {
+composition PrvSim1 {
   const w: Integer;
   const n: Integer;
   const d: Integer;

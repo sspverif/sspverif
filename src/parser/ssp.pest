@@ -157,7 +157,7 @@ ite = {"if" ~ expression ~ "{" ~ code ~ "}" ~ ( "else" ~ "{" ~ code ~ "}" )? }
 
 sample = { identifier ~ "<-$" ~ tipe ~ ";" }
 assign = { identifier ~ "<-" ~ expression ~ ";" }
-invocation = { identifier ~ ( "[" ~ table_index ~ "]" )? ~ "<-" ~ kw_invoke ~ fn_call ~ ";" }
+invocation = { identifier ~ ( "[" ~ table_index ~ "]" )? ~ "<-" ~ kw_invoke ~ oracle_call ~ ";" }
 parse = { parse_tuple ~ "<-" ~  kw_parse ~ expression ~ ";" }
   parse_tuple = { "(" ~ identifier ~ ("," ~ identifier )* ~ ")" }
 table_sample = { identifier ~ "[" ~ expression ~ "]" ~ "<-$" ~ tipe ~ ";" }
@@ -185,6 +185,10 @@ expr_xor   = { "("  ~ expression ~ ("xor" ~ expression)* ~ ")" }
 expr_not   = { "not" ~ expression }
 
 expr_newtable = { "new" ~ "Table" ~ "(" ~ tipe ~ "," ~ tipe ~ ")" }
+
+oracle_call =  { identifier ~ oracle_call_index? ~ "(" ~ fn_call_arglist? ~ ")" }
+oracle_call_index = { "[" ~ expression ~ "]" }
+oracle_call_arglist = { expression ~ ( "," ~ expression)* }
 
 fn_call =  { identifier ~ "(" ~ fn_call_arglist? ~ ")" }
 fn_call_arglist = { expression ~ ( "," ~ expression)* }

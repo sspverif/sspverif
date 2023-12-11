@@ -241,7 +241,7 @@ pub fn handle_code(code: Pair<Rule>, file_name: &str) -> CodeBlock {
                     }
                     Rule::invocation => {
                         let mut inner = stmt.into_inner();
-                        let ident = Identifier::new_scalar(inner.next().unwrap().as_str());
+                        let target_ident = Identifier::new_scalar(inner.next().unwrap().as_str());
                         let maybe_index = inner.next().unwrap();
                         let (opt_idx, oracle_inv) = if maybe_index.as_rule() == Rule::table_index {
                             let mut inner_index = maybe_index.into_inner();
@@ -251,18 +251,31 @@ pub fn handle_code(code: Pair<Rule>, file_name: &str) -> CodeBlock {
                             (None, maybe_index)
                         };
 
+                        assert!(matches!(oracle_inv.as_rule(), Rule::oracle_call));
+
                         let mut inner = oracle_inv.into_inner();
                         let oracle_name = inner.next().unwrap().as_str();
-                        let args = match inner.next() {
-                            None => vec![],
-                            Some(inner_args) => {
-                                inner_args.into_inner().map(handle_expression).collect()
+
+                        let mut args = vec![];
+                        let mut dst_inst_index = None;
+
+                        for ast in inner {
+                            match ast.as_rule() {
+                                Rule::oracle_call_index => {
+                                    let index_expr_ast = ast.into_inner().next().unwrap();
+                                    dst_inst_index = Some(handle_expression(index_expr_ast));
+                                }
+                                Rule::fn_call_arglist => {
+                                    args.extend(ast.into_inner().map(handle_expression))
+                                }
+                                _ => unreachable!(),
                             }
-                        };
+                        }
 
                         Statement::InvokeOracle {
-                            id: ident,
+                            id: target_ident,
                             opt_idx,
+                            opt_dst_inst_idx: dst_inst_index,
                             name: oracle_name.to_owned(),
                             args,
                             target_inst_name: None,

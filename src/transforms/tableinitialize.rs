@@ -113,11 +113,9 @@ pub fn tableinitialize(cb: &CodeBlock, initialized: &Vec<String>) -> Result<Code
             Statement::InvokeOracle {
                 id: Identifier::Local(ref id),
                 opt_idx: Some(ref idxexpr),
-                name: _,
-                args: _,
-                target_inst_name: _,
                 tipe: ref opt_tipe,
                 ref file_pos,
+                ..
             } => {
                 let indextype = match idxexpr {
                     Expression::Typed(t, _) => t,

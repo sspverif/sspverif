@@ -27,12 +27,14 @@ fn transform_helper_outer(table: &HashMap<String, String>, block: CodeBlock) -> 
                     args,
                     tipe,
                     file_pos,
+                    opt_dst_inst_idx,
                     ..
                 } => {
                     if let Some(pkgname) = table.get(name) {
                         Statement::InvokeOracle {
                             id: id.clone(),
                             opt_idx: opt_idx.clone(),
+                            opt_dst_inst_idx: opt_dst_inst_idx.clone(),
                             name: name.clone(),
                             args: args.clone(),
                             tipe: tipe.clone(),

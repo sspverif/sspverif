@@ -193,6 +193,7 @@ fn var_specify_helper(
                 Statement::InvokeOracle {
                     id,
                     opt_idx,
+                    opt_dst_inst_idx,
                     name,
                     args,
                     target_inst_name,
@@ -200,11 +201,13 @@ fn var_specify_helper(
                     file_pos,
                 } => {
                     let opt_idx = opt_idx.clone().map(|expr| expr.map(fixup));
+                    let opt_dst_inst_idx = opt_dst_inst_idx.clone().map(|expr| expr.map(fixup));
                     let args = args.iter().map(|expr| expr.map(fixup)).collect();
                     if let Expression::Identifier(id) = fixup(id.to_expression()) {
                         Statement::InvokeOracle {
                             id,
                             opt_idx,
+                            opt_dst_inst_idx,
                             name: name.clone(),
                             args,
                             target_inst_name: target_inst_name.clone(),
