@@ -66,9 +66,9 @@ pub struct MultiInstanceEdge {
     // expressions are normalized to fit the above
     pub loopvars: Vec<(String, Expression, Expression)>,
     pub source_pkgidx: usize,
-    pub source_instance_idx: Option<Expression>,
+    pub source_instance_idx: Vec<Expression>,
     pub dest_pkgidx: usize,
-    pub dest_instance_idx: Option<Expression>,
+    pub dest_instance_idx: Vec<Expression>,
     pub oracle_sig: OracleSig,
 }
 
@@ -81,7 +81,7 @@ pub struct MultiInstanceExport {
     // expressions are normalized to fit the above
     pub loopvars: Vec<(String, Expression, Expression)>,
     pub dest_pkgidx: usize,
-    pub dest_instance_idx: Option<Expression>,
+    pub dest_instance_idx: Vec<Expression>,
     pub oracle_sig: OracleSig,
 }
 

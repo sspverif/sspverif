@@ -146,23 +146,12 @@ pub fn handle_for_loop_body(
     let mut multi_edges = vec![];
     let mut multi_exports = vec![];
 
-    /*
-    Note: the grammar enforces that we first have the const declarations,
-    then the instance declarations and only then the composition block.
-    This means that we can assume that the last step is done processing.
-    */
     for comp_spec in ast.into_inner() {
         match comp_spec.as_rule() {
             Rule::game_for => {
                 let (mut mult_pkg_insts, mut new_multi_edges, mut new_multi_exports) =
                     handle_for_loop(
-                        comp_spec,
-                        comp_name,
-                        &mut vec![],
-                        pkgs,
-                        pkg_insts,
-                        &consts,
-                        file_name,
+                        comp_spec, comp_name, loopvars, pkgs, pkg_insts, &consts, file_name,
                     )?;
 
                 instances.append(&mut mult_pkg_insts);
@@ -176,26 +165,30 @@ pub fn handle_for_loop_body(
             }
             Rule::compose_decl_multi_inst => {
                 let (mut edges_, mut exports_) =
-                    handle_compose_assign_body_list_multi_inst(comp_spec, &pkg_insts);
+                    handle_compose_assign_body_list_multi_inst(comp_spec, &pkg_insts, loopvars);
                 multi_edges.append(&mut edges_);
                 multi_exports.append(&mut exports_);
             }
-            _ => {
-                unreachable!();
-            }
+            _ => unreachable!(),
         }
     }
 
-    todo!()
+    Ok((instances, multi_edges, multi_exports))
 }
 
 pub fn handle_compose_assign_body_list_multi_inst(
     ast: Pair<Rule>,
     instances: &HashMap<String, (usize, PackageInstance)>,
+    loopvars: &Vec<(String, Expression, Expression)>,
 ) -> (Vec<MultiInstanceEdge>, Vec<MultiInstanceExport>) {
     let mut edges = vec![];
     let mut exports = vec![];
     for body in ast.into_inner() {
+        assert!(matches!(
+            body.as_rule(),
+            Rule::compose_assign_body_list_multi_inst
+        ));
+
         let mut inner = body.into_inner();
         let inst_name = inner.next().unwrap().as_str();
         if inst_name == "adversary" {
@@ -224,17 +217,17 @@ pub fn handle_compose_assign_body_list_multi_inst(
                     Some(def) => def.sig.clone(),
                 };
                 exports.push(MultiInstanceExport {
-                    loopvars: todo!(),
+                    loopvars: loopvars.clone(),
                     dest_pkgidx: *dst_offset,
-                    dest_instance_idx: todo!(),
                     oracle_sig,
+                    dest_instance_idx: todo!(),
                 });
             }
 
             continue;
         }
 
-        let (offset, _inst) = match instances.get(inst_name) {
+        let (src_offset, _src_inst) = match instances.get(inst_name) {
             None => {
                 panic!("instance {} not found in compose block", inst_name);
             }
@@ -268,12 +261,12 @@ pub fn handle_compose_assign_body_list_multi_inst(
             };
 
             edges.push(MultiInstanceEdge {
-                loopvars: todo!(),
-                source_pkgidx: *offset,
-                source_instance_idx: todo!(),
+                loopvars: loopvars.clone(),
+                source_pkgidx: *src_offset,
                 dest_pkgidx: *dst_offset,
-                dest_instance_idx: todo!(),
                 oracle_sig,
+                source_instance_idx: todo!(),
+                dest_instance_idx: todo!(),
             });
         }
     }
@@ -301,6 +294,7 @@ pub fn handle_for_loop(
     let bound_var_name = parsed[2].as_str();
     let upper_bound_type = parsed[3].as_str();
     let upper_bound = handle_expression(parsed.remove(4));
+    let body_ast = parsed.remove(4);
 
     if decl_var_name != bound_var_name {
         todo!("return proper error here")
@@ -328,15 +322,13 @@ pub fn handle_for_loop(
 
     loopvars.push(loopvar);
 
-    handle_for_loop_body(
-        parsed.remove(4),
-        comp_name,
-        loopvars,
-        pkgs,
-        pkg_insts,
-        consts,
-        file_name,
-    )
+    let result = handle_for_loop_body(
+        body_ast, comp_name, loopvars, pkgs, pkg_insts, consts, file_name,
+    );
+
+    loopvars.pop();
+
+    result
 }
 
 pub fn handle_comp_spec_list(

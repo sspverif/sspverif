@@ -80,10 +80,12 @@ compose_assign = { identifier ~ ":" ~ identifier }
 
 
 compose_decl_multi_inst = { kw_compose ~ "{" ~ compose_assign_body_list_multi_inst? ~ "}" }
-compose_assign_body_list_multi_inst = _ {compose_assign_body_multi_inst ~ ( "," ~ compose_assign_body_multi_inst)* ~ ","? }
-compose_assign_body_multi_inst = _{ identifier ~ ":" ~ "{" ~ compose_assign_list_multi_inst? ~ "}" }
-compose_assign_list_multi_inst = _{ (compose_assign | compose_assign_with_index) ~ ( "," ~ (compose_assign | compose_assign_with_index ) )* }
-compose_assign_with_index = { "with" ~ "index)" ~ "[" ~ index_list ~ "]" ~ compose_assign }
+compose_assign_body_list_multi_inst = _{compose_assign_body_multi_inst ~ ( "," ~ compose_assign_body_multi_inst)* ~ ","? }
+compose_assign_body_multi_inst = _{ identifier ~   compose_assign_src_index? ~ ":" ~ "{" ~ compose_assign_list_multi_inst? ~ "}" }
+compose_assign_src_index =  { "[" ~ index_list ~ "]" }
+compose_assign_dst_index =  { "[" ~ index_list ~ "]" }
+compose_assign_list_multi_inst = _{ (compose_assign_with_index | compose_assign) ~ ( "," ~ (compose_assign_with_index | compose_assign ) )* }
+compose_assign_with_index = { "with" ~ "index" ~ "[" ~ compose_assign_dst_index ~ "]" ~ compose_assign }
 
 
 package = { kw_package ~ identifier ~ "{" ~ package_spec_list ~ "}" }
