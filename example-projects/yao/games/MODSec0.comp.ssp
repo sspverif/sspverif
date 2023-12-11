@@ -1,0 +1,83 @@
+composition MODSec0 {
+  const w: Integer;
+  const n: Integer;
+  const d: Integer;
+  const m: Integer;
+  const p: Integer;
+  const zeron: Bits(n);
+  const zerom: Bits(m);
+  const encn: fn Bits(n),Bits(n),Bits(n) -> Bits(m);
+  const encm: fn Bits(n),Bits(m),Bits(n) -> Bits(p);
+
+  instance mod = Mod {
+    params {
+        w: Integer,
+        d: Integer,
+        p: Integer,
+        n: Integer,
+    }
+  }
+
+for dd: 1 <= dd <= d+1 {
+  instance keys[dd] = Keys {
+    params {
+      n:  n,
+    }
+  }
+    instance modgb[dd] = MODGB {
+    params {
+        w: Integer,
+        p: Integer,
+        n: Integer,
+    }
+  }
+
+    instance gate[dd] = Gate {
+    params {
+        n: Integer,
+        m: Integer,
+        p: Integer,
+        zeron: Bits(n),
+    }
+  }
+    instance enc[dd] = Enc0 {
+    params {
+        n: Integer,
+        m: Integer,
+        p: Integer,
+        encn: fn Bits(n),Bits(n),Bits(n) -> Bits(m),
+        encm: fn Bits(n),Bits(m),Bits(n) -> Bits(p),   
+    }
+  }
+}
+
+
+      for dd: 1 <= dd <= d { 
+           compose {
+             mod: {
+              MODGB[dd]: modgb[dd],
+             }
+             modgb[dd]: {
+              GBLG: gate[dd],
+             }
+             gate[dd]: {
+              ENC: enc[dd],
+              GETKEYSIN: keys[dd+1],
+             }
+             enc[dd]: {
+              GETKEYSOUT: keys[dd],
+             }
+             }
+             }
+
+  compose {
+    adversary: {
+      GARBLE:   mod,
+    },
+    mod: {
+      GETAOUT:   keys[1],
+      SETBIT:    keys[1],
+      GETKEYS:   keys[d+1],
+    },
+  }
+}
