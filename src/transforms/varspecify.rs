@@ -48,13 +48,13 @@ fn resolve_var(
     let pkg_inst_params = SliceResolver(pkg_inst_params);
     let game_inst_params = SliceResolver(game_inst_params);
 
-    if let Some(_) = pkg_state.resolve(&name) {
+    if let Some(_) = pkg_state.resolve_value(&name) {
         Identifier::State {
             name: name.to_string(),
             pkg_inst_name: pkg_inst_name.to_string(),
             game_inst_name: game_inst_name.to_string(),
         }
-    } else if let Some((_, expr)) = &pkg_inst_params.resolve(&name) {
+    } else if let Some((_, expr)) = &pkg_inst_params.resolve_value(&name) {
         let id = if let Expression::Identifier(id) = expr {
             id
         } else {
@@ -62,7 +62,7 @@ fn resolve_var(
         };
 
         let id_in_proof = if let Some((_, Expression::Identifier(id_in_proof))) =
-            game_inst_params.resolve(&id.ident())
+            game_inst_params.resolve_value(&id.ident())
         {
             id_in_proof
         } else {

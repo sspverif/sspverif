@@ -52,34 +52,35 @@ pub fn verify(red: &Reduction, proof: &Proof) -> Result<()> {
 
     let left = left_mapping.as_game_inst_name();
     let left = game_instance_resolver
-        .resolve(left)
+        .resolve_value(left)
         .ok_or(Error::ProofCheck(format!(
             "could not find game instance {left:?}"
         )))?;
     let right = right_mapping.as_game_inst_name();
     let right = game_instance_resolver
-        .resolve(right)
+        .resolve_value(right)
         .ok_or(Error::ProofCheck(format!(
             "could not find game instance {right:?}"
         )))?;
 
     let assumption_resolver = SliceResolver(proof.assumptions());
-    let assumption = assumption_resolver
-        .resolve(assumption_name)
-        .ok_or(Error::ProofCheck(format!(
-            "could not find assumption {assumption_name:?}"
-        )))?;
+    let assumption =
+        assumption_resolver
+            .resolve_value(assumption_name)
+            .ok_or(Error::ProofCheck(format!(
+                "could not find assumption {assumption_name:?}"
+            )))?;
 
     let assumption_left = &assumption.left_name;
     let assumption_left = game_instance_resolver
-        .resolve(&assumption.left_name)
+        .resolve_value(&assumption.left_name)
         .ok_or(Error::ProofCheck(format!(
             "could not find game instance {assumption_left:?}"
         )))?;
 
     let assumption_right = &assumption.right_name;
     let assumption_right = game_instance_resolver
-        .resolve(&assumption.right_name)
+        .resolve_value(&assumption.right_name)
         .ok_or(Error::ProofCheck(format!(
             "could not find game instance {assumption_right:?}"
         )))?;
@@ -112,17 +113,16 @@ pub fn verify(red: &Reduction, proof: &Proof) -> Result<()> {
     let mismatches_left: Vec<_> = leftmap
         .iter()
         .map(|(from, to)| {
-            let assumption_left_pkg_inst =
-                assumption_left_package_resolver
-                    .resolve(from)
-                    .ok_or(Error::ProofCheck(format!(
-                        "error resolving package {from} in left game {}",
-                        assumption_left.name()
-                    )))?;
+            let assumption_left_pkg_inst = assumption_left_package_resolver
+                .resolve_value(from)
+                .ok_or(Error::ProofCheck(format!(
+                    "error resolving package {from} in left game {}",
+                    assumption_left.name()
+                )))?;
 
             let left_pkg_inst =
                 left_package_resolver
-                    .resolve(to)
+                    .resolve_value(to)
                     .ok_or(Error::ProofCheck(format!(
                         "error resolving package {to} in left assumption game {}",
                         left.name()
@@ -155,17 +155,16 @@ pub fn verify(red: &Reduction, proof: &Proof) -> Result<()> {
     let mismatches_right: Vec<_> = rightmap
         .iter()
         .map(|(from, to)| {
-            let assumption_right_pkg_inst =
-                assumption_right_package_resolver
-                    .resolve(from)
-                    .ok_or(Error::ProofCheck(format!(
-                        "error resolving package {from} in right game {}",
-                        assumption_right.name()
-                    )))?;
+            let assumption_right_pkg_inst = assumption_right_package_resolver
+                .resolve_value(from)
+                .ok_or(Error::ProofCheck(format!(
+                "error resolving package {from} in right game {}",
+                assumption_right.name()
+            )))?;
 
             let right_pkg_inst =
                 right_package_resolver
-                    .resolve(to)
+                    .resolve_value(to)
                     .ok_or(Error::ProofCheck(format!(
                         "error resolving package {to} in right assumption game {}",
                         right.name()

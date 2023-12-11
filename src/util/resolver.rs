@@ -1,13 +1,18 @@
 use crate::{
-    package::{Composition, Package, PackageInstance},
+    package::{Composition, OracleDef, Package, PackageInstance},
     proof::Assumption,
 };
 
 pub trait Resolver<'a, T>: IndexLifetime<'a, usize, Output = T> {
-    fn resolve(&self, name: &str) -> Option<&'a T> {
+    fn resolve_index(&self, name: &str) -> Option<usize>;
+
+    fn resolve_value(&self, name: &str) -> Option<&'a T> {
         self.resolve_index(name).map(|idx| self.index(idx))
     }
-    fn resolve_index(&self, name: &str) -> Option<usize>;
+
+    fn resolve(&self, name: &str) -> Option<(usize, &'a T)> {
+        self.resolve_index(name).map(|idx| (idx, self.index(idx)))
+    }
 }
 
 pub trait IndexLifetime<'a, T> {
@@ -115,3 +120,9 @@ impl_Named!(Package);
 impl_Named!(PackageInstance);
 impl_Named!(Composition);
 impl_Named!(Assumption);
+
+impl Named for OracleDef {
+    fn as_name(&self) -> &str {
+        &self.sig.name
+    }
+}

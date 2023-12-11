@@ -68,8 +68,12 @@ impl<'a> EquivalenceContext<'a> {
 
     fn emit_game_definitions(&self, comm: &mut Communicator) -> Result<()> {
         let instance_resolver = SliceResolver(self.proof.instances());
-        let left = instance_resolver.resolve(&self.eq.left_name()).unwrap();
-        let right = instance_resolver.resolve(&self.eq.right_name()).unwrap();
+        let left = instance_resolver
+            .resolve_value(&self.eq.left_name())
+            .unwrap();
+        let right = instance_resolver
+            .resolve_value(&self.eq.right_name())
+            .unwrap();
 
         let mut left_writer =
             CompositionSmtWriter::new(left, self.sample_info_left(), self.split_info_left());
@@ -235,8 +239,12 @@ impl<'a> EquivalenceContext<'a> {
         let left_game_inst_name = self.eq.left_name();
         let right_game_inst_name = self.eq.right_name();
 
-        let left = instance_resolver.resolve(self.eq.left_name()).unwrap();
-        let right = instance_resolver.resolve(self.eq.right_name()).unwrap();
+        let left = instance_resolver
+            .resolve_value(self.eq.left_name())
+            .unwrap();
+        let right = instance_resolver
+            .resolve_value(self.eq.right_name())
+            .unwrap();
 
         let gctx_left = contexts::GameInstanceContext::new(left);
         let gctx_right = contexts::GameInstanceContext::new(right);
@@ -914,8 +922,8 @@ impl<'a> EquivalenceContext<'a> {
 
     fn types(&self) -> Vec<Type> {
         let aux_resolver = SliceResolver(&self.auxs);
-        let (_, (_, types_left, _, _)) = aux_resolver.resolve(self.eq.left_name()).unwrap();
-        let (_, (_, types_right, _, _)) = aux_resolver.resolve(self.eq.right_name()).unwrap();
+        let (_, (_, types_left, _, _)) = aux_resolver.resolve_value(self.eq.left_name()).unwrap();
+        let (_, (_, types_right, _, _)) = aux_resolver.resolve_value(self.eq.right_name()).unwrap();
         let mut types: Vec<_> = types_left.union(types_right).cloned().collect();
         types.sort();
         types
@@ -925,45 +933,45 @@ impl<'a> EquivalenceContext<'a> {
         let game_inst_name = self.eq.left_name();
         let insts = self.proof.instances();
         let resolver: SliceResolver<'a, _> = SliceResolver(insts);
-        let game_inst: &'a _ = resolver.resolve(game_inst_name).unwrap();
+        let game_inst: &'a _ = resolver.resolve_value(game_inst_name).unwrap();
         contexts::GameInstanceContext::new(game_inst)
     }
 
     fn right_game_ctx(&self) -> contexts::GameInstanceContext<'a> {
         let game_inst_name = self.eq.right_name();
         let game_inst = SliceResolver(self.proof.instances())
-            .resolve(game_inst_name)
+            .resolve_value(game_inst_name)
             .unwrap();
         contexts::GameInstanceContext::new(game_inst)
     }
 
     fn sample_info_left(&self) -> &'a SampleInfo {
         let aux_resolver = SliceResolver(&self.auxs);
-        let (_, (_, _, sample_info, _)) = aux_resolver.resolve(self.eq.left_name()).unwrap();
+        let (_, (_, _, sample_info, _)) = aux_resolver.resolve_value(self.eq.left_name()).unwrap();
         sample_info
     }
 
     fn sample_info_right(&self) -> &'a SampleInfo {
         let aux_resolver = SliceResolver(&self.auxs);
-        let (_, (_, _, sample_info, _)) = aux_resolver.resolve(self.eq.right_name()).unwrap();
+        let (_, (_, _, sample_info, _)) = aux_resolver.resolve_value(self.eq.right_name()).unwrap();
         sample_info
     }
 
     fn split_info_left(&self) -> &'a Vec<SplitInfoEntry> {
         let aux_resolver = SliceResolver(&self.auxs);
-        let (_, (_, _, _, split_info)) = aux_resolver.resolve(self.eq.left_name()).unwrap();
+        let (_, (_, _, _, split_info)) = aux_resolver.resolve_value(self.eq.left_name()).unwrap();
         split_info
     }
 
     fn split_info_right(&self) -> &'a Vec<SplitInfoEntry> {
         let aux_resolver = SliceResolver(&self.auxs);
-        let (_, (_, _, _, split_info)) = aux_resolver.resolve(self.eq.right_name()).unwrap();
+        let (_, (_, _, _, split_info)) = aux_resolver.resolve_value(self.eq.right_name()).unwrap();
         split_info
     }
 
     fn oracle_sequence(&self) -> Vec<&'a OracleSig> {
         let game_inst = SliceResolver(self.proof.instances())
-            .resolve(self.eq.left_name())
+            .resolve_value(self.eq.left_name())
             .unwrap();
 
         println!("oracle sequence: {:?}", game_inst.game().exports);
@@ -978,7 +986,7 @@ impl<'a> EquivalenceContext<'a> {
 
     fn split_oracle_sequence(&self) -> Vec<&'a SplitOracleSig> {
         let game_inst = SliceResolver(self.proof.instances())
-            .resolve(self.eq.left_name())
+            .resolve_value(self.eq.left_name())
             .unwrap();
 
         println!("oracle sequence: {:?}", game_inst.game().exports);

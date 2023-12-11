@@ -84,7 +84,7 @@ fn handle_instance_decl(
         handle_instance_assign_list(&inst_name, file_name, proof_consts, body_ast)?;
 
     let game_resolver = SliceResolver(games);
-    let game = match game_resolver.resolve(&game_name) {
+    let game = match game_resolver.resolve_value(&game_name) {
         Some(game) => game,
         None => return Err(Error::UndefinedGame(game_name.to_string()).with_span(game_span)),
     };
@@ -138,7 +138,7 @@ fn check_consts(game_inst: &GameInstance, span: Span, games: &[Composition]) -> 
 
     let game_resolver = SliceResolver(games);
     let game = game_resolver
-        .resolve(game_inst.game_name())
+        .resolve_value(game_inst.game_name())
         .ok_or(Error::UndefinedGame(game_inst.game_name().to_string()).with_span(span.clone()))?;
 
     let mut game_const_names: Vec<_> = game
@@ -199,10 +199,10 @@ fn handle_assumptions(ast: Pairs<Rule>, instances: &[GameInstance]) -> Result<Ve
         let (name, left_name, right_name) = handle_string_triplet(&mut pair.into_inner());
 
         let inst_resolver = SliceResolver(instances);
-        if inst_resolver.resolve(&left_name).is_none() {
+        if inst_resolver.resolve_value(&left_name).is_none() {
             return Err(Error::UndefinedGameInstance(left_name).with_span(span.clone()));
         }
-        if inst_resolver.resolve(&right_name).is_none() {
+        if inst_resolver.resolve_value(&right_name).is_none() {
             return Err(Error::UndefinedGameInstance(right_name).with_span(span.clone()));
         }
 
@@ -265,10 +265,16 @@ fn handle_equivalence<'a>(
         .map(|(oracle_name, inv_paths, _)| (oracle_name, inv_paths))
         .collect();
 
-    if SliceResolver(game_instances).resolve(&left_name).is_none() {
+    if SliceResolver(game_instances)
+        .resolve_value(&left_name)
+        .is_none()
+    {
         return Err(Error::UndefinedGameInstance(left_name).with_span(span));
     }
-    if SliceResolver(game_instances).resolve(&right_name).is_none() {
+    if SliceResolver(game_instances)
+        .resolve_value(&right_name)
+        .is_none()
+    {
         return Err(Error::UndefinedGameInstance(right_name).with_span(span));
     }
 
@@ -338,7 +344,7 @@ fn handle_reduction_body(
     // check that assumption_name turns up in the assumptions list
     // and fetch the assumption definition
     let assumption_resolver = SliceResolver(assumptions);
-    let assumption = assumption_resolver.resolve(assumption_name).ok_or(
+    let assumption = assumption_resolver.resolve_value(assumption_name).ok_or(
         Error::ReductionMappingMismatch {
             place: "assumptions definition".to_string(),
         }
@@ -386,10 +392,10 @@ fn handle_mapspec<'a>(
 
     // check that game instance names can be resolved
     SliceResolver(game_instances)
-        .resolve(&game_inst_name)
+        .resolve_value(&game_inst_name)
         .ok_or(Error::UndefinedGame(game_inst_name.clone()).with_span(span.clone()))?;
     SliceResolver(game_instances)
-        .resolve(&assumption_game_inst_name)
+        .resolve_value(&assumption_game_inst_name)
         .ok_or(Error::UndefinedGame(assumption_game_inst_name.clone()).with_span(span.clone()))?;
 
     let is_left_assumption_game = assumption_game_inst_name == assumption.left_name;

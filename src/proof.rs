@@ -208,14 +208,14 @@ impl Equivalence {
 
     pub fn invariants_by_oracle_name(&self, oracle_name: &str) -> Vec<String> {
         SliceResolver(&self.invariants)
-            .resolve(oracle_name)
+            .resolve_value(oracle_name)
             .map(|(_oname, inv_file_names)| inv_file_names.clone())
             .unwrap_or(vec![])
     }
 
     pub fn proof_tree_by_oracle_name(&self, oracle_name: &str) -> Vec<Claim> {
         SliceResolver(&self.trees)
-            .resolve(oracle_name)
+            .resolve_value(oracle_name)
             .map(|(_oname, tree)| tree.clone())
             .unwrap_or(vec![])
     }
