@@ -1,4 +1,5 @@
 use crate::expressions::Expression;
+use crate::identifier::Identifier;
 use crate::split::{SplitOracleDef, SplitOracleSig};
 use crate::statement::{CodeBlock, FilePosition};
 use crate::types::Type;
@@ -66,9 +67,9 @@ pub struct MultiInstanceEdge {
     // expressions are normalized to fit the above
     pub loopvars: Vec<(String, Expression, Expression)>,
     pub source_pkgidx: usize,
-    pub source_instance_idx: Vec<Expression>,
+    pub source_instance_idx: Vec<Identifier>,
     pub dest_pkgidx: usize,
-    pub dest_instance_idx: Vec<Expression>,
+    pub dest_instance_idx: Vec<(Identifier, Expression)>,
     pub oracle_sig: OracleSig,
 }
 
