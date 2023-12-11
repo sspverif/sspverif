@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate pest_derive;
 
+pub mod builder;
 pub mod expressions;
 pub mod gamehops;
 pub mod identifier;
