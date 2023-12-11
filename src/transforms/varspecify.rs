@@ -54,14 +54,14 @@ fn resolve_var(
             pkg_inst_name: pkg_inst_name.to_string(),
             game_inst_name: game_inst_name.to_string(),
         }
-    } else if let Some(expr) = &pkg_inst_params.resolve(&name) {
+    } else if let Some((_, expr)) = &pkg_inst_params.resolve(&name) {
         let id = if let Expression::Identifier(id) = expr {
             id
         } else {
             unreachable!()
         };
 
-        let id_in_proof = if let Some(Expression::Identifier(id_in_proof)) =
+        let id_in_proof = if let Some((_, Expression::Identifier(id_in_proof))) =
             game_inst_params.resolve(&id.ident())
         {
             id_in_proof

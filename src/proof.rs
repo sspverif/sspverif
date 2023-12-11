@@ -310,7 +310,7 @@ impl Proof {
         &self.game_hops
     }
 
-    pub fn instances(&self) -> &[GameInstance] {
+    pub fn instances<'a>(&'a self) -> &'a [GameInstance] {
         &self.instances
     }
 

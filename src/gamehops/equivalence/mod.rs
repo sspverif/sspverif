@@ -439,7 +439,10 @@ impl<'a> EquivalenceContext<'a> {
         Ok(())
     }
 
-    fn split_oracle_sig_by_exported_name(&self, oracle_name: &str) -> Option<&'a SplitOracleSig> {
+    fn split_oracle_sig_by_exported_name(
+        &'a self,
+        oracle_name: &str,
+    ) -> Option<&'a SplitOracleSig> {
         let gctx_left = self.left_game_ctx();
 
         gctx_left
@@ -697,7 +700,7 @@ impl<'a> EquivalenceContext<'a> {
         Ok(())
     }
 
-    fn oracle_sig_by_exported_name(&self, oracle_name: &str) -> Option<&'a OracleSig> {
+    fn oracle_sig_by_exported_name(&'a self, oracle_name: &str) -> Option<&'a OracleSig> {
         let gctx_left = self.left_game_ctx();
 
         gctx_left
@@ -918,11 +921,11 @@ impl<'a> EquivalenceContext<'a> {
         types
     }
 
-    fn left_game_ctx(&self) -> contexts::GameInstanceContext<'a> {
+    fn left_game_ctx(&'a self) -> contexts::GameInstanceContext<'a> {
         let game_inst_name = self.eq.left_name();
-        let game_inst = SliceResolver(self.proof.instances())
-            .resolve(game_inst_name)
-            .unwrap();
+        let insts = self.proof.instances();
+        let resolver: SliceResolver<'a, _> = SliceResolver(insts);
+        let game_inst: &'a _ = resolver.resolve(game_inst_name).unwrap();
         contexts::GameInstanceContext::new(game_inst)
     }
 
