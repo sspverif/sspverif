@@ -8,9 +8,15 @@ package Mod {
 
     import oracles {
         SETBIT(j: Integer, x:Bool) -> (),
-        GBL(C:  Table(Integer,(Integer,Integer,Table((Bool,Bool),Bool)))) -> Table(Integer,Table(Bits(p), Bool)),
-        GETKEYSIN(j: Integer)      -> Table(Bool,Bits(n)),
         GETAOUT(j: Integer)        -> Bits(n),
+
+        for i: 0 <= i <= d {
+            GBL[i](C:  Table(Integer,(Integer,Integer,Table((Bool,Bool),Bool)))) -> Table(Integer,Table(Bits(p), Bool)),
+        }
+
+        for i: 0 <= i <= (d+1) {
+            GETKEYSIN[i](j: Integer)      -> Table(Bool,Bits(n)),
+        }
     }
 
     state {
@@ -20,11 +26,10 @@ package Mod {
                   x:Table(Integer,Bool)) 
                  -> (Table(Integer,Table(Integer,Table(Bits(p), Bool))),
                      Table(Integer, Bits(n)),
-                     Table(Integer,Table(Bool, Bits(n))))
-
-                     {
+                     Table(Integer,Table(Bool, Bits(n)))) {
         xtilde <- new Table(Integer, Bits(n));
         Ctilde <- new Table(Integer,Table(Integer,Table(Bits(p), Bool)));
+
         for j: 1 <= j <= w {
             assert (x[j] == None as Bool);
             z <-         Unwrap(x[j]);
@@ -32,20 +37,25 @@ package Mod {
             k <- invoke  GETAOUT[1](j);
              xtilde[j] <- Some(k);
         }
+
         Tabletemp      <- new Table(Integer,(Integer,Integer,Table((Bool,Bool),Bool)));
         Tabletemptilde <- new Table(Integer,Table(Bits(p), Bool));
+
         for i: 1 <= i <= d {
             assert (not (C[i] == None as Table(Integer,(Integer,Integer,Table((Bool,Bool),Bool)))));
             Tabletemp <- Unwrap(C[i]);
             Tabletemptilde <- invoke GBL[i](Tabletemp);
             Ctilde[i] <- Some(Tabletemptilde);
         }
+
         tmp  <- new Table(Bool,Bits(n));
         dinf <- new Table(Integer, Table(Bool,Bits(n)));
+
         for jj: 1 <= jj <= w {
              tmp <- invoke GETKEYSIN[(d+1)](jj);
              dinf[jj] <- Some(tmp);
         }
+
         return (Ctilde,xtilde,dinf);
     }
 }

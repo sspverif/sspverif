@@ -83,7 +83,7 @@ for dd: 1 <= dd <= (d+1) {
     mod: {
       with index [1] GETAOUT:   keys,
       with index [1] SETBIT:    keys,
-      with index [(d+1)] GETKEYS:   keys,
+      with index [(d+1)] GETKEYSIN:   keys,
     },
   }
 }
