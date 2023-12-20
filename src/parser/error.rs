@@ -8,26 +8,29 @@ use crate::{expressions::Expression, transforms::resolvetypes, types::Type};
 #[derive(Clone)]
 pub struct SpanError {
     err: Error,
-    start: usize,
-    end: usize,
+    start_bytes: usize,
+    start_line: usize,
+    start_col: usize,
+    end_bytes: usize,
+    end_line: usize,
+    end_col: usize,
     source: Option<String>,
 }
 
 impl SpanError {
-    pub fn new(err: Error, start: usize, end: usize) -> SpanError {
+    pub fn new_with_span(err: Error, span: pest::Span) -> SpanError {
+        let start_bytes = span.start();
+        let (start_line, start_col) = span.start_pos().line_col();
+        let end_bytes = span.end();
+        let (end_line, end_col) = span.end_pos().line_col();
         SpanError {
             err,
-            start,
-            end,
-            source: None,
-        }
-    }
-
-    pub fn new_with_span<'span>(err: Error, span: pest::Span<'span>) -> SpanError {
-        SpanError {
-            err,
-            start: span.start(),
-            end: span.end(),
+            start_bytes,
+            start_line,
+            start_col,
+            end_bytes,
+            end_line,
+            end_col,
             source: None,
         }
     }
@@ -43,16 +46,24 @@ impl SpanError {
 impl std::fmt::Display for SpanError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let SpanError {
-            err, start, end, ..
+            err,
+            start_line,
+            start_col,
+            end_line,
+            end_col,
+            ..
         } = self;
-        write!(f, "parse error {err} at {start}..{end}")
+        write!(
+            f,
+            "parse error {err} at {start_line}:{start_col}..{end_line}:{end_col}"
+        )
     }
 }
 
 impl Debug for SpanError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(ref source) = self.source {
-            let span = Span::new(source, self.start, self.end).unwrap();
+            let span = Span::new(source, self.start_bytes, self.end_bytes).unwrap();
             f.debug_struct("SpanError")
                 .field("err", &self.err)
                 .field("span", &span)
@@ -60,8 +71,8 @@ impl Debug for SpanError {
         } else {
             f.debug_struct("SpanError")
                 .field("err", &self.err)
-                .field("start", &self.start)
-                .field("end", &self.end)
+                .field("start", &self.start_bytes)
+                .field("end", &self.end_bytes)
                 .finish()
         }
     }
@@ -78,9 +89,13 @@ pub enum Error {
     #[error("looks like composition {game_name} doesn't have a compose block")]
     MissingComposeBlock { game_name: String },
     #[error(
-        "the types parameter assignments don't match the package definition for package {pkg_name}"
+        "the types parameter assignments for package instance {pkg_inst_name} in game {game_name} don't match the package definition for package {pkg_name}"
     )]
-    TypeParameterMismatch { pkg_name: String },
+    TypeParameterMismatch {
+        game_name: String,
+        pkg_inst_name: String,
+        pkg_name: String,
+    },
     #[error(
         "the const parameter assignments don't match the package definition for package {pkg_name}"
     )]

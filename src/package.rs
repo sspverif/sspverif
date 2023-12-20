@@ -44,7 +44,7 @@ pub struct PackageInstance {
     pub types: Vec<(Type, Type)>,
     pub pkg: Package,
     pub name: String,
-    pub multi_instance_indeces: Vec<(String, Type)>,
+    pub multi_instance_indices: Vec<(String, Type)>,
 }
 
 impl PackageInstance {
@@ -69,7 +69,7 @@ pub struct MultiInstanceEdge {
     pub source_pkgidx: usize,
     pub source_instance_idx: Vec<Identifier>,
     pub dest_pkgidx: usize,
-    pub dest_instance_idx: Vec<(Identifier, Expression)>,
+    pub dest_instance_idx: Vec<Expression>,
     pub oracle_sig: OracleSig,
 }
 

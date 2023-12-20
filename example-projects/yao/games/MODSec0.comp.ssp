@@ -11,10 +11,10 @@ composition MODSec0 {
 
   instance mod = Mod {
     params {
-        w: Integer,
-        d: Integer,
-        p: Integer,
-        n: Integer,
+        w: w,
+        d: d,
+        p: p,
+        n: n,
     }
   }
 
@@ -23,30 +23,34 @@ for dd: 1 <= dd <= (d+1) {
     params {
       n:  n,
     }
+
+    types {
+      Handle: Integer,
+    }
   }
-    instance modgb[dd] = MODGB {
+  instance modgb[dd] = MODGB {
     params {
-        w: Integer,
-        p: Integer,
-        n: Integer,
+        w: w,
+        p: p,
+        n: n,
     }
   }
 
     instance gate[dd] = Gate {
     params {
-        n: Integer,
-        m: Integer,
-        p: Integer,
-        zeron: Bits(n),
+        n: n,
+        m: m,
+        p: p,
+        zeron: zeron,
     }
   }
     instance enc[dd] = Enc0 {
     params {
-        n: Integer,
-        m: Integer,
-        p: Integer,
-        encn: fn Bits(n),Bits(n),Bits(n) -> Bits(m),
-        encm: fn Bits(n),Bits(m),Bits(n) -> Bits(p),   
+        n: n,
+        m: m,
+        p: p,
+        encn: encn,
+        encm: encm
     }
   }
 }
@@ -55,29 +59,31 @@ for dd: 1 <= dd <= (d+1) {
       for dd: 1 <= dd <= d { 
            compose {
              mod: {
-              MODGB[dd]: modgb[dd],
+              with index [dd] GBL: modgb,
              }
              modgb[dd]: {
-              GBLG: gate[dd],
+              with index [dd] GBLG: gate,
              }
              gate[dd]: {
-              ENC: enc[dd],
-              GETKEYSIN: keys[dd+1],
+              with index [dd] ENCM: enc,
+              with index [dd] ENCN: enc,
+              with index [(dd + 1)] GETKEYSIN: keys,
              }
              enc[dd]: {
-              GETKEYSOUT: keys[dd],
+              with index [dd] GETKEYSOUT: keys,
              }
              }
              }
 
   compose {
     adversary: {
-      GARBLE:   mod,
+      Garble:   mod,
     },
+
     mod: {
-      GETAOUT:   keys[1],
-      SETBIT:    keys[1],
-      GETKEYS:   keys[d+1],
+      with index [1] GETAOUT:   keys,
+      with index [1] SETBIT:    keys,
+      with index [(d+1)] GETKEYS:   keys,
     },
   }
 }
