@@ -52,24 +52,24 @@ impl Statement {
 #[derive(Clone, PartialEq, PartialOrd, Ord, Eq, Hash, Debug)]
 pub struct FilePosition {
     file_name: String,
-    line_start: usize,
-    line_end: usize,
+    start_line_col: (usize, usize),
+    end_line_col: (usize, usize),
 }
 
 impl FilePosition {
     pub fn new(file_name: String, line_start: usize, line_end: usize) -> FilePosition {
         FilePosition {
             file_name,
-            line_start,
-            line_end,
+            start_line_col: (line_start, 0),
+            end_line_col: (line_end, 0),
         }
     }
 
     pub fn from_span(file_name: impl ToString, span: Span) -> FilePosition {
         FilePosition {
             file_name: file_name.to_string(),
-            line_start: span.start_pos().line_col().0,
-            line_end: span.end_pos().line_col().0,
+            start_line_col: span.start_pos().line_col(),
+            end_line_col: span.end_pos().line_col(),
         }
     }
 
@@ -77,12 +77,20 @@ impl FilePosition {
         &self.file_name
     }
 
+    pub fn start(&self) -> (usize, usize) {
+        self.start_line_col
+    }
+
+    pub fn end(&self) -> (usize, usize) {
+        self.end_line_col
+    }
+
     pub fn line_start(&self) -> usize {
-        self.line_start
+        self.start_line_col.0
     }
 
     pub fn line_end(&self) -> usize {
-        self.line_end
+        self.end_line_col.0
     }
 }
 
@@ -90,11 +98,14 @@ impl std::fmt::Display for FilePosition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Self {
             file_name,
-            line_start,
-            line_end,
+            start_line_col: (line_start, col_start),
+            end_line_col: (line_end, col_end),
         } = self;
 
-        write!(f, "{file_name}:{line_start}..{line_end}")
+        write!(
+            f,
+            "{file_name}:{line_start}:{col_start}..{line_end}:{col_end}"
+        )
     }
 }
 

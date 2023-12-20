@@ -23,3 +23,11 @@ pub mod project;
 pub mod util;
 
 pub mod proof;
+
+pub mod error {
+    use crate::statement::FilePosition;
+
+    pub trait LocationError: std::error::Error {
+        fn file_pos<'a>(&'a self) -> &'a FilePosition;
+    }
+}
