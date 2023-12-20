@@ -83,17 +83,17 @@ compose_assign_body_list            = _{ (compose_assign_body ~  ","? )+ }
 compose_assign_body_list_multi_inst = _{ compose_assign_body_multi_inst+ }
 
 compose_assign_body             = { identifier ~ ":" ~ "{" ~ compose_assign_list? ~ "}" }
-compose_assign_body_multi_inst  = { identifier ~ compose_assign_src_index? ~ ":" ~ "{" ~ compose_assign_list? ~ "}" }
+compose_assign_body_multi_inst  = { identifier ~ indices_ident? ~ ":" ~ "{" ~ compose_assign_list? ~ "}" }
 
 compose_assign_list = _{ compose_assign ~ ( "," ~ compose_assign )* ~ ","? }
 
 compose_assign      =  { compose_assign_modifier? ~ identifier ~ ":" ~ identifier }
 
 compose_assign_modifier            = _{ compose_assign_modifier_with_index }
-compose_assign_modifier_with_index =  { "with" ~ "index" ~ compose_assign_dst_index}
+compose_assign_modifier_with_index =  { "with" ~ "index" ~ indices_expr}
 
-compose_assign_src_index =  { "[" ~ index_id_list ~ "]" }
-compose_assign_dst_index =  { "[" ~ index_expr_list ~ "]" }
+indices_ident =  { "[" ~ index_id_list ~ "]" }
+indices_expr  =  { "[" ~ index_expr_list ~ "]" }
 
 package = { kw_package ~ identifier ~ "{" ~ package_spec_list ~ "}" }
 
@@ -141,10 +141,13 @@ state = { kw_state ~ "{" ~ decl_list? ~ "}"  }
 
 fn_maybe_arglist = { fn_arglist? }
 
-import_oracles = {kw_import ~ kw_oracles ~ ( "{" ~ ( oracle_sig ~ ("," ~ oracle_sig)* ~ ","? )? ~ "}" )  }
-oracle_sig = { identifier ~ "(" ~ fn_maybe_arglist ~ ")" ~ ("->" ~ tipe)? }
+import_oracles = {kw_import ~ kw_oracles ~ "{" ~ import_oracles_body ~ "}" }
+import_oracles_body = { (import_oracles_for | import_oracles_oracle_sig ~ "," )* }
+import_oracles_oracle_sig = { identifier ~ indices_expr? ~ "(" ~ fn_maybe_arglist ~ ")" ~ ("->" ~ tipe)? }
+import_oracles_for = { kw_for ~ identifier ~ ":" ~ expression ~ for_comp ~ identifier ~ for_comp ~ expression ~ "{" ~ import_oracles_body ~ "}" }
 
 oracle_def = { kw_oracle ~ oracle_sig ~ "{" ~ code ~ "}" }
+oracle_sig = { identifier ~ "(" ~ fn_maybe_arglist ~ ")" ~ ("->" ~ tipe)? }
 
 
 identifier = @{ ( ASCII_ALPHA | "_" ) ~ ( ASCII_ALPHA | ASCII_DIGIT | "_" )* }

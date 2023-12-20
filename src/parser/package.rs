@@ -14,6 +14,7 @@ use super::Rule;
 use pest::iterators::Pair;
 
 use std::collections::HashMap;
+use std::convert::TryInto;
 
 pub fn handle_decl_list(state: Pair<Rule>, file_name: &str) -> Vec<(String, Type, FilePosition)> {
     state
@@ -38,6 +39,7 @@ pub fn handle_types_list(types: Pair<Rule>) -> Vec<Type> {
 
 // TODO: identifier is optional
 pub fn handle_arglist(arglist: Pair<Rule>) -> Vec<(String, Type)> {
+    println!("handle_arglist rule: {:?}", arglist.as_rule());
     arglist
         .into_inner()
         .map(|arg| {
@@ -47,36 +49,6 @@ pub fn handle_arglist(arglist: Pair<Rule>) -> Vec<(String, Type)> {
             (id.to_string(), tipe)
         })
         .collect()
-}
-
-pub fn handle_oracle_imports(oracle_sig: Pair<Rule>, file_path: &str) -> (OracleSig, FilePosition) {
-    let span = oracle_sig.as_span();
-    let file_pos = FilePosition::from_span(file_path, span);
-
-    (handle_oracle_sig(oracle_sig), file_pos)
-}
-
-pub fn handle_oracle_sig(oracle_sig: Pair<Rule>) -> OracleSig {
-    let mut inner = oracle_sig.into_inner();
-    let name = inner.next().unwrap().as_str();
-    let maybe_arglist = inner.next().unwrap();
-    let args = if maybe_arglist.as_str() == "" {
-        vec![]
-    } else {
-        handle_arglist(maybe_arglist.into_inner().next().unwrap())
-    };
-
-    let maybe_tipe = inner.next();
-    let tipe = match maybe_tipe {
-        None => Type::Empty,
-        Some(t) => handle_type(t),
-    };
-
-    OracleSig {
-        name: name.to_string(),
-        tipe,
-        args,
-    }
 }
 
 pub fn handle_expression(expr: Pair<Rule>) -> Expression {
@@ -380,10 +352,14 @@ pub fn handle_pkg_spec(pkg_spec: Pair<Rule>, pkg_name: &str, file_name: &str) ->
                     .map(|params| handle_decl_list(params, file_name));
             }
             Rule::import_oracles => {
-                for sig_ast in spec.into_inner() {
-                    let (sig, file_pos) = handle_oracle_imports(sig_ast, file_name);
-                    imported_oracles.insert(sig.name.clone(), (sig, file_pos));
-                }
+                let body_ast = spec.into_inner().next().unwrap();
+                let res = handle_import_oracles_body(
+                    body_ast,
+                    &mut imported_oracles,
+                    pkg_name,
+                    file_name,
+                    &vec![],
+                );
             }
             Rule::oracle_def => {
                 oracles.push(handle_oracle_def(spec, file_name));
@@ -404,6 +380,248 @@ pub fn handle_pkg_spec(pkg_spec: Pair<Rule>, pkg_name: &str, file_name: &str) ->
         state: state.unwrap_or_default(),
         split_oracles: vec![],
     }
+}
+
+pub fn handle_oracle_sig(oracle_sig: Pair<Rule>) -> OracleSig {
+    let mut inner = oracle_sig.into_inner();
+    let name = inner.next().unwrap().as_str();
+    let maybe_arglist = inner.next().unwrap();
+    let args = if maybe_arglist.as_str() == "" {
+        vec![]
+    } else {
+        handle_arglist(maybe_arglist.into_inner().next().unwrap())
+    };
+
+    let maybe_tipe = inner.next();
+    let tipe = match maybe_tipe {
+        None => Type::Empty,
+        Some(t) => handle_type(t),
+    };
+
+    OracleSig {
+        name: name.to_string(),
+        tipe,
+        args,
+        multi_inst_idx: None,
+    }
+}
+
+pub fn handle_oracle_imports_oracle_sig(
+    oracle_sig: Pair<Rule>,
+    for_stack: &Vec<ForSpec>,
+) -> OracleSig {
+    println!("{:?}", oracle_sig.as_rule());
+
+    let span = oracle_sig.as_span();
+
+    let mut inner = oracle_sig.into_inner();
+    let name = inner.next().unwrap().as_str();
+
+    let (multi_inst_idx, args) = {
+        let mut multi_inst_idx = None;
+        let mut arglist = vec![];
+
+        while let Some(next) = inner.peek() {
+            match next.as_rule() {
+                Rule::indices_expr => {
+                    let indices = next.into_inner().map(handle_expression).collect();
+                    multi_inst_idx = Some((indices, for_stack.to_owned()));
+                    inner.next();
+                }
+                Rule::fn_maybe_arglist => {
+                    if !next.as_str().is_empty() {
+                        arglist = handle_arglist(next.into_inner().next().unwrap());
+                    }
+                    inner.next();
+                }
+                _ => break,
+            }
+        }
+
+        (multi_inst_idx, arglist)
+    };
+
+    let maybe_tipe = inner.next();
+    let tipe = match maybe_tipe {
+        None => Type::Empty,
+        Some(t) => handle_type(t),
+    };
+
+    OracleSig {
+        name: name.to_string(),
+        tipe,
+        args,
+        multi_inst_idx,
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ForComp {
+    Lt,
+    Lte,
+}
+
+#[derive(Debug)]
+pub struct ForCompError(String);
+
+impl std::fmt::Display for ForCompError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "not a valid comparison operator for for loops: {:?}",
+            self.0
+        )
+    }
+}
+
+impl std::error::Error for ForCompError {}
+
+impl crate::error::LocationError for ParseImportOraclesError {
+    fn file_pos<'a>(&'a self) -> &'a FilePosition {
+        match self {
+            ParseImportOraclesError::IdentifierMismatch(_, _, file_pos)
+            | ParseImportOraclesError::InvalidStartComparison(_, file_pos)
+            | ParseImportOraclesError::InvalidEndComparison(_, file_pos) => file_pos,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq)]
+pub struct ForSpec {
+    ident: Identifier,
+    start: Expression,
+    end: Expression,
+    start_comp: ForComp,
+    end_comp: ForComp,
+}
+
+impl std::convert::TryFrom<&str> for ForComp {
+    type Error = ForCompError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "<=" => Ok(ForComp::Lte),
+            "<" => Ok(ForComp::Lt),
+            _ => Err(ForCompError(value.to_string())),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ParseImportOraclesError {
+    IdentifierMismatch(String, String, FilePosition),
+    InvalidStartComparison(ForCompError, FilePosition),
+    InvalidEndComparison(ForCompError, FilePosition),
+}
+
+impl std::fmt::Display for ParseImportOraclesError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseImportOraclesError::IdentifierMismatch(fst, snd, _filepos) => {
+                write!(
+                    f,
+                    "for loop spec uses different identifiers: {fst:?} != {snd:?}"
+                )
+            }
+            ParseImportOraclesError::InvalidStartComparison(comp_err, _filepos) => {
+                write!(f, "first loop comparison is invalid: {comp_err}")
+            }
+            ParseImportOraclesError::InvalidEndComparison(comp_err, _filepos) => {
+                write!(f, "second loop comparison is invalid: {comp_err}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ParseImportOraclesError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ParseImportOraclesError::IdentifierMismatch(_, _, _) => None,
+            ParseImportOraclesError::InvalidStartComparison(e, _)
+            | ParseImportOraclesError::InvalidEndComparison(e, _) => Some(e),
+        }
+    }
+}
+
+pub fn handle_import_oracles_body(
+    ast: Pair<Rule>,
+    imported_oracles: &mut HashMap<String, (OracleSig, FilePosition)>,
+    pkg_name: &str,
+    file_name: &str,
+    for_stack: &Vec<ForSpec>,
+) -> Result<(), ParseImportOraclesError> {
+    assert_eq!(ast.as_rule(), Rule::import_oracles_body);
+
+    for entry in ast.into_inner() {
+        match entry.as_rule() {
+            Rule::import_oracles_oracle_sig => {
+                let file_pos = FilePosition::from_span(file_name, entry.as_span());
+                println!("XXXX {file_name}");
+                let sig = handle_oracle_imports_oracle_sig(entry, for_stack);
+
+                imported_oracles.insert(sig.name.clone(), (sig, file_pos));
+            }
+
+            Rule::import_oracles_for => {
+                let mut for_ast = entry.into_inner();
+
+                let ident_ast = for_ast.next().unwrap();
+                let ident = ident_ast.as_str().to_string();
+
+                let for_start = handle_expression(for_ast.next().unwrap());
+
+                let start_comp_ast = for_ast.next().unwrap();
+                let start_comp_filepos =
+                    FilePosition::from_span(file_name, start_comp_ast.as_span());
+                let start_comp: ForComp = start_comp_ast.as_str().try_into().map_err(|e| {
+                    ParseImportOraclesError::InvalidStartComparison(e, start_comp_filepos)
+                })?;
+
+                let ident2_ast = for_ast.next().unwrap();
+                let ident2_span = ident2_ast.as_span();
+                let ident2 = ident2_ast.as_str().to_string();
+
+                let end_comp_ast = for_ast.next().unwrap();
+                let end_comp_filepos = FilePosition::from_span(file_name, end_comp_ast.as_span());
+                let end_comp: ForComp = end_comp_ast.as_str().try_into().map_err(|e| {
+                    ParseImportOraclesError::InvalidEndComparison(e, end_comp_filepos)
+                })?;
+
+                let end = handle_expression(for_ast.next().unwrap());
+
+                if ident != ident2 {
+                    return Err(ParseImportOraclesError::IdentifierMismatch(
+                        ident,
+                        ident2,
+                        FilePosition::from_span(file_name, ident2_span),
+                    ));
+                }
+
+                let for_spec = ForSpec {
+                    ident: Identifier::Scalar(ident),
+                    start: for_start,
+                    end,
+                    start_comp,
+                    end_comp,
+                };
+
+                let mut new_for_stack = for_stack.clone();
+                new_for_stack.push(for_spec);
+
+                handle_import_oracles_body(
+                    for_ast.next().unwrap(),
+                    imported_oracles,
+                    pkg_name,
+                    file_name,
+                    &new_for_stack,
+                )?;
+            }
+
+            _ => unreachable!(),
+        }
+    }
+
+    Ok(())
 }
 
 pub fn handle_pkg(pkg: Pair<Rule>, file_name: &str) -> (String, Package) {

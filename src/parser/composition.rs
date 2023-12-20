@@ -17,6 +17,7 @@ use crate::types::Type;
 pub fn handle_compose_assign_list(ast: Pairs<Rule>) -> Vec<(String, String)> {
     ast.map(|assignment| {
         let mut inner = assignment.into_inner();
+
         let oracle_name = inner.next().unwrap().as_str();
         let dst_inst_name = inner.next().unwrap().as_str();
 
@@ -88,7 +89,7 @@ pub fn handle_compose_assign_body_list(
         let mut inner = body.into_inner();
         let inst_name = inner.next().unwrap().as_str();
         if inst_name == "adversary" {
-            for (oracle_name, dst_inst_name) in handle_compose_assign_list(inner) {
+            for (oracle_name, dst_inst_name, _) in handle_compose_assign_list_multi_inst(inner) {
                 let (dst_offset, dst_inst) = match instances.get(&dst_inst_name) {
                     None => {
                         panic!(
@@ -125,7 +126,8 @@ pub fn handle_compose_assign_body_list(
             Some(x) => x,
         };
 
-        for (oracle_name, dst_inst_name) in handle_compose_assign_list(inner) {
+        for (oracle_name, dst_inst_name, _) in handle_compose_assign_list_multi_inst(inner) {
+            println!("oname: {oracle_name} dst_inst_name: {dst_inst_name}");
             let (dst_offset, dst_inst) = match instances.get(&dst_inst_name) {
                 None => {
                     panic!(
@@ -224,16 +226,15 @@ pub fn handle_compose_assign_body_list_multi_inst(
         let inst_name = inner.next().unwrap().as_str();
 
         let maybe_src_indices = inner.peek().unwrap();
-        let source_instance_idx =
-            if matches!(maybe_src_indices.as_rule(), Rule::compose_assign_src_index) {
-                inner.next();
-                maybe_src_indices
-                    .into_inner()
-                    .map(|idx_ident| Identifier::Scalar(idx_ident.as_str().to_string()))
-                    .collect()
-            } else {
-                vec![]
-            };
+        let source_instance_idx = if matches!(maybe_src_indices.as_rule(), Rule::indices_ident) {
+            inner.next();
+            maybe_src_indices
+                .into_inner()
+                .map(|idx_ident| Identifier::Scalar(idx_ident.as_str().to_string()))
+                .collect()
+        } else {
+            vec![]
+        };
 
         if inst_name == "adversary" {
             for (oracle_name, dst_inst_name, dest_instance_idx) in

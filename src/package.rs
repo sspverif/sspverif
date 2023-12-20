@@ -1,5 +1,6 @@
 use crate::expressions::Expression;
 use crate::identifier::Identifier;
+use crate::parser::package::ForSpec;
 use crate::split::{SplitOracleDef, SplitOracleSig};
 use crate::statement::{CodeBlock, FilePosition};
 use crate::types::Type;
@@ -17,6 +18,7 @@ pub struct FnSig {
 pub struct OracleSig {
     pub name: String,
     pub args: Vec<(String, Type)>,
+    pub multi_inst_idx: Option<(Vec<Expression>, Vec<ForSpec>)>,
     pub tipe: Type,
 }
 

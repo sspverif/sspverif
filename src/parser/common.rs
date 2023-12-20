@@ -19,29 +19,6 @@ pub fn handle_arglist(arglist: Pair<Rule>) -> Vec<(String, Type)> {
         .collect()
 }
 
-pub fn handle_oracle_sig(oracle_sig: Pair<Rule>) -> OracleSig {
-    let mut inner = oracle_sig.into_inner();
-    let name = inner.next().unwrap().as_str();
-    let maybe_arglist = inner.next().unwrap();
-    let args = if maybe_arglist.as_str() == "" {
-        vec![]
-    } else {
-        handle_arglist(maybe_arglist.into_inner().next().unwrap())
-    };
-
-    let maybe_tipe = inner.next();
-    let tipe = match maybe_tipe {
-        None => Type::Empty,
-        Some(t) => handle_type(t),
-    };
-
-    OracleSig {
-        name: name.to_string(),
-        tipe,
-        args,
-    }
-}
-
 pub fn handle_expression(expr: Pair<Rule>) -> Expression {
     match expr.as_rule() {
         // expr_equals | expr_not_equals | fn_call | table_access | identifier
