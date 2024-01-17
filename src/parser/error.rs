@@ -5,6 +5,8 @@ use thiserror::Error;
 
 use crate::{expressions::Expression, transforms::resolvetypes, types::Type};
 
+use super::composition::ParseGameError;
+
 #[derive(Clone)]
 pub struct SpanError {
     err: Error,
@@ -134,6 +136,8 @@ pub enum Error {
     InvalidAssumptionMapping(String),
     #[error("undefined game instance {0}")]
     UndefinedGameInstance(String),
+    #[error("error parsing game: {0}")]
+    ParseGameError(#[from] ParseGameError),
 }
 
 impl Error {

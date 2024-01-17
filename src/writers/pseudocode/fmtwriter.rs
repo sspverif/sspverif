@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use crate::expressions::Expression;
-use crate::identifier::Identifier;
+use crate::identifier::{Identifier, PackageConst, PackageState};
 use crate::package::{OracleDef, OracleSig, Package};
 use crate::statement::{CodeBlock, Statement};
 use crate::types::Type;
@@ -17,9 +17,9 @@ pub struct FmtWriter<W: std::fmt::Write> {
 impl<W: Write> FmtWriter<W> {
     pub fn new(w: W, annotate: bool) -> Self {
         FmtWriter {
-            w: w,
+            w,
             indent_lvl: 0,
-            annotate: annotate,
+            annotate,
         }
     }
 
@@ -37,20 +37,21 @@ impl<W: Write> FmtWriter<W> {
                     self.write_string(" /* local identifier */ ")?;
                 }
             }
-            Identifier::Parameter {
+            Identifier::Parameter(PackageConst {
                 name_in_pkg: name, ..
-            } => {
+            }) => {
                 self.write_string(name)?;
                 if self.annotate {
                     self.write_string(&format!(" /* param identifier */ "))?;
                 }
             }
-            Identifier::State { name, .. } => {
+            Identifier::State(PackageState { name, .. }) => {
                 self.write_string(name)?;
                 if self.annotate {
                     self.write_string(&format!(" /* state identifier */ "))?;
                 }
             }
+            _ => todo!(),
         }
 
         Ok(())

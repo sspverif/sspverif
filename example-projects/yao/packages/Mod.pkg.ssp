@@ -10,11 +10,11 @@ package Mod {
         SETBIT(j: Integer, x:Bool) -> (),
         GETAOUT(j: Integer)        -> Bits(n),
 
-        for i: 0 <= i <= d {
+        for i: 1 <= i <= d {
             GBL[i](C:  Table(Integer,(Integer,Integer,Table((Bool,Bool),Bool)))) -> Table(Integer,Table(Bits(p), Bool)),
         }
 
-        for i: 0 <= i <= (d+1) {
+        for i: 1 <= i <= (d+1) {
             GETKEYSIN[i](j: Integer)      -> Table(Bool,Bits(n)),
         }
     }

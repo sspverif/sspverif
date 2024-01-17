@@ -10,7 +10,7 @@ package En {
     oracle GETAOUT(h: Integer) -> Bits(n) {
         assert (z[h] != None as Bool);
         zz <- Unwrap(z[h]);
-        Z <- invoke GETKEYSIN(h);
+        Z <- invoke GETKEYS(h);
         ZZ <- Unwrap(Z[zz]);
         return ZZ;
     }
@@ -22,7 +22,7 @@ package En {
     }
 
     import oracles {
-        GETKEYSIN(h: Integer) -> Table(Bool,Bits(n)),
+        GETKEYS(h: Integer) -> Table(Bool,Bits(n)),
     }
 
 }

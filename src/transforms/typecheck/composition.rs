@@ -2,10 +2,43 @@ use super::errors::TypeCheckError;
 use super::pkg::typecheck_pkg;
 use super::scope::Scope;
 
-use crate::package::{Composition, Edge, Export, PackageInstance};
+use crate::package::{Composition, Edge, Export, MultiInstanceEdge, OracleSig, PackageInstance};
+use crate::parser::package::MultiInstanceIndices;
+use crate::util::resolver::Named;
 
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
+
+#[derive(Debug, Clone, Eq, PartialOrd, Ord)]
+struct IgnoreArgNameOracleSig(OracleSig);
+
+impl PartialEq for IgnoreArgNameOracleSig {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.name == other.0.name
+            && self.0.multi_inst_idx == other.0.multi_inst_idx
+            && self.0.tipe == other.0.tipe
+            && self.0.args.len() == other.0.args.len()
+            && self
+                .0
+                .args
+                .iter()
+                .zip(other.0.args.iter())
+                .all(|((_, left_type), (_, right_type))| left_type == right_type)
+    }
+}
+
+impl std::hash::Hash for IgnoreArgNameOracleSig {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.name.hash(state);
+        self.0.tipe.hash(state);
+        self.0.multi_inst_idx.hash(state);
+        state.write_usize(self.0.args.len());
+
+        for (_, arg_type) in &self.0.args {
+            arg_type.hash(state)
+        }
+    }
+}
 
 pub fn typecheck_comp(
     comp: &Composition,
@@ -16,6 +49,7 @@ pub fn typecheck_comp(
         edges,
         exports,
         name,
+        multi_inst_edges,
         ..
     } = comp;
 
@@ -37,68 +71,108 @@ pub fn typecheck_comp(
 
     // 1b. check signature matches in package imports
     let declared_imports: HashMap<_, _> = pkgs
-        .clone()
-        .into_iter()
+        .iter()
         .enumerate()
         .map(|(i, pkg)| {
             (
                 i,
-                HashSet::from_iter(pkg.pkg.imports.into_iter().map(|(osig, _filepos)| osig)),
+                HashSet::from_iter(
+                    pkg.pkg
+                        .imports
+                        .iter()
+                        .map(|(osig, _filepos)| IgnoreArgNameOracleSig(osig.clone())),
+                ),
             )
         })
         .filter(|(_i, imports)| !imports.is_empty())
         .collect();
+
+    // println!("declared imports: {declared_imports:#?}");
+
+    // edge_imports is a hashmap: from_edge_idx -> (hashset sig)
     let mut edge_imports = HashMap::new();
 
     for Edge(from, _, sig_) in edges {
         edge_imports
             .entry(*from)
             .or_insert_with(HashSet::new)
-            .insert(sig_.clone());
+            .insert(IgnoreArgNameOracleSig(sig_.clone()));
     }
+
+    for MultiInstanceEdge {
+        oracle_sig,
+        source_pkgidx,
+        loopvars,
+        dest_instance_idx,
+        ..
+    } in multi_inst_edges
+    {
+        let mut oracle_sig = oracle_sig.clone();
+        oracle_sig.multi_inst_idx = Some(MultiInstanceIndices::new(
+            dest_instance_idx.clone(),
+            loopvars.clone(),
+        ));
+
+        edge_imports
+            .entry(*source_pkgidx)
+            .or_insert_with(HashSet::new)
+            .insert(IgnoreArgNameOracleSig(oracle_sig));
+    }
+
     if declared_imports != edge_imports {
         if declared_imports.keys().collect::<HashSet<_>>()
             != edge_imports.keys().collect::<HashSet<_>>()
         {
             panic!(
-                "Composition {}: Different set of keys with imports, declared: {:?} edges: {:?}",
+                "Composition {}: Different set of keys with imports, declared: {:#?} edges: {:#?}",
                 name,
                 declared_imports.keys(),
                 edge_imports.keys()
             )
         }
-        for (i, pkg) in pkgs.clone().iter().enumerate() {
+        for (i, pkg_inst) in pkgs.clone().iter().enumerate() {
             if !declared_imports.contains_key(&i) {
                 continue;
             }
             if declared_imports[&i] != edge_imports[&i] {
-                let mut declared_imports: Vec<_> = declared_imports[&i]
-                    .iter()
-                    .map(|osig| {
-                        let mut code = String::new();
-                        let mut w =
-                            crate::writers::pseudocode::fmtwriter::FmtWriter::new(&mut code, false);
-                        w.write_oraclesig(osig).unwrap();
-                        code
-                    })
-                    .collect();
+                let left = &declared_imports[&i];
+                let right = &edge_imports[&i];
+                let mut declared_imports: Vec<_> = declared_imports[&i].iter().cloned().collect();
+                // .iter()
+                // .map(|osig| {
+                //     let mut code = String::new();
+                //     let mut w =
+                //         crate::writers::pseudocode::fmtwriter::FmtWriter::new(&mut code, false);
+                //     w.write_oraclesig(osig).unwrap();
+                //     code
+                // })
+                // .collect();
                 declared_imports.sort();
 
-                let mut edge_imports: Vec<_> = edge_imports[&i]
-                    .iter()
-                    .map(|osig| {
-                        let mut code = String::new();
-                        let mut w =
-                            crate::writers::pseudocode::fmtwriter::FmtWriter::new(&mut code, false);
-                        w.write_oraclesig(osig).unwrap();
-                        code
-                    })
-                    .collect();
+                let mut edge_imports: Vec<_> = edge_imports[&i].iter().cloned().collect();
+                // .iter()
+                // .map(|osig| {
+                //     let mut code = String::new();
+                //     let mut w =
+                //         crate::writers::pseudocode::fmtwriter::FmtWriter::new(&mut code, false);
+                //     w.write_oraclesig(osig).unwrap();
+                //     code
+                // })
+                // .collect();
                 edge_imports.sort();
 
+                assert_eq!(declared_imports.len(), edge_imports.len());
+                println!("comp: {name}, i:{i} pkg_inst: {}", pkg_inst.as_name());
+                for i in 0..declared_imports.len() {
+                    println!("declared: {:#?}", declared_imports[i]);
+                    println!("edge:     {:#?}", edge_imports[i]);
+                    assert_eq!(declared_imports[i], edge_imports[i]);
+                    println!("{i} ok")
+                }
+
                 panic!(
-                    "Composition {}: package: {} declared: {:#?} edges: {:#?}",
-                    name, pkg.name, declared_imports, edge_imports
+                    "Composition {}: package: {} declared: {:#?} edges: {:#?}\n ---\n  {left:#?}\n !=\n  {right:#?}",
+                    name, pkg_inst.name, declared_imports, edge_imports
                 );
             }
         }

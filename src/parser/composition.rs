@@ -1,3 +1,4 @@
+use super::package::{ForComp, ForSpec};
 use super::{common::*, error, Rule};
 
 use pest::iterators::{Pair, Pairs};
@@ -9,10 +10,12 @@ use crate::identifier::Identifier;
 use crate::package::{
     Composition, Edge, Export, MultiInstanceEdge, MultiInstanceExport, Package, PackageInstance,
 };
+use crate::statement::FilePosition;
 use crate::transforms::resolvetypes::ResolveTypesPackageInstanceTransform;
 use crate::transforms::PackageInstanceTransform;
 
 use crate::types::Type;
+use crate::util::resolver::Named;
 
 pub fn handle_compose_assign_list(ast: Pairs<Rule>) -> Vec<(String, String)> {
     ast.map(|assignment| {
@@ -28,7 +31,9 @@ pub fn handle_compose_assign_list(ast: Pairs<Rule>) -> Vec<(String, String)> {
 
 pub fn handle_compose_assign_list_multi_inst(
     ast: Pairs<Rule>,
-) -> Vec<(String, String, Vec<Expression>)> {
+    instances: &HashMap<String, (usize, PackageInstance)>,
+    file_name: &str,
+) -> Result<Vec<(String, String, Vec<Expression>)>, ParseGameError> {
     ast.map(|assignment| {
         let mut line_builder = (None, None, vec![]);
         for piece in assignment.into_inner() {
@@ -37,6 +42,13 @@ pub fn handle_compose_assign_list_multi_inst(
                     line_builder.0 = Some(piece.as_str().to_string())
                 }
                 Rule::identifier if line_builder.1.is_none() => {
+                    if !instances.contains_key(piece.as_str()) {
+                        return Err(ParseGameError::UndeclaredInstance(
+                            piece.as_str().to_string(),
+                            FilePosition::from_span(file_name, piece.as_span()),
+                        ));
+                    }
+
                     line_builder.1 = Some(piece.as_str().to_string())
                 }
                 Rule::compose_assign_modifier_with_index => line_builder.2.extend(
@@ -51,11 +63,11 @@ pub fn handle_compose_assign_list_multi_inst(
             }
         }
 
-        (
+        Ok((
             line_builder.0.unwrap(),
             line_builder.1.unwrap(),
             line_builder.2,
-        )
+        ))
         // let mut inner = assignment.into_inner();
         // let oracle_name = inner.next().unwrap().as_str();
         // let dst_inst_name = inner.next().unwrap().as_str();
@@ -76,20 +88,55 @@ pub fn handle_types_def(
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum ParseGameError {
+    UndeclaredInstance(String, FilePosition),
+    NoSuchOracleInInstance(String, String, FilePosition),
+}
+
+impl std::fmt::Display for ParseGameError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseGameError::UndeclaredInstance(inst_name, _) => {
+                write!(f, "instance {inst_name:?} not declared")
+            }
+            ParseGameError::NoSuchOracleInInstance(oracle_name, inst_name, _) => {
+                write!(
+                    f,
+                    "instace {inst_name:?} does not have oracle {oracle_name:?}"
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for ParseGameError {}
+impl crate::error::LocationError for ParseGameError {
+    fn file_pos<'a>(&'a self) -> &'a FilePosition {
+        match self {
+            ParseGameError::UndeclaredInstance(_, file_pos)
+            | ParseGameError::NoSuchOracleInInstance(_, _, file_pos) => file_pos,
+        }
+    }
+}
+
 /*
 This functions parses the body of a compose block. It returns internal edges and exports.
  */
 pub fn handle_compose_assign_body_list(
     ast: Pair<Rule>,
     instances: &HashMap<String, (usize, PackageInstance)>,
-) -> (Vec<Edge>, Vec<Export>) {
+    file_name: &str,
+) -> Result<(Vec<Edge>, Vec<Export>), ParseGameError> {
     let mut edges = vec![];
     let mut exports = vec![];
     for body in ast.into_inner() {
         let mut inner = body.into_inner();
         let inst_name = inner.next().unwrap().as_str();
         if inst_name == "adversary" {
-            for (oracle_name, dst_inst_name, _) in handle_compose_assign_list_multi_inst(inner) {
+            for (oracle_name, dst_inst_name, _) in
+                handle_compose_assign_list_multi_inst(inner, instances, file_name)?
+            {
                 let (dst_offset, dst_inst) = match instances.get(&dst_inst_name) {
                     None => {
                         panic!(
@@ -126,7 +173,9 @@ pub fn handle_compose_assign_body_list(
             Some(x) => x,
         };
 
-        for (oracle_name, dst_inst_name, _) in handle_compose_assign_list_multi_inst(inner) {
+        for (oracle_name, dst_inst_name, _) in
+            handle_compose_assign_list_multi_inst(inner, instances, file_name)?
+        {
             println!("oname: {oracle_name} dst_inst_name: {dst_inst_name}");
             let (dst_offset, dst_inst) = match instances.get(&dst_inst_name) {
                 None => {
@@ -157,13 +206,13 @@ pub fn handle_compose_assign_body_list(
         }
     }
 
-    (edges, exports)
+    Ok((edges, exports))
 }
 
 pub fn handle_for_loop_body(
     ast: Pair<Rule>,
     game_name: &str,
-    loopvars: &mut Vec<(String, Expression, Expression)>,
+    loopvars: &mut Vec<ForSpec>,
     pkgs: &HashMap<String, Package>,
     pkg_insts: &HashMap<String, (usize, PackageInstance)>,
     consts: &HashMap<String, Type>,
@@ -196,8 +245,11 @@ pub fn handle_for_loop_body(
                 instances.push(inst);
             }
             Rule::compose_decl_multi_inst => {
-                let (mut edges_, mut exports_) =
-                    handle_compose_assign_body_list_multi_inst(comp_spec, &pkg_insts, loopvars);
+                let comp_spec_span = comp_spec.as_span();
+                let (mut edges_, mut exports_) = handle_compose_assign_body_list_multi_inst(
+                    comp_spec, &pkg_insts, loopvars, file_name,
+                )
+                .map_err(|e| error::Error::ParseGameError(e).with_span(comp_spec_span))?;
                 multi_edges.append(&mut edges_);
                 multi_exports.append(&mut exports_);
             }
@@ -211,12 +263,16 @@ pub fn handle_for_loop_body(
 pub fn handle_compose_assign_body_list_multi_inst(
     ast: Pair<Rule>,
     instances: &HashMap<String, (usize, PackageInstance)>,
-    loopvars: &Vec<(String, Expression, Expression)>,
-) -> (Vec<MultiInstanceEdge>, Vec<MultiInstanceExport>) {
+    loopvars: &Vec<ForSpec>,
+    file_name: &str,
+) -> Result<(Vec<MultiInstanceEdge>, Vec<MultiInstanceExport>), ParseGameError> {
     let mut edges = vec![];
     let mut exports = vec![];
     for body in ast.into_inner() {
-        println!("{:?}", body.as_rule());
+        println!(
+            "handle compose assign body list multi inst {:?}",
+            body.as_rule()
+        );
         assert!(matches!(
             body.as_rule(),
             Rule::compose_assign_body_multi_inst
@@ -236,98 +292,98 @@ pub fn handle_compose_assign_body_list_multi_inst(
             vec![]
         };
 
-        if inst_name == "adversary" {
-            for (oracle_name, dst_inst_name, dest_instance_idx) in
-                handle_compose_assign_list_multi_inst(inner)
-            {
-                println!("XXX {oracle_name}, {dst_inst_name}");
-                let (dst_offset, dst_inst) = match instances.get(&dst_inst_name) {
-                    None => {
-                        panic!(
-                            "instance {} not declared but used in compose block for {}",
-                            dst_inst_name, inst_name
-                        );
-                    }
-                    Some(inst) => inst,
-                };
-                let oracle_sig = match dst_inst
-                    .pkg
-                    .oracles
-                    .iter()
-                    .find(|oracle_def| oracle_def.sig.name == oracle_name)
+        match inst_name {
+            "adversary" => {
+                for (oracle_name, dst_inst_name, dest_instance_idx) in
+                    handle_compose_assign_list_multi_inst(inner, instances, file_name)?
                 {
+                    let (dst_offset, dst_inst) = match instances.get(&dst_inst_name) {
+                        None => {
+                            panic!(
+                                "instance {} not declared but used in compose block for {}",
+                                dst_inst_name, inst_name
+                            );
+                        }
+                        Some(inst) => inst,
+                    };
+                    let oracle_sig = match dst_inst
+                        .pkg
+                        .oracles
+                        .iter()
+                        .find(|oracle_def| oracle_def.sig.name == oracle_name)
+                    {
+                        None => {
+                            panic!(
+                                "oracle {} not found in package instance {}",
+                                oracle_name, dst_inst_name
+                            );
+                        }
+                        Some(def) => def.sig.clone(),
+                    };
+                    exports.push(MultiInstanceExport {
+                        loopvars: loopvars.clone(),
+                        dest_pkgidx: *dst_offset,
+                        oracle_sig,
+                        dest_instance_idx,
+                    });
+                }
+            }
+            _ => {
+                let (src_offset, _src_inst) = match instances.get(inst_name) {
                     None => {
-                        panic!(
-                            "oracle {} not found in package instance {}",
-                            oracle_name, dst_inst_name
-                        );
+                        panic!("instance {} not found in compose block", inst_name);
                     }
-                    Some(def) => def.sig.clone(),
+                    Some(x) => x,
                 };
-                exports.push(MultiInstanceExport {
-                    loopvars: loopvars.clone(),
-                    dest_pkgidx: *dst_offset,
-                    oracle_sig,
-                    dest_instance_idx,
-                });
-            }
 
-            continue;
-        }
+                for (oracle_name, dst_inst_name, dest_instance_idx) in
+                    handle_compose_assign_list_multi_inst(inner, instances, file_name)?
+                {
+                    let (dst_offset, dst_inst) = match instances.get(&dst_inst_name) {
+                        None => {
+                            panic!(
+                                "instance {} not declared but used in compose block for {}",
+                                dst_inst_name, inst_name
+                            );
+                        }
+                        Some(inst) => inst,
+                    };
 
-        let (src_offset, _src_inst) = match instances.get(inst_name) {
-            None => {
-                panic!("instance {} not found in compose block", inst_name);
-            }
-            Some(x) => x,
-        };
+                    let oracle_sig = match dst_inst
+                        .pkg
+                        .oracles
+                        .iter()
+                        .find(|oracle_def| oracle_def.sig.name == oracle_name)
+                    {
+                        None => {
+                            panic!(
+                                "oracle {} not found in package instance {}",
+                                oracle_name, dst_inst_name
+                            );
+                        }
+                        Some(def) => def.sig.clone(),
+                    };
 
-        for (oracle_name, dst_inst_name, dest_instance_idx) in
-            handle_compose_assign_list_multi_inst(inner)
-        {
-            let (dst_offset, dst_inst) = match instances.get(&dst_inst_name) {
-                None => {
-                    panic!(
-                        "instance {} not declared but used in compose block for {}",
-                        dst_inst_name, inst_name
-                    );
+                    edges.push(MultiInstanceEdge {
+                        loopvars: loopvars.clone(),
+                        source_pkgidx: *src_offset,
+                        dest_pkgidx: *dst_offset,
+                        oracle_sig,
+                        dest_instance_idx,
+                        source_instance_idx: source_instance_idx.clone(),
+                    });
                 }
-                Some(inst) => inst,
-            };
-
-            let oracle_sig = match dst_inst
-                .pkg
-                .oracles
-                .iter()
-                .find(|oracle_def| oracle_def.sig.name == oracle_name)
-            {
-                None => {
-                    panic!(
-                        "oracle {} not found in package instance {}",
-                        oracle_name, dst_inst_name
-                    );
-                }
-                Some(def) => def.sig.clone(),
-            };
-
-            edges.push(MultiInstanceEdge {
-                loopvars: loopvars.clone(),
-                source_pkgidx: *src_offset,
-                dest_pkgidx: *dst_offset,
-                oracle_sig,
-                dest_instance_idx,
-                source_instance_idx: source_instance_idx.clone(),
-            });
+            }
         }
     }
 
-    (edges, exports)
+    Ok((edges, exports))
 }
 
 pub fn handle_for_loop(
     ast: Pair<Rule>,
     comp_name: &str,
-    loopvars: &mut Vec<(String, Expression, Expression)>,
+    loopvars: &mut Vec<ForSpec>,
     pkgs: &HashMap<String, Package>,
     pkg_insts: &HashMap<String, (usize, PackageInstance)>,
     consts: &HashMap<String, Type>,
@@ -350,27 +406,26 @@ pub fn handle_for_loop(
         todo!("return proper error here")
     }
 
-    let lower_bound = match lower_bound_type {
-        "<" => Expression::Add(
-            Box::new(lower_bound),
-            Box::new(Expression::IntegerLiteral("1".to_string())),
-        ),
-        "<=" => lower_bound,
-        _ => panic!(),
+    let start_comp = match lower_bound_type {
+        "<" => ForComp::Lt,
+        "<=" => ForComp::Lte,
+        _ => unreachable!(),
+    };
+    let end_comp = match upper_bound_type {
+        "<" => ForComp::Lt,
+        "<=" => ForComp::Lte,
+        _ => unreachable!(),
     };
 
-    let upper_bound = match upper_bound_type {
-        "<" => upper_bound,
-        "<=" => Expression::Add(
-            Box::new(upper_bound),
-            Box::new(Expression::IntegerLiteral("1".to_string())),
-        ),
-        _ => panic!(),
-    };
+    let for_spec = ForSpec::new(
+        Identifier::Scalar(decl_var_name.into()),
+        lower_bound,
+        upper_bound,
+        start_comp,
+        end_comp,
+    );
 
-    let loopvar = (decl_var_name.to_string(), lower_bound, upper_bound);
-
-    loopvars.push(loopvar);
+    loopvars.push(for_spec);
 
     let result = handle_for_loop_body(
         body_ast, comp_name, loopvars, pkgs, pkg_insts, consts, file_name,
@@ -422,6 +477,16 @@ pub fn handle_comp_spec_list(
                     file_name,
                 )?;
 
+                println!("after handle for:");
+                println!("  game name: {game_name}");
+                for pkg_inst in &mult_pkg_insts {
+                    println!(
+                        "    pkg_inst: {:} {:?}",
+                        pkg_inst.as_name(),
+                        pkg_inst.multi_instance_indices
+                    );
+                }
+
                 for inst in mult_pkg_insts {
                     instances.push(inst.clone());
                     let offset = instances.len() - 1;
@@ -438,8 +503,10 @@ pub fn handle_comp_spec_list(
                 instance_table.insert(inst.name.clone(), (offset, inst));
             }
             Rule::compose_decl => {
+                let comp_spec_span = comp_spec.as_span();
                 let (edges_, exports_) =
-                    handle_compose_assign_body_list(comp_spec, &instance_table);
+                    handle_compose_assign_body_list(comp_spec, &instance_table, file_name)
+                        .map_err(|e| error::Error::ParseGameError(e).with_span(comp_spec_span))?;
                 edges = Some(edges_);
                 exports = Some(exports_);
             }
@@ -470,6 +537,8 @@ pub fn handle_comp_spec_list(
         name: game_name.to_owned(),
         pkgs: instances,
         consts,
+        multi_inst_edges: multi_edges,
+        multi_inst_exports: multi_exports,
     })
 }
 
@@ -506,7 +575,7 @@ pub fn handle_instance_decl_multi_inst(
     game_name: &str,
     pkg_map: &HashMap<String, Package>,
     consts: &HashMap<String, Type>,
-    loopvars: &Vec<(String, Expression, Expression)>,
+    loopvars: &Vec<ForSpec>,
     file_name: &str,
 ) -> error::Result<PackageInstance> {
     let span = ast.as_span();
@@ -524,7 +593,11 @@ pub fn handle_instance_decl_multi_inst(
     let data = inner.next().unwrap();
 
     for index in &index_id_list {
-        if loopvars.iter().find(|(name, _, _)| name == index).is_none() {
+        if loopvars
+            .iter()
+            .find(|for_spec| for_spec.ident().ident_ref() == *index)
+            .is_none()
+        {
             return Err(error::Error::UndefinedIdentifer(index.to_string()).with_span(span));
         }
     }
@@ -543,7 +616,7 @@ pub fn handle_instance_decl_multi_inst(
         .chain(
             loopvars
                 .iter()
-                .map(|(name, _, _)| (name.to_string(), Type::Integer)),
+                .map(|for_spec| (for_spec.ident().ident(), Type::Integer)),
         )
         .collect();
 
@@ -618,17 +691,15 @@ pub fn handle_instance_decl_multi_inst(
         ));
     }
 
-    let multi_instance_indeces = index_id_list
-        .into_iter()
-        .map(|name| (name.to_string(), Type::Integer))
-        .collect();
+    let multi_instance_indices = index_id_list.into_iter().map(str::to_string).collect();
 
     let inst = PackageInstance {
         name: inst_name.to_owned(),
         params: param_list,
         types: type_list,
         pkg: pkg.clone(),
-        multi_instance_indices: multi_instance_indeces,
+        multi_instance_indices,
+        forspecs: loopvars.clone(),
     };
 
     match ResolveTypesPackageInstanceTransform.transform_package_instance(&inst) {
@@ -637,10 +708,10 @@ pub fn handle_instance_decl_multi_inst(
     }
 }
 
-pub fn handle_index_id_list(ast: Pair<Rule>) -> Vec<(String, Type)> {
+pub fn handle_index_id_list(ast: Pair<Rule>) -> Vec<String> {
     assert_eq!(ast.as_rule(), Rule::index_id_list);
     ast.into_inner()
-        .map(|id_ast| (id_ast.as_str().to_string(), Type::Integer))
+        .map(|ast| ast.as_str().to_string())
         .collect()
 }
 
@@ -757,6 +828,7 @@ pub fn handle_instance_decl(
         types: type_list,
         pkg: pkg.clone(),
         multi_instance_indices,
+        forspecs: vec![],
     };
 
     match ResolveTypesPackageInstanceTransform.transform_package_instance(&inst) {

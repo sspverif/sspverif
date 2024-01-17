@@ -7,6 +7,9 @@ use crate::statement::CodeBlock;
 use crate::statement::FilePosition;
 use crate::statement::Statement;
 use crate::types::Type;
+use crate::util::resolver::Named;
+use crate::util::resolver::Resolver;
+use crate::util::resolver::SliceResolver;
 
 use super::common::*;
 use super::Rule;
@@ -353,13 +356,14 @@ pub fn handle_pkg_spec(pkg_spec: Pair<Rule>, pkg_name: &str, file_name: &str) ->
             }
             Rule::import_oracles => {
                 let body_ast = spec.into_inner().next().unwrap();
-                let res = handle_import_oracles_body(
+                handle_import_oracles_body(
                     body_ast,
                     &mut imported_oracles,
                     pkg_name,
                     file_name,
                     &vec![],
-                );
+                )
+                .unwrap();
             }
             Rule::oracle_def => {
                 oracles.push(handle_oracle_def(spec, file_name));
@@ -425,7 +429,7 @@ pub fn handle_oracle_imports_oracle_sig(
             match next.as_rule() {
                 Rule::indices_expr => {
                     let indices = next.into_inner().map(handle_expression).collect();
-                    multi_inst_idx = Some((indices, for_stack.to_owned()));
+                    multi_inst_idx = Some(MultiInstanceIndices::new(indices, for_stack.to_owned()));
                     inner.next();
                 }
                 Rule::fn_maybe_arglist => {
@@ -486,13 +490,195 @@ impl crate::error::LocationError for ParseImportOraclesError {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq)]
+#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord)]
+pub struct MultiInstanceIndices {
+    pub(crate) indices: Vec<Expression>,
+    pub(crate) forspecs: Vec<ForSpec>,
+}
+
+impl MultiInstanceIndices {
+    pub(crate) fn new(indices: Vec<Expression>, forspecs: Vec<ForSpec>) -> Self {
+        Self { indices, forspecs }
+    }
+}
+
+impl PartialEq for MultiInstanceIndices {
+    fn eq(&self, other: &Self) -> bool {
+        if self.indices.len() != other.indices.len() {
+            return false;
+        }
+
+        let self_forspecs = SliceResolver(&self.forspecs);
+        let other_forspecs = SliceResolver(&other.forspecs);
+
+        let zipped = self.indices.iter().zip(other.indices.iter());
+
+        for pair in zipped {
+            println!("{:?}", pair);
+            match pair {
+                (Expression::Identifier(self_id), Expression::Identifier(other_id)) => {
+                    let self_forspec = self_forspecs.resolve_value(self_id.ident_ref()).unwrap();
+                    let other_forspec = other_forspecs.resolve_value(other_id.ident_ref()).unwrap();
+
+                    // skip the loop var name in the comparison
+                    if !(self_forspec.end_comp() == other_forspec.end_comp()
+                        && self_forspec.start_comp() == other_forspec.start_comp()
+                        && self_forspec.start() == other_forspec.start()
+                        && self_forspec.end() == other_forspec.end())
+                    {
+                        return false;
+                    }
+                }
+                // don't return false in this case
+                (Expression::IntegerLiteral(self_lit), Expression::IntegerLiteral(other_lit))
+                    if self_lit == other_lit => {}
+                _ => return false,
+            }
+        }
+
+        true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        expressions::Expression,
+        identifier::{GameInstanceConst, Identifier},
+    };
+
+    use super::{ForComp, ForSpec, MultiInstanceIndices};
+
+    #[test]
+    fn multi_instance_indices_equality() {
+        let ident_loop_left = Identifier::Local("left_idx".to_string());
+        let ident_loop_right = Identifier::Local("right_idx".to_string());
+        let ident_end = Identifier::GameInstanceConst(GameInstanceConst {
+            game_inst_name: "the_game_inst".to_string(),
+            name_in_comp: "n".to_string(),
+            name_in_proof: "n".to_string(),
+        });
+
+        let lit_0 = Expression::IntegerLiteral("0".to_string());
+        let lit_1 = Expression::IntegerLiteral("1".to_string());
+
+        let left = MultiInstanceIndices::new(
+            vec![Expression::Identifier(ident_loop_left.clone())],
+            vec![ForSpec {
+                ident: ident_loop_left.clone(),
+                start: lit_0.clone(),
+                end: Expression::Identifier(ident_end.clone()),
+                start_comp: ForComp::Lte,
+                end_comp: ForComp::Lte,
+            }],
+        );
+
+        let right = MultiInstanceIndices::new(
+            vec![Expression::Identifier(ident_loop_right.clone())],
+            vec![ForSpec {
+                ident: ident_loop_right.clone(),
+                start: lit_0.clone(),
+                end: Expression::Identifier(ident_end.clone()),
+                start_comp: ForComp::Lte,
+                end_comp: ForComp::Lte,
+            }],
+        );
+
+        assert_eq!(left, right);
+
+        let left = MultiInstanceIndices::new(
+            vec![Expression::Identifier(ident_loop_left.clone())],
+            vec![ForSpec {
+                ident: ident_loop_left.clone(),
+                start: lit_0.clone(),
+                end: Expression::Identifier(ident_end.clone()),
+                start_comp: ForComp::Lte,
+                end_comp: ForComp::Lte,
+            }],
+        );
+
+        let right = MultiInstanceIndices::new(
+            vec![Expression::Identifier(ident_loop_right.clone())],
+            vec![ForSpec {
+                ident: ident_loop_right.clone(),
+                start: lit_1.clone(),
+                end: Expression::Identifier(ident_end.clone()),
+                start_comp: ForComp::Lte,
+                end_comp: ForComp::Lte,
+            }],
+        );
+
+        assert!(left != right)
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord)]
 pub struct ForSpec {
     ident: Identifier,
     start: Expression,
     end: Expression,
     start_comp: ForComp,
     end_comp: ForComp,
+}
+
+impl Named for ForSpec {
+    fn as_name(&self) -> &str {
+        self.ident.ident_ref()
+    }
+}
+
+impl ForSpec {
+    pub fn new(
+        ident: Identifier,
+        start: Expression,
+        end: Expression,
+        start_comp: ForComp,
+        end_comp: ForComp,
+    ) -> Self {
+        Self {
+            ident,
+            start,
+            end,
+            start_comp,
+            end_comp,
+        }
+    }
+
+    pub fn ident(&self) -> &Identifier {
+        &self.ident
+    }
+
+    pub fn start(&self) -> &Expression {
+        &self.start
+    }
+
+    pub fn end(&self) -> &Expression {
+        &self.end
+    }
+
+    pub fn start_comp(&self) -> &ForComp {
+        &self.start_comp
+    }
+
+    pub fn end_comp(&self) -> &ForComp {
+        &self.end_comp
+    }
+
+    pub(crate) fn map_identifiers<F: Fn(&Identifier) -> Identifier>(&self, f: F) -> Self {
+        Self {
+            start: map_ident_expr(&self.start, &f),
+            end: map_ident_expr(&self.end, &f),
+            ..self.clone()
+        }
+    }
+}
+
+fn map_ident_expr<F: Fn(&Identifier) -> Identifier>(expr: &Expression, f: &F) -> Expression {
+    if let Expression::Identifier(id) = expr {
+        Expression::Identifier(f(id))
+    } else {
+        expr.clone()
+    }
 }
 
 impl std::convert::TryFrom<&str> for ForComp {
@@ -556,9 +742,7 @@ pub fn handle_import_oracles_body(
         match entry.as_rule() {
             Rule::import_oracles_oracle_sig => {
                 let file_pos = FilePosition::from_span(file_name, entry.as_span());
-                println!("XXXX {file_name}");
                 let sig = handle_oracle_imports_oracle_sig(entry, for_stack);
-
                 imported_oracles.insert(sig.name.clone(), (sig, file_pos));
             }
 

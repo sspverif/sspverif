@@ -21,6 +21,7 @@ pub trait IndexLifetime<'a, T> {
     fn index(&self, index: T) -> &'a Self::Output;
 }
 
+#[derive(Debug)]
 pub struct SliceResolver<'a, T>(pub &'a [T]);
 
 impl<'a, S: AsRef<str>, T> Resolver<'a, (S, T)> for SliceResolver<'a, (S, T)> {

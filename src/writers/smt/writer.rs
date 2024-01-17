@@ -1,5 +1,5 @@
 use crate::expressions::Expression;
-use crate::identifier::Identifier;
+use crate::identifier::{Identifier, PackageState};
 use crate::package::{OracleDef, PackageInstance};
 use crate::proof::GameInstance;
 use crate::split::{SplitPath, SplitType};
@@ -20,7 +20,7 @@ use super::exprs::{SmtAs, SmtEq2};
 use super::names;
 use super::partials::PartialsDatatype;
 use super::patterns::{
-    declare_datatype, FunctionPattern, GameState, GlobalStatePattern, IntermediateStateConstructor,
+    declare_datatype, FunctionPattern, GlobalStatePattern, IntermediateStateConstructor,
     IntermediateStatePattern, IntermediateStateSelector, OraclePattern, PartialOraclePattern,
     ReturnValue, ReturnValueSelector, SelfStatePattern, VariablePattern,
 };
@@ -946,7 +946,7 @@ impl<'a> CompositionSmtWriter<'a> {
         // then build the table store smt expression, in case we have to
         let outexpr = if let Some(idx) = opt_idx {
             let oldvalue = match &ident {
-                &Identifier::State { name, .. } => {
+                &Identifier::State(PackageState { name, .. }) => {
                     //assert_eq!(pkgname, inst_name, "failed assertion: in an oracle in instance {inst_name} I found a state identifier with {pkgname}. I assumed these would always be equal.");
                     oracle_ctx
                         .pkg_inst_ctx()
@@ -966,7 +966,7 @@ impl<'a> CompositionSmtWriter<'a> {
 
         // build the actual smt assignment
         let smtout = match ident {
-            Identifier::State { name, .. } => {
+            Identifier::State(PackageState { name, .. }) => {
                 //assert_eq!(pkgname, inst_name, "failed assertion: in an oracle in instance {inst_name} I found a state identifier with {pkgname}. I assumed these would always be equal.");
                 SmtLet {
                     bindings: vec![(

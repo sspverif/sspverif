@@ -16,8 +16,8 @@ use crate::{
     package::{Composition, Package},
     proof::{GameHop, Proof},
     transforms::{
-        Transformation,
         typecheck::{typecheck_comp, typecheck_pkg, Scope},
+        Transformation,
     },
     util::prover_process::ProverBackend,
 };
@@ -50,19 +50,26 @@ pub struct Project {
 impl Project {
     pub fn load() -> Result<Project> {
         let root_dir = find_project_root()?;
-        let packages = load::packages(root_dir.clone())?;
 
-        for (_pkg_name, pkg) in &packages {
+        let packages = load::packages(root_dir.clone())?;
+        let mut pkg_names: Vec<_> = packages.keys().collect();
+        pkg_names.sort();
+
+        for pkg_name in pkg_names.into_iter() {
+            let pkg = &packages[pkg_name];
             let mut scope = Scope::new();
             typecheck_pkg(pkg, &mut scope)?;
         }
 
         let games = load::games(root_dir.clone(), &packages)?;
-
-        for (_game_name, game) in &games {
-            let mut scope = Scope::new();
-            typecheck_comp(game, &mut scope)?;
-        }
+        // let mut game_names: Vec<_> = games.keys().collect();
+        // game_names.sort();
+        //
+        // for game_name in game_names.into_iter() {
+        //     let game = &games[game_name];
+        //     let mut scope = Scope::new();
+        //     typecheck_comp(game, &mut scope)?;
+        // }
 
         let proofs = load::proofs(root_dir.clone(), &packages, &games)?;
 
@@ -79,15 +86,20 @@ impl Project {
     // we might want to return a proof trace here instead
     // we could then extract the proof viewer output and other useful info trom the trace
     pub fn prove(&self, backend: ProverBackend, transcript: bool) -> Result<()> {
-        for (_, proof) in &self.proofs {
+        let mut proof_keys: Vec<_> = self.proofs.keys().collect();
+        proof_keys.sort();
+
+        for proof_key in proof_keys.into_iter() {
+            let proof = &self.proofs[proof_key];
             for (i, game_hop) in proof.game_hops().iter().enumerate() {
                 match game_hop {
                     GameHop::Reduction(red) => reduction::verify(red, proof)?,
                     GameHop::Equivalence(eq) => {
-                        let transcript_file =
-                            if transcript  {
-                                Some(self.get_joined_smt_file(eq.left_name(), eq.right_name())?)
-                            } else { None };
+                        let transcript_file = if transcript {
+                            Some(self.get_joined_smt_file(eq.left_name(), eq.right_name())?)
+                        } else {
+                            None
+                        };
                         equivalence::verify(eq, proof, backend, transcript_file)?
                     }
                 }
@@ -106,9 +118,17 @@ impl Project {
         path.push("_build/latex/");
 
         for (name, game) in &self.games {
-            let (transformed, _) = crate::transforms::samplify::Transformation(game).transform().unwrap();
-            let (transformed, _) = crate::transforms::resolveoracles::Transformation(&transformed).transform().unwrap();
-            crate::writers::tex::writer::tex_write_composition(&transformed, &name, path.as_path())?;
+            let (transformed, _) = crate::transforms::samplify::Transformation(game)
+                .transform()
+                .unwrap();
+            let (transformed, _) = crate::transforms::resolveoracles::Transformation(&transformed)
+                .transform()
+                .unwrap();
+            crate::writers::tex::writer::tex_write_composition(
+                &transformed,
+                &name,
+                path.as_path(),
+            )?;
         }
 
         Ok(())

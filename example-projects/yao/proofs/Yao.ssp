@@ -1,11 +1,27 @@
 proof Yao {
+    const w: Integer;
     const n: Integer;
     const m: Integer;
     const p: Integer;
+    const d: Integer;
     const zeron: Bits(n);
     const zerom: Bits(m);
     const encn: fn Bits(n),Bits(n),Bits(n) -> Bits(m);
     const encm: fn Bits(n),Bits(m),Bits(n) -> Bits(p);
+
+    instance MODSec0_inst = MODSec0 {
+        params {
+            n: n,
+            m: m,
+            p: p,
+            w: w,
+            d: d,
+            zeron: zeron,
+            zerom: zerom,
+            encn: encn,
+            encm: encm,
+        }
+    }
   
     instance Indcpa0_inst = Indcpa0 {
         params {
@@ -108,7 +124,7 @@ proof Yao {
             }
         }
 
-                equivalence Indcpamod0_inst Indcpamon0_inst {
+    equivalence Indcpamod0_inst Indcpamon0_inst {
             SETBIT: {
                 invariant: [
                     ./invariant-Indcpa0.smt2
@@ -123,7 +139,7 @@ proof Yao {
 
 
 
-                        GETAOUT: {
+            GETAOUT: {
                 invariant: [
                     ./invariant-Indcpa0.smt2
                 ]
@@ -134,7 +150,7 @@ proof Yao {
                 }
             }
 
-                        ENCN: {
+            ENCN: {
                 invariant: [
                     ./invariant-Indcpa0.smt2
                 ]

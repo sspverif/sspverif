@@ -18,42 +18,43 @@ composition MODSec0 {
     }
   }
 
-for dd: 1 <= dd <= (d+1) {
-  instance keys[dd] = Keys {
-    params {
-      n:  n,
+  for dd: 1 <= dd <= (d+1) {
+    instance keys[dd] = Keys {
+      params {
+        n:  n,
+      }
+
+      types {
+        Handle: Integer,
+      }
+    }
+    instance modgb[dd] = MODGB {
+      params {
+          w: w,
+          p: p,
+          n: n,
+          i: dd,
+      }
     }
 
-    types {
-      Handle: Integer,
+      instance gate[dd] = Gate {
+      params {
+          n: n,
+          m: m,
+          p: p,
+          zeron: zeron,
+      }
+    }
+      instance enc[dd] = Enc0 {
+      params {
+          n: n,
+          m: m,
+          p: p,
+          encn: encn,
+          encm: encm
+      }
     }
   }
-  instance modgb[dd] = MODGB {
-    params {
-        w: w,
-        p: p,
-        n: n,
-    }
-  }
-
-    instance gate[dd] = Gate {
-    params {
-        n: n,
-        m: m,
-        p: p,
-        zeron: zeron,
-    }
-  }
-    instance enc[dd] = Enc0 {
-    params {
-        n: n,
-        m: m,
-        p: p,
-        encn: encn,
-        encm: encm
-    }
-  }
-}
 
 
       for dd: 1 <= dd <= d { 

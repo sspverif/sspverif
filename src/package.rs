@@ -1,6 +1,6 @@
 use crate::expressions::Expression;
 use crate::identifier::Identifier;
-use crate::parser::package::ForSpec;
+use crate::parser::package::{ForSpec, MultiInstanceIndices};
 use crate::split::{SplitOracleDef, SplitOracleSig};
 use crate::statement::{CodeBlock, FilePosition};
 use crate::types::Type;
@@ -14,12 +14,25 @@ pub struct FnSig {
     pub tipe: Type,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub struct OracleSig {
     pub name: String,
     pub args: Vec<(String, Type)>,
-    pub multi_inst_idx: Option<(Vec<Expression>, Vec<ForSpec>)>,
+    pub multi_inst_idx: Option<MultiInstanceIndices>,
     pub tipe: Type,
+}
+
+impl OracleSig {
+    pub(crate) fn is_compatible(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.args.len() == other.args.len()
+            && self
+                .args
+                .iter()
+                .zip(other.args.iter())
+                .all(|((_, left_type), (_, right_type))| left_type == right_type)
+            && self.tipe == other.tipe
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -46,7 +59,8 @@ pub struct PackageInstance {
     pub types: Vec<(Type, Type)>,
     pub pkg: Package,
     pub name: String,
-    pub multi_instance_indices: Vec<(String, Type)>,
+    pub multi_instance_indices: Vec<String>,
+    pub forspecs: Vec<ForSpec>,
 }
 
 impl PackageInstance {
@@ -67,7 +81,7 @@ pub struct Edge(pub usize, pub usize, pub OracleSig);
 pub struct MultiInstanceEdge {
     // name, from, to. name: from <= name < to
     // expressions are normalized to fit the above
-    pub loopvars: Vec<(String, Expression, Expression)>,
+    pub loopvars: Vec<ForSpec>,
     pub source_pkgidx: usize,
     pub source_instance_idx: Vec<Identifier>,
     pub dest_pkgidx: usize,
@@ -82,7 +96,7 @@ pub struct Export(pub usize, pub OracleSig);
 pub struct MultiInstanceExport {
     // name, from, to. name: from <= name < to
     // expressions are normalized to fit the above
-    pub loopvars: Vec<(String, Expression, Expression)>,
+    pub loopvars: Vec<ForSpec>,
     pub dest_pkgidx: usize,
     pub dest_instance_idx: Vec<Expression>,
     pub oracle_sig: OracleSig,
@@ -105,6 +119,9 @@ pub struct Composition {
     pub split_exports: Vec<SplitExport>,
     pub name: String,
     pub consts: Vec<(String, Type)>,
+
+    pub multi_inst_edges: Vec<MultiInstanceEdge>,
+    pub multi_inst_exports: Vec<MultiInstanceExport>,
 }
 
 impl Composition {

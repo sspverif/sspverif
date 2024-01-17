@@ -1,12 +1,14 @@
 use std::convert::Infallible;
 
 use crate::expressions::Expression;
-use crate::identifier::Identifier;
-use crate::package::{Composition, OracleDef, Package, PackageInstance};
+use crate::identifier::{
+    ComposeLoopVar, GameInstanceConst, Identifier, PackageConst, PackageState,
+};
+use crate::package::{Composition, OracleDef, OracleSig, Package, PackageInstance};
+use crate::parser::package::{ForSpec, MultiInstanceIndices};
 use crate::proof::GameInstance;
 use crate::split::SplitOracleDef;
-use crate::statement::{CodeBlock, FilePosition, Statement};
-use crate::types::Type;
+use crate::statement::{CodeBlock, Statement};
 use crate::util::resolver::{Resolver, SliceResolver};
 
 pub struct Transformation<'a>(pub &'a Composition);
@@ -33,51 +35,84 @@ impl<'a> super::Transformation for Transformation<'a> {
 }
 */
 
+// TODO: These should return an error
+fn resolve_game_var(game_inst: &GameInstance, name: &str) -> Identifier {
+    let game_inst_params = SliceResolver(game_inst.consts());
+    let game_inst_name = game_inst.name().to_string();
+    let result = game_inst_params.resolve_value(name);
+
+    if let Some((_, Expression::Identifier(id_in_proof))) = result {
+        Identifier::GameInstanceConst(GameInstanceConst {
+            name_in_comp: name.to_string(),
+            name_in_proof: id_in_proof.ident(),
+            game_inst_name,
+        })
+    } else {
+        unreachable!("{:?} {name}", result, name = name)
+    }
+}
+
 // TODO: add support for resolving to expression literals
-fn resolve_var(
-    pkg_state: &[(String, Type, FilePosition)],
-    pkg_inst_params: &[(String, Expression)],
-    game_inst_params: &[(String, Expression)],
-    name: String,
-    pkg_name: &str,
-    pkg_inst_name: &str,
-    game_name: &str,
-    game_inst_name: &str,
-) -> Identifier {
-    let pkg_state = SliceResolver(pkg_state);
-    let pkg_inst_params = SliceResolver(pkg_inst_params);
-    let game_inst_params = SliceResolver(game_inst_params);
+fn resolve_pkg_var(game_inst: &GameInstance, pkg_inst: &PackageInstance, name: &str) -> Identifier {
+    let pkg_state = SliceResolver(&pkg_inst.pkg.state);
+    let pkg_inst_params = SliceResolver(&pkg_inst.params);
+    let game_inst_params = SliceResolver(game_inst.consts());
+
+    let pkg_name = pkg_inst.pkg.name.clone();
+    let game_inst_name = game_inst.name().to_string();
 
     if let Some(_) = pkg_state.resolve_value(&name) {
-        Identifier::State {
+        Identifier::State(PackageState {
             name: name.to_string(),
-            pkg_inst_name: pkg_inst_name.to_string(),
-            game_inst_name: game_inst_name.to_string(),
-        }
-    } else if let Some((_, expr)) = &pkg_inst_params.resolve_value(&name) {
-        let id = if let Expression::Identifier(id) = expr {
-            id
-        } else {
-            unreachable!()
-        };
+            pkg_inst_name: pkg_inst.name.clone(),
+            game_inst_name: game_inst.name().to_string(),
+        })
+    } else if let Some((_, Expression::Identifier(id))) = &pkg_inst_params.resolve_value(&name) {
+        println!("game_inst_params: {game_inst_params:?}");
 
-        let id_in_proof = if let Some((_, Expression::Identifier(id_in_proof))) =
+        let pkg_inst_forspecs = SliceResolver(&pkg_inst.forspecs);
+
+        if let Some(forspec) = pkg_inst_forspecs.resolve_value(id.ident_ref()) {
+            Identifier::ComposeLoopVar(ComposeLoopVar {
+                name_in_pkg: name.to_string(),
+                name_in_comp: forspec.ident().ident(),
+                pkgname: pkg_name,
+                game_inst_name,
+            })
+        } else if let Some((_, Expression::Identifier(id_in_proof))) =
             game_inst_params.resolve_value(&id.ident())
         {
-            id_in_proof
+            Identifier::Parameter(PackageConst {
+                name_in_pkg: name.to_string(),
+                pkgname: pkg_name,
+                name_in_comp: id.ident(),
+                name_in_proof: id_in_proof.ident(),
+                game_inst_name,
+            })
         } else {
-            unreachable!()
-        };
-
-        Identifier::Parameter {
-            name_in_pkg: name.to_string(),
-            pkgname: pkg_name.to_string(),
-            name_in_comp: id.ident(),
-            name_in_proof: id_in_proof.ident(),
-            game_inst_name: game_inst_name.to_string(),
+            unreachable!("id: {:?}", id)
         }
     } else {
-        Identifier::Local(name)
+        Identifier::Local(name.into())
+    }
+}
+
+fn var_specify_expression(
+    game_inst: &GameInstance,
+    pkg_inst: &PackageInstance,
+    expr: &Expression,
+) -> Expression {
+    match expr {
+        Expression::FnCall(Identifier::Scalar(id), args) => {
+            Expression::FnCall(resolve_pkg_var(game_inst, pkg_inst, id), args.clone())
+        }
+        Expression::Identifier(Identifier::Scalar(id)) => {
+            Expression::Identifier(resolve_pkg_var(game_inst, pkg_inst, id))
+        }
+        Expression::TableAccess(Identifier::Scalar(id), expr) => {
+            Expression::TableAccess(resolve_pkg_var(game_inst, pkg_inst, id), expr.clone())
+        }
+        _ => expr.clone(),
     }
 }
 
@@ -86,59 +121,7 @@ fn var_specify_helper(
     pkg_inst: &PackageInstance,
     block: CodeBlock,
 ) -> CodeBlock {
-    let PackageInstance {
-        name,
-        pkg:
-            Package {
-                state: pkg_state,
-                name: pkg_name,
-                ..
-            },
-        params: pkg_inst_params,
-        ..
-    } = pkg_inst;
-
-    let game_inst_params = game_inst.consts();
-
-    let fixup = |expr| match expr {
-        Expression::FnCall(Identifier::Scalar(id), args) => Expression::FnCall(
-            resolve_var(
-                pkg_state,
-                pkg_inst_params,
-                game_inst_params,
-                id,
-                pkg_name,
-                &name,
-                game_inst.game_name(),
-                game_inst.name(),
-            ),
-            args,
-        ),
-        Expression::Identifier(Identifier::Scalar(id)) => Expression::Identifier(resolve_var(
-            pkg_state,
-            pkg_inst_params,
-            game_inst_params,
-            id,
-            pkg_name,
-            name,
-            game_inst.game_name(),
-            game_inst.name(),
-        )),
-        Expression::TableAccess(Identifier::Scalar(id), expr) => Expression::TableAccess(
-            resolve_var(
-                pkg_state,
-                pkg_inst_params,
-                game_inst_params,
-                id,
-                pkg_name,
-                name,
-                game_inst.game_name(),
-                game_inst.name(),
-            ),
-            expr,
-        ),
-        _ => expr,
-    };
+    let fixup = |expr| var_specify_expression(game_inst, pkg_inst, &expr);
     CodeBlock(
         block
             .0
@@ -244,24 +227,75 @@ fn var_specify_helper(
     )
 }
 
+fn var_specify_oracle_sig(
+    game_inst: &GameInstance,
+    pkg_inst: &PackageInstance,
+    oracle_sig: &OracleSig,
+) -> OracleSig {
+    let multi_inst_idx = oracle_sig
+        .multi_inst_idx
+        .clone()
+        .map(|multi_instance_indices| {
+            println!(
+                "ASDASD {}.{} -- {}",
+                pkg_inst.name,
+                oracle_sig.name,
+                oracle_sig.multi_inst_idx.is_some()
+            );
+            let mut new_forspecs = vec![];
+            for forspec in &multi_instance_indices.forspecs {
+                new_forspecs.push(ForSpec::new(
+                    forspec.ident().clone(),
+                    var_specify_expression(game_inst, pkg_inst, forspec.start()),
+                    var_specify_expression(game_inst, pkg_inst, forspec.end()),
+                    forspec.start_comp().clone(),
+                    forspec.end_comp().clone(),
+                ));
+            }
+            MultiInstanceIndices {
+                forspecs: new_forspecs,
+                ..multi_instance_indices.clone()
+            }
+        });
+
+    OracleSig {
+        multi_inst_idx,
+        ..oracle_sig.clone()
+    }
+}
+
 fn var_specify_pkg_inst(game_inst: &GameInstance, pkg_inst: &PackageInstance) -> PackageInstance {
     PackageInstance {
         pkg: Package {
+            imports: pkg_inst
+                .pkg
+                .imports
+                .iter()
+                .map(|(oracle_sig, file_pos)| {
+                    println!("import: {oracle_sig:#?}");
+                    (
+                        var_specify_oracle_sig(game_inst, pkg_inst, oracle_sig),
+                        file_pos.clone(),
+                    )
+                })
+                .collect(),
             oracles: pkg_inst
                 .pkg
                 .oracles
                 .iter()
                 .map(|def| OracleDef {
-                    sig: def.sig.clone(),
+                    sig: var_specify_oracle_sig(game_inst, pkg_inst, &def.sig),
                     code: var_specify_helper(game_inst, pkg_inst, def.code.clone()),
                     file_pos: def.file_pos.clone(),
                 })
                 .collect(),
+
             split_oracles: pkg_inst
                 .pkg
                 .split_oracles
                 .iter()
                 .map(|def| SplitOracleDef {
+                    // TODO add resolution for split oracle signature
                     sig: def.sig.clone(),
                     code: var_specify_helper(game_inst, pkg_inst, def.code.clone()),
                     // TODO add file_pos to this structure
@@ -274,212 +308,20 @@ fn var_specify_pkg_inst(game_inst: &GameInstance, pkg_inst: &PackageInstance) ->
 }
 
 pub fn var_specify_game_inst(game_inst: &GameInstance) -> Result<Composition, Infallible> {
-    game_inst
+    let mut game: Composition = game_inst
         .game()
-        .map_pkg_inst(|pkg_inst| Ok(var_specify_pkg_inst(game_inst, pkg_inst)))
+        .map_pkg_inst::<Infallible, _>(|pkg_inst| Ok(var_specify_pkg_inst(game_inst, pkg_inst)))?;
+
+    for i in 0..game.multi_inst_edges.len() {
+        println!("game: {}", game.name());
+        println!("game.multi_inst_edges: {:?}", game.multi_inst_edges);
+        for j in 0..game.multi_inst_edges[i].loopvars.len() {
+            game.multi_inst_edges[i].loopvars[j] = game.multi_inst_edges[i].loopvars[j]
+                .map_identifiers(|id| -> Identifier {
+                    resolve_game_var(game_inst, id.ident_ref())
+                });
+        }
+    }
+
+    Ok(game)
 }
-
-/*
-#[cfg(test)]
-mod test {
-    use super::var_specify;
-    use crate::block;
-    use crate::expressions::Expression;
-    use crate::identifier::Identifier;
-    use crate::package::{OracleDef, OracleSig, Package, PackageInstance};
-    use crate::statement::{CodeBlock, Statement};
-    use crate::types::Type;
-    use std::collections::HashMap;
-    use std::iter::FromIterator;
-
-    fn generate_code_blocks(
-        source_id: Identifier,
-        target_id: Identifier,
-    ) -> Vec<(CodeBlock, CodeBlock)> {
-        [
-            |id:&Identifier| block!{
-                Statement::Sample(id.clone(), None, None, Type::Integer)
-            },
-            |id:&Identifier| block!{
-                Statement::IfThenElse(
-                    Expression::new_equals(vec![&(id.clone().to_expression()),
-                                                &(Expression::IntegerLiteral("5".to_string()))]),
-                    block!{
-                        Statement::Abort
-                    },
-                    block!{
-                        Statement::Abort
-                    })
-            },
-            |id:&Identifier| block!{
-                Statement::IfThenElse(
-                    Expression::new_equals(vec![&(Expression::IntegerLiteral("5".to_string())),
-                                                &(id.clone().to_expression())]),
-                    block!{
-                        Statement::Abort
-                    },
-                    block!{
-                        Statement::Abort
-                    })
-            },
-            |id:&Identifier| block!{
-                Statement::IfThenElse(
-                    Expression::new_equals(vec![&(Expression::IntegerLiteral("5".to_string())),
-                                                &(Expression::IntegerLiteral("5".to_string()))]),
-                    block!{
-                        Statement::Return(Some(id.clone().to_expression()))
-                    },
-                    block!{
-                        Statement::Abort
-                    })
-
-            },
-            |id:&Identifier| block!{
-                Statement::IfThenElse(
-                    Expression::new_equals(vec![&(Expression::IntegerLiteral("5".to_string())),
-                                                &(Expression::IntegerLiteral("5".to_string()))]),
-                    block!{
-                        Statement::Abort
-                    },
-                    block!{
-                        Statement::Return(Some(id.clone().to_expression()))
-                    })
-            },
-        ].iter().map(|f| (f(&source_id), f(&target_id))).collect()
-    }
-
-    #[test]
-    fn variable_is_local() {
-        let params: HashMap<String, Expression> = HashMap::new();
-        let param_t: Vec<(String, Type)> = Vec::new();
-        let state: Vec<(String, Type)> = Vec::new();
-        let types: Vec<Type> = Vec::new();
-
-        let source_id = Identifier::Scalar("v".to_string());
-        let target_id = Identifier::Local("v".to_string());
-
-        let code = generate_code_blocks(source_id, target_id);
-        code.iter().for_each(|c| {
-            let res = var_specify(
-                &PackageInstance {
-                    params: params.clone().into_iter().collect(),
-                    types: vec![],
-                    name: "test".to_string(),
-                    pkg: Package {
-                        name: "testpkg".to_string(),
-                        params: param_t.clone(),
-                        types: types.clone(),
-                        state: state.clone(),
-                        imports: vec![],
-                        oracles: vec![OracleDef {
-                            code: c.0.clone(),
-                            sig: OracleSig {
-                                tipe: Type::Empty,
-                                name: "test".to_string(),
-                                args: vec![],
-                            },
-                        }],
-                    },
-                },
-                "test",
-            );
-            assert_eq!(res.pkg.oracles[0].code, c.1)
-        })
-    }
-
-    #[test]
-    fn variable_is_state() {
-        let params: HashMap<String, Expression> = HashMap::new();
-        let param_t: Vec<(String, Type)> = Vec::new();
-        let types: Vec<Type> = Vec::new();
-        let mut state: Vec<(String, Type)> = Vec::new();
-        state.push(("v".to_string(), Type::Integer));
-
-        let source_id = Identifier::Scalar("v".to_string());
-        let target_id = Identifier::State {
-            name: "v".to_string(),
-            pkgname: "testpkg".to_string(),
-            compname: "testcomp".to_string(),
-        };
-
-        let code = generate_code_blocks(source_id, target_id);
-        code.iter().for_each(|c| {
-            let res = var_specify(
-                &PackageInstance {
-                    params: params.clone().into_iter().collect(),
-                    types: vec![],
-                    name: "testpkg".to_string(),
-                    pkg: Package {
-                        name: "testpkg".to_string(),
-                        params: param_t.clone(),
-                        types: types.clone(),
-                        state: state.clone(),
-                        imports: vec![],
-                        oracles: vec![OracleDef {
-                            code: c.0.clone(),
-                            sig: OracleSig {
-                                tipe: Type::Empty,
-                                name: "test".to_string(),
-                                args: vec![],
-                            },
-                        }],
-                    },
-                },
-                "testcomp",
-            );
-            assert_eq!(res.pkg.oracles[0].code, c.1)
-        })
-    }
-
-    #[test]
-    fn variable_is_param() {
-        let params: HashMap<String, Expression> = HashMap::from_iter(vec![(
-            "v".to_string(),
-            Expression::Identifier(Identifier::Local("v".to_string())),
-        )]);
-        let mut param_t: Vec<(String, Type)> = Vec::new();
-        let types: Vec<Type> = Vec::new();
-        let state: Vec<(String, Type)> = Vec::new();
-        param_t.push(("v".to_string(), Type::Integer));
-
-        let source_id = Identifier::Scalar("v".to_string());
-        let target_id = Identifier::Parameter {
-            name_in_pkg: "v".to_string(),
-            pkgname: "testpkg".to_string(),
-
-            name_in_comp: "v".to_string(),
-            compname: "testcomp".to_string(),
-        };
-
-        let code = generate_code_blocks(source_id, target_id);
-        code.iter().for_each(|c| {
-            let res = var_specify(
-                &PackageInstance {
-                    params: params.clone().into_iter().collect(),
-                    types: vec![],
-                    name: "testpkg".to_string(),
-                    pkg: Package {
-                        name: "testpkg".to_string(),
-                        params: param_t.clone(),
-                        types: types.clone(),
-                        state: state.clone(),
-                        imports: vec![],
-                        oracles: vec![OracleDef {
-                            code: c.0.clone(),
-                            sig: OracleSig {
-                                tipe: Type::Empty,
-                                name: "test".to_string(),
-                                args: vec![],
-                            },
-                        }],
-                    },
-                },
-                "testcomp",
-            );
-            assert_eq!(res.pkg.oracles[0].code, c.1)
-        })
-    }
-}
-
-
-*/

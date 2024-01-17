@@ -1,7 +1,7 @@
 use super::exprs::SmtExpr;
 use super::patterns::{GlobalStatePattern, SelfStatePattern};
 use crate::expressions::Expression;
-use crate::identifier::Identifier;
+use crate::identifier::{Identifier, PackageConst, PackageState};
 use crate::types::Type;
 
 impl From<Expression> for SmtExpr {
@@ -109,21 +109,21 @@ impl From<Expression> for SmtExpr {
             // pretty cumbersome, but maybe necessary for a clean structure.
             //
             // For now I'll leave it be.
-            Expression::Identifier(Identifier::State {
+            Expression::Identifier(Identifier::State(PackageState {
                 name: ident_name,
                 ref game_inst_name,
                 ref pkg_inst_name,
                 ..
-            }) => (
+            })) => (
                 format!("state-{game_inst_name}-{pkg_inst_name}-{ident_name}"),
                 &SelfStatePattern,
             )
                 .into(),
-            Expression::Identifier(Identifier::Parameter {
+            Expression::Identifier(Identifier::Parameter(PackageConst {
                 name_in_comp,
                 game_inst_name,
                 ..
-            }) => (
+            })) => (
                 format!("composition-param-{game_inst_name}-{name_in_comp}"),
                 &GlobalStatePattern,
             )
@@ -144,11 +144,11 @@ impl From<Expression> for SmtExpr {
                 SmtExpr::List(l)
             }
             Expression::FnCall(
-                Identifier::Parameter {
+                Identifier::Parameter(PackageConst {
                     name_in_comp: name,
                     game_inst_name,
                     ..
-                },
+                }),
                 args,
             ) => {
                 let fn_name = format!("__func-{game_inst_name}-{name}");

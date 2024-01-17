@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use crate::expressions::Expression;
-use crate::identifier::Identifier;
+use crate::identifier::{Identifier, PackageConst, PackageState};
 use crate::package::{OracleDef, OracleSig, Package};
 use crate::statement::{CodeBlock, Statement};
 use crate::types::Type;
@@ -28,14 +28,16 @@ impl<W: Write> Writer<W> {
                 self.write_string(x)?;
                 self.write_string(" /* local identifier */ ")?;
             }
-            Identifier::Parameter { name_in_pkg, .. } => {
+            Identifier::Parameter(PackageConst { name_in_pkg, .. }) => {
                 self.write_string(name_in_pkg)?;
                 self.write_string(&format!(" /* param identifier */ "))?;
             }
-            Identifier::State { name, .. } => {
+            Identifier::State(PackageState { name, .. }) => {
                 self.write_string(name)?;
                 self.write_string(&format!(" /* state identifier */ "))?;
             }
+            Identifier::ComposeLoopVar(_) => todo!(),
+            Identifier::GameInstanceConst(_) => todo!(),
         }
 
         Ok(())
