@@ -5,6 +5,7 @@ use crate::split::{SplitOracleDef, SplitOracleSig};
 use crate::statement::{CodeBlock, FilePosition};
 use crate::types::Type;
 
+use std::convert::TryInto;
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -79,14 +80,33 @@ pub struct Edge(pub usize, pub usize, pub OracleSig);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MultiInstanceEdge {
-    // name, from, to. name: from <= name < to
-    // expressions are normalized to fit the above
-    pub loopvars: Vec<ForSpec>,
     pub source_pkgidx: usize,
     pub source_instance_idx: Vec<Identifier>,
     pub dest_pkgidx: usize,
-    pub dest_instance_idx: Vec<Expression>,
     pub oracle_sig: OracleSig,
+}
+
+#[derive(Debug)]
+pub struct NotSingleInstanceEdgeError(pub MultiInstanceEdge);
+
+impl std::error::Error for NotSingleInstanceEdgeError {}
+
+impl std::fmt::Display for NotSingleInstanceEdgeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "is not a single instance edge: {:?}", self.0)
+    }
+}
+
+impl TryInto<Edge> for MultiInstanceEdge {
+    type Error = NotSingleInstanceEdgeError;
+
+    fn try_into(self) -> Result<Edge, Self::Error> {
+        if self.oracle_sig.multi_inst_idx.is_none() && self.source_instance_idx.is_empty() {
+            Ok(Edge(self.source_pkgidx, self.dest_pkgidx, self.oracle_sig))
+        } else {
+            Err(NotSingleInstanceEdgeError(self))
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -94,12 +114,31 @@ pub struct Export(pub usize, pub OracleSig);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MultiInstanceExport {
-    // name, from, to. name: from <= name < to
-    // expressions are normalized to fit the above
-    pub loopvars: Vec<ForSpec>,
     pub dest_pkgidx: usize,
-    pub dest_instance_idx: Vec<Expression>,
     pub oracle_sig: OracleSig,
+}
+
+#[derive(Debug)]
+pub struct NotSingleInstanceExportError(pub MultiInstanceExport);
+
+impl std::error::Error for NotSingleInstanceExportError {}
+
+impl std::fmt::Display for NotSingleInstanceExportError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "is not a single instance edge: {:?}", self.0)
+    }
+}
+
+impl TryInto<Export> for MultiInstanceExport {
+    type Error = NotSingleInstanceExportError;
+
+    fn try_into(self) -> Result<Export, Self::Error> {
+        if self.oracle_sig.multi_inst_idx.is_none() {
+            Ok(Export(self.dest_pkgidx, self.oracle_sig))
+        } else {
+            Err(NotSingleInstanceExportError(self))
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

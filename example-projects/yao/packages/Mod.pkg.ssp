@@ -8,7 +8,7 @@ package Mod {
 
     import oracles {
         SETBIT(j: Integer, x:Bool) -> (),
-        GETAOUT(j: Integer)        -> Bits(n),
+        GETAOUT[1](j: Integer)        -> Bits(n),
 
         for i: 1 <= i <= d {
             GBL[i](C:  Table(Integer,(Integer,Integer,Table((Bool,Bool),Bool)))) -> Table(Integer,Table(Bits(p), Bool)),

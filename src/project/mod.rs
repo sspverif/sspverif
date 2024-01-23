@@ -16,7 +16,7 @@ use crate::{
     package::{Composition, Package},
     proof::{GameHop, Proof},
     transforms::{
-        typecheck::{typecheck_comp, typecheck_pkg, Scope},
+        typecheck::{typecheck_pkg, Scope},
         Transformation,
     },
     util::prover_process::ProverBackend,

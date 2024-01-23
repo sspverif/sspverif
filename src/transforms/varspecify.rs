@@ -315,13 +315,26 @@ pub fn var_specify_game_inst(game_inst: &GameInstance) -> Result<Composition, In
     for i in 0..game.multi_inst_edges.len() {
         println!("game: {}", game.name());
         println!("game.multi_inst_edges: {:?}", game.multi_inst_edges);
-        for j in 0..game.multi_inst_edges[i].loopvars.len() {
-            game.multi_inst_edges[i].loopvars[j] = game.multi_inst_edges[i].loopvars[j]
-                .map_identifiers(|id| -> Identifier {
-                    resolve_game_var(game_inst, id.ident_ref())
-                });
+        if let Some(multi_inst_idx) = &game.multi_inst_edges[i].oracle_sig.multi_inst_idx {
+            game.multi_inst_edges[i].oracle_sig.multi_inst_idx = Some(
+                var_specify_multi_instance_indices(game_inst, multi_inst_idx.clone())?,
+            );
         }
     }
 
     Ok(game)
+}
+
+pub fn var_specify_multi_instance_indices(
+    game_inst: &GameInstance,
+    mut multi_instance_indices: MultiInstanceIndices,
+) -> Result<MultiInstanceIndices, Infallible> {
+    for i in 0..multi_instance_indices.forspecs.len() {
+        println!("varspecify {i} {:?}", multi_instance_indices);
+        multi_instance_indices.forspecs[i] = multi_instance_indices.forspecs[i]
+            .map_identifiers(|id| -> Identifier { resolve_game_var(game_inst, id.ident_ref()) });
+        println!("varspecify {i} {:?}", multi_instance_indices);
+    }
+
+    Ok(multi_instance_indices)
 }

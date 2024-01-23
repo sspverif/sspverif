@@ -3,7 +3,6 @@ use super::pkg::typecheck_pkg;
 use super::scope::Scope;
 
 use crate::package::{Composition, Edge, Export, MultiInstanceEdge, OracleSig, PackageInstance};
-use crate::parser::package::MultiInstanceIndices;
 use crate::util::resolver::Named;
 
 use std::collections::{HashMap, HashSet};
@@ -92,7 +91,11 @@ pub fn typecheck_comp(
     // edge_imports is a hashmap: from_edge_idx -> (hashset sig)
     let mut edge_imports = HashMap::new();
 
+    println!("edges:    {edges:?}");
+    println!("mi-edges: {multi_inst_edges:?}");
+
     for Edge(from, _, sig_) in edges {
+        println!("singl: {}", sig_.name);
         edge_imports
             .entry(*from)
             .or_insert_with(HashSet::new)
@@ -102,21 +105,15 @@ pub fn typecheck_comp(
     for MultiInstanceEdge {
         oracle_sig,
         source_pkgidx,
-        loopvars,
-        dest_instance_idx,
         ..
     } in multi_inst_edges
     {
-        let mut oracle_sig = oracle_sig.clone();
-        oracle_sig.multi_inst_idx = Some(MultiInstanceIndices::new(
-            dest_instance_idx.clone(),
-            loopvars.clone(),
-        ));
+        println!("multi: {}", oracle_sig.name);
 
         edge_imports
             .entry(*source_pkgidx)
             .or_insert_with(HashSet::new)
-            .insert(IgnoreArgNameOracleSig(oracle_sig));
+            .insert(IgnoreArgNameOracleSig(oracle_sig.clone()));
     }
 
     if declared_imports != edge_imports {
@@ -166,6 +163,7 @@ pub fn typecheck_comp(
                 for i in 0..declared_imports.len() {
                     println!("declared: {:#?}", declared_imports[i]);
                     println!("edge:     {:#?}", edge_imports[i]);
+                    println!("game:     {}", comp.name());
                     assert_eq!(declared_imports[i], edge_imports[i]);
                     println!("{i} ok")
                 }

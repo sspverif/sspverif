@@ -514,11 +514,18 @@ impl PartialEq for MultiInstanceIndices {
         let zipped = self.indices.iter().zip(other.indices.iter());
 
         for pair in zipped {
-            println!("{:?}", pair);
             match pair {
                 (Expression::Identifier(self_id), Expression::Identifier(other_id)) => {
                     let self_forspec = self_forspecs.resolve_value(self_id.ident_ref()).unwrap();
-                    let other_forspec = other_forspecs.resolve_value(other_id.ident_ref()).unwrap();
+                    let other_forspec = other_forspecs
+                        .resolve_value(other_id.ident_ref())
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "error resolving variable {var} in forspec list {forspecs:?}",
+                                var = other_id.ident_ref(),
+                                forspecs = other.forspecs
+                            )
+                        });
 
                     // skip the loop var name in the comparison
                     if !(self_forspec.end_comp() == other_forspec.end_comp()
