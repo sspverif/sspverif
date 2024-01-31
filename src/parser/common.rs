@@ -1,5 +1,5 @@
 use crate::statement::FilePosition;
-use crate::{expressions::Expression, identifier::Identifier, package::OracleSig, types::Type};
+use crate::{expressions::Expression, identifier::Identifier, types::Type};
 
 use super::error::{Error, Result};
 use super::{error, Rule};

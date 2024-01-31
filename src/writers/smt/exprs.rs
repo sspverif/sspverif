@@ -39,6 +39,16 @@ impl From<&String> for SmtExpr {
     }
 }
 
+impl From<i64> for SmtExpr {
+    fn from(num: i64) -> Self {
+        SmtExpr::Atom(format!("{num}"))
+    }
+}
+impl From<i32> for SmtExpr {
+    fn from(num: i32) -> Self {
+        SmtExpr::Atom(format!("{num}"))
+    }
+}
 impl From<usize> for SmtExpr {
     fn from(num: usize) -> Self {
         SmtExpr::Atom(format!("{num}"))
@@ -54,6 +64,14 @@ impl From<bool> for SmtExpr {
 impl<V: Into<SmtExpr>> From<SmtNot<V>> for SmtExpr {
     fn from(value: SmtNot<V>) -> Self {
         SmtExpr::List(vec!["not".into(), value.0.into()])
+    }
+}
+
+impl From<SmtOr> for SmtExpr {
+    fn from(terms: SmtOr) -> Self {
+        let mut list: Vec<SmtExpr> = vec!["or".into()];
+        list.extend(terms.0);
+        SmtExpr::List(list)
     }
 }
 
@@ -397,6 +415,7 @@ pub struct SmtAssert<B: Into<SmtExpr>>(pub B);
 
 pub struct SmtNot<V: Into<SmtExpr>>(pub V);
 
+pub struct SmtOr(pub Vec<SmtExpr>);
 pub struct SmtAnd(pub Vec<SmtExpr>);
 
 pub struct SmtWrap<V: Into<SmtExpr>>(pub V);
@@ -447,5 +466,37 @@ impl<B: Into<SmtExpr>> Into<SmtExpr> for SmtForall<B> {
             self.body,
         )
             .into()
+    }
+}
+
+pub struct SmtLt<L: Into<SmtExpr>, R: Into<SmtExpr>>(pub L, pub R);
+
+impl<L: Into<SmtExpr>, R: Into<SmtExpr>> Into<SmtExpr> for SmtLt<L, R> {
+    fn into(self) -> SmtExpr {
+        ("<", self.0, self.1).into()
+    }
+}
+
+pub struct SmtGt<L: Into<SmtExpr>, R: Into<SmtExpr>>(pub L, pub R);
+
+impl<L: Into<SmtExpr>, R: Into<SmtExpr>> Into<SmtExpr> for SmtGt<L, R> {
+    fn into(self) -> SmtExpr {
+        (">", self.0, self.1).into()
+    }
+}
+
+pub struct SmtLte<L: Into<SmtExpr>, R: Into<SmtExpr>>(pub L, pub R);
+
+impl<L: Into<SmtExpr>, R: Into<SmtExpr>> Into<SmtExpr> for SmtLte<L, R> {
+    fn into(self) -> SmtExpr {
+        ("not", (">", self.0, self.1)).into()
+    }
+}
+
+pub struct SmtGte<L: Into<SmtExpr>, R: Into<SmtExpr>>(pub L, pub R);
+
+impl<L: Into<SmtExpr>, R: Into<SmtExpr>> Into<SmtExpr> for SmtGte<L, R> {
+    fn into(self) -> SmtExpr {
+        ("not", ("<", self.0, self.1)).into()
     }
 }

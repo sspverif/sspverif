@@ -1,7 +1,7 @@
 use super::exprs::SmtExpr;
 use super::patterns::{GlobalStatePattern, SelfStatePattern};
 use crate::expressions::Expression;
-use crate::identifier::{Identifier, PackageConst, PackageState};
+use crate::identifier::{GameInstanceConst, Identifier, PackageConst, PackageState};
 use crate::types::Type;
 
 impl From<Expression> for SmtExpr {
@@ -119,7 +119,12 @@ impl From<Expression> for SmtExpr {
                 &SelfStatePattern,
             )
                 .into(),
-            Expression::Identifier(Identifier::Parameter(PackageConst {
+            Expression::Identifier(Identifier::GameInstanceConst(GameInstanceConst {
+                game_inst_name,
+                name_in_comp,
+                ..
+            }))
+            | Expression::Identifier(Identifier::Parameter(PackageConst {
                 name_in_comp,
                 game_inst_name,
                 ..

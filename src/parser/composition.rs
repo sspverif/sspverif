@@ -788,7 +788,10 @@ pub fn handle_instance_decl_multi_inst(
         ));
     }
 
-    let multi_instance_indices = index_id_list.into_iter().map(str::to_string).collect();
+    let multi_instance_indices = Some(MultiInstanceIndices::from_strs(
+        &index_id_list,
+        loopvars.clone(),
+    ));
 
     let inst = PackageInstance {
         name: inst_name.to_owned(),
@@ -796,7 +799,6 @@ pub fn handle_instance_decl_multi_inst(
         types: type_list,
         pkg: pkg.clone(),
         multi_instance_indices,
-        forspecs: loopvars.clone(),
     };
 
     match ResolveTypesPackageInstanceTransform.transform_package_instance(&inst) {
@@ -805,7 +807,7 @@ pub fn handle_instance_decl_multi_inst(
     }
 }
 
-pub fn handle_index_id_list(ast: Pair<Rule>) -> Vec<String> {
+pub fn handle_index_id_list<'a>(ast: Pair<'a, Rule>) -> Vec<String> {
     assert_eq!(ast.as_rule(), Rule::index_id_list);
     ast.into_inner()
         .map(|ast| ast.as_str().to_string())
@@ -827,11 +829,14 @@ pub fn handle_instance_decl(
     let index_or_pkgname = inner.next().unwrap();
     let (multi_instance_indices, pkg_name) = if index_or_pkgname.as_rule() == Rule::index_id_list {
         (
-            handle_index_id_list(index_or_pkgname),
+            Some(MultiInstanceIndices::from_strings(
+                &handle_index_id_list(index_or_pkgname),
+                vec![],
+            )),
             inner.next().unwrap().as_str(),
         )
     } else {
-        (vec![], index_or_pkgname.as_str())
+        (None, index_or_pkgname.as_str())
     };
 
     let data = inner.next().unwrap();
@@ -925,7 +930,6 @@ pub fn handle_instance_decl(
         types: type_list,
         pkg: pkg.clone(),
         multi_instance_indices,
-        forspecs: vec![],
     };
 
     match ResolveTypesPackageInstanceTransform.transform_package_instance(&inst) {

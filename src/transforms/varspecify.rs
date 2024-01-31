@@ -70,7 +70,13 @@ fn resolve_pkg_var(game_inst: &GameInstance, pkg_inst: &PackageInstance, name: &
     } else if let Some((_, Expression::Identifier(id))) = &pkg_inst_params.resolve_value(&name) {
         println!("game_inst_params: {game_inst_params:?}");
 
-        let pkg_inst_forspecs = SliceResolver(&pkg_inst.forspecs);
+        let pkg_inst_forspecs = SliceResolver(
+            &pkg_inst
+                .multi_instance_indices
+                .as_ref()
+                .map(|idcs| &idcs.forspecs[..])
+                .unwrap_or(&[]),
+        );
 
         if let Some(forspec) = pkg_inst_forspecs.resolve_value(id.ident_ref()) {
             Identifier::ComposeLoopVar(ComposeLoopVar {

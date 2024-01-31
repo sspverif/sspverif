@@ -1,5 +1,7 @@
 use crate::expressions::Expression;
+use crate::identifier::ComposeLoopVar;
 use crate::identifier::Identifier;
+use crate::identifier::PackageConst;
 use crate::package::OracleDef;
 use crate::package::OracleSig;
 use crate::package::Package;
@@ -10,6 +12,17 @@ use crate::types::Type;
 use crate::util::resolver::Named;
 use crate::util::resolver::Resolver;
 use crate::util::resolver::SliceResolver;
+use crate::writers::smt::declare::declare_const;
+use crate::writers::smt::exprs::SmtAnd;
+use crate::writers::smt::exprs::SmtAssert;
+use crate::writers::smt::exprs::SmtEq2;
+use crate::writers::smt::exprs::SmtExpr;
+use crate::writers::smt::exprs::SmtImplies;
+use crate::writers::smt::exprs::SmtIte;
+use crate::writers::smt::exprs::SmtLt;
+use crate::writers::smt::exprs::SmtLte;
+use crate::writers::smt::exprs::SmtNot;
+use crate::writers::smt::sorts::SmtInt;
 
 use super::common::*;
 use super::Rule;
@@ -18,6 +31,7 @@ use pest::iterators::Pair;
 
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::iter::FromIterator;
 
 pub fn handle_decl_list(state: Pair<Rule>, file_name: &str) -> Vec<(String, Type, FilePosition)> {
     state
@@ -136,7 +150,7 @@ pub fn handle_expression(expr: Pair<Rule>) -> Expression {
         }
         Rule::literal_integer => {
             let litval = expr.as_str().to_string();
-            Expression::IntegerLiteral(litval)
+            Expression::IntegerLiteral(litval.parse().unwrap())
         }
         Rule::literal_emptyset => {
             let tipe = handle_type(expr.into_inner().next().unwrap());
@@ -289,7 +303,7 @@ pub fn handle_code(code: Pair<Rule>, file_name: &str) -> CodeBlock {
                         let lower_bound = match lower_bound_type {
                             "<" => Expression::Add(
                                 Box::new(lower_bound),
-                                Box::new(Expression::IntegerLiteral("1".to_string())),
+                                Box::new(Expression::IntegerLiteral(1)),
                             ),
                             "<=" => lower_bound,
                             _ => panic!(),
@@ -299,7 +313,7 @@ pub fn handle_code(code: Pair<Rule>, file_name: &str) -> CodeBlock {
                             "<" => upper_bound,
                             "<=" => Expression::Add(
                                 Box::new(upper_bound),
-                                Box::new(Expression::IntegerLiteral("1".to_string())),
+                                Box::new(Expression::IntegerLiteral(1)),
                             ),
                             _ => panic!(),
                         };
@@ -416,7 +430,7 @@ pub fn handle_oracle_imports_oracle_sig(
 ) -> OracleSig {
     println!("{:?}", oracle_sig.as_rule());
 
-    let span = oracle_sig.as_span();
+    let _span = oracle_sig.as_span();
 
     let mut inner = oracle_sig.into_inner();
     let name = inner.next().unwrap().as_str();
@@ -490,7 +504,7 @@ impl crate::error::LocationError for ParseImportOraclesError {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct MultiInstanceIndices {
     pub(crate) indices: Vec<Expression>,
     pub(crate) forspecs: Vec<ForSpec>,
@@ -500,50 +514,132 @@ impl MultiInstanceIndices {
     pub(crate) fn new(indices: Vec<Expression>, forspecs: Vec<ForSpec>) -> Self {
         Self { indices, forspecs }
     }
+
+    pub(crate) fn from_strings(indices: &[String], forspecs: Vec<ForSpec>) -> Self {
+        MultiInstanceIndices {
+            indices: indices
+                .iter()
+                .cloned()
+                .map(Identifier::Scalar)
+                .map(Expression::Identifier)
+                .collect(),
+            forspecs,
+        }
+    }
+    pub(crate) fn from_strs(indices: &[&str], forspecs: Vec<ForSpec>) -> Self {
+        MultiInstanceIndices {
+            indices: indices
+                .iter()
+                .cloned()
+                .map(str::to_string)
+                .map(Identifier::Scalar)
+                .map(Expression::Identifier)
+                .collect(),
+            forspecs,
+        }
+    }
 }
 
-impl PartialEq for MultiInstanceIndices {
-    fn eq(&self, other: &Self) -> bool {
-        if self.indices.len() != other.indices.len() {
-            return false;
-        }
+/// A [`MultiInstanceIndicesGroup`] contains a list of [`MultiInstanceIndices`] that all represent
+/// the same index, but cover different ranges. The purpose is that the group folds the individual
+/// elements into a single one, by merging the ranges specified in the [`ForSpec`] entries.
+pub struct MultiInstanceIndicesGroup(Vec<MultiInstanceIndices>);
 
-        let self_forspecs = SliceResolver(&self.forspecs);
-        let other_forspecs = SliceResolver(&other.forspecs);
+impl MultiInstanceIndicesGroup {
+    pub fn new(v: Vec<MultiInstanceIndices>) -> Self {
+        Self(v)
+    }
 
-        let zipped = self.indices.iter().zip(other.indices.iter());
+    fn smt_check_total(
+        &self,
+        assumptions: Vec<SmtExpr>,
+        consts: &[&str],
+        varname: &str,
+    ) -> Vec<SmtExpr> {
+        let varnames = vec![varname];
+        let declares = consts
+            .iter()
+            .chain(&varnames)
+            .map(|const_name| declare_const(*const_name, SmtInt));
 
-        for pair in zipped {
-            match pair {
-                (Expression::Identifier(self_id), Expression::Identifier(other_id)) => {
-                    let self_forspec = self_forspecs.resolve_value(self_id.ident_ref()).unwrap();
-                    let other_forspec = other_forspecs
-                        .resolve_value(other_id.ident_ref())
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "error resolving variable {var} in forspec list {forspecs:?}",
-                                var = other_id.ident_ref(),
-                                forspecs = other.forspecs
-                            )
-                        });
+        let predicate = self.smt_all_predicates(varname);
+        let assert_assumptions = SmtAssert(SmtAnd(assumptions)).into();
 
-                    // skip the loop var name in the comparison
-                    if !(self_forspec.end_comp() == other_forspec.end_comp()
-                        && self_forspec.start_comp() == other_forspec.start_comp()
-                        && self_forspec.start() == other_forspec.start()
-                        && self_forspec.end() == other_forspec.end())
-                    {
-                        return false;
-                    }
+        let assert_neg_claim = SmtAssert(SmtNot(SmtEq2 {
+            lhs: predicate,
+            rhs: 1usize,
+        }))
+        .into();
+
+        let check_sat = ("check-sat",).into();
+
+        Vec::from_iter(
+            declares.chain(vec![assert_assumptions, check_sat, assert_neg_claim].into_iter()),
+        )
+        /*
+         *
+         * declare const n Int
+         * ...
+         * declare const x Int
+         *
+         * assert AND(assumptions) and x ist in function range => predicate != 1
+         * -> expect unsat
+         *
+         */
+    }
+
+    fn smt_all_predicates(&self, varname: &str) -> SmtExpr {
+        self.0.iter().fold(
+            0.into(),
+            |acc: SmtExpr, indices: &MultiInstanceIndices| -> SmtExpr {
+                SmtIte {
+                    cond: indices.smt_range_predicate(varname),
+                    then: ("+", 1, acc.clone()),
+                    els: acc,
                 }
-                // don't return false in this case
-                (Expression::IntegerLiteral(self_lit), Expression::IntegerLiteral(other_lit))
-                    if self_lit == other_lit => {}
-                _ => return false,
-            }
+                .into()
+            },
+        )
+    }
+}
+
+impl MultiInstanceIndices {
+    /// returns smt code that checks whether a variable with name `varname` is in the range.
+    /// currently only works for one-dimensional indices and panics for higher dimensions.
+    fn smt_range_predicate(&self, varname: &str) -> SmtExpr {
+        let resolver = SliceResolver(&self.forspecs);
+        //assert!(self.indices.len() == 1);
+        for index in &self.indices {
+            let does_match: SmtExpr = match index {
+                Expression::IntegerLiteral(index) => SmtEq2 {
+                    lhs: *index,
+                    rhs: varname,
+                }
+                .into(),
+                Expression::Identifier(Identifier::Scalar(var))
+                | Expression::Identifier(Identifier::ComposeLoopVar(ComposeLoopVar {
+                    name_in_comp: var,
+                    ..
+                })) => {
+                    let forspec = resolver.resolve_value(var).unwrap();
+                    SmtAnd(vec![
+                        SmtLte(forspec.start.clone(), varname).into(),
+                        SmtLt(varname, forspec.end.clone()).into(),
+                    ])
+                    .into()
+                }
+                Expression::Identifier(Identifier::Parameter(pkg_const)) => SmtEq2 {
+                    lhs: pkg_const.name_in_comp.clone(),
+                    rhs: varname,
+                }
+                .into(),
+                _ => unreachable!(),
+            };
+
+            return does_match;
         }
 
-        true
+        unreachable!()
     }
 }
 
@@ -822,4 +918,65 @@ pub fn handle_pkg(pkg: Pair<Rule>, file_name: &str) -> (String, Package) {
     let pkg = handle_pkg_spec(spec, pkg_name, file_name);
 
     (pkg_name.to_owned(), pkg)
+}
+
+#[cfg(test)]
+mod tests2 {
+    use pest::Parser;
+
+    use crate::{
+        expressions::Expression,
+        identifier::Identifier,
+        parser::{
+            common::handle_expression,
+            package::{ForComp, ForSpec},
+            Rule, SspParser,
+        },
+        writers::smt::exprs::{SmtLt, SmtLte},
+    };
+
+    use super::{MultiInstanceIndices, MultiInstanceIndicesGroup};
+
+    #[test]
+    fn example_smt_stuff() {
+        let parse_expr = |text: &str| {
+            handle_expression(
+                SspParser::parse(Rule::expression, text)
+                    .unwrap()
+                    .next()
+                    .unwrap(),
+            )
+        };
+
+        let end = parse_expr("(n - 1)").map(|expr| match expr {
+            Expression::Identifier(Identifier::Scalar(x)) => {
+                Expression::Identifier(Identifier::Local(x))
+            }
+            x => x,
+        });
+
+        let indices_group = MultiInstanceIndicesGroup(vec![MultiInstanceIndices::from_strs(
+            &["i"],
+            vec![ForSpec {
+                ident: Identifier::Scalar("i".to_string()),
+                start: parse_expr("0"),
+                end,
+                start_comp: ForComp::Lte,
+                end_comp: ForComp::Lt,
+            }],
+        )]);
+
+        let smt = indices_group.smt_check_total(
+            vec![SmtLte(0, "x").into(), SmtLt("x", "n").into()],
+            &["n"],
+            "x",
+        );
+
+        for expr in smt {
+            println!("{expr}")
+        }
+
+        println!("(check-sat)");
+        println!("(get-model)")
+    }
 }

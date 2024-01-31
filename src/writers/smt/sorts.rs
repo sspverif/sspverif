@@ -71,3 +71,13 @@ impl From<SmtBool> for SmtExpr {
 }
 
 impl SmtSort for SmtBool {}
+
+pub struct SmtInt;
+
+impl From<SmtInt> for SmtExpr {
+    fn from(_: SmtInt) -> Self {
+        SmtExpr::Atom("Int".to_string())
+    }
+}
+
+impl SmtSort for SmtInt {}
