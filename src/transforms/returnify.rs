@@ -180,7 +180,7 @@ mod test {
         let file_pos = FilePosition::new("test_file.ssp".to_string(), 0, 1);
         let code = block! {
             Statement::Sample(Identifier::new_scalar("d"), None, None, Type::Integer, file_pos.clone()),
-            Statement::Return(Some(Expression::IntegerLiteral("5".to_string())), file_pos.clone())
+            Statement::Return(Some(Expression::IntegerLiteral(5)), file_pos.clone())
         };
         assert_eq!(
             code,

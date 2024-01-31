@@ -578,7 +578,7 @@ mod test {
         let mut scope = Scope::new();
         let code = TypedCodeBlock {
             block: block! {
-                Statement::Return(Some(Expression::IntegerLiteral("23".to_string())), FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                Statement::Return(Some(Expression::IntegerLiteral(23)), FilePosition::new("test_file.ssp".to_string(), 0, 1))
             },
             expected_return_type: Type::Integer,
         };
@@ -613,7 +613,7 @@ mod test {
                     Statement::Return(Some(Expression::StringLiteral("23".to_string())),FilePosition::new("test_file.ssp".to_string(), 0, 1))
                 },
                 block!{
-                    Statement::Return(Some(Expression::IntegerLiteral("23".to_string())),FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                    Statement::Return(Some(Expression::IntegerLiteral(23)),FilePosition::new("test_file.ssp".to_string(), 0, 1))
                 },FilePosition::new("test_file.ssp".to_string(), 0, 1) )
             },
             expected_return_type: Type::Integer,
@@ -635,7 +635,7 @@ mod test {
                 Expression::new_equals(vec![&(Expression::StringLiteral("23".to_string())),
                                             &(Expression::StringLiteral("23".to_string()))]),
                 block!{
-                    Statement::Return(Some(Expression::IntegerLiteral("23".to_string())),FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                    Statement::Return(Some(Expression::IntegerLiteral(23)),FilePosition::new("test_file.ssp".to_string(), 0, 1))
                 },
                 block!{
                     Statement::Return(Some(Expression::StringLiteral("23".to_string())),FilePosition::new("test_file.ssp".to_string(), 0, 1))
@@ -660,10 +660,10 @@ mod test {
                 Expression::new_equals(vec![&(Expression::StringLiteral("23".to_string())),
                                             &(Expression::StringLiteral("23".to_string()))]),
                 block!{
-                    Statement::Return(Some(Expression::IntegerLiteral("23".to_string())),FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                    Statement::Return(Some(Expression::IntegerLiteral(23)),FilePosition::new("test_file.ssp".to_string(), 0, 1))
                 },
                 block!{
-                    Statement::Return(Some(Expression::IntegerLiteral("23".to_string())),FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                    Statement::Return(Some(Expression::IntegerLiteral(23)),FilePosition::new("test_file.ssp".to_string(), 0, 1))
                 },FilePosition::new("test_file.ssp".to_string(), 0, 1))
             },
             expected_return_type: Type::Integer,
@@ -681,7 +681,7 @@ mod test {
                 Expression::new_equals(vec![&(Expression::StringLiteral("23".to_string())),
                                             &(Expression::StringLiteral("23".to_string()))]),
                 block!{
-                    Statement::Return(Some(Expression::IntegerLiteral("23".to_string())),FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                    Statement::Return(Some(Expression::IntegerLiteral(23)),FilePosition::new("test_file.ssp".to_string(), 0, 1))
                 },
                 block!{
                     Statement::Abort(FilePosition::new("test_file.ssp".to_string(), 0, 1))
@@ -729,7 +729,7 @@ mod test {
             .unwrap();
         let code = TypedCodeBlock {
             block: block! {
-                Statement::Assign(Identifier::Local("test".to_string()), None, Expression::IntegerLiteral("42".to_string()),
+                Statement::Assign(Identifier::Local("test".to_string()), None, Expression::IntegerLiteral(42),
             FilePosition::new("test_file.ssp".to_string(), 0, 1))
             },
             expected_return_type: Type::Empty,
@@ -745,7 +745,7 @@ mod test {
         scope.enter();
         let code = TypedCodeBlock {
             block: block! {
-                Statement::Assign(Identifier::Local("test".to_string()), None, Expression::IntegerLiteral("42".to_string()),
+                Statement::Assign(Identifier::Local("test".to_string()), None, Expression::IntegerLiteral(42),
             FilePosition::new("test_file.ssp".to_string(), 0, 1))
             },
             expected_return_type: Type::Empty,
@@ -768,7 +768,7 @@ mod test {
         let code = TypedCodeBlock {
             block: block! {
                 Statement::Assign(Identifier::Local("test".to_string()),
-                                       Some(Expression::IntegerLiteral("42".to_string())),
+                                       Some(Expression::IntegerLiteral(42)),
                                        Expression::Some(Box::new(Expression::StringLiteral("42".to_string()))),
             FilePosition::new("test_file.ssp".to_string(), 0, 1))
             },
@@ -822,8 +822,8 @@ mod test {
         let code = TypedCodeBlock {
             block: block! {
                 Statement::Assign(Identifier::Local("test".to_string()),
-                                       Some(Expression::IntegerLiteral("42".to_string())),
-                                       Expression::IntegerLiteral("42".to_string()),
+                                       Some(Expression::IntegerLiteral(42)),
+                                       Expression::IntegerLiteral(42),
             FilePosition::new("test_file.ssp".to_string(), 0, 1))
             },
             expected_return_type: Type::Empty,
@@ -845,8 +845,8 @@ mod test {
         let code = TypedCodeBlock {
             block: block! {
                 Statement::Assign(Identifier::Local("test".to_string()),
-                                       Some(Expression::IntegerLiteral("42".to_string())),
-                                       Expression::IntegerLiteral("42".to_string()),
+                                       Some(Expression::IntegerLiteral(42)),
+                                       Expression::IntegerLiteral(42),
             FilePosition::new("test_file.ssp".to_string(), 0, 1))
             },
             expected_return_type: Type::Empty,
@@ -866,8 +866,8 @@ mod test {
             block: block! {
                 Statement::Assign(
                     Identifier::Local("test".to_string()),
-                                       Some(Expression::IntegerLiteral("42".to_string())),
-                                       Expression::IntegerLiteral("42".to_string()),
+                                       Some(Expression::IntegerLiteral(42)),
+                                       Expression::IntegerLiteral(42),
                                     FilePosition::new("test_file.ssp".to_string(), 0, 1))
             },
             expected_return_type: Type::Empty,

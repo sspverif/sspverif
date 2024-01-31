@@ -38,7 +38,7 @@ impl From<Expression> for SmtExpr {
             ]),
             Expression::StringLiteral(litname) => SmtExpr::Atom(format!("\"{}\"", litname)),
             Expression::BooleanLiteral(litname) => SmtExpr::Atom(litname),
-            Expression::IntegerLiteral(litname) => SmtExpr::Atom(litname),
+            Expression::IntegerLiteral(litname) => SmtExpr::Atom(format!("{litname}")),
             Expression::Equals(exprs) => {
                 let mut acc = vec![SmtExpr::Atom("=".to_string())];
                 for expr in exprs {

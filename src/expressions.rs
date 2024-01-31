@@ -8,7 +8,7 @@ pub enum Expression {
     Bot,
     Sample(Type),
     StringLiteral(String),
-    IntegerLiteral(String),
+    IntegerLiteral(i64),
     BooleanLiteral(String),
     Identifier(Identifier),
     EmptyTable,

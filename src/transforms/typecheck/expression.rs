@@ -689,7 +689,7 @@ mod test {
         let typeify_res = typify(
             &Expression::FnCall(
                 Identifier::Scalar("test".to_string()),
-                vec![Expression::IntegerLiteral("12".to_string())],
+                vec![Expression::IntegerLiteral(12)],
             ),
             &scope,
         );

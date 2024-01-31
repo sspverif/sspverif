@@ -566,8 +566,8 @@ mod tests {
             name_in_proof: "n".to_string(),
         });
 
-        let lit_0 = Expression::IntegerLiteral("0".to_string());
-        let lit_1 = Expression::IntegerLiteral("1".to_string());
+        let lit_0 = Expression::IntegerLiteral(0);
+        let lit_1 = Expression::IntegerLiteral(1);
 
         let left = MultiInstanceIndices::new(
             vec![Expression::Identifier(ident_loop_left.clone())],

@@ -40,7 +40,7 @@ impl Type {
 
     pub fn default_value(&self) -> Expression {
         match self {
-            Type::Integer => Expression::IntegerLiteral("0".to_string()),
+            Type::Integer => Expression::IntegerLiteral(0),
             Type::String => Expression::StringLiteral("".to_string()),
             Type::Boolean => Expression::BooleanLiteral("false".to_string()),
             Type::List(_tipe) => Expression::List(vec![]),

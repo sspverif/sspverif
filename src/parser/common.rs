@@ -101,7 +101,7 @@ pub fn handle_expression(expr: Pair<Rule>) -> Expression {
         }
         Rule::literal_integer => {
             let litval = expr.as_str().to_string();
-            Expression::IntegerLiteral(litval)
+            Expression::IntegerLiteral(i64::from_str_radix(&litval, 10).unwrap())
         }
         Rule::literal_emptyset => {
             let tipe = handle_type(expr.into_inner().next().unwrap());

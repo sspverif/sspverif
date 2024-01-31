@@ -106,7 +106,7 @@ impl<W: Write> Writer<W> {
                 self.write_string(x)?;
             }
             Expression::IntegerLiteral(x) => {
-                self.write_string(x)?;
+                self.write_string(&format!("{x}"))?;
             }
             Expression::StringLiteral(x) => {
                 self.write_string(x)?;
