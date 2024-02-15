@@ -20,7 +20,7 @@ package Mod {
     state {
     }
 
-    oracle Garble(C: Table(Integer,Table(Integer,(Integer,Integer,Table((Bool,Bool),Bool)))),
+    oracle GARBLE(C: Table(Integer,Table(Integer,(Integer,Integer,Table((Bool,Bool),Bool)))),
                   x:Table(Integer,Bool)) 
                  -> (Table(Integer,Table(Integer,Table(Bits(p), Bool))),
                      Table(Integer, Bits(n)),

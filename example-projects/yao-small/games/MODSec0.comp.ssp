@@ -22,6 +22,7 @@ composition MODSec0 {
     instance keys[dd] = Keys {
       params {
         n:  n,
+        i:  dd,
       }
 
       types {
@@ -46,6 +47,7 @@ composition MODSec0 {
           p: p,
           h: dd,
           zeron: zeron,
+          i: dd,
       }
     }
     instance enc[dd] = Enc0 {
@@ -54,7 +56,8 @@ composition MODSec0 {
           m: m,
           p: p,
           encn: encn,
-          encm: encm
+          encm: encm,
+          i: dd,
       }
     }
   }
@@ -80,7 +83,7 @@ composition MODSec0 {
 
   compose {
     adversary: {
-      Garble:   mod,
+      GARBLE:   mod,
     },
 
     mod: {
