@@ -95,3 +95,27 @@ impl Identifier {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{GameInstanceConst, Identifier, PackageConst};
+
+    #[test]
+    fn identifier_equality() {
+        let left = Identifier::Parameter(PackageConst {
+            name_in_pkg: "d".to_string(),
+            pkgname: "Mod".to_string(),
+            game_inst_name: "MODSec0_inst".to_string(),
+            name_in_comp: "d".to_string(),
+            name_in_proof: "d".to_string(),
+        });
+
+        let right = Identifier::GameInstanceConst(GameInstanceConst {
+            game_inst_name: "MODSec0_inst".to_string(),
+            name_in_comp: "d".to_string(),
+            name_in_proof: "d".to_string(),
+        });
+
+        assert_eq!(left, right)
+    }
+}

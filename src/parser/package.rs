@@ -1,7 +1,6 @@
 use crate::expressions::Expression;
 use crate::identifier::ComposeLoopVar;
 use crate::identifier::Identifier;
-use crate::identifier::PackageConst;
 use crate::package::OracleDef;
 use crate::package::OracleSig;
 use crate::package::Package;
@@ -17,7 +16,6 @@ use crate::writers::smt::exprs::SmtAnd;
 use crate::writers::smt::exprs::SmtAssert;
 use crate::writers::smt::exprs::SmtEq2;
 use crate::writers::smt::exprs::SmtExpr;
-use crate::writers::smt::exprs::SmtImplies;
 use crate::writers::smt::exprs::SmtIte;
 use crate::writers::smt::exprs::SmtLt;
 use crate::writers::smt::exprs::SmtLte;
@@ -31,7 +29,6 @@ use pest::iterators::Pair;
 
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::iter::FromIterator;
 
 pub fn handle_decl_list(state: Pair<Rule>, file_name: &str) -> Vec<(String, Type, FilePosition)> {
     state
@@ -149,8 +146,14 @@ pub fn handle_expression(expr: Pair<Rule>) -> Expression {
             Expression::BooleanLiteral(litval)
         }
         Rule::literal_integer => {
-            let litval = expr.as_str().to_string();
-            Expression::IntegerLiteral(litval.parse().unwrap())
+            let litval = expr.as_str().trim().to_string();
+
+            Expression::IntegerLiteral(litval.parse().expect(&format!(
+                "error at position {:?}..{:?}: could not parse as int: {}",
+                expr.as_span().start_pos().line_col(),
+                expr.as_span().end_pos().line_col(),
+                expr.as_str(),
+            )))
         }
         Rule::literal_emptyset => {
             let tipe = handle_type(expr.into_inner().next().unwrap());
@@ -504,7 +507,7 @@ impl crate::error::LocationError for ParseImportOraclesError {
     }
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Hash, Eq, PartialOrd, Ord)]
 pub struct MultiInstanceIndices {
     pub(crate) indices: Vec<Expression>,
     pub(crate) forspecs: Vec<ForSpec>,
@@ -540,6 +543,61 @@ impl MultiInstanceIndices {
     }
 }
 
+impl PartialEq for MultiInstanceIndices {
+    fn eq(&self, other: &Self) -> bool {
+        if self.indices.len() != other.indices.len() {
+            return false;
+        }
+
+        let left_resolver = SliceResolver(&self.forspecs);
+        let right_resolver = SliceResolver(&other.forspecs);
+
+        let left = self.indices.iter();
+        let right = other.indices.iter();
+
+        for (i, (left, right)) in left.zip(right).enumerate() {
+            match (left, right) {
+                (Expression::IntegerLiteral(left), Expression::IntegerLiteral(right)) => {
+                    if left != right {
+                        return false;
+                    }
+                }
+                (Expression::Identifier(left), Expression::Identifier(right)) => {
+                    let left = left_resolver
+                        .resolve_value(left.ident_ref())
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "invalid input: index #{i} is not specified in {indices:?}",
+                                i = i,
+                                indices = self
+                            )
+                        });
+
+                    let right = right_resolver
+                        .resolve_value(right.ident_ref())
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "invalid input: index #{i} is not specified in {indices:?}",
+                                i = i,
+                                indices = other
+                            )
+                        });
+                    if left.start != right.start
+                        || left.end != right.end
+                        || left.start_comp != right.end_comp
+                        || left.end_comp != right.end_comp
+                    {
+                        return false;
+                    }
+                }
+                _ => return false,
+            }
+        }
+
+        true
+    }
+}
+
 /// A [`MultiInstanceIndicesGroup`] contains a list of [`MultiInstanceIndices`] that all represent
 /// the same index, but cover different ranges. The purpose is that the group folds the individual
 /// elements into a single one, by merging the ranges specified in the [`ForSpec`] entries.
@@ -550,63 +608,70 @@ impl MultiInstanceIndicesGroup {
         Self(v)
     }
 
-    fn smt_check_total(
+    pub(crate) fn smt_check_total(
         &self,
         assumptions: Vec<SmtExpr>,
         consts: &[&str],
         varname: &str,
     ) -> Vec<SmtExpr> {
-        let varnames = vec![varname];
-        let declares = consts
+        let declares: Vec<_> = consts
             .iter()
-            .chain(&varnames)
-            .map(|const_name| declare_const(*const_name, SmtInt));
+            .map(|const_name| declare_const(*const_name, SmtInt))
+            .collect();
 
-        let predicate = self.smt_all_predicates(varname);
-        let assert_assumptions = SmtAssert(SmtAnd(assumptions)).into();
+        let predicate = self.smt_totality_check_function(varname);
 
-        let assert_neg_claim = SmtAssert(SmtNot(SmtEq2 {
+        let neg_claim = SmtNot(SmtEq2 {
             lhs: predicate,
             rhs: 1usize,
-        }))
+        })
         .into();
 
-        let check_sat = ("check-sat",).into();
+        let and_terms = assumptions
+            .into_iter()
+            .chain(vec![neg_claim].into_iter())
+            .collect();
 
-        Vec::from_iter(
-            declares.chain(vec![assert_assumptions, check_sat, assert_neg_claim].into_iter()),
-        )
+        let assert = SmtAssert(SmtAnd(and_terms));
+
+        let mut out_statements = declares;
+        out_statements.push(assert.into());
+
+        out_statements
         /*
          *
          * declare const n Int
          * ...
          * declare const x Int
          *
-         * assert AND(assumptions) and x ist in function range => predicate != 1
+         * assert AND(assumptions)  => sum of predicates = 1
          * -> expect unsat
          *
          */
     }
 
-    fn smt_all_predicates(&self, varname: &str) -> SmtExpr {
-        self.0.iter().fold(
-            0.into(),
-            |acc: SmtExpr, indices: &MultiInstanceIndices| -> SmtExpr {
-                SmtIte {
-                    cond: indices.smt_range_predicate(varname),
-                    then: ("+", 1, acc.clone()),
-                    els: acc,
-                }
-                .into()
-            },
-        )
+    fn smt_totality_check_function(&self, varname: &str) -> SmtExpr {
+        let terms = self.0.iter().map(|indices| {
+            SmtIte {
+                cond: indices.smt_range_predicate(varname),
+                then: 1,
+                els: 0,
+            }
+            .into()
+        });
+
+        let add = ["+"].iter().map(|&add| add.into());
+        let zero = [0].iter().map(|&zero| zero.into());
+
+        // add the zero term so the operation doesn't fail if there are no terms
+        SmtExpr::List(add.chain(terms).chain(zero).collect())
     }
 }
 
 impl MultiInstanceIndices {
     /// returns smt code that checks whether a variable with name `varname` is in the range.
     /// currently only works for one-dimensional indices and panics for higher dimensions.
-    fn smt_range_predicate(&self, varname: &str) -> SmtExpr {
+    pub(crate) fn smt_range_predicate(&self, varname: &str) -> SmtExpr {
         let resolver = SliceResolver(&self.forspecs);
         //assert!(self.indices.len() == 1);
         for index in &self.indices {
@@ -647,7 +712,7 @@ impl MultiInstanceIndices {
 mod tests {
     use crate::{
         expressions::Expression,
-        identifier::{GameInstanceConst, Identifier},
+        identifier::{GameInstanceConst, Identifier, PackageConst},
     };
 
     use super::{ForComp, ForSpec, MultiInstanceIndices};
@@ -711,7 +776,44 @@ mod tests {
             }],
         );
 
-        assert!(left != right)
+        assert!(left != right);
+
+        let ident_end_left = Identifier::GameInstanceConst(GameInstanceConst {
+            game_inst_name: "the_game_inst".to_string(),
+            name_in_comp: "n".to_string(),
+            name_in_proof: "n".to_string(),
+        });
+        let ident_end_right = Identifier::Parameter(PackageConst {
+            game_inst_name: "the_game_inst".to_string(),
+            name_in_comp: "n".to_string(),
+            name_in_proof: "n".to_string(),
+            name_in_pkg: "anything".to_string(),
+            pkgname: "anything".to_string(),
+        });
+
+        let left = MultiInstanceIndices::new(
+            vec![Expression::Identifier(ident_loop_left.clone())],
+            vec![ForSpec {
+                ident: ident_loop_left.clone(),
+                start: lit_0.clone(),
+                end: Expression::Identifier(ident_end_left.clone()),
+                start_comp: ForComp::Lte,
+                end_comp: ForComp::Lte,
+            }],
+        );
+
+        let right = MultiInstanceIndices::new(
+            vec![Expression::Identifier(ident_loop_right.clone())],
+            vec![ForSpec {
+                ident: ident_loop_right.clone(),
+                start: lit_0.clone(),
+                end: Expression::Identifier(ident_end_right.clone()),
+                start_comp: ForComp::Lte,
+                end_comp: ForComp::Lte,
+            }],
+        );
+
+        assert_eq!(left, right);
     }
 }
 

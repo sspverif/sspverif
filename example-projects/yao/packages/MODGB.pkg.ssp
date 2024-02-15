@@ -7,7 +7,7 @@ package MODGB {
     }
 
     import oracles {
-       GBLG(i: Integer, l: Integer, r: Integer, op: Table((Bool,Bool),Bool)) -> Table(Bits(p),Bool),
+       GBLG[i](l: Integer, r: Integer, op: Table((Bool,Bool),Bool), j: Integer) -> Table(Bits(p),Bool),
     }
 
     state {
@@ -25,7 +25,7 @@ package MODGB {
             assert (not (op[(true, false)] == None as Bool));
             assert (not (op[(false, true)] == None as Bool));
             assert (not (op[(false,false)] == None as Bool));
-            tmp <- invoke GBLG(j,l,r,op);
+            tmp <- invoke GBLG[i](l, r, op, j);
             T[j] <- Some(tmp);
         }
         Ctilde[i] <- Some(T);

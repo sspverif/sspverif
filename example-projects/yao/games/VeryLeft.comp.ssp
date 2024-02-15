@@ -32,6 +32,7 @@ composition VeryLeft {
       n: n,
       m: m,
       p: p,
+      h: 0,
       zeron: zeron,
     }
   }

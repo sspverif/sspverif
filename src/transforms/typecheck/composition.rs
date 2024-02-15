@@ -3,6 +3,9 @@ use super::pkg::typecheck_pkg;
 use super::scope::Scope;
 
 use crate::package::{Composition, Edge, Export, MultiInstanceEdge, OracleSig, PackageInstance};
+use crate::parser::package::MultiInstanceIndicesGroup;
+use crate::types::Type;
+use crate::util::prover_process::ProverResponse;
 use crate::util::resolver::Named;
 
 use std::collections::{HashMap, HashSet};
@@ -52,6 +55,139 @@ pub fn typecheck_comp(
         ..
     } = comp;
 
+    println!("!!!! starting high-confidence checks, probably not false positives !!!!!");
+
+    // 1 (new): for each pkg instance i, for each import j, check that there exists a package instance at the destination that has an oracle sig that has matching name, args and return (ignore indices!)
+    for (i, pkg_inst) in pkgs.iter().enumerate() {
+        let pkg_edges = edges
+            .iter()
+            .filter_map(|Edge(src, dst, osig)| if *src == i { Some((dst, osig)) } else { None });
+        let pkg_mi_edges = multi_inst_edges.iter().filter_map(
+            |MultiInstanceEdge {
+                 source_pkgidx: src,
+                 dest_pkgidx: dst,
+                 oracle_sig,
+                 ..
+             }| {
+                if *src == i {
+                    Some((dst, oracle_sig))
+                } else {
+                    None
+                }
+            },
+        );
+
+        let edges: Vec<_> = pkg_edges.chain(pkg_mi_edges).collect();
+
+        let game_name = comp.name();
+        let pkg_inst_name = &pkg_inst.name;
+
+        for import in &pkg_inst.pkg.imports {
+            let import_sig = &import.0;
+
+            let single_instance_sigs = edges
+                .iter()
+                .filter(|(_, edge_sig)| edge_sig.name == import_sig.name);
+
+            let multi_instance_sigs = edges
+                .iter()
+                .filter(|(_, edge_sig)| edge_sig.name == import_sig.name);
+
+            let mut at_least_one = false;
+
+            for (i_dst, edge_sig) in single_instance_sigs.chain(multi_instance_sigs) {
+                at_least_one = true;
+
+                let return_types_match = edge_sig.tipe == import_sig.tipe;
+                let arg_lengths_match = edge_sig.args.len() == import_sig.args.len();
+                // I think this might fail due to a mismatch in paramenters?
+                let arg_types_match = edge_sig.args.iter().zip(import_sig.args.iter()).all(
+                    |((_, edge_arg_type), (_, import_arg_type))| edge_arg_type == import_arg_type,
+                );
+
+                let dst_pkg_inst_name = &pkgs[**i_dst].name;
+
+                if !arg_lengths_match {
+                    return Err(TypeCheckError::TypeCheck(format!(
+                    "in game {game_name}, argument count for package import oracle {import_sig:?} in package instance {pkg_inst_name} with id {i:} does not match edge, which has signature {edge_sig:?} and points to package instance {dst_pkg_inst_name}",
+                )));
+                }
+
+                if !arg_types_match {
+                    return Err(TypeCheckError::TypeCheck(format!(
+                    "in game {game_name}, argument types for package import oracle {import_sig:?} in package instance {pkg_inst_name} with id {i:} does not match edge, which has signature {edge_sig:?}",
+                )));
+                }
+
+                if !return_types_match {
+                    return Err(TypeCheckError::TypeCheck(format!(
+                    "in game {game_name}, return types for package import oracle {import_sig:?} in package instance {pkg_inst_name} with id {i:} does not match edge, which has signature {edge_sig:?}",
+                )));
+                }
+            }
+
+            if !at_least_one {
+                return Err(TypeCheckError::TypeCheck(format!(
+                    "in game {game_name}, couldn't find an edge for oracle {import_sig:?} that starts in package instance {pkg_inst_name} with id {i:}",
+                )));
+            }
+        }
+    }
+
+    println!("!!!! from now on, expect false positives !!!!");
+
+    // 2 (new): for each pkg instance i, for each import j, do the smt checks
+    let multi_inst_edges_map = multi_inst_edges
+        .iter()
+        .map(|mi_edge| {
+            (
+                (mi_edge.dest_pkgidx, mi_edge.oracle_sig.name.as_str()),
+                mi_edge,
+            )
+        })
+        .fold(
+            HashMap::<(usize, &str), Vec<_>>::new(),
+            |mut map, (key, mi_edge)| {
+                if let Some(indices) = mi_edge.oracle_sig.multi_inst_idx.clone() {
+                    map.entry(key).or_insert(vec![]).push(indices.clone());
+                }
+                map
+            },
+        );
+
+    let consts: Vec<_> = comp
+        .consts
+        .iter()
+        .filter_map(|(name, tipe)| {
+            if *tipe == Type::Integer {
+                Some(name.as_str())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let mut smt_solver_process = crate::util::prover_process::Communicator::new_cvc5().unwrap();
+
+    for (k, indices) in multi_inst_edges_map.into_iter() {
+        let varname = "___foooo___-__-__nla";
+        let pkg_inst = &pkgs[k.0];
+        let multi_instance_indices = pkg_inst.multi_instance_indices.clone().unwrap();
+        let assumptions = multi_instance_indices.smt_range_predicate(varname);
+
+        let group = MultiInstanceIndicesGroup::new(indices);
+        let smt_statements = group.smt_check_total(vec![assumptions], &consts, "___fooo___");
+
+        for stmt in smt_statements {
+            smt_solver_process.write_smt(stmt).unwrap();
+        }
+
+        let sat_status = smt_solver_process.check_sat().unwrap();
+        println!("{}", sat_status);
+
+        assert_eq!(sat_status, ProverResponse::Unsat);
+    }
+
     // 1a. check signature exists in edge destination
     for Edge(_, to, sig_) in edges {
         let mut found = false;
@@ -86,8 +222,6 @@ pub fn typecheck_comp(
         .filter(|(_i, imports)| !imports.is_empty())
         .collect();
 
-    // println!("declared imports: {declared_imports:#?}");
-
     // edge_imports is a hashmap: from_edge_idx -> (hashset sig)
     let mut edge_imports = HashMap::new();
 
@@ -116,7 +250,9 @@ pub fn typecheck_comp(
             .insert(IgnoreArgNameOracleSig(oracle_sig.clone()));
     }
 
+    println!("comparing...");
     if declared_imports != edge_imports {
+        println!("done comparing inside branch");
         if declared_imports.keys().collect::<HashSet<_>>()
             != edge_imports.keys().collect::<HashSet<_>>()
         {
@@ -175,6 +311,7 @@ pub fn typecheck_comp(
             }
         }
     }
+    println!("done comparing post branch");
 
     // 2. check exports exists
     for Export(id, sig) in exports {
@@ -188,9 +325,68 @@ pub fn typecheck_comp(
         }
     }
 
+    // 3. Check multi instance exports exist
+    // TODO
+
+    // 4. Check that multi instance edges are total
+    let multi_inst_edges_map = multi_inst_edges
+        .iter()
+        .map(|mi_edge| {
+            (
+                (mi_edge.dest_pkgidx, mi_edge.oracle_sig.name.as_str()),
+                mi_edge,
+            )
+        })
+        .fold(
+            HashMap::<(usize, &str), Vec<_>>::new(),
+            |mut map, (key, mi_edge)| {
+                if let Some(indices) = mi_edge.oracle_sig.multi_inst_idx.clone() {
+                    map.entry(key).or_insert(vec![]).push(indices.clone());
+                }
+                map
+            },
+        );
+
+    let consts: Vec<_> = comp
+        .consts
+        .iter()
+        .filter_map(|(name, tipe)| {
+            if *tipe == Type::Integer {
+                Some(name.as_str())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let mut smt_solver_process = crate::util::prover_process::Communicator::new_cvc5().unwrap();
+
+    for (k, indices) in multi_inst_edges_map.into_iter() {
+        let varname = "___foooo___-__-__nla";
+        let pkg_inst = &pkgs[k.0];
+        let multi_instance_indices = pkg_inst.multi_instance_indices.clone().unwrap();
+        let assumptions = multi_instance_indices.smt_range_predicate(varname);
+
+        let group = MultiInstanceIndicesGroup::new(indices);
+        let smt_statements = group.smt_check_total(vec![assumptions], &consts, "___fooo___");
+
+        for stmt in smt_statements {
+            smt_solver_process.write_smt(stmt).unwrap();
+        }
+
+        let sat_status = smt_solver_process.check_sat().unwrap();
+        println!("{}", sat_status);
+
+        assert_eq!(sat_status, ProverResponse::Unsat);
+    }
+
+    //
+    //
+    // 5. Check that multi instance exports are total
+
     let mut typed_pkgs = vec![];
 
-    // 3. check all package instances
+    // 6. check all package instances
     for (_id, pkg) in pkgs.clone().into_iter().enumerate() {
         scope.enter();
         // for Edge(from, _, sig) in edges {

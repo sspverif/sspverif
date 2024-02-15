@@ -37,15 +37,16 @@ composition MODSec0 {
       }
     }
 
-      instance gate[dd] = Gate {
+    instance gate[dd] = Gate {
       params {
           n: n,
           m: m,
           p: p,
+          h: dd,
           zeron: zeron,
       }
     }
-      instance enc[dd] = Enc0 {
+    instance enc[dd] = Enc0 {
       params {
           n: n,
           m: m,

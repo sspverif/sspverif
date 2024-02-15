@@ -3,6 +3,7 @@ package Gate {
         n: Integer,
         m: Integer,
         p: Integer,
+        h: Integer,
         zeron: Bits(n),
     }
 
@@ -12,7 +13,7 @@ package Gate {
         ENCM(j: Integer,d: Bool, mzero: Bits(m), mone: Bits(m)) -> Bits(p),
     }
 
-    oracle GBLG(h: Integer, l: Integer, r: Integer, op: Table((Bool,Bool),Bool), j: Integer) -> Table(Bits(p),Bool) {
+    oracle GBLG(l: Integer, r: Integer, op: Table((Bool,Bool),Bool), j: Integer) -> Table(Bits(p),Bool) {
         C <- new Table(Bits(p), Bool);
         Z <- invoke GETKEYSOUT(j);
         bl <- false;

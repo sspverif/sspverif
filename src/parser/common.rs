@@ -100,7 +100,7 @@ pub fn handle_expression(expr: Pair<Rule>) -> Expression {
             Expression::BooleanLiteral(litval)
         }
         Rule::literal_integer => {
-            let litval = expr.as_str().to_string();
+            let litval = expr.as_str().trim().to_string();
             Expression::IntegerLiteral(i64::from_str_radix(&litval, 10).unwrap())
         }
         Rule::literal_emptyset => {
