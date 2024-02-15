@@ -73,10 +73,10 @@ composition MODSec0 {
              gate[dd]: {
               with index [dd] ENCM: enc,
               with index [dd] ENCN: enc,
-              with index [dd] GETKEYSIN: keys,
+              with index [dd] GETKEYSOUT: keys,
              }
              enc[dd]: {
-              with index [(dd-1)] GETKEYSOUT: keys,
+              with index [(dd-1)] GETKEYIN: keys,
              }
              }
              }
