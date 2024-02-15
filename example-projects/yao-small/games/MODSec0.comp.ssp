@@ -76,7 +76,7 @@ composition MODSec0 {
               with index [dd] GETKEYSOUT: keys,
              }
              enc[dd]: {
-              with index [(dd-1)] GETKEYIN: keys,
+              with index [(dd-1)] GETKEYSIN: keys,
              }
              }
              }
