@@ -23,10 +23,23 @@ proof Yao {
         }
     }
 
+    instance PrvSim0_inst = PrvSim0 {
+        params {
+            n: n,
+            m: m,
+            p: p,
+            w: w,
+            d: d,
+            zeron: zeron,
+            zerom: zerom,
+            encn: encn,
+            encm: encm,
+        }
+    }
 
     gamehops {
 
-    equivalence MODSec0_inst MODSec0_inst {
+    equivalence MODSec0_inst PrvSim0_inst {
             SETBIT: {
                 invariant: [
                     ./invariant-MODSec0.smt2
