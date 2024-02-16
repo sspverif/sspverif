@@ -5,6 +5,7 @@ mod expression;
 mod oracledef;
 mod pkg;
 mod scope;
+mod wire_proofs;
 
 use crate::types;
 

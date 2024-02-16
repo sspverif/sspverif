@@ -33,6 +33,22 @@ pub trait FunctionPattern {
             .into()
     }
 
+    fn define_fun_rec<B: Into<SmtExpr>>(&self, body: B) -> SmtExpr {
+        (
+            "define-fun-rec",
+            self.function_name(),
+            SmtExpr::List(
+                self.function_args()
+                    .into_iter()
+                    .map(|pair| -> SmtExpr { pair.into() })
+                    .collect(),
+            ),
+            self.function_return_sort(),
+            body,
+        )
+            .into()
+    }
+
     fn call(&self, args: &[SmtExpr]) -> SmtExpr {
         let mut call: Vec<SmtExpr> = vec![self.function_name().into()];
         call.extend(args.iter().map(|arg| arg.clone()));

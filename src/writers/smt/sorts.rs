@@ -81,3 +81,13 @@ impl From<SmtInt> for SmtExpr {
 }
 
 impl SmtSort for SmtInt {}
+
+pub struct SmtString;
+
+impl From<SmtString> for SmtExpr {
+    fn from(_value: SmtString) -> Self {
+        SmtExpr::Atom("String".to_string())
+    }
+}
+
+impl SmtSort for SmtString {}
