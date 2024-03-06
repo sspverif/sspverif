@@ -26,7 +26,6 @@ composition PrvSim1for {
   adversary: {
       GETAOUT:   sim,
       GBL:       sim,
-      GETDINF:   sim,
     },
   }
 }
