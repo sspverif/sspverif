@@ -37,21 +37,34 @@ package SIMtdyaofor {
         for i: 1 <= i <= d {
              assert (not (C[i] == None as Table(Integer,(Integer,Integer, Table((Bool,Bool),Bool)))));
              assert (Ctilde[i] == None as Table(Integer, Table(Bits(p), Bool)));
-             for jj: 1 <= jj <= w {
              layer    <- Unwrap(C[i]);
-             gate     <- Unwrap(layer[j]);
+             for jj: 1 <= jj <= w {
+             gate     <- Unwrap(layer[jj]);
              (l,r,op) <- parse gate;
              assert (not (op[(true,  true)] == None as Bool));
              assert (not (op[(true, false)] == None as Bool));
              assert (not (op[(false, true)] == None as Bool));
              assert (not (op[(false,false)] == None as Bool));
-                 r  <-$ Bits(n);
-                 rr <-$ Bits(n);
-         ZZZ[true]  <-  Some(r);
-         ZZZ[false] <-  Some(rr);
+                 rrr <-$ Bits(n);
+                 rrrr <-$ Bits(n);
+         ZZZ[true]  <-  Some(rrr);
+         ZZZ[false] <-  Some(rrrr);
               ZZ[j] <-  Some(ZZZ);
-                dl   <- true; 
-                dr   <- true;
+            dl   <- true; 
+            dr   <- true;
+             k         <- zeron;
+             XX        <- Unwrap(S[(i-1)]);
+             ZZZ       <- Unwrap(XX[l]);
+             kleft     <- Unwrap(ZZZ[bl]);
+             ZZZ       <- Unwrap(XX[r]);
+             kright    <- Unwrap(ZZZ[br]);
+             rrr       <-$ Bits(n);
+             rrrr      <-$ Bits(n);
+             cin       <-  encn(kleft,k,rrr);
+             c         <-  encm(kright,cin,rrrr);
+             gtilde[c] <- Some(true); 
+             dl <- false; 
+             dr <- true;
              k       <- zeron;
              XX      <- Unwrap(S[(i-1)]);
              ZZZ     <- Unwrap(XX[l]);
@@ -63,21 +76,8 @@ package SIMtdyaofor {
              cin     <-  encn(kleft,k,rrr);
              c       <-  encm(kright,cin,rrrr);
              gtilde[c] <- Some(true); 
-                    dl <- false; 
-                    dr <- true;
-             k       <- zeron;
-             XX      <- Unwrap(S[(i-1)]);
-             ZZZ     <- Unwrap(XX[l]);
-             kleft   <- Unwrap(ZZZ[bl]);
-             ZZZ     <- Unwrap(XX[r]);
-             kright  <- Unwrap(ZZZ[br]);
-             rrr     <-$ Bits(n);
-             rrrr    <-$ Bits(n);
-             cin     <-  encn(kleft,k,rrr);
-             c       <-  encm(kright,cin,rrrr);
-             gtilde[c] <- Some(true); 
-                   dl  <- true; 
-                   dr  <- false;
+             dl  <- true; 
+             dr  <- false;
              k       <- zeron;
              XX      <- Unwrap(S[(i-1)]);
              ZZZ     <- Unwrap(XX[l]);
@@ -97,7 +97,7 @@ package SIMtdyaofor {
              ZZZ     <- Unwrap(XX[l]);
              kleft   <- Unwrap(ZZZ[bl]);
              ZZZ     <- Unwrap(XX[r]);
-             kright   <- Unwrap(ZZZ[br]);
+             kright  <- Unwrap(ZZZ[br]);
              rrr     <-$ Bits(n);
              rrrr    <-$ Bits(n);
              cin     <-  encn(kleft,k,rrr);
@@ -105,8 +105,8 @@ package SIMtdyaofor {
              gtilde[c] <- Some(true);
              layertilde[jj] <- Some(gtilde);
              }
-              S[ii]     <- Some(ZZ);
-             Ctilde[ii] <- Some(layertilde);
+             S[i]      <- Some(ZZ);
+             Ctilde[i] <- Some(layertilde);
              }
         return Ctilde;
     }
@@ -117,13 +117,13 @@ package SIMtdyaofor {
                   T <- Unwrap(S[(d)]);
                temp <- new Table(Bool,Bits(n));
            temptemp <- new Table(Bool,Bits(n));
-                  for j: 0 <= j <= w {
-               temp <- Unwrap(T[j]);
-                  z <- invoke GETBIT(j);
+                  for jj: 1 <= jj <= w {
+               temp <- Unwrap(T[jj]);
+                  z <- invoke GETBIT(jj);
         temptemp[z] <- temp[false];
                notz <- not z;
      temptemp[notz] <- temp[true]; 
-            dinf[j] <- Some(temptemp);
+            dinf[jj] <- Some(temptemp);
                   }
                   return dinf;          
                      }

@@ -29,7 +29,7 @@ package ModPRVSIM0for {
             assert (x[j] == None as Bool);
             z <- Unwrap(x[j]);
             _ <- invoke SETBIT(j,z);
-             k <- invoke GETAOUT(i);
+             k <- invoke GETAOUT(j);
              xtilde[j] <- Some(k);
         }
         Ctilde <- invoke GBL(C);
