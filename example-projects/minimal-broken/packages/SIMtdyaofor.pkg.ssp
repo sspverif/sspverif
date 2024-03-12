@@ -24,7 +24,7 @@ package SIMtdyaofor {
         return true;
     }
 
-    oracle GETA(j: integer) 
+    oracle GETA(j: Integer) 
                  -> Bool
                      {
                        return true;

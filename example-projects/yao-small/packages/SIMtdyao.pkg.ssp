@@ -86,7 +86,7 @@ package SIMtdyao {
              c         <-  encm(kright,cin,rrrr);
              gtilde[c] <- Some(true); 
              dl  <- false; 
-             dr <- false;
+             dr  <- false;
              YY        <- Unwrap(S[ii]); 
              XX        <- Unwrap(S[(ii-1)]);
              ZZZ       <- Unwrap(YY[jj]);
@@ -113,17 +113,17 @@ package SIMtdyao {
                   T <- Unwrap(S[(d)]);
                temp <- new Table(Bool,Bits(n));
            temptemp <- new Table(Bool,Bits(n));
-                  for j: 0 <= j <= w {
-               temp <- Unwrap(T[j]);
-                  z <- invoke GETBIT(j);
+                  for jj: 0 <= jj <= w {
+               temp <- Unwrap(T[jj]);
+                  z <- invoke GETBIT(jj);
         temptemp[z] <- temp[false];
                notz <- not z;
      temptemp[notz] <- temp[true]; 
-            dinf[j] <- Some(temptemp);
+            dinf[jj] <- Some(temptemp);
                   }
                   return dinf;          
                      }
-    oracle GETA(j: integer) 
+    oracle GETAOUT(j: Integer) 
                  -> Bits(n)
                      {
                        TT  <- Unwrap(S[0]);

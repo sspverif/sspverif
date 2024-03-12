@@ -26,12 +26,12 @@ package SIMtdyaofor {
         ZZZ         <-                               new Table(Bool,Bits(n)) ;
         layertilde  <-                new Table(Integer, Table(Bits(p),Bool));
         gtilde      <-                               new Table(Bits(p),Bool);
-            for j: 1 <= j <= w {
+            for jjj: 1 <= jjj <= w {
                 r  <-$ Bits(n);
                 rr <-$ Bits(n);
-         ZZZ[true]  <-  Some(r);
-         ZZZ[false] <-  Some(rr);
-              ZZ[j] <-  Some(ZZZ);
+         ZZZ[true]    <-  Some(r);
+         ZZZ[false]   <-  Some(rr);
+              ZZ[jjj] <-  Some(ZZZ);
                  }
               S[0] <-  Some(ZZ);
         for i: 1 <= i <= d {
@@ -45,11 +45,11 @@ package SIMtdyaofor {
              assert (not (op[(true, false)] == None as Bool));
              assert (not (op[(false, true)] == None as Bool));
              assert (not (op[(false,false)] == None as Bool));
-                 rrr <-$ Bits(n);
+                 rrr  <-$ Bits(n);
                  rrrr <-$ Bits(n);
-         ZZZ[true]  <-  Some(rrr);
-         ZZZ[false] <-  Some(rrrr);
-              ZZ[j] <-  Some(ZZZ);
+         ZZZ[true]    <-  Some(rrr);
+         ZZZ[false]   <-  Some(rrrr);
+          ZZ[jj]      <-  Some(ZZZ);
             dl   <- true; 
             dr   <- true;
              k         <- zeron;
@@ -127,7 +127,7 @@ package SIMtdyaofor {
                   }
                   return dinf;          
                      }
-    oracle GETA(j: integer) 
+    oracle GETAOUT(j: Integer) 
                  -> Bits(n)
                      {
                        TT  <- Unwrap(S[0]);

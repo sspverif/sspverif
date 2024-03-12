@@ -256,7 +256,7 @@ pub fn handle_compose_assign_body_list_multi_inst(
                 let source_pkgidx = instances
                     .get(src_inst_name)
                     .unwrap_or_else(|| {
-                        panic!("instance {} not found in compose block", src_inst_name)
+                        panic!("instance {} not found in composition {}", src_inst_name, file_name)
                     })
                     .0;
 
@@ -345,8 +345,8 @@ fn handle_export_compose_assign_list_multi_inst(
         {
             None => {
                 panic!(
-                    "oracle {} not found in package instance {}",
-                    oracle_name, dst_inst_name
+                    "oracle {} not found in package instance {} in composition {}",
+                    oracle_name, dst_inst_name, file_name
                 );
             }
             Some(def) => def.sig.clone(),
@@ -843,7 +843,7 @@ pub fn handle_instance_decl(
 
     let pkg = match pkg_map.get(pkg_name) {
         None => {
-            panic!("package {} is unknown", pkg_name);
+            panic!("package {} is unknown in composition {}", pkg_name, file_name);
         }
         Some(pkg) => Ok(pkg),
     }?;
