@@ -7,6 +7,8 @@ mod pkg;
 mod scope;
 pub mod wire_proofs;
 
+mod notes;
+
 use crate::types;
 
 pub use errors::TypeCheckError;
