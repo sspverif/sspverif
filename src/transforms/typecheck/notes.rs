@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::writers::smt::exprs::{SmtAnd, SmtExpr, SmtLt, SmtLte};
+use crate::writers::smt::exprs::{SmtAnd, SmtExpr, SmtLt, SmtLte, SmtOr};
 
 pub enum Error {
     Undefined(Ident),
@@ -83,6 +83,7 @@ pub enum Set {
         right: Box<Set>,
     },
     Ident(Ident),
+    Union(Vec<Set>),
 }
 
 #[derive(Clone, Debug)]
@@ -158,6 +159,11 @@ impl Set {
                 .ok_or(Error::Undefined(ident))?
                 .clone()
                 .simplify(env),
+            Set::Union(sets) => {
+                let simplified: Result<Vec<_>, _> =
+                    sets.into_iter().map(|set| set.simplify(env)).collect();
+                Ok(Set::Union(simplified?))
+            }
         }
     }
 
@@ -179,7 +185,7 @@ impl Set {
                 tipe: IdentType::PkgConst,
                 id,
             }) => Ok(Number::PkgConst(id)),
-            Set::Ident(_) => Err(Error::NotANumber(self)),
+            Set::Union(_) | Set::Ident(_) => Err(Error::NotANumber(self)),
         }
     }
 
@@ -242,6 +248,9 @@ impl Set {
                 "other identifiers should have been resolved by now. {:?}",
                 ident
             ),
+            Set::Union(sets) => {
+                SmtOr(sets.into_iter().map(|set| set.contains(target)).collect()).into()
+            }
         }
     }
 }
