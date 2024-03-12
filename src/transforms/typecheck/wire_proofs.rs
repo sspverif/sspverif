@@ -406,20 +406,20 @@ pub fn extract_import_ranges(
                                     // it could either be a proof-level constant, a literal or a variable of the for loop in which
                                     // the package instance is instantiated.
 
-                                    match ident {
-                                        Identifier::Scalar(name) => {
-                                            if let Some(forspec) = pkg_inst
-                                                .multi_instance_indices
-                                                .and_then(|indices| {
-                                                    indices
-                                                        .forspecs
-                                                        .iter()
-                                                        .find(|forspec| forspec.ident() == name)
-                                                })
-                                            {}
-                                        }
-                                        _ => unreachable!(),
-                                    }
+                                    todo!()
+                                    // match ident {
+                                    //     Identifier::Scalar(name) => {
+                                    //         if let Some(forspec) = pkg_inst
+                                    //             .multi_instance_indices
+                                    //             .and_then(|indices| {
+                                    //                 indices.forspecs.iter().find(|forspec| {
+                                    //                     forspec.ident().ident_ref() == name
+                                    //                 })
+                                    //             })
+                                    //         {}
+                                    //     }
+                                    //     _ => unreachable!(),
+                                    // }
                                 }
                                 _ => unreachable!(),
                             }
