@@ -1,4 +1,4 @@
-package SIMtdyaofor {
+package SIMtdyao {
     params {
         w: Integer,
         d: Integer,
@@ -10,14 +10,8 @@ package SIMtdyaofor {
     }
 
     import oracles {
-        GETBIT[d](j: Integer) -> Bool,
+        GETBIT(j: Integer) -> Bool,
     }
-
-   import oracles {
-    for dd: 1 <= dd <= d { 
-        EVAL[dd](C: Table(Integer,(Integer,Integer, Table((Bool,Bool),Bool)))) -> (),
-    }}
-
 
     state {
         Ctilde: Table(Integer, Table(Integer, Table(Bits(p), Bool))),
@@ -32,19 +26,19 @@ package SIMtdyaofor {
         ZZZ         <-                               new Table(Bool,Bits(n)) ;
         layertilde  <-                new Table(Integer, Table(Bits(p),Bool));
         gtilde      <-                               new Table(Bits(p),Bool);
-            for jjj: 1 <= jjj <= w {
-                 r  <-$ Bits(n);
-                 rr <-$ Bits(n);
-         ZZZ[true]    <-  Some(r);
-         ZZZ[false]   <-  Some(rr);
-              ZZ[jjj] <-  Some(ZZZ);
+        for i: 0 <= i <= d {
+            assert (Ctilde[i] == None as Table(Integer, Table(Bits(p), Bool)));
+            for j: 1 <= j <= w {
+                r  <-$ Bits(n);
+                rr <-$ Bits(n);
+         ZZZ[true]  <-  Some(r);
+         ZZZ[false] <-  Some(rr);
+              ZZ[j] <-  Some(ZZZ);
                  }
-              S[0] <-  Some(ZZ);
-        for i: 1 <= i <= d {
-             assert (not (C[i] == None as Table(Integer,(Integer,Integer, Table((Bool,Bool),Bool)))));
-             assert (Ctilde[i] == None as Table(Integer, Table(Bits(p), Bool)));
-             layer    <- Unwrap(C[i]);
-             _        <- invoke EVAL[i](layer);
+              S[i] <-  Some(ZZ);}
+        for ii: 1 <= ii <= d {
+             assert (not (C[ii] == None as Table(Integer,(Integer,Integer, Table((Bool,Bool),Bool)))));
+             layer    <- Unwrap(C[ii]);
              for jj: 1 <= jj <= w {
              gate     <- Unwrap(layer[jj]);
              (l,r,op) <- parse gate;
@@ -52,15 +46,10 @@ package SIMtdyaofor {
              assert (not (op[(true, false)] == None as Bool));
              assert (not (op[(false, true)] == None as Bool));
              assert (not (op[(false,false)] == None as Bool));
-                 rrr  <-$ Bits(n);
-                 rrrr <-$ Bits(n);
-         ZZZ[true]    <-  Some(rrr);
-         ZZZ[false]   <-  Some(rrrr);
-          ZZ[jj]      <-  Some(ZZZ);
-            dl   <- true; 
-            dr   <- true;
+             dl <- true; 
+             dr <- true;
              k         <- zeron;
-             XX        <- Unwrap(S[(i-1)]);
+             XX        <- Unwrap(S[(ii-1)]);
              ZZZ       <- Unwrap(XX[l]);
              kleft     <- Unwrap(ZZZ[bl]);
              ZZZ       <- Unwrap(XX[r]);
@@ -72,48 +61,48 @@ package SIMtdyaofor {
              gtilde[c] <- Some(true); 
              dl <- false; 
              dr <- true;
-             k       <- zeron;
-             XX      <- Unwrap(S[(i-1)]);
-             ZZZ     <- Unwrap(XX[l]);
-             kleft   <- Unwrap(ZZZ[bl]);
-             ZZZ     <- Unwrap(XX[r]);
-             kright  <- Unwrap(ZZZ[br]);
-             rrr     <-$ Bits(n);
-             rrrr    <-$ Bits(n);
-             cin     <-  encn(kleft,k,rrr);
-             c       <-  encm(kright,cin,rrrr);
+             k         <- zeron;
+             XX        <- Unwrap(S[(ii-1)]);
+             ZZZ       <- Unwrap(XX[l]);
+             kleft     <- Unwrap(ZZZ[bl]);
+             ZZZ       <- Unwrap(XX[r]);
+             kright    <- Unwrap(ZZZ[br]);
+             rrr       <-$ Bits(n);
+             rrrr      <-$ Bits(n);
+             cin       <-  encn(kleft,k,rrr);
+             c         <-  encm(kright,cin,rrrr);
              gtilde[c] <- Some(true); 
              dl  <- true; 
              dr  <- false;
-             k       <- zeron;
-             XX      <- Unwrap(S[(i-1)]);
-             ZZZ     <- Unwrap(XX[l]);
-             kleft   <- Unwrap(ZZZ[bl]);
-             ZZZ     <- Unwrap(XX[r]);
-             kright  <- Unwrap(ZZZ[br]);
-             rrr     <-$ Bits(n);
-             rrrr    <-$ Bits(n);
-             cin     <-  encn(kleft,k,rrr);
-             c       <-  encm(kright,cin,rrrr);
+             k         <- zeron;
+             XX        <- Unwrap(S[(ii-1)]);
+             ZZZ       <- Unwrap(XX[l]);
+             kleft     <- Unwrap(ZZZ[bl]);
+             ZZZ       <- Unwrap(XX[r]);
+             kright    <- Unwrap(ZZZ[br]);
+             rrr       <-$ Bits(n);
+             rrrr      <-$ Bits(n);
+             cin       <-  encn(kleft,k,rrr);
+             c         <-  encm(kright,cin,rrrr);
              gtilde[c] <- Some(true); 
-                   dl  <- false; 
-                   dr  <- false;
-             ZZZ     <- Unwrap(ZZ[ji]);
-             k       <- Unwrap(ZZZ[false]);
-             XX      <- Unwrap(S[(i-1)]);
-             ZZZ     <- Unwrap(XX[l]);
-             kleft   <- Unwrap(ZZZ[bl]);
-             ZZZ     <- Unwrap(XX[r]);
-             kright  <- Unwrap(ZZZ[br]);
-             rrr     <-$ Bits(n);
-             rrrr    <-$ Bits(n);
-             cin     <-  encn(kleft,k,rrr);
-             c       <-  encm(kright,cin,rrrr);
+             dl  <- false; 
+             dr  <- false;
+             YY        <- Unwrap(S[ii]); 
+             XX        <- Unwrap(S[(ii-1)]);
+             ZZZ       <- Unwrap(YY[jj]);
+             k         <- Unwrap(ZZZ[false]);
+             ZZZ       <- Unwrap(XX[l]);
+             kleft     <- Unwrap(ZZZ[bl]);
+             ZZZ       <- Unwrap(XX[r]);
+             kright    <- Unwrap(ZZZ[br]);
+             rrr       <-$ Bits(n);
+             rrrr      <-$ Bits(n);
+             cin       <-  encn(kleft,k,rrr);
+             c         <-  encm(kright,cin,rrrr);
              gtilde[c] <- Some(true);
              layertilde[jj] <- Some(gtilde);
              }
-             S[i]      <- Some(ZZ);
-             Ctilde[i] <- Some(layertilde);
+             Ctilde[ii] <- Some(layertilde);
              }
         return Ctilde;
     }
@@ -124,7 +113,7 @@ package SIMtdyaofor {
                   T <- Unwrap(S[(d)]);
                temp <- new Table(Bool,Bits(n));
            temptemp <- new Table(Bool,Bits(n));
-                  for jj: 1 <= jj <= w {
+                  for jj: 0 <= jj <= w {
                temp <- Unwrap(T[jj]);
                   z <- invoke GETBIT(jj);
         temptemp[z] <- temp[false];
