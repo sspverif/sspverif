@@ -133,6 +133,9 @@ enum Commands {
 
     // Prove the whole project.
     Prove(Prove),
+
+    // Print Wire Check SMTLIB code
+    WireCheck(WireCheck),
 }
 
 #[derive(clap::Args, Debug)]
@@ -150,6 +153,15 @@ struct Prove {
     prover: ProverBackend,
     #[clap(short, long)]
     transcript: bool,
+}
+
+#[derive(clap::Args, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct WireCheck {
+    #[clap(short, long)]
+    game_name: String,
+    #[clap(short, long)]
+    dst_idx: usize,
 }
 
 fn prove(p: &Prove) -> Result<()> {
@@ -173,6 +185,11 @@ fn latex() -> Result<()> {
     project::Project::load()?.latex()
 }
 
+fn wire_check(game_name: &str, dst_idx: usize) -> Result<()> {
+    project::Project::load()?.print_wire_check_smt(&game_name, dst_idx);
+    Ok(())
+}
+
 fn main() {
     let cli = Cli::parse();
 
@@ -180,6 +197,7 @@ fn main() {
         Commands::Prove(p) => prove(p),
         Commands::Latex => latex(),
         Commands::Explain(Explain { game_name, output }) => explain(game_name, output),
+        Commands::WireCheck(args) => wire_check(&args.game_name, args.dst_idx),
     };
 
     match result {

@@ -11,6 +11,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use error::Result;
 
+use crate::transforms::typecheck::wire_proofs;
 use crate::{
     gamehops::{equivalence, reduction},
     package::{Composition, Package},
@@ -273,6 +274,13 @@ impl Project {
             path
         } else {
             self.root_dir.join(path)
+        }
+    }
+
+    pub fn print_wire_check_smt(&self, game_name: &str, dst_idx: usize) {
+        let game = self.get_game(game_name).unwrap();
+        for command in wire_proofs::build_smt(&game, dst_idx) {
+            println!("{}", command);
         }
     }
 }

@@ -1,6 +1,16 @@
-use crate::writers::smt::{
-    self,
-    patterns::{DatastructurePattern, FunctionPattern},
+use crate::{
+    expressions::Expression,
+    identifier::Identifier,
+    package::{Composition, Edge, MultiInstanceEdge, OracleSig},
+    parser::package::{ForSpec, MultiInstanceIndices},
+    types::Type,
+    util::resolver::Named,
+    writers::smt::{
+        self,
+        declare::declare_const,
+        exprs::{SmtAnd, SmtAssert, SmtEq2, SmtExpr, SmtImplies, SmtNot},
+        patterns::{declare_datatype, DatastructurePattern, FunctionPattern},
+    },
 };
 
 /**
@@ -26,6 +36,15 @@ use crate::writers::smt::{
  *   (groups-cons (mk-group 0 "foo" (mk-interval 0 10))
  *                groups-nil)) ; List
  *
+ * (define-fun-rec groups-contains ((groups Groups) (needle Group)) Bool
+ *   (match groups (
+ *     ((groups-nil) false)
+ *     ((groups-cons group groups)
+ *       (let ((eq (= group needle)))
+ *            (ite eq
+ *                 true
+ *                 (groups-contains groups needle)))))))
+ *
  * (define-fun-rec f ((groups Groups) (source Int) (name String) (x Int) (count Int)) Int
  *   (match groups (
  *     ((groups-nil) count)
@@ -36,15 +55,6 @@ use crate::writers::smt::{
  *            (ite (and src-matches name-matches range-matches)
  *                 (f groups source name x (+ 1 count))
  *                 (f groups source name x count)))))))
- *
- * (define-fun-rec groups-contains ((groups Groups) (needle Group)) Bool
- *   (match groups (
- *     ((groups-nil) false)
- *     ((groups-cons group groups)
- *       (let ((eq (= group needle)))
- *            (ite eq
- *                 true
- *                 (groups-contains groups needle)))))))
  *
  * (declare-const group Group)
  * (declare-const x Int)
@@ -68,7 +78,366 @@ use crate::writers::smt::{
 //   - declares all types + functions
 //   - generates the constants (wire-groups)
 //   - declares constants (group, x, ...)
-//   - asserts the constraints
+//   - asserts the constraintso
+
+fn define_wire_group(varname: &str, groups: &[wire_group::WireGroup]) -> SmtExpr {
+    let term: SmtExpr = groups.into();
+    ("define-fun", varname, "()", wire_groups::Sort, term).into()
+}
+
+pub fn build_smt(comp: &Composition, mi_pkg_inst_idx: usize) -> Vec<SmtExpr> {
+    let wire_groups = extract_wire_groups(comp, mi_pkg_inst_idx);
+    let import_ranges = extract_import_ranges(comp, mi_pkg_inst_idx);
+
+    let interval_pattern = interval::Pattern;
+    let interval_spec = interval_pattern.datastructure_spec(&interval::DeclareInfo);
+    let interval_dtdecl = declare_datatype(&interval_pattern, &interval_spec);
+
+    let group_pattern = wire_group::Pattern;
+    let group_spec = group_pattern.datastructure_spec(&wire_group::DeclareInfo);
+    let group_dtdecl = declare_datatype(&group_pattern, &group_spec);
+
+    let groups_pattern = wire_groups::Pattern;
+    let groups_spec = groups_pattern.datastructure_spec(&wire_groups::DeclareInfo);
+    let groups_dtdecl = declare_datatype(&groups_pattern, &groups_spec);
+
+    let def_interal_contains = interval::define_contains_fun();
+    let def_group_contains = wire_groups::define_contains_fun_rec();
+    let def_f = define_wire_count_fun_rec();
+
+    let def_wire_groups = define_wire_group("wire-groups", &wire_groups);
+    let def_import_ranges = define_wire_group("import-ranges", &import_ranges);
+
+    let decl_group = declare_const("group", wire_group::Sort);
+    let decl_x = declare_const("x", smt::sorts::SmtInt);
+    let decl_should_be_one = declare_const("should-be-one", smt::sorts::SmtBool);
+    let decl_is_one = declare_const("is-one", smt::sorts::SmtBool);
+
+    let first_assert: SmtExpr = SmtAssert(SmtEq2 {
+        lhs: "is-one",
+        rhs: SmtEq2 {
+            lhs: 1,
+            rhs: call_wire_count_fun(
+                "wire-groups",
+                wire_group::call_group_source("group"),
+                wire_group::call_group_name("group"),
+                "x",
+                0,
+            ),
+        },
+    })
+    .into();
+
+    let second_assert: SmtExpr = SmtAssert(SmtEq2 {
+        lhs: "should-be-one",
+        rhs: SmtAnd(vec![
+            wire_groups::Contains.call(&["import-ranges".into(), "group".into()]),
+            interval::Contains.call(&[wire_group::call_group_interval("group"), "x".into()]),
+        ]),
+    })
+    .into();
+
+    let third_assert: SmtExpr = SmtAssert(SmtNot(SmtImplies("should-be-one", "is-one"))).into();
+
+    vec![
+        interval_dtdecl,
+        group_dtdecl,
+        groups_dtdecl,
+        def_interal_contains,
+        def_group_contains,
+        def_f,
+        def_wire_groups,
+        def_import_ranges,
+        decl_group,
+        decl_x,
+        decl_should_be_one,
+        decl_is_one,
+        first_assert,
+        second_assert,
+        third_assert,
+    ]
+}
+
+fn extract_integer_params(comp: &Composition) -> Vec<String> {
+    comp.consts
+        .iter()
+        .filter_map(|param| {
+            if param.1 == Type::Integer {
+                Some(param.0.to_string())
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+// TODO handle add
+fn extract_interval_from_index_expr<F: Fn(String) -> Option<Expression>>(
+    params: &[String],
+    forspecs: &[ForSpec],
+    index: Expression,
+    f: F,
+) -> interval::Interval {
+    match index {
+        Expression::IntegerLiteral(num) => interval::Interval {
+            start: num.into(),
+            end: (num + 1).into(),
+        },
+        Expression::Identifier(ref ident) => {
+            println!("hmmm {ident:?}");
+            /*
+             * two legal cases
+             * - identifier can be a global param
+             * - identifier can be from a forspec
+             *
+             * first check forspec, else look for param
+             * if a param, just use it as is
+             */
+            let forspec = match forspecs
+                .into_iter()
+                .find(|forspec| forspec.as_name() == ident.ident_ref())
+            {
+                Some(forspec) => forspec,
+                None => {
+                    let expr = f(ident.ident()).unwrap();
+
+                    return interval::Interval {
+                        start: expr.clone().into(),
+                        end: Expression::Add(
+                            Box::new(Expression::IntegerLiteral(1)),
+                            Box::new(expr),
+                        )
+                        .into(),
+                    };
+                }
+            };
+
+            let start: Option<SmtExpr> = match forspec.start() {
+                Expression::Identifier(start_ident) => {
+                    let ident_name = start_ident.ident();
+                    if params.contains(&ident_name) {
+                        Some(ident_name.into())
+                    } else {
+                        None
+                    }
+                }
+                Expression::IntegerLiteral(num) => Some((*num).into()),
+                _ => unreachable!(),
+            };
+
+            let end: Option<SmtExpr> = match forspec.end() {
+                Expression::Identifier(start_ident) => {
+                    let ident_name = start_ident.ident();
+                    if params.contains(&ident_name) {
+                        Some(ident_name.into())
+                    } else {
+                        None
+                    }
+                }
+                Expression::IntegerLiteral(num) => Some((*num).into()),
+                _ => unreachable!(),
+            };
+
+            let start = start.map(|start| match forspec.start_comp() {
+                crate::parser::package::ForComp::Lt => ("+", start, 1).into(),
+                crate::parser::package::ForComp::Lte => start,
+            });
+
+            let end = end.map(|end| match forspec.start_comp() {
+                crate::parser::package::ForComp::Lt => end,
+                crate::parser::package::ForComp::Lte => ("+", 1, end).into(),
+            });
+
+            interval::Interval {
+                start: start.unwrap(),
+                end: end.unwrap(),
+            }
+        }
+        _ => unreachable!(),
+    }
+}
+
+fn extract_interval_from_oraclesig(
+    params: &[String],
+    oracle_sig: &OracleSig,
+) -> interval::Interval {
+    let mi_indices = oracle_sig.multi_inst_idx.clone().unwrap();
+    extract_interval_from_index_expr(
+        params,
+        &mi_indices.forspecs,
+        mi_indices.indices[0].clone(),
+        |ident_name| {
+            // check params. if we find it, just return interval (p, p+1).
+            assert!(params.contains(&ident_name));
+            Some(Expression::Identifier(Identifier::Local(ident_name)))
+        },
+    )
+}
+
+pub fn extract_wire_groups(
+    comp: &Composition,
+    mi_pkg_inst_idx: usize,
+) -> Vec<wire_group::WireGroup> {
+    let params = extract_integer_params(comp);
+    let mut out = vec![];
+
+    for Edge(source, _, oracle_sig) in comp
+        .edges
+        .iter()
+        .filter(|edge| edge.1 == mi_pkg_inst_idx && edge.2.multi_inst_idx.is_some())
+        .cloned()
+    {
+        let interval = extract_interval_from_oraclesig(&params, &oracle_sig);
+        out.push(wire_group::WireGroup {
+            source,
+            name: oracle_sig.name,
+            interval,
+        })
+    }
+
+    for MultiInstanceEdge {
+        source_pkgidx,
+        oracle_sig,
+        ..
+    } in comp
+        .multi_inst_edges
+        .iter()
+        .filter(|edge| {
+            edge.source_pkgidx == mi_pkg_inst_idx && edge.oracle_sig.multi_inst_idx.is_some()
+        })
+        .cloned()
+    {
+        let interval = extract_interval_from_oraclesig(&params, &oracle_sig);
+        out.push(wire_group::WireGroup {
+            source: source_pkgidx,
+            name: oracle_sig.name,
+            interval,
+        })
+    }
+
+    out
+}
+
+pub fn extract_import_ranges(
+    comp: &Composition,
+    mi_pkg_inst_idx: usize,
+) -> Vec<wire_group::WireGroup> {
+    let params = extract_integer_params(comp);
+    let mut out = vec![];
+
+    for Edge(src, dst, _) in &comp.edges {
+        if *dst != mi_pkg_inst_idx {
+            continue;
+        }
+
+        let pkg_inst = &comp.pkgs[*src];
+        for import in &pkg_inst.pkg.imports {
+            let oracle_sig: &OracleSig = &import.0;
+            let indices = oracle_sig.multi_inst_idx.clone().unwrap();
+            let MultiInstanceIndices {
+                mut indices,
+                forspecs,
+            } = indices;
+            let index = indices.remove(0);
+            let interval =
+                extract_interval_from_index_expr(&params, &forspecs, index, |ident_name| {
+                    pkg_inst
+                        .params
+                        .iter()
+                        .find(|(name, expr)| name == &ident_name)
+                        .map(|(name, expr)| {
+                            match expr {
+                                Expression::IntegerLiteral(num) => expr,
+                                Expression::Identifier(ident) => {
+                                    // this is the identifier that is assigned to the param in the game.
+                                    // it could either be a proof-level constant, a literal or a variable of the for loop in which
+                                    // the package instance is instantiated.
+
+                                    match ident {
+                                        Identifier::Scalar(_) => todo!(),
+                                        Identifier::State(_) => todo!(),
+                                        Identifier::Parameter(_) => todo!(),
+                                        Identifier::ComposeLoopVar(_) => todo!(),
+                                        Identifier::Local(_) => todo!(),
+                                        Identifier::GameInstanceConst(_) => todo!(),
+                                    }
+                                }
+                                _ => unreachable!(),
+                            }
+                        })
+                        .cloned()
+                });
+
+            out.push(wire_group::WireGroup {
+                interval,
+                source: *src,
+                name: import.0.name.clone(),
+            });
+        }
+    }
+
+    for mi_edge in &comp.multi_inst_edges {
+        if mi_edge.dest_pkgidx != mi_pkg_inst_idx {
+            continue;
+        }
+
+        let source = mi_edge.source_pkgidx;
+        let pkg_inst = &comp.pkgs[source];
+        for import in &pkg_inst.pkg.imports {
+            let oracle_sig: &OracleSig = &import.0;
+            let indices = oracle_sig.multi_inst_idx.clone().unwrap();
+            let MultiInstanceIndices {
+                mut indices,
+                forspecs,
+            } = indices;
+            let index = indices.remove(0);
+
+            let interval =
+                extract_interval_from_index_expr(&params, &forspecs, index, |ident_name| {
+                    pkg_inst
+                        .params
+                        .iter()
+                        .find(|(name, expr)| name == &ident_name)
+                        .map(|(name, expr)| {
+                            match expr {
+                                Expression::IntegerLiteral(num) => expr,
+                                Expression::Identifier(ident) => {
+                                    // this is the identifier that is assigned to the param in the game.
+                                    // it could either be a proof-level constant, a literal or a variable of the for loop in which
+                                    // the package instance is instantiated.
+
+                                    match ident {
+                                        Identifier::Scalar(name) => {
+                                            if let Some(forspec) = pkg_inst
+                                                .multi_instance_indices
+                                                .and_then(|indices| {
+                                                    indices
+                                                        .forspecs
+                                                        .iter()
+                                                        .find(|forspec| forspec.ident() == name)
+                                                })
+                                            {}
+                                        }
+                                        _ => unreachable!(),
+                                    }
+                                }
+                                _ => unreachable!(),
+                            }
+                        })
+                        .cloned()
+                });
+            let name = import.0.name.clone();
+
+            out.push(wire_group::WireGroup {
+                interval,
+                source,
+                name,
+            });
+        }
+    }
+
+    out
+}
 
 // f
 struct WireCountFn;
@@ -155,7 +524,30 @@ pub fn define_wire_count_fun_rec() -> smt::exprs::SmtExpr {
         }
     });
 
-    WireCountFn.define_fun(body).into()
+    WireCountFn.define_fun_rec(body).into()
+}
+
+pub fn call_wire_count_fun<Groups, Source, Name, X, Count>(
+    groups: Groups,
+    source: Source,
+    name: Name,
+    x: X,
+    count: Count,
+) -> SmtExpr
+where
+    Groups: Into<SmtExpr>,
+    Source: Into<SmtExpr>,
+    Name: Into<SmtExpr>,
+    X: Into<SmtExpr>,
+    Count: Into<SmtExpr>,
+{
+    WireCountFn.call(&[
+        groups.into(),
+        source.into(),
+        name.into(),
+        x.into(),
+        count.into(),
+    ])
 }
 
 mod interval {
@@ -163,10 +555,10 @@ mod interval {
     use crate::writers::smt::exprs::{SmtAnd, SmtExpr, SmtLt, SmtLte};
     use crate::writers::smt::patterns::{self, DatastructurePattern, FunctionPattern};
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone)]
     pub struct Interval {
-        pub start: usize,
-        pub end: usize,
+        pub start: SmtExpr,
+        pub end: SmtExpr,
     }
 
     impl From<Interval> for SmtExpr {
@@ -174,8 +566,8 @@ mod interval {
             let spec = &Pattern.datastructure_spec(&DeclareInfo);
             Pattern
                 .call_constructor(spec, &Constructor, |sel| match sel {
-                    Selector::Start => Some(value.start.into()),
-                    Selector::End => Some(value.end.into()),
+                    Selector::Start => Some(value.start.clone().into()),
+                    Selector::End => Some(value.end.clone().into()),
                 })
                 .unwrap()
         }
@@ -201,6 +593,11 @@ mod interval {
         }
     }
     impl smt::sorts::SmtSort for Sort {}
+    impl smt::sorts::SmtPlainSort for Sort {
+        fn sort_name(&self) -> String {
+            "Interval".to_string()
+        }
+    }
 
     impl<'a> patterns::DatastructurePattern<'a> for Pattern {
         type Sort = Sort;
@@ -309,7 +706,7 @@ mod wire_group {
                 .call_constructor(&spec, &Constructor, |sel| match sel {
                     Selector::Source => Some(value.source.into()),
                     Selector::Name => Some(value.name.clone().into()),
-                    Selector::Interval => Some(value.interval.into()),
+                    Selector::Interval => Some(value.interval.clone().into()),
                 })
                 .unwrap()
         }
@@ -336,6 +733,12 @@ mod wire_group {
         }
     }
     impl smt::sorts::SmtSort for Sort {}
+
+    impl smt::sorts::SmtPlainSort for Sort {
+        fn sort_name(&self) -> String {
+            "WireGroup".to_string()
+        }
+    }
 
     impl<'a> DatastructurePattern<'a> for Pattern {
         type Sort = Sort;
@@ -391,6 +794,30 @@ mod wire_group {
             .to_string()
         }
     }
+
+    pub fn call_group_name<Group>(group: Group) -> SmtExpr
+    where
+        Group: Into<SmtExpr>,
+    {
+        let spec = &Pattern.datastructure_spec(&DeclareInfo);
+        Pattern.access(spec, &Selector::Name, group).unwrap()
+    }
+
+    pub fn call_group_source<Group>(group: Group) -> SmtExpr
+    where
+        Group: Into<SmtExpr>,
+    {
+        let spec = &Pattern.datastructure_spec(&DeclareInfo);
+        Pattern.access(spec, &Selector::Source, group).unwrap()
+    }
+
+    pub fn call_group_interval<Group>(group: Group) -> SmtExpr
+    where
+        Group: Into<SmtExpr>,
+    {
+        let spec = &Pattern.datastructure_spec(&DeclareInfo);
+        Pattern.access(spec, &Selector::Interval, group).unwrap()
+    }
 }
 
 mod wire_groups {
@@ -440,6 +867,11 @@ mod wire_groups {
         }
     }
     impl smt::sorts::SmtSort for Sort {}
+    impl smt::sorts::SmtPlainSort for Sort {
+        fn sort_name(&self) -> String {
+            "WireGroups".to_string()
+        }
+    }
 
     impl<'a> DatastructurePattern<'a> for Pattern {
         type Sort = Sort;
@@ -497,7 +929,7 @@ mod wire_groups {
         }
     }
 
-    struct Contains;
+    pub struct Contains;
 
     impl patterns::FunctionPattern for Contains {
         type ReturnSort = smt::sorts::SmtBool;
