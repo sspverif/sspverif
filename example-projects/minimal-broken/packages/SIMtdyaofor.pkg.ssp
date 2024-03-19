@@ -15,19 +15,14 @@ package SIMtdyaofor {
     state {
     }
 
-    oracle GBL(a: Bool) 
-                 -> Bool
-                     {
-            for j: 1 <= j <= w {
-                r  <-$ Bits(n);
-                 }
+    oracle GBL(a: Bool) -> Bool {
+        for j: 1 <= j <= w {
+            r  <-$ Bits(n);
+         }
         return true;
     }
 
-    oracle GETA(j: Integer) 
-                 -> Bool
-                     {
-                       return true;
-                     }
-
+    oracle GETAOUT(j: Integer) -> Bool {
+        return true;
+    }
 }
