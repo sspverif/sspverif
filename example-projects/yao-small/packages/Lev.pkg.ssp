@@ -1,8 +1,7 @@
 package Lev {
     params {
-        w: w,
-        i: dd,
-        n: n,
+        w:   Integer,
+        n:   Integer,
     }
 
     state {
@@ -13,15 +12,15 @@ package Lev {
         SETBIT(h: Integer, zz:Bool) -> (),
     }
 
-
-
-    oracle EVAL(j: Integer,l: Integer,r: Integer,op: Table((Bool,Bool), Bool)) -> () {
-
-
+    oracle EVAL(C: Table(Integer,(Integer,Integer,Table((Bool,Bool),Bool)))) -> () {
+        for j: 1 <= j <= w {
+            temp     <- Unwrap(C[j]);
+            (l,r,op) <- parse temp ;
         zl <- invoke GETBIT(l);
         zr <- invoke GETBIT(r);
         z <- Unwrap(op[(zl,zr)]);
         _ <- invoke SETBIT(j,z);
+        }
         return ;
     }
 

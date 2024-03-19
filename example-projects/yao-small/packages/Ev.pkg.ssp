@@ -1,8 +1,8 @@
 package Ev {
     params {
-        n: Integer,
         w: Integer,
         d: Integer,
+        n: Integer,
     }
 
     state {

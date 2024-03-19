@@ -38,14 +38,23 @@ composition PrvSim1for {
   for dd: 1 <= dd <= d {
   instance ev[dd] = Lev {
     params {
-        w: w,
-        i: dd,
-        n: n,
+        w:   w,
+        n:   n,
     }
-  }
+  }}
+
+  for dd: 1 <= dd <= d {
+    }
   instance bits[dd] = Bits {
-  }
-  }
+    }
+
+
+for dd: 1 <= dd <= d { 
+  compose {
+     ev: {
+        with index [dd] SETBIT: bits[(dd-1)],
+                        GETBIT: bits[dd]],
+          }}}
 
   compose {
     adversary: {
@@ -56,10 +65,6 @@ composition PrvSim1for {
       GETAOUT:   sim,
       GBL:       sim,
       GETDINF:   sim,
-    },
-    ev: {
-      GETBIT:   bits_top,
-      SETBIT:   bits_bot,
     },
     sim: {
       GETBIT:   bits_bot,
