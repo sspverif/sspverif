@@ -43,17 +43,16 @@ composition PrvSim1for {
     }
   }}
 
-  for dd: 1 <= dd <= d {
-    }
+  for dd: 0 <= dd <= d {
   instance bits[dd] = Bits {
-    }
+    }}
 
 
 for dd: 1 <= dd <= d { 
   compose {
-     ev: {
-        with index [dd] SETBIT: bits[(dd-1)],
-                        GETBIT: bits[dd]],
+     ev[dd]: {
+        with index [dd]     SETBIT: bits,
+        with index [(dd-1)] GETBIT: bits,
           }}}
 
   compose {
@@ -61,13 +60,13 @@ for dd: 1 <= dd <= d {
       GARBLE:    mod,
     },
     mod: {
-      SETBIT:    bits_top,
+      with index [0] SETBIT:    bits,
       GETAOUT:   sim,
       GBL:       sim,
       GETDINF:   sim,
     },
     sim: {
-      GETBIT:   bits_bot,
+      with index [d] GETBIT:    bits,
     },
   }
 }
