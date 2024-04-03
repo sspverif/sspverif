@@ -20,7 +20,7 @@ package GB1yao {
     }
 
 
-    oracle GBL(h: Integer, l: Integer, r: Integer, op: Table((Bool,Bool),Bool), j: Integer) 
+    oracle GBL(l: Integer, r: Integer, op: Table((Bool,Bool),Bool), j: Integer) 
            -> Table(Bits(p),Bool) 
            {
         C  <- new Table(Bits(p), Bool);
