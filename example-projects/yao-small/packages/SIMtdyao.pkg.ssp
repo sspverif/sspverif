@@ -25,8 +25,8 @@ package SIMtdyao {
         ZZ          <-                new Table(Integer, Table(Bool,Bits(n)));
         ZZZ         <-                               new Table(Bool,Bits(n)) ;
         layertilde  <-                new Table(Integer, Table(Bits(p),Bool));
-        gtilde      <-                               new Table(Bits(p),Bool);
         for i: 0 <= i <= d {
+            gtilde  <-  new Table(Bits(p),Bool);
             assert (Ctilde[i] == None as Table(Integer, Table(Bits(p), Bool)));
             for j: 1 <= j <= w {
                 r  <-$ Bits(n);

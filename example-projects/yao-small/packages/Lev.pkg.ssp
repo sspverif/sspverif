@@ -18,8 +18,8 @@ package Lev {
             (l,r,op) <- parse temp ;
         zl <- invoke GETBIT(l);
         zr <- invoke GETBIT(r);
-        z <- Unwrap(op[(zl,zr)]);
-        _ <- invoke SETBIT(j,z);
+        z  <- Unwrap(op[(zl,zr)]);
+        _  <- invoke SETBIT(j,z);
         }
         return ;
     }

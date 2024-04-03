@@ -29,10 +29,10 @@ package ModPRVSIM1for {
             _ <- invoke SETBIT(j,z);
         }
         Ctilde <- invoke GBL(C);
-        dinf <- invoke GETDINF();
+        dinf   <- invoke GETDINF();
         xtilde <- new Table(Integer, Bits(n));
         for i: 1 <= i <= w {
-             k <- invoke GETAOUT(i);
+             k         <- invoke GETAOUT(i);
              xtilde[i] <- Some(k);
         }
         return (Ctilde,xtilde,dinf);
