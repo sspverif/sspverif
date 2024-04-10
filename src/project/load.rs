@@ -97,12 +97,9 @@ pub(crate) fn packages(root: PathBuf) -> Result<HashMap<String, Package>> {
             if filename.ends_with(PACKAGE_EXT) {
                 let contents = std::fs::read_to_string(dir_entry.path())?;
 
-                let parse_result = SspParser::parse_package(&contents);
-                if let Err(e) = parse_result {
-                    return Err((filename, e).into());
-                }
-                let mut ast = parse_result.unwrap();
-                let (pkg_name, pkg) = handle_pkg(ast.next().unwrap(), filename);
+                let mut ast = SspParser::parse_package(&contents).map_err(|e| (filename, e))?;
+                let (pkg_name, pkg) =
+                    handle_pkg(ast.next().unwrap(), filename).map_err(Error::PackageParse)?;
 
                 if let Some(other_filename) = pkgs_filenames.get(&pkg_name) {
                     return Err(Error::RedefinedPackage(
@@ -133,16 +130,13 @@ pub(crate) fn games(
 
     for dir_entry in std::fs::read_dir(dir_str)? {
         let dir_entry = dir_entry?;
-        if let Some(name) = dir_entry.file_name().to_str() {
-            if name.ends_with(GAME_EXT) {
+        if let Some(file_name) = dir_entry.file_name().to_str() {
+            if file_name.ends_with(GAME_EXT) {
                 let filecontent = std::fs::read_to_string(dir_entry.path())?;
-                let parse_result = SspParser::parse_composition(&filecontent);
-                if let Err(e) = parse_result {
-                    return Err((name, e).into());
-                }
+                let mut ast =
+                    SspParser::parse_composition(&filecontent).map_err(|err| (file_name, err))?;
 
-                let mut ast = parse_result.unwrap();
-                let comp = match handle_composition(ast.next().unwrap(), pkgs, name) {
+                let comp = match handle_composition(ast.next().unwrap(), pkgs, file_name) {
                     Ok(game) => game,
                     Err(err) => {
                         println!("printing error...");

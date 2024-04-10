@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     expressions::Expression,
     identifier::Identifier,
@@ -12,6 +14,8 @@ use crate::{
         patterns::{declare_datatype, DatastructurePattern, FunctionPattern},
     },
 };
+
+use super::notes::Set;
 
 /**
  * This generates the following smt lib code:
@@ -86,6 +90,7 @@ fn define_wire_group(varname: &str, groups: &[wire_group::WireGroup]) -> SmtExpr
 }
 
 pub fn build_smt(comp: &Composition, mi_pkg_inst_idx: usize) -> Vec<SmtExpr> {
+    extract_imports_set_per_source(comp, mi_pkg_inst_idx, "");
     let wire_groups = extract_wire_groups(comp, mi_pkg_inst_idx);
     let import_ranges = extract_import_ranges(comp, mi_pkg_inst_idx);
 
@@ -318,6 +323,35 @@ pub fn extract_wire_groups(
     out
 }
 
+// we look at the imports of a single oracle inside a single package instance. we completely
+// resolve and simplify it here. this means there are no references to loop variables or package
+// constants left.
+fn extract_imports_set_per_source(
+    comp: &Composition,
+    pkg_inst_idx: usize,
+    target_oracle_name: &str,
+) -> Result<Set, super::notes::Error> {
+    let game_consts = extract_integer_params(comp);
+    let mut env = super::notes::Env(HashMap::new());
+    let pkg_inst = &comp.pkgs[pkg_inst_idx];
+
+    for (name, value) in &pkg_inst.params {
+        if let Expression::Identifier(target_ident) = value {
+            let ident_name = match target_ident {
+                Identifier::Scalar(name) => name,
+                other => panic!(
+                    "assumed to only find unresolved names here but got {:?}, aborting",
+                    other
+                ),
+            };
+        }
+    }
+
+    //let mut sets = vec![];
+    todo!()
+}
+
+/// Extract the wires that import the package instance with the specified index
 pub fn extract_import_ranges(
     comp: &Composition,
     mi_pkg_inst_idx: usize,

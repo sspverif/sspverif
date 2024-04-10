@@ -440,7 +440,7 @@ fn handle_edges_compose_assign_list_multi_inst(
         {
             None => {
                 panic!(
-                    "oracle {} not found in package instance {}",
+                    "oracle {} not found in package instance {}, file name {file_name}",
                     oracle_name, dst_inst_name
                 );
             }
@@ -530,8 +530,11 @@ pub fn handle_for_loop(
     result
 }
 
+use crate::util::scope::Scope;
+
 pub fn handle_comp_spec_list(
     ast: Pair<Rule>,
+    _scope: &mut Scope,
     game_name: &str,
     file_name: &str,
     pkg_map: &HashMap<String, Package>,
@@ -548,11 +551,6 @@ pub fn handle_comp_spec_list(
     let mut multi_edges = vec![];
     let mut multi_exports = vec![];
 
-    /*
-    Note: the grammar enforces that we first have the const declarations,
-    then the instance declarations and only then the composition block.
-    This means that we can assume that the last step is done processing.
-    */
     for comp_spec in ast.into_inner() {
         match comp_spec.as_rule() {
             Rule::const_decl => {
@@ -943,8 +941,9 @@ pub fn handle_composition(
     pkg_map: &HashMap<String, Package>,
     file_name: &str,
 ) -> error::Result<Composition> {
+    let mut scope = crate::util::scope::Scope::new();
     let mut inner = ast.into_inner();
     let game_name = inner.next().unwrap().as_str();
     let spec = inner.next().unwrap();
-    handle_comp_spec_list(spec, game_name, file_name, pkg_map)
+    handle_comp_spec_list(spec, &mut scope, game_name, file_name, pkg_map)
 }

@@ -87,7 +87,7 @@ pub enum Set {
 }
 
 #[derive(Clone, Debug)]
-pub struct Env(HashMap<Ident, Set>);
+pub struct Env(pub HashMap<Ident, Set>);
 
 impl Range {
     pub fn contains(&self, num: &Number) -> SmtExpr {

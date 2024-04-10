@@ -1,4 +1,4 @@
-use crate::{transforms::typecheck::TypeCheckError, util::prover_process::ProverResponse};
+use crate::{parser, transforms::typecheck::TypeCheckError, util::prover_process::ProverResponse};
 use std::{io::Error as IOError, path::PathBuf};
 use thiserror::Error;
 
@@ -57,6 +57,8 @@ pub enum Error {
     UnexpectedProverResponseError(ProverResponse, ProverResponse),
     //#[error("got a formatting error")]
     //FmtError(#[from] std::fmt::Error),
+    #[error("error parsing package: {0}")]
+    PackageParse(parser::package::ParsePackageError),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

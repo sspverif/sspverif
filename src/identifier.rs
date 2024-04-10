@@ -1,7 +1,14 @@
-use crate::expressions::Expression;
+use crate::{expressions::Expression, parser::package::ForComp};
 
 #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord)]
 pub enum Identifier {
+    PackageIdentifier(PackageIdentifier),
+    // TODO Add
+    // PackageInstanceIdentifier(PackageInstanceIdenfier),
+    // GameIdentifier(GameIdentifier),
+    // GameInstanceIdentifier(GameInstanceIdentifier),
+
+    // get rid of the rest
     Scalar(String),
     State(PackageState),
     Parameter(PackageConst),
@@ -9,6 +16,91 @@ pub enum Identifier {
     Local(String),
     GameInstanceConst(GameInstanceConst),
     // TODO add parameter identifiers for each place of definition (package/game/proof)
+}
+
+// later we can do something like this, not entirely sure about the semantics.
+//
+// ```
+// fn resolve_packageInstanceIdentifier: package_identifier x pkg_inst_name x game -> package_instance_identifier
+// ```
+//
+// the point is we can see the context in which the identifier is valid from the outermost enum
+// variant
+
+#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+pub enum PackageIdentifier {
+    Const(PackageConstIdentifier),
+    State(PackageStateIdentifier),
+    Local(PackageLocalIdentifier),
+    OracleImport(PackageOracleImportIdentifier),
+    OracleArg(PackageOracleArgIdentifier),
+    ImportsLoopVar(PackageImportsLoopVarIdentifier),
+}
+
+impl PackageIdentifier {
+    pub(crate) fn ident_ref(&self) -> &str {
+        match self {
+            PackageIdentifier::Const(const_ident) => &const_ident.name,
+            PackageIdentifier::State(state_ident) => &state_ident.name,
+            PackageIdentifier::Local(local_ident) => &local_ident.name,
+            PackageIdentifier::OracleArg(arg_ident) => &arg_ident.name,
+            PackageIdentifier::OracleImport(oracle_import) => &oracle_import.name,
+            PackageIdentifier::ImportsLoopVar(loopvar) => &loopvar.name,
+        }
+    }
+
+    pub(crate) fn ident(&self) -> String {
+        self.ident_ref().to_string()
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+pub struct PackageConstIdentifier {
+    pkg_name: String,
+    name: String,
+    tipe: crate::types::Type,
+}
+
+#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+pub struct PackageStateIdentifier {
+    pkg_name: String,
+    name: String,
+    tipe: crate::types::Type,
+}
+
+#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+pub struct PackageLocalIdentifier {
+    pkg_name: String,
+    oracle_name: String,
+    name: String,
+    tipe: crate::types::Type,
+}
+
+#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+pub struct PackageOracleArgIdentifier {
+    pkg_name: String,
+    oracle_name: String,
+    name: String,
+    tipe: crate::types::Type,
+}
+
+#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+pub struct PackageOracleImportIdentifier {
+    pkg_name: String,
+    name: String,
+    args: Vec<crate::types::Type>,
+    return_type: crate::types::Type,
+}
+
+#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+pub struct PackageImportsLoopVarIdentifier {
+    pkg_name: String,
+    name: String,
+    // tipe is always Integer
+    start: Box<Expression>,
+    end: Box<Expression>,
+    start_comp: ForComp,
+    end_comp: ForComp,
 }
 
 #[derive(Debug, Clone, PartialEq, Hash, PartialOrd, Eq, Ord)]
@@ -80,6 +172,7 @@ impl Identifier {
             Identifier::Parameter(PackageConst { name_in_pkg, .. }) => &name_in_pkg,
             Identifier::Local(name) => &name,
             Identifier::ComposeLoopVar(ComposeLoopVar { name_in_pkg, .. }) => &name_in_pkg,
+            Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident_ref(),
             Identifier::GameInstanceConst(_) => todo!(),
         }
     }
@@ -91,6 +184,7 @@ impl Identifier {
             Identifier::State(PackageState { name, .. }) => name.clone(),
             Identifier::Parameter(PackageConst { name_in_pkg, .. }) => name_in_pkg.clone(),
             Identifier::ComposeLoopVar(ComposeLoopVar { name_in_pkg, .. }) => name_in_pkg.clone(),
+            Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident(),
             Identifier::GameInstanceConst(_) => todo!(),
         }
     }
