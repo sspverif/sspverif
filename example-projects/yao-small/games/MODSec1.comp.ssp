@@ -36,6 +36,7 @@ composition MODSec1 {
         n: n,
         m: m,
         p: p,
+        w: w,
         encn: encn,
         encm: encm,
         zeron: zeron,

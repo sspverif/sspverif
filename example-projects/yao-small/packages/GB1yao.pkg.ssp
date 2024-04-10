@@ -3,6 +3,7 @@ package GB1yao {
         n: Integer,
         m: Integer,
         p: Integer,
+        w: Integer,
         encn: fn Bits(n),Bits(n),Bits(n) -> Bits(m),
         encm: fn Bits(n),Bits(m),Bits(n) -> Bits(p),
         zeron: Bits(n),
@@ -20,13 +21,16 @@ package GB1yao {
     }
 
 
-    oracle GBL(l: Integer, r: Integer, op: Table((Bool,Bool),Bool), j: Integer) 
-           -> Table(Bits(p),Bool) 
+    oracle GBL(Cin:Table(Integer,(Integer,Integer,Table((Bool,Bool),Bool)))) 
+           -> Table(Integer,Table(Bits(p),Bool))
            {
+        Cout  <- new Table(Integer,Table(Bits(p), Bool));
+        for j: 1 <= j <= w {
         C  <- new Table(Bits(p), Bool);
         Sl <- new Table(Bool, Bits(n));
         Sr <- new Table(Bool, Bits(n));
         Sj <- new Table(Bool, Bits(n));
+        (l,r,op) <- parse Unwrap(Cin[j]);
         _ <- invoke EVAL(j,l,r,op);
         temp <- invoke GETAIN(l);
         Sl[true] <- Some(temp);
@@ -86,6 +90,7 @@ package GB1yao {
            cin     <- encn(kr,kj,rin);
            cout    <- encm(kl,cin,rout);
            C[cout] <- Some(true);
-        return C;
+         Cout[j] <- Some(C);}
+        return Cout;
     }
 }

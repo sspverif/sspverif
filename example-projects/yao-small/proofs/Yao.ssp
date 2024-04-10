@@ -37,7 +37,49 @@ proof Yao {
         }
     }
 
+    instance MODSec1_inst = MODSec1 {
+        params {
+            n: n,
+            m: m,
+            p: p,
+            w: w,
+            d: d,
+            zeron: zeron,
+            zerom: zerom,
+            encn: encn,
+            encm: encm,
+        }
+    }
+
+    instance PrvSim1for_inst = PrvSim1for {
+        params {
+            n: n,
+            m: m,
+            p: p,
+            w: w,
+            d: d,
+            zeron: zeron,
+            zerom: zerom,
+            encn: encn,
+            encm: encm,
+        }
+    }
+
     gamehops {
+
+    equivalence MODSec1_inst PrvSim1for_inst {
+            SETBIT: {
+                invariant: [
+                    ./invariant-MODSec0.smt2
+                ]
+
+                lemmas {
+                    aborts-equal-SETBIT:   []
+                    invariant-SETBIT:      [no-abort-SETBIT]
+                    same-output-SETBIT:    [no-abort-SETBIT]
+                }
+            }
+        }
 
     equivalence MODSec0_inst PrvSim0_inst {
             SETBIT: {

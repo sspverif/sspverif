@@ -11,6 +11,7 @@ package ModPRVSIM1for {
         GBL(C:  Table(Integer,Table(Integer,(Integer,Integer,Table((Bool,Bool),Bool))))) -> Table(Integer,Table(Integer,Table(Bits(p), Bool))),
         GETDINF() -> Table(Integer,Table((Bool,Bool),Bits(n))),
         GETAOUT(j: Integer) -> Bits(n),
+        
     }
 
     state {
@@ -28,6 +29,7 @@ package ModPRVSIM1for {
             z <- Unwrap(x[j]);
             _ <- invoke SETBIT(j,z);
         }
+
         Ctilde <- invoke GBL(C);
         dinf   <- invoke GETDINF();
         xtilde <- new Table(Integer, Bits(n));
