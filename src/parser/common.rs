@@ -1,4 +1,5 @@
 use crate::statement::FilePosition;
+use crate::util::scope::Scope;
 use crate::{expressions::Expression, identifier::Identifier, types::Type};
 
 use super::error::{Error, Result};
@@ -19,55 +20,73 @@ pub fn handle_arglist(arglist: Pair<Rule>) -> Vec<(String, Type)> {
         .collect()
 }
 
-pub fn handle_expression(expr: Pair<Rule>) -> Expression {
+pub fn handle_expression(expr: Pair<Rule>, scope: &mut Scope) -> Expression {
     match expr.as_rule() {
         // expr_equals | expr_not_equals | fn_call | table_access | identifier
         Rule::expr_add => {
             let mut inner = expr.into_inner();
-            let lhs = handle_expression(inner.next().unwrap());
-            let rhs = handle_expression(inner.next().unwrap());
+            let lhs = handle_expression(inner.next().unwrap(), scope);
+            let rhs = handle_expression(inner.next().unwrap(), scope);
             Expression::Add(Box::new(lhs), Box::new(rhs))
         }
         Rule::expr_sub => {
             let mut inner = expr.into_inner();
-            let lhs = handle_expression(inner.next().unwrap());
-            let rhs = handle_expression(inner.next().unwrap());
+            let lhs = handle_expression(inner.next().unwrap(), scope);
+            let rhs = handle_expression(inner.next().unwrap(), scope);
             Expression::Sub(Box::new(lhs), Box::new(rhs))
         }
         Rule::expr_mul => {
             let mut inner = expr.into_inner();
-            let lhs = handle_expression(inner.next().unwrap());
-            let rhs = handle_expression(inner.next().unwrap());
+            let lhs = handle_expression(inner.next().unwrap(), scope);
+            let rhs = handle_expression(inner.next().unwrap(), scope);
             Expression::Mul(Box::new(lhs), Box::new(rhs))
         }
         Rule::expr_div => {
             let mut inner = expr.into_inner();
-            let lhs = handle_expression(inner.next().unwrap());
-            let rhs = handle_expression(inner.next().unwrap());
+            let lhs = handle_expression(inner.next().unwrap(), scope);
+            let rhs = handle_expression(inner.next().unwrap(), scope);
             Expression::Div(Box::new(lhs), Box::new(rhs))
         }
-        Rule::expr_and => Expression::And(expr.into_inner().map(handle_expression).collect()),
-        Rule::expr_or => Expression::Or(expr.into_inner().map(handle_expression).collect()),
-        Rule::expr_xor => Expression::Xor(expr.into_inner().map(handle_expression).collect()),
+        Rule::expr_and => Expression::And(
+            expr.into_inner()
+                .map(|e| handle_expression(e, scope))
+                .collect(),
+        ),
+        Rule::expr_or => Expression::Or(
+            expr.into_inner()
+                .map(|e| handle_expression(e, scope))
+                .collect(),
+        ),
+        Rule::expr_xor => Expression::Xor(
+            expr.into_inner()
+                .map(|e| handle_expression(e, scope))
+                .collect(),
+        ),
         Rule::expr_not => {
             let mut inner = expr.into_inner();
-            let content = handle_expression(inner.next().unwrap());
+            let content = handle_expression(inner.next().unwrap(), scope);
             Expression::Not(Box::new(content))
         }
-        Rule::expr_equals => Expression::Equals(expr.into_inner().map(handle_expression).collect()),
+        Rule::expr_equals => Expression::Equals(
+            expr.into_inner()
+                .map(|e| handle_expression(e, scope))
+                .collect(),
+        ),
         Rule::expr_not_equals => Expression::Not(Box::new(Expression::Equals(
-            expr.into_inner().map(handle_expression).collect(),
+            expr.into_inner()
+                .map(|e| handle_expression(e, scope))
+                .collect(),
         ))),
         Rule::expr_none => {
             let tipe = handle_type(expr.into_inner().next().unwrap());
             Expression::None(tipe)
         }
         Rule::expr_some => {
-            let expr = handle_expression(expr.into_inner().next().unwrap());
+            let expr = handle_expression(expr.into_inner().next().unwrap(), scope);
             Expression::Some(Box::new(expr))
         }
         Rule::expr_unwrap => {
-            let expr = handle_expression(expr.into_inner().next().unwrap());
+            let expr = handle_expression(expr.into_inner().next().unwrap(), scope);
             Expression::Unwrap(Box::new(expr))
         }
         Rule::expr_newtable => {
@@ -82,7 +101,7 @@ pub fn handle_expression(expr: Pair<Rule>) -> Expression {
         Rule::table_access => {
             let mut inner = expr.into_inner();
             let ident = inner.next().unwrap().as_str();
-            let expr = handle_expression(inner.next().unwrap());
+            let expr = handle_expression(inner.next().unwrap(), scope);
             Expression::TableAccess(Identifier::new_scalar(ident), Box::new(expr))
         }
         Rule::fn_call => {
@@ -90,7 +109,10 @@ pub fn handle_expression(expr: Pair<Rule>) -> Expression {
             let ident = inner.next().unwrap().as_str();
             let args = match inner.next() {
                 None => vec![],
-                Some(inner_args) => inner_args.into_inner().map(handle_expression).collect(),
+                Some(inner_args) => inner_args
+                    .into_inner()
+                    .map(|e| handle_expression(e, scope))
+                    .collect(),
             };
             Expression::FnCall(Identifier::new_scalar(ident), args)
         }
@@ -107,9 +129,21 @@ pub fn handle_expression(expr: Pair<Rule>) -> Expression {
             let tipe = handle_type(expr.into_inner().next().unwrap());
             Expression::Typed(Type::Set(Box::new(tipe)), Box::new(Expression::Set(vec![])))
         }
-        Rule::expr_tuple => Expression::Tuple(expr.into_inner().map(handle_expression).collect()),
-        Rule::expr_list => Expression::List(expr.into_inner().map(handle_expression).collect()),
-        Rule::expr_set => Expression::Set(expr.into_inner().map(handle_expression).collect()),
+        Rule::expr_tuple => Expression::Tuple(
+            expr.into_inner()
+                .map(|e| handle_expression(e, scope))
+                .collect(),
+        ),
+        Rule::expr_list => Expression::List(
+            expr.into_inner()
+                .map(|e| handle_expression(e, scope))
+                .collect(),
+        ),
+        Rule::expr_set => Expression::Set(
+            expr.into_inner()
+                .map(|e| handle_expression(e, scope))
+                .collect(),
+        ),
         _ => unreachable!("Unhandled expression {:#?}", expr),
     }
 }
@@ -150,6 +184,7 @@ pub fn handle_type(tipe: Pair<Rule>) -> Type {
 pub fn handle_params_def_list(
     ast: Pair<Rule>,
     defined_consts: &[(String, Type)],
+    scope: &mut Scope,
 ) -> Result<Vec<(String, Expression)>> {
     ast.into_inner()
         .map(|inner| {
@@ -162,7 +197,7 @@ pub fn handle_params_def_list(
             let right_ast = inner.next().unwrap();
             let right_span = right_ast.as_span();
 
-            let right = handle_expression(right_ast);
+            let right = handle_expression(right_ast, scope);
 
             match &right {
                 Expression::BooleanLiteral(_)

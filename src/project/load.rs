@@ -10,6 +10,7 @@ use crate::parser::package::handle_pkg;
 use crate::parser::proof::handle_proof;
 use crate::parser::SspParser;
 use crate::proof::Proof;
+use crate::util::scope::Scope;
 extern crate toml_edit;
 
 /*
@@ -179,8 +180,11 @@ pub(crate) fn proofs(
                     return Err((name, e).into());
                 }
 
+                let mut scope = Scope::new();
+
                 let mut ast = parse_result.unwrap();
-                let proof = match handle_proof(ast.next().unwrap(), &pkgs, &games, name) {
+                let proof = match handle_proof(ast.next().unwrap(), &mut scope, &pkgs, &games, name)
+                {
                     Ok(proof) => proof,
                     Err(err) => {
                         return Err(err.with_source(filecontent).into());

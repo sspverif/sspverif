@@ -33,6 +33,7 @@ pub fn handle_compose_assign_list(ast: Pairs<Rule>) -> Vec<(String, String)> {
 
 pub fn handle_compose_assign_list_multi_inst(
     ast: Pairs<Rule>,
+    scope: &mut Scope,
     instances: &HashMap<String, (usize, PackageInstance)>,
     file_name: &str,
 ) -> Result<Vec<(String, String, Vec<Expression>)>, ParseGameError> {
@@ -59,7 +60,7 @@ pub fn handle_compose_assign_list_multi_inst(
                         .next()
                         .unwrap()
                         .into_inner()
-                        .map(handle_expression),
+                        .map(|e| handle_expression(e, scope)),
                 ),
                 _ => unreachable!(),
             }
@@ -124,6 +125,7 @@ impl crate::error::LocationError for ParseGameError {
 
 pub fn handle_for_loop_body(
     ast: Pair<Rule>,
+    scope: &mut Scope,
     game_name: &str,
     loopvars: &mut Vec<ForSpec>,
     pkgs: &HashMap<String, Package>,
@@ -153,7 +155,7 @@ pub fn handle_for_loop_body(
                     mut new_exports,
                     mut new_multi_exports,
                 ) = handle_for_loop(
-                    comp_spec, game_name, loopvars, pkgs, pkg_insts, &consts, file_name,
+                    comp_spec, scope, game_name, loopvars, pkgs, pkg_insts, &consts, file_name,
                 )?;
 
                 instances.append(&mut mult_pkg_insts);
@@ -164,7 +166,7 @@ pub fn handle_for_loop_body(
             }
             Rule::instance_decl => {
                 let inst = handle_instance_decl_multi_inst(
-                    comp_spec, game_name, pkgs, &consts, loopvars, file_name,
+                    comp_spec, scope, game_name, pkgs, &consts, loopvars, file_name,
                 )?;
                 instances.push(inst);
             }
@@ -172,7 +174,7 @@ pub fn handle_for_loop_body(
                 let comp_spec_span = comp_spec.as_span();
                 let (mut edges_, mut multi_edges_, mut exports_, mut multi_exports_) =
                     handle_compose_assign_body_list_multi_inst(
-                        comp_spec, &pkg_insts, loopvars, file_name,
+                        comp_spec, scope, &pkg_insts, loopvars, file_name,
                     )
                     .map_err(|e| error::Error::ParseGameError(e).with_span(comp_spec_span))?;
                 edges.append(&mut edges_);
@@ -192,6 +194,7 @@ This functions parses the body of a compose block. It returns internal edges and
  */
 pub fn handle_compose_assign_body_list(
     ast: Pair<Rule>,
+    scope: &mut Scope,
     instances: &HashMap<String, (usize, PackageInstance)>,
     file_name: &str,
 ) -> Result<
@@ -203,11 +206,12 @@ pub fn handle_compose_assign_body_list(
     ),
     ParseGameError,
 > {
-    handle_compose_assign_body_list_multi_inst(ast, instances, &vec![], file_name)
+    handle_compose_assign_body_list_multi_inst(ast, scope, instances, &vec![], file_name)
 }
 
 pub fn handle_compose_assign_body_list_multi_inst(
     ast: Pair<Rule>,
+    scope: &mut Scope,
     instances: &HashMap<String, (usize, PackageInstance)>,
     loopvars: &Vec<ForSpec>,
     file_name: &str,
@@ -242,7 +246,7 @@ pub fn handle_compose_assign_body_list_multi_inst(
         match src_inst_name {
             "adversary" => {
                 for multi_inst_export in handle_export_compose_assign_list_multi_inst(
-                    inner, instances, loopvars, file_name,
+                    inner, scope, instances, loopvars, file_name,
                 )? {
                     match multi_inst_export.try_into() {
                         Ok(export) => exports.push(export),
@@ -262,6 +266,7 @@ pub fn handle_compose_assign_body_list_multi_inst(
 
                 for multi_instance_edge in handle_edges_compose_assign_list_multi_inst(
                     inner,
+                    scope,
                     instances,
                     loopvars,
                     file_name,
@@ -282,6 +287,7 @@ pub fn handle_compose_assign_body_list_multi_inst(
 
 fn handle_export_compose_assign_list_multi_inst(
     ast: Pairs<Rule>,
+    scope: &mut Scope,
     instances: &HashMap<String, (usize, PackageInstance)>,
     loopvars: &Vec<ForSpec>,
     file_name: &str,
@@ -314,7 +320,7 @@ fn handle_export_compose_assign_list_multi_inst(
                         .next()
                         .unwrap()
                         .into_inner()
-                        .map(handle_expression),
+                        .map(|e| handle_expression(e, scope)),
                 ),
                 _ => unreachable!(""),
             }
@@ -372,6 +378,7 @@ fn handle_export_compose_assign_list_multi_inst(
 
 fn handle_edges_compose_assign_list_multi_inst(
     ast: Pairs<Rule>,
+    scope: &mut Scope,
     instances: &HashMap<String, (usize, PackageInstance)>,
     loopvars: &Vec<ForSpec>,
     file_name: &str,
@@ -406,7 +413,7 @@ fn handle_edges_compose_assign_list_multi_inst(
                         .next()
                         .unwrap()
                         .into_inner()
-                        .map(handle_expression),
+                        .map(|e| handle_expression(e, scope)),
                 ),
                 other_rule => unreachable!("found rule {rule:?}", rule = other_rule),
             }
@@ -474,6 +481,7 @@ fn handle_edges_compose_assign_list_multi_inst(
 
 pub fn handle_for_loop(
     ast: Pair<Rule>,
+    scope: &mut Scope,
     comp_name: &str,
     loopvars: &mut Vec<ForSpec>,
     pkgs: &HashMap<String, Package>,
@@ -489,11 +497,11 @@ pub fn handle_for_loop(
 )> {
     let mut parsed: Vec<Pair<Rule>> = ast.into_inner().collect();
     let decl_var_name = parsed[0].as_str();
-    let lower_bound = handle_expression(parsed.remove(1));
+    let lower_bound = handle_expression(parsed.remove(1), scope);
     let lower_bound_type = parsed[1].as_str();
     let bound_var_name = parsed[2].as_str();
     let upper_bound_type = parsed[3].as_str();
-    let upper_bound = handle_expression(parsed.remove(4));
+    let upper_bound = handle_expression(parsed.remove(4), scope);
     let body_ast = parsed.remove(4);
 
     if decl_var_name != bound_var_name {
@@ -522,7 +530,7 @@ pub fn handle_for_loop(
     loopvars.push(for_spec);
 
     let result = handle_for_loop_body(
-        body_ast, comp_name, loopvars, pkgs, pkg_insts, consts, file_name,
+        body_ast, scope, comp_name, loopvars, pkgs, pkg_insts, consts, file_name,
     );
 
     loopvars.pop();
@@ -534,7 +542,7 @@ use crate::util::scope::Scope;
 
 pub fn handle_comp_spec_list(
     ast: Pair<Rule>,
-    _scope: &mut Scope,
+    scope: &mut Scope,
     game_name: &str,
     file_name: &str,
     pkg_map: &HashMap<String, Package>,
@@ -567,6 +575,7 @@ pub fn handle_comp_spec_list(
                     mut new_multi_exports,
                 ) = handle_for_loop(
                     comp_spec,
+                    scope,
                     game_name,
                     &mut vec![],
                     pkg_map,
@@ -597,7 +606,8 @@ pub fn handle_comp_spec_list(
                 multi_exports.append(&mut new_multi_exports);
             }
             Rule::instance_decl => {
-                let inst = handle_instance_decl(comp_spec, game_name, pkg_map, &consts, file_name)?;
+                let inst =
+                    handle_instance_decl(comp_spec, scope, game_name, pkg_map, &consts, file_name)?;
                 instances.push(inst.clone());
                 let offset = instances.len() - 1;
                 instance_table.insert(inst.name.clone(), (offset, inst));
@@ -609,7 +619,7 @@ pub fn handle_comp_spec_list(
                     mut multi_instance_edges_,
                     mut exports_,
                     mut multi_instance_exports_,
-                ) = handle_compose_assign_body_list(comp_spec, &instance_table, file_name)
+                ) = handle_compose_assign_body_list(comp_spec, scope, &instance_table, file_name)
                     .map_err(|e| error::Error::ParseGameError(e).with_span(comp_spec_span))?;
                 edges.append(&mut edges_);
                 exports.append(&mut exports_);
@@ -639,6 +649,7 @@ pub fn handle_comp_spec_list(
 
 pub fn handle_instance_assign_list(
     ast: Pair<Rule>,
+    scope: &mut Scope,
     inst_name: &str,
     file_name: &str,
     defined_consts: &[(String, Type)],
@@ -649,8 +660,11 @@ pub fn handle_instance_assign_list(
     for elem in ast.into_inner() {
         match elem.as_rule() {
             Rule::params_def => {
-                let mut defs =
-                    handle_params_def_list(elem.into_inner().next().unwrap(), defined_consts)?;
+                let mut defs = handle_params_def_list(
+                    elem.into_inner().next().unwrap(),
+                    defined_consts,
+                    scope,
+                )?;
                 params.append(&mut defs);
             }
             Rule::types_def => {
@@ -667,6 +681,7 @@ pub fn handle_instance_assign_list(
 
 pub fn handle_instance_decl_multi_inst(
     ast: Pair<Rule>,
+    scope: &mut Scope,
     game_name: &str,
     pkg_map: &HashMap<String, Package>,
     consts: &HashMap<String, Type>,
@@ -717,7 +732,7 @@ pub fn handle_instance_decl_multi_inst(
 
     let data_span = data.as_span();
     let (mut param_list, type_list) =
-        handle_instance_assign_list(data, inst_name, file_name, &defined_consts)?;
+        handle_instance_assign_list(data, scope, inst_name, file_name, &defined_consts)?;
 
     param_list.sort();
 
@@ -814,6 +829,7 @@ pub fn handle_index_id_list<'a>(ast: Pair<'a, Rule>) -> Vec<String> {
 
 pub fn handle_instance_decl(
     ast: Pair<Rule>,
+    scope: &mut Scope,
     game_name: &str,
     pkg_map: &HashMap<String, Package>,
     consts: &HashMap<String, Type>,
@@ -852,7 +868,7 @@ pub fn handle_instance_decl(
         .collect();
 
     let (mut param_list, type_list) =
-        handle_instance_assign_list(data, inst_name, file_name, &defined_consts)?;
+        handle_instance_assign_list(data, scope, inst_name, file_name, &defined_consts)?;
 
     param_list.sort();
 

@@ -1415,6 +1415,7 @@ mod tests2 {
             package::{ForComp, ForSpec},
             Rule, SspParser,
         },
+        util::scope::Scope,
         writers::smt::exprs::{SmtLt, SmtLte},
     };
 
@@ -1422,12 +1423,14 @@ mod tests2 {
 
     #[test]
     fn example_smt_stuff() {
+        let mut scope = Scope::new();
         let parse_expr = |text: &str| {
             handle_expression(
                 SspParser::parse(Rule::expression, text)
                     .unwrap()
                     .next()
                     .unwrap(),
+                &mut scope,
             )
         };
 

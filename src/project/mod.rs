@@ -17,7 +17,7 @@ use crate::{
     package::{Composition, Package},
     proof::{GameHop, Proof},
     transforms::{
-        typecheck::{typecheck_pkg, Scope},
+        typecheck::{typecheck_pkg, Scope as TypeCheckScope},
         Transformation,
     },
     util::prover_process::ProverBackend,
@@ -58,7 +58,7 @@ impl Project {
 
         for pkg_name in pkg_names.into_iter() {
             let pkg = &packages[pkg_name];
-            let mut scope = Scope::new();
+            let mut scope = TypeCheckScope::new();
             typecheck_pkg(pkg, &mut scope)?;
         }
 

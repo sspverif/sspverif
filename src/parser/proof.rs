@@ -4,7 +4,10 @@ use crate::{
     parser::Rule,
     proof::{Assumption, Claim, Equivalence, GameHop, GameInstance, Mapping, Proof, Reduction},
     types::Type,
-    util::resolver::{Resolver, SliceResolver},
+    util::{
+        resolver::{Resolver, SliceResolver},
+        scope::Scope,
+    },
 };
 
 use itertools::Itertools;
@@ -18,6 +21,7 @@ use super::error::{Error, Result};
 
 pub fn handle_proof<'a>(
     ast: Pair<Rule>,
+    scope: &mut Scope,
     pkgs: &[Package],
     games: &[Composition],
     file_name: &str,
@@ -46,7 +50,9 @@ pub fn handle_proof<'a>(
                 game_hops.extend(more_game_hops);
             }
             Rule::instance_decl => {
-                instances.push(handle_instance_decl(ast, &consts, pkgs, games, file_name)?);
+                instances.push(handle_instance_decl(
+                    ast, scope, &consts, pkgs, games, file_name,
+                )?);
             }
             otherwise => unreachable!("found {:?} in proof", otherwise),
         }
@@ -65,6 +71,7 @@ pub fn handle_proof<'a>(
 
 fn handle_instance_decl(
     ast: Pair<Rule>,
+    scope: &mut Scope,
     proof_consts: &[(String, Type)],
     pkgs: &[Package],
     games: &[Composition],
@@ -81,7 +88,7 @@ fn handle_instance_decl(
     let body_ast = ast.next().unwrap();
 
     let (types, consts) =
-        handle_instance_assign_list(&inst_name, file_name, proof_consts, body_ast)?;
+        handle_instance_assign_list(scope, &inst_name, file_name, proof_consts, body_ast)?;
 
     let game_resolver = SliceResolver(games);
     let game = match game_resolver.resolve_value(&game_name) {
@@ -98,6 +105,7 @@ fn handle_instance_decl(
 
 pub fn handle_params_def_list(
     ast: Pair<Rule>,
+    scope: &mut Scope,
     inst_name: &str,
     game: &Composition,
 ) -> Result<Vec<(String, Expression)>> {
@@ -121,7 +129,7 @@ pub fn handle_params_def_list(
 
             let left = inner.next().unwrap().as_str();
             let right = inner.next().unwrap();
-            let right = common::handle_expression(right);
+            let right = common::handle_expression(right, scope);
 
             Ok((left.to_owned(), right))
         })
@@ -162,6 +170,7 @@ fn check_consts(game_inst: &GameInstance, span: Span, games: &[Composition]) -> 
 }
 
 fn handle_instance_assign_list(
+    scope: &mut Scope,
     inst_name: &str,
     file_name: &str,
     proof_consts: &[(String, Type)],
@@ -180,7 +189,7 @@ fn handle_instance_assign_list(
             }
             Rule::params_def => {
                 let ast = ast.into_inner().next().unwrap();
-                consts.extend(common::handle_params_def_list(ast, proof_consts)?);
+                consts.extend(common::handle_params_def_list(ast, proof_consts, scope)?);
             }
             otherwise => {
                 unreachable!("unexpected {:?} at {:?}", otherwise, ast.as_span())
