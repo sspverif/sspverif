@@ -2,10 +2,13 @@ use crate::statement::FilePosition;
 use crate::util::scope::Scope;
 use crate::{expressions::Expression, identifier::Identifier, types::Type};
 
-use super::error::{Error, Result};
+use super::composition::ParseGameError;
+use super::error::{Error, OwnedSpan, Result, SpanError};
 use super::{error, Rule};
 
 use pest::iterators::Pair;
+
+use std::result::Result as StdResult;
 
 // TODO: identifier is optional
 pub fn handle_arglist(arglist: Pair<Rule>) -> Vec<(String, Type)> {
@@ -20,73 +23,123 @@ pub fn handle_arglist(arglist: Pair<Rule>) -> Vec<(String, Type)> {
         .collect()
 }
 
-pub fn handle_expression(expr: Pair<Rule>, scope: &mut Scope) -> Expression {
-    match expr.as_rule() {
+impl From<ParseExpressionError> for Error {
+    fn from(value: ParseExpressionError) -> Self {
+        match value {
+            ParseExpressionError::UndefinedIdentifer(name, file_pos, owned_span) => {
+                println!("lost position at error conversion. The error occurred at {file_pos}");
+                Error::UndefinedIdentifer(name)
+            }
+        }
+    }
+}
+
+impl From<ParseExpressionError> for SpanError {
+    fn from(value: ParseExpressionError) -> Self {
+        match value {
+            ParseExpressionError::UndefinedIdentifer(name, file_pos, owned_span) => {
+                println!("lost position at error conversion. The error occurred at {file_pos}");
+                Error::UndefinedIdentifer(name).with_owned_span(owned_span)
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ParseExpressionError {
+    UndefinedIdentifer(String, FilePosition, OwnedSpan),
+}
+
+impl core::fmt::Display for ParseExpressionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseExpressionError::UndefinedIdentifer(name, file_pos, owned_span) => {
+                write!(f, "undefined identifier `{name}` at {file_pos}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ParseExpressionError {}
+impl crate::error::LocationError for ParseExpressionError {
+    fn file_pos<'a>(&'a self) -> &'a FilePosition {
+        match self {
+            ParseExpressionError::UndefinedIdentifer(_, file_pos, _) => file_pos,
+        }
+    }
+}
+
+// TODO: These actually are not "common", but only for games (and maybe the proofs)
+pub fn handle_expression(
+    expr: Pair<Rule>,
+    scope: &mut Scope,
+) -> StdResult<Expression, ParseExpressionError> {
+    let expr = match expr.as_rule() {
         // expr_equals | expr_not_equals | fn_call | table_access | identifier
         Rule::expr_add => {
             let mut inner = expr.into_inner();
-            let lhs = handle_expression(inner.next().unwrap(), scope);
-            let rhs = handle_expression(inner.next().unwrap(), scope);
+            let lhs = handle_expression(inner.next().unwrap(), scope)?;
+            let rhs = handle_expression(inner.next().unwrap(), scope)?;
             Expression::Add(Box::new(lhs), Box::new(rhs))
         }
         Rule::expr_sub => {
             let mut inner = expr.into_inner();
-            let lhs = handle_expression(inner.next().unwrap(), scope);
-            let rhs = handle_expression(inner.next().unwrap(), scope);
+            let lhs = handle_expression(inner.next().unwrap(), scope)?;
+            let rhs = handle_expression(inner.next().unwrap(), scope)?;
             Expression::Sub(Box::new(lhs), Box::new(rhs))
         }
         Rule::expr_mul => {
             let mut inner = expr.into_inner();
-            let lhs = handle_expression(inner.next().unwrap(), scope);
-            let rhs = handle_expression(inner.next().unwrap(), scope);
+            let lhs = handle_expression(inner.next().unwrap(), scope)?;
+            let rhs = handle_expression(inner.next().unwrap(), scope)?;
             Expression::Mul(Box::new(lhs), Box::new(rhs))
         }
         Rule::expr_div => {
             let mut inner = expr.into_inner();
-            let lhs = handle_expression(inner.next().unwrap(), scope);
-            let rhs = handle_expression(inner.next().unwrap(), scope);
+            let lhs = handle_expression(inner.next().unwrap(), scope)?;
+            let rhs = handle_expression(inner.next().unwrap(), scope)?;
             Expression::Div(Box::new(lhs), Box::new(rhs))
         }
         Rule::expr_and => Expression::And(
             expr.into_inner()
                 .map(|e| handle_expression(e, scope))
-                .collect(),
+                .collect::<StdResult<_, _>>()?,
         ),
         Rule::expr_or => Expression::Or(
             expr.into_inner()
                 .map(|e| handle_expression(e, scope))
-                .collect(),
+                .collect::<StdResult<_, _>>()?,
         ),
         Rule::expr_xor => Expression::Xor(
             expr.into_inner()
                 .map(|e| handle_expression(e, scope))
-                .collect(),
+                .collect::<StdResult<_, _>>()?,
         ),
         Rule::expr_not => {
             let mut inner = expr.into_inner();
-            let content = handle_expression(inner.next().unwrap(), scope);
+            let content = handle_expression(inner.next().unwrap(), scope)?;
             Expression::Not(Box::new(content))
         }
         Rule::expr_equals => Expression::Equals(
             expr.into_inner()
                 .map(|e| handle_expression(e, scope))
-                .collect(),
+                .collect::<StdResult<_, _>>()?,
         ),
         Rule::expr_not_equals => Expression::Not(Box::new(Expression::Equals(
             expr.into_inner()
                 .map(|e| handle_expression(e, scope))
-                .collect(),
+                .collect::<StdResult<_, _>>()?,
         ))),
         Rule::expr_none => {
             let tipe = handle_type(expr.into_inner().next().unwrap());
             Expression::None(tipe)
         }
         Rule::expr_some => {
-            let expr = handle_expression(expr.into_inner().next().unwrap(), scope);
+            let expr = handle_expression(expr.into_inner().next().unwrap(), scope)?;
             Expression::Some(Box::new(expr))
         }
         Rule::expr_unwrap => {
-            let expr = handle_expression(expr.into_inner().next().unwrap(), scope);
+            let expr = handle_expression(expr.into_inner().next().unwrap(), scope)?;
             Expression::Unwrap(Box::new(expr))
         }
         Rule::expr_newtable => {
@@ -101,7 +154,7 @@ pub fn handle_expression(expr: Pair<Rule>, scope: &mut Scope) -> Expression {
         Rule::table_access => {
             let mut inner = expr.into_inner();
             let ident = inner.next().unwrap().as_str();
-            let expr = handle_expression(inner.next().unwrap(), scope);
+            let expr = handle_expression(inner.next().unwrap(), scope)?;
             Expression::TableAccess(Identifier::new_scalar(ident), Box::new(expr))
         }
         Rule::fn_call => {
@@ -112,11 +165,52 @@ pub fn handle_expression(expr: Pair<Rule>, scope: &mut Scope) -> Expression {
                 Some(inner_args) => inner_args
                     .into_inner()
                     .map(|e| handle_expression(e, scope))
-                    .collect(),
+                    .collect::<StdResult<_, _>>()?,
             };
             Expression::FnCall(Identifier::new_scalar(ident), args)
         }
-        Rule::identifier => Identifier::new_scalar(expr.as_str()).to_expression(),
+        Rule::identifier => {
+            let span = expr.as_span();
+            let file_pos = FilePosition::from_span("???".to_string(), span.clone());
+            let name = expr.as_str();
+            let decl = scope
+                .lookup(name)
+                .ok_or(ParseExpressionError::UndefinedIdentifer(
+                    name.to_string(),
+                    file_pos,
+                    OwnedSpan::new_with_span(span),
+                ))?;
+
+            match decl {
+                crate::util::scope::Declaration::CompositionConst { tipe, game_name } => todo!(),
+                crate::util::scope::Declaration::PackageConst { tipe, pkg_name } => todo!(),
+                crate::util::scope::Declaration::PackageState { tipe, pkg_name } => todo!(),
+                crate::util::scope::Declaration::PackageOracleArg {
+                    tipe,
+                    pkg_name,
+                    oracle_name,
+                } => todo!(),
+                crate::util::scope::Declaration::PackageOracleLocal {
+                    tipe,
+                    pkg_name,
+                    oracle_name,
+                } => todo!(),
+                crate::util::scope::Declaration::PackageOracleImport {
+                    pkg_name,
+                    index,
+                    index_forspecs,
+                    args,
+                    out,
+                } => todo!(),
+                crate::util::scope::Declaration::PackageOracleImportsForSpec {
+                    pkg_name,
+                    start,
+                    end,
+                    start_comp,
+                    end_comp,
+                } => todo!(),
+            }
+        }
         Rule::literal_boolean => {
             let litval = expr.as_str().to_string();
             Expression::BooleanLiteral(litval)
@@ -132,20 +226,22 @@ pub fn handle_expression(expr: Pair<Rule>, scope: &mut Scope) -> Expression {
         Rule::expr_tuple => Expression::Tuple(
             expr.into_inner()
                 .map(|e| handle_expression(e, scope))
-                .collect(),
+                .collect::<StdResult<_, _>>()?,
         ),
         Rule::expr_list => Expression::List(
             expr.into_inner()
                 .map(|e| handle_expression(e, scope))
-                .collect(),
+                .collect::<StdResult<_, _>>()?,
         ),
         Rule::expr_set => Expression::Set(
             expr.into_inner()
                 .map(|e| handle_expression(e, scope))
-                .collect(),
+                .collect::<StdResult<_, _>>()?,
         ),
         _ => unreachable!("Unhandled expression {:#?}", expr),
-    }
+    };
+
+    Ok(expr)
 }
 
 pub fn handle_type(tipe: Pair<Rule>) -> Type {
@@ -197,7 +293,7 @@ pub fn handle_params_def_list(
             let right_ast = inner.next().unwrap();
             let right_span = right_ast.as_span();
 
-            let right = handle_expression(right_ast, scope);
+            let right = handle_expression(right_ast, scope)?;
 
             match &right {
                 Expression::BooleanLiteral(_)

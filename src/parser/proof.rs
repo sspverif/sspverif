@@ -129,7 +129,7 @@ pub fn handle_params_def_list(
 
             let left = inner.next().unwrap().as_str();
             let right = inner.next().unwrap();
-            let right = common::handle_expression(right, scope);
+            let right = common::handle_expression(right, scope)?;
 
             Ok((left.to_owned(), right))
         })

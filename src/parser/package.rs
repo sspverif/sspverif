@@ -1424,7 +1424,7 @@ mod tests2 {
     #[test]
     fn example_smt_stuff() {
         let mut scope = Scope::new();
-        let parse_expr = |text: &str| {
+        let mut parse_expr = |text: &str| {
             handle_expression(
                 SspParser::parse(Rule::expression, text)
                     .unwrap()
@@ -1432,6 +1432,7 @@ mod tests2 {
                     .unwrap(),
                 &mut scope,
             )
+            .unwrap()
         };
 
         let end = parse_expr("(n - 1)").map(|expr| match expr {

@@ -7,7 +7,6 @@ use crate::{expressions::Expression, transforms::resolvetypes, types::Type};
 
 use super::composition::ParseGameError;
 
-#[derive(Clone)]
 pub struct SpanError {
     err: Error,
     start_bytes: usize,
@@ -17,6 +16,42 @@ pub struct SpanError {
     end_line: usize,
     end_col: usize,
     source: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct OwnedSpan {
+    start_bytes: usize,
+    start_line: usize,
+    start_col: usize,
+    end_bytes: usize,
+    end_line: usize,
+    end_col: usize,
+    source: Option<String>,
+}
+
+impl OwnedSpan {
+    pub fn new_with_span(span: pest::Span) -> OwnedSpan {
+        let start_bytes = span.start();
+        let (start_line, start_col) = span.start_pos().line_col();
+        let end_bytes = span.end();
+        let (end_line, end_col) = span.end_pos().line_col();
+        Self {
+            start_bytes,
+            start_line,
+            start_col,
+            end_bytes,
+            end_line,
+            end_col,
+            source: None,
+        }
+    }
+
+    pub fn with_source(self, source: String) -> OwnedSpan {
+        OwnedSpan {
+            source: Some(source),
+            ..self
+        }
+    }
 }
 
 impl SpanError {
@@ -41,6 +76,29 @@ impl SpanError {
         SpanError {
             source: Some(source),
             ..self
+        }
+    }
+
+    pub fn new_with_owned_span(err: Error, span: OwnedSpan) -> SpanError {
+        let OwnedSpan {
+            start_bytes,
+            start_line,
+            start_col,
+            end_bytes,
+            end_line,
+            end_col,
+            source,
+        } = span;
+
+        SpanError {
+            err,
+            start_bytes,
+            start_line,
+            start_col,
+            end_bytes,
+            end_line,
+            end_col,
+            source,
         }
     }
 }
@@ -86,7 +144,7 @@ impl std::error::Error for SpanError {
     }
 }
 
-#[derive(Clone, Debug, Error)]
+#[derive(Debug, Error)]
 pub enum Error {
     #[error("looks like composition {game_name} doesn't have a compose block")]
     MissingComposeBlock { game_name: String },
@@ -143,6 +201,9 @@ pub enum Error {
 impl Error {
     pub fn with_span<'span>(self, span: Span<'span>) -> SpanError {
         SpanError::new_with_span(self, span)
+    }
+    pub fn with_owned_span<'span>(self, span: OwnedSpan) -> SpanError {
+        SpanError::new_with_owned_span(self, span)
     }
 }
 

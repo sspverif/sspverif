@@ -37,7 +37,7 @@ pub fn handle_compose_assign_list_multi_inst(
     instances: &HashMap<String, (usize, PackageInstance)>,
     file_name: &str,
 ) -> Result<Vec<(String, String, Vec<Expression>)>, ParseGameError> {
-    ast.map(|assignment| {
+    ast.map(|assignment| -> Result<_, ParseGameError> {
         let mut line_builder = (None, None, vec![]);
         for piece in assignment.into_inner() {
             match piece.as_rule() {
@@ -54,13 +54,17 @@ pub fn handle_compose_assign_list_multi_inst(
 
                     line_builder.1 = Some(piece.as_str().to_string())
                 }
-                Rule::compose_assign_modifier_with_index => line_builder.2.extend(
-                    piece
+                Rule::compose_assign_modifier_with_index => line_builder.2.append(
+                    &mut piece
                         .into_inner()
                         .next()
                         .unwrap()
                         .into_inner()
-                        .map(|e| handle_expression(e, scope)),
+                        .map(|e| {
+                            handle_expression(e, scope)
+                                .map_err(ParseGameError::ParseExpressionError)
+                        })
+                        .collect::<Result<Vec<Expression>, ParseGameError>>()?,
                 ),
                 _ => unreachable!(),
             }
@@ -77,7 +81,7 @@ pub fn handle_compose_assign_list_multi_inst(
         //
         // (oracle_name.to_owned(), dst_inst_name.to_owned())
     })
-    .collect()
+    .collect::<Result<Vec<_>, _>>()
 }
 
 pub fn handle_types_def(
@@ -91,10 +95,11 @@ pub fn handle_types_def(
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum ParseGameError {
     UndeclaredInstance(String, FilePosition),
     NoSuchOracleInInstance(String, String, FilePosition),
+    ParseExpressionError(super::common::ParseExpressionError),
 }
 
 impl std::fmt::Display for ParseGameError {
@@ -109,6 +114,9 @@ impl std::fmt::Display for ParseGameError {
                     "instace {inst_name:?} does not have oracle {oracle_name:?}"
                 )
             }
+            ParseGameError::ParseExpressionError(err) => {
+                write!(f, "error parsing expression: {err}")
+            }
         }
     }
 }
@@ -117,8 +125,9 @@ impl std::error::Error for ParseGameError {}
 impl crate::error::LocationError for ParseGameError {
     fn file_pos<'a>(&'a self) -> &'a FilePosition {
         match self {
-            ParseGameError::UndeclaredInstance(_, file_pos)
-            | ParseGameError::NoSuchOracleInInstance(_, _, file_pos) => file_pos,
+            ParseGameError::ParseExpressionError(err) => err.file_pos(),
+            ParseGameError::UndeclaredInstance(_, file_pos) => file_pos,
+            ParseGameError::NoSuchOracleInInstance(_, _, file_pos) => file_pos,
         }
     }
 }
@@ -260,7 +269,10 @@ pub fn handle_compose_assign_body_list_multi_inst(
                 let source_pkgidx = instances
                     .get(src_inst_name)
                     .unwrap_or_else(|| {
-                        panic!("instance {} not found in composition {}", src_inst_name, file_name)
+                        panic!(
+                            "instance {} not found in composition {}",
+                            src_inst_name, file_name
+                        )
                     })
                     .0;
 
@@ -314,13 +326,17 @@ fn handle_export_compose_assign_list_multi_inst(
 
                     dst_inst_name = Some(piece.as_str());
                 }
-                Rule::compose_assign_modifier_with_index => dst_instance_idx.extend(
-                    piece
+                Rule::compose_assign_modifier_with_index => dst_instance_idx.append(
+                    &mut piece
                         .into_inner()
                         .next()
                         .unwrap()
                         .into_inner()
-                        .map(|e| handle_expression(e, scope)),
+                        .map(|e| {
+                            handle_expression(e, scope)
+                                .map_err(ParseGameError::ParseExpressionError)
+                        })
+                        .collect::<Result<_, _>>()?,
                 ),
                 _ => unreachable!(""),
             }
@@ -407,13 +423,17 @@ fn handle_edges_compose_assign_list_multi_inst(
 
                     dst_inst_name = Some(piece.as_str());
                 }
-                Rule::compose_assign_modifier_with_index => dst_instance_idx.extend(
-                    piece
+                Rule::compose_assign_modifier_with_index => dst_instance_idx.append(
+                    &mut piece
                         .into_inner()
                         .next()
                         .unwrap()
                         .into_inner()
-                        .map(|e| handle_expression(e, scope)),
+                        .map(|e| {
+                            handle_expression(e, scope)
+                                .map_err(ParseGameError::ParseExpressionError)
+                        })
+                        .collect::<Result<_, _>>()?,
                 ),
                 other_rule => unreachable!("found rule {rule:?}", rule = other_rule),
             }
@@ -497,11 +517,11 @@ pub fn handle_for_loop(
 )> {
     let mut parsed: Vec<Pair<Rule>> = ast.into_inner().collect();
     let decl_var_name = parsed[0].as_str();
-    let lower_bound = handle_expression(parsed.remove(1), scope);
+    let lower_bound = handle_expression(parsed.remove(1), scope)?;
     let lower_bound_type = parsed[1].as_str();
     let bound_var_name = parsed[2].as_str();
     let upper_bound_type = parsed[3].as_str();
-    let upper_bound = handle_expression(parsed.remove(4), scope);
+    let upper_bound = handle_expression(parsed.remove(4), scope)?;
     let body_ast = parsed.remove(4);
 
     if decl_var_name != bound_var_name {
@@ -716,7 +736,7 @@ pub fn handle_instance_decl_multi_inst(
         None => {
             panic!("package {} is unknown", pkg_name);
         }
-        Some(pkg) => Ok(pkg),
+        Some(pkg) => error::Result::Ok(pkg),
     }?;
 
     // a list of (name, type) pairs of game constants/params and loop variables
@@ -753,7 +773,7 @@ pub fn handle_instance_decl_multi_inst(
                 }
             };
 
-            Ok((pkg_param.to_string(), const_type))
+            error::Result::Ok((pkg_param.to_string(), const_type))
         })
         .collect();
     let mut typed_params = typed_params?;
@@ -857,9 +877,12 @@ pub fn handle_instance_decl(
 
     let pkg = match pkg_map.get(pkg_name) {
         None => {
-            panic!("package {} is unknown in composition {}", pkg_name, file_name);
+            panic!(
+                "package {} is unknown in composition {}",
+                pkg_name, file_name
+            );
         }
-        Some(pkg) => Ok(pkg),
+        Some(pkg) => error::Result::Ok(pkg),
     }?;
 
     let defined_consts: Vec<_> = consts
