@@ -217,7 +217,9 @@ pub fn handle_expression(
             assert_eq!(decl.validity_context(), expect_context, "invariant does not hold! when looking up name `{name}` in scope, we got declaration {decl:?}, which is valid in context {got_context:?} but we are in context {expect_context:?}.");
 
             let ident = match decl {
-                Declaration::CompositionConst { .. } => unreachable!(),
+                Declaration::CompositionConst { .. } | Declaration::CompositionForSpec { .. } => {
+                    unreachable!()
+                }
                 Declaration::PackageConst { pkg_name, tipe } => Identifier::PackageIdentifier(
                     PackageIdentifier::Const(PackageConstIdentifier {
                         pkg_name,

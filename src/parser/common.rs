@@ -1,3 +1,4 @@
+use crate::identifier::{GameConstIdentifier, GameIdentifier, GameLoopVarIdentifier};
 use crate::statement::FilePosition;
 use crate::util::scope::Scope;
 use crate::{expressions::Expression, identifier::Identifier, types::Type};
@@ -172,44 +173,48 @@ pub fn handle_expression(
         Rule::identifier => {
             let span = expr.as_span();
             let file_pos = FilePosition::from_span("???".to_string(), span.clone());
-            let name = expr.as_str();
+            let name = expr.to_string();
             let decl = scope
-                .lookup(name)
+                .lookup(&name)
                 .ok_or(ParseExpressionError::UndefinedIdentifer(
-                    name.to_string(),
+                    name.clone(),
                     file_pos,
                     OwnedSpan::new_with_span(span),
                 ))?;
 
-            match decl {
-                crate::util::scope::Declaration::CompositionConst { tipe, game_name } => todo!(),
-                crate::util::scope::Declaration::PackageConst { tipe, pkg_name } => todo!(),
-                crate::util::scope::Declaration::PackageState { tipe, pkg_name } => todo!(),
-                crate::util::scope::Declaration::PackageOracleArg {
-                    tipe,
-                    pkg_name,
-                    oracle_name,
-                } => todo!(),
-                crate::util::scope::Declaration::PackageOracleLocal {
-                    tipe,
-                    pkg_name,
-                    oracle_name,
-                } => todo!(),
-                crate::util::scope::Declaration::PackageOracleImport {
-                    pkg_name,
-                    index,
-                    index_forspecs,
-                    args,
-                    out,
-                } => todo!(),
-                crate::util::scope::Declaration::PackageOracleImportsForSpec {
-                    pkg_name,
+            let identifier = match decl {
+                crate::util::scope::Declaration::CompositionConst { tipe, game_name } => {
+                    Identifier::GameIdentifier(GameIdentifier::Const(GameConstIdentifier {
+                        game_name,
+                        name,
+                        tipe,
+                    }))
+                }
+                crate::util::scope::Declaration::CompositionForSpec {
+                    game_name,
                     start,
                     end,
                     start_comp,
                     end_comp,
-                } => todo!(),
-            }
+                } => Identifier::GameIdentifier(GameIdentifier::LoopVar(GameLoopVarIdentifier {
+                    game_name,
+                    name,
+                    start: Box::new(start),
+                    end: Box::new(end),
+                    start_comp,
+                    end_comp,
+                })),
+                crate::util::scope::Declaration::PackageConst { .. }
+                | crate::util::scope::Declaration::PackageState { .. }
+                | crate::util::scope::Declaration::PackageOracleArg { .. }
+                | crate::util::scope::Declaration::PackageOracleLocal { .. }
+                | crate::util::scope::Declaration::PackageOracleImport { .. }
+                | crate::util::scope::Declaration::PackageOracleImportsForSpec { .. } => {
+                    unreachable!()
+                }
+            };
+
+            Expression::Identifier(identifier)
         }
         Rule::literal_boolean => {
             let litval = expr.as_str().to_string();

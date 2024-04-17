@@ -19,6 +19,14 @@ pub enum Declaration {
         game_name: String,
     },
 
+    CompositionForSpec {
+        game_name: String,
+        start: Expression,
+        end: Expression,
+        start_comp: ForComp,
+        end_comp: ForComp,
+    },
+
     PackageConst {
         tipe: Type,
         pkg_name: String,
@@ -60,7 +68,9 @@ pub enum Declaration {
 impl Declaration {
     pub fn validity_context(&self) -> ValidityContext {
         match self {
-            Declaration::CompositionConst { tipe, game_name } => ValidityContext::Game,
+            Declaration::CompositionConst { .. } | Declaration::CompositionForSpec { .. } => {
+                ValidityContext::Game
+            }
             Declaration::PackageConst { .. }
             | Declaration::PackageState { .. }
             | Declaration::PackageOracleArg { .. }
