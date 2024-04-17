@@ -36,9 +36,9 @@ impl From<ParseExpressionError> for Error {
 
 impl From<ParseExpressionError> for SpanError {
     fn from(value: ParseExpressionError) -> Self {
+        println!("lost position at error conversion. The full error is {value}");
         match value {
             ParseExpressionError::UndefinedIdentifer(name, file_pos, owned_span) => {
-                println!("lost position at error conversion. The error occurred at {file_pos}");
                 Error::UndefinedIdentifer(name).with_owned_span(owned_span)
             }
         }
@@ -172,7 +172,7 @@ pub fn handle_expression(
         Rule::identifier => {
             let span = expr.as_span();
             let file_pos = FilePosition::from_span("???".to_string(), span.clone());
-            let name = expr.to_string();
+            let name = expr.as_str().to_string();
             let decl = scope
                 .lookup(&name)
                 .ok_or(ParseExpressionError::UndefinedIdentifer(
@@ -300,9 +300,11 @@ pub fn handle_params_def_list(
             let right = handle_expression(right_ast, scope)?;
 
             match &right {
+                // TODO: also allow proof constant identifiers, once we have them
                 Expression::BooleanLiteral(_)
                 | Expression::StringLiteral(_)
-                | Expression::IntegerLiteral(_) => {}
+                | Expression::IntegerLiteral(_)
+                | Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(_))) => {}
                 Expression::Identifier(Identifier::Scalar(ident)) => {
                     if !defined_consts
                         .iter()

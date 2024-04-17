@@ -584,7 +584,16 @@ pub fn handle_comp_spec_list(
             Rule::const_decl => {
                 let (name, tipe) = handle_const_decl(comp_spec);
                 consts_as_list.push((name.clone(), tipe.clone()));
-                consts.insert(name, tipe);
+                consts.insert(name.clone(), tipe.clone());
+                scope
+                    .declare(
+                        &name,
+                        crate::util::scope::Declaration::CompositionConst {
+                            tipe,
+                            game_name: game_name.to_string(),
+                        },
+                    )
+                    .unwrap();
             }
             Rule::game_for => {
                 let (
@@ -984,5 +993,111 @@ pub fn handle_composition(
     let mut inner = ast.into_inner();
     let game_name = inner.next().unwrap().as_str();
     let spec = inner.next().unwrap();
+
+    scope.enter();
     handle_comp_spec_list(spec, &mut scope, game_name, file_name, pkg_map)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        identifier::game_ident::{GameConstIdentifier, GameIdentifier},
+        parser::{package::handle_pkg, SspParser},
+    };
+
+    fn unwrap_parse_err<T>(res: Result<T, pest::error::Error<crate::parser::Rule>>) -> T {
+        match res {
+            Ok(v) => v,
+            Err(err) => panic!("parse error: {err}", err = err),
+        }
+    }
+
+    fn parse_game(code: &str, name: &str, pkg_map: &HashMap<String, Package>) -> Composition {
+        let mut game_pairs = unwrap_parse_err(SspParser::parse_composition(code));
+        handle_composition(game_pairs.next().unwrap(), pkg_map, name)
+            .unwrap_or_else(|err| panic!("handle error: {err}", err = err))
+    }
+
+    fn parse_pkg(code: &str, name: &str) -> (String, Package) {
+        let mut pkg_pairs = unwrap_parse_err(SspParser::parse_package(code));
+        handle_pkg(pkg_pairs.next().unwrap(), name).unwrap()
+    }
+
+    const TINY_PKG_CODE: &str = r#"package TinyPkg {
+            params {
+              n: Integer,
+            }
+
+            oracle N() -> Integer {
+              return n;
+            }
+        }"#;
+
+    const TINY_GAME_CODE: &str = r#"composition TinyGame {
+                const n: Integer;
+            }
+            "#;
+
+    const SMALL_GAME_CODE: &str = r#"composition SmallGame {
+        const n: Integer;
+
+        instance tiny_instance  = TinyPkg {
+            params {
+                n: n,
+            }
+        }
+    }"#;
+
+    #[test]
+    fn tiny_game_without_packages() {
+        let game = parse_game(TINY_GAME_CODE, "tiny-game", &HashMap::default());
+
+        assert_eq!(game.name, "TinyGame");
+        assert_eq!(game.consts[0].0, "n");
+        assert_eq!(game.consts[0].1, Type::Integer);
+        assert_eq!(game.consts.len(), 1);
+        assert!(game.pkgs.is_empty());
+    }
+
+    #[test]
+    fn tiny_package() {
+        let pkg = parse_pkg(TINY_PKG_CODE, "tiny-pkg");
+
+        assert_eq!(pkg.0, "TinyPkg");
+        assert_eq!(pkg.1.params.len(), 1);
+        assert_eq!(pkg.1.params[0].0, "n");
+        assert_eq!(pkg.1.params[0].1, Type::Integer);
+        assert_eq!(pkg.1.oracles.len(), 1);
+        assert_eq!(pkg.1.oracles[0].sig.name, "N");
+        assert_eq!(pkg.1.oracles[0].sig.tipe, Type::Integer);
+        assert!(pkg.1.oracles[0].sig.args.is_empty());
+    }
+
+    #[test]
+    fn small_game() {
+        let (name, pkg) = parse_pkg(TINY_PKG_CODE, "tiny-pkg");
+        let pkg_map = HashMap::from_iter(vec![(name, pkg.clone())].into_iter());
+        let game = parse_game(SMALL_GAME_CODE, "small-game", &pkg_map);
+
+        assert_eq!(game.name, "SmallGame");
+        assert_eq!(game.consts.len(), 1);
+        assert_eq!(game.consts[0].0, "n");
+        assert_eq!(game.consts[0].1, Type::Integer);
+        assert_eq!(game.pkgs.len(), 1);
+        assert_eq!(game.pkgs[0].name, "tiny_instance");
+        assert_eq!(game.pkgs[0].params.len(), 1);
+        assert_eq!(game.pkgs[0].params[0].0, "n");
+        assert_eq!(
+            game.pkgs[0].params[0].1,
+            Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(
+                GameConstIdentifier {
+                    name: "n".to_string(),
+                    tipe: Type::Integer,
+                    game_name: "SmallGame".to_string()
+                }
+            )))
+        );
+        assert_eq!(game.pkgs[0].pkg, pkg);
+    }
 }

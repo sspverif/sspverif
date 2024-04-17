@@ -59,51 +59,51 @@ pub mod pkg_ident {
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct PackageConstIdentifier {
-        pkg_name: String,
-        name: String,
-        tipe: crate::types::Type,
+        pub pkg_name: String,
+        pub name: String,
+        pub tipe: crate::types::Type,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct PackageStateIdentifier {
-        pkg_name: String,
-        name: String,
-        tipe: crate::types::Type,
+        pub pkg_name: String,
+        pub name: String,
+        pub tipe: crate::types::Type,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct PackageLocalIdentifier {
-        pkg_name: String,
-        oracle_name: String,
-        name: String,
-        tipe: crate::types::Type,
+        pub pkg_name: String,
+        pub oracle_name: String,
+        pub name: String,
+        pub tipe: crate::types::Type,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct PackageOracleArgIdentifier {
-        pkg_name: String,
-        oracle_name: String,
-        name: String,
-        tipe: crate::types::Type,
+        pub pkg_name: String,
+        pub oracle_name: String,
+        pub name: String,
+        pub tipe: crate::types::Type,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct PackageOracleImportIdentifier {
-        pkg_name: String,
-        name: String,
-        args: Vec<crate::types::Type>,
-        return_type: crate::types::Type,
+        pub pkg_name: String,
+        pub name: String,
+        pub args: Vec<crate::types::Type>,
+        pub return_type: crate::types::Type,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct PackageImportsLoopVarIdentifier {
-        pkg_name: String,
-        name: String,
+        pub pkg_name: String,
+        pub name: String,
         // tipe is always Integer
-        start: Box<Expression>,
-        end: Box<Expression>,
-        start_comp: ForComp,
-        end_comp: ForComp,
+        pub start: Box<Expression>,
+        pub end: Box<Expression>,
+        pub start_comp: ForComp,
+        pub end_comp: ForComp,
     }
 }
 
@@ -131,20 +131,20 @@ pub mod game_ident {
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct GameConstIdentifier {
-        game_name: String,
-        name: String,
-        tipe: crate::types::Type,
+        pub game_name: String,
+        pub name: String,
+        pub tipe: crate::types::Type,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct GameLoopVarIdentifier {
-        game_name: String,
-        name: String,
+        pub game_name: String,
+        pub name: String,
         // tipe is always Integer
-        start: Box<Expression>,
-        end: Box<Expression>,
-        start_comp: ForComp,
-        end_comp: ForComp,
+        pub start: Box<Expression>,
+        pub end: Box<Expression>,
+        pub start_comp: ForComp,
+        pub end_comp: ForComp,
     }
 }
 
@@ -181,76 +181,76 @@ pub mod pkg_inst_ident {
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct PackageInstanceGameConstIdentifier {
-        game_name: String,
-        pkg_inst_name: String,
-        pkg_name: String,
-        name: String,
-        tipe: crate::types::Type,
+        pub game_name: String,
+        pub pkg_inst_name: String,
+        pub pkg_name: String,
+        pub name: String,
+        pub tipe: crate::types::Type,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct PackageInstanceGameLoopVarIdentifier {
-        game_name: String,
-        pkg_inst_name: String,
-        pkg_name: String,
-        name: String,
+        pub game_name: String,
+        pub pkg_inst_name: String,
+        pub pkg_name: String,
+        pub name: String,
         // tipe is always Integer
-        start: Box<Expression>,
-        end: Box<Expression>,
-        start_comp: ForComp,
-        end_comp: ForComp,
+        pub start: Box<Expression>,
+        pub end: Box<Expression>,
+        pub start_comp: ForComp,
+        pub end_comp: ForComp,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct PackageInstanceStateIdentifier {
-        game_name: String,
-        pkg_inst_name: String,
-        pkg_name: String,
-        name: String,
-        tipe: crate::types::Type,
+        pub game_name: String,
+        pub pkg_inst_name: String,
+        pub pkg_name: String,
+        pub name: String,
+        pub tipe: crate::types::Type,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct PackageInstanceLocalIdentifier {
-        game_name: String,
-        pkg_inst_name: String,
-        pkg_name: String,
-        oracle_name: String,
-        name: String,
-        tipe: crate::types::Type,
+        pub game_name: String,
+        pub pkg_inst_name: String,
+        pub pkg_name: String,
+        pub oracle_name: String,
+        pub name: String,
+        pub tipe: crate::types::Type,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct PackageInstanceOracleArgIdentifier {
-        game_name: String,
-        pkg_inst_name: String,
-        pkg_name: String,
-        oracle_name: String,
-        name: String,
-        tipe: crate::types::Type,
+        pub game_name: String,
+        pub pkg_inst_name: String,
+        pub pkg_name: String,
+        pub oracle_name: String,
+        pub name: String,
+        pub tipe: crate::types::Type,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct PackageInstanceOracleImportIdentifier {
-        game_name: String,
-        pkg_inst_name: String,
-        pkg_name: String,
-        name: String,
-        args: Vec<crate::types::Type>,
-        return_type: crate::types::Type,
+        pub game_name: String,
+        pub pkg_inst_name: String,
+        pub pkg_name: String,
+        pub name: String,
+        pub args: Vec<crate::types::Type>,
+        pub return_type: crate::types::Type,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct PackageInstanceImportsLoopVarIdentifier {
-        game_name: String,
-        pkg_inst_name: String,
-        pkg_name: String,
-        name: String,
+        pub game_name: String,
+        pub pkg_inst_name: String,
+        pub pkg_name: String,
+        pub name: String,
         // tipe is always Integer
-        start: Box<Expression>,
-        end: Box<Expression>,
-        start_comp: ForComp,
-        end_comp: ForComp,
+        pub start: Box<Expression>,
+        pub end: Box<Expression>,
+        pub start_comp: ForComp,
+        pub end_comp: ForComp,
     }
 }
 
@@ -303,6 +303,9 @@ impl PartialEq for Identifier {
                     && pkg_param.name_in_comp == game_inst_const.name_in_comp
                     && pkg_param.name_in_proof == game_inst_const.name_in_proof
             }
+            (Self::GameIdentifier(x), Self::GameIdentifier(y)) => x == y,
+            (Self::PackageIdentifier(x), Self::PackageIdentifier(y)) => x == y,
+            (Self::PackageInstanceIdentifier(x), Self::PackageInstanceIdentifier(y)) => x == y,
             _ => false,
         }
     }

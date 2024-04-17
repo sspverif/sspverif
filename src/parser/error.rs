@@ -196,6 +196,8 @@ pub enum Error {
     UndefinedGameInstance(String),
     #[error("error parsing game: {0}")]
     ParseGameError(#[from] ParseGameError),
+    #[error("scope error: {0}")]
+    ScopeError(#[from] crate::util::scope::Error),
 }
 
 impl Error {
