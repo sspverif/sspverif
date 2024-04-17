@@ -1,4 +1,6 @@
 use crate::expressions::Expression;
+use crate::identifier::Identifier;
+use crate::package::OracleSig;
 use crate::parser::package::ForComp;
 use crate::parser::package::ForSpec;
 use crate::types;
@@ -13,7 +15,23 @@ pub enum ValidityContext {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum OracleContext {
+    Package {
+        pkg_name: String,
+    },
+
+    PackageInstance {
+        pkg_name: String,
+        pkg_inst_name: String,
+        game_name: String,
+    },
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Declaration {
+    Identifier(Identifier),
+    Oracle(OracleContext, OracleSig),
+    // old stuff below
     CompositionConst {
         tipe: Type,
         game_name: String,
@@ -68,6 +86,15 @@ pub enum Declaration {
 impl Declaration {
     pub fn validity_context(&self) -> ValidityContext {
         match self {
+            Declaration::Oracle(_, _) => ValidityContext::Package,
+            Declaration::Identifier(ident) => match ident {
+                Identifier::PackageIdentifier(_) => ValidityContext::Package,
+                Identifier::PackageInstanceIdentifier(_) => ValidityContext::Package,
+                Identifier::GameIdentifier(_) => ValidityContext::Game,
+                _ => {
+                    panic!("found old-style identifier, should not be used")
+                }
+            },
             Declaration::CompositionConst { .. } | Declaration::CompositionForSpec { .. } => {
                 ValidityContext::Game
             }

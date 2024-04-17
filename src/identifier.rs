@@ -1,4 +1,4 @@
-use crate::{expressions::Expression, parser::package::ForComp};
+use crate::{expressions::Expression, parser::package::ForComp, types::Type};
 
 #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord)]
 pub enum Identifier {
@@ -28,6 +28,8 @@ pub enum Identifier {
 // variant
 
 pub mod pkg_ident {
+    use crate::types::Type;
+
     use super::*;
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
@@ -54,6 +56,17 @@ pub mod pkg_ident {
 
         pub(crate) fn ident(&self) -> String {
             self.ident_ref().to_string()
+        }
+
+        pub(crate) fn get_type(&self) -> Type {
+            match self {
+                PackageIdentifier::Const(const_ident) => const_ident.tipe.clone(),
+                PackageIdentifier::State(state_ident) => state_ident.tipe.clone(),
+                PackageIdentifier::Local(local_ident) => local_ident.tipe.clone(),
+                PackageIdentifier::OracleArg(arg_ident) => arg_ident.tipe.clone(),
+                PackageIdentifier::OracleImport(oracle_import) => oracle_import.return_type.clone(),
+                PackageIdentifier::ImportsLoopVar(loopvar) => Type::Integer,
+            }
         }
     }
 
@@ -108,6 +121,8 @@ pub mod pkg_ident {
 }
 
 pub mod game_ident {
+    use crate::types::Type;
+
     use super::*;
 
     impl GameIdentifier {
@@ -120,6 +135,13 @@ pub mod game_ident {
 
         pub(crate) fn ident(&self) -> String {
             self.ident_ref().to_string()
+        }
+
+        pub(crate) fn get_type(&self) -> Type {
+            match self {
+                GameIdentifier::Const(const_ident) => const_ident.tipe.clone(),
+                GameIdentifier::LoopVar(local_ident) => Type::Integer,
+            }
         }
     }
 
@@ -149,6 +171,8 @@ pub mod game_ident {
 }
 
 pub mod pkg_inst_ident {
+    use crate::types::Type;
+
     use super::*;
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub enum PackageInstanceIdentifier {
@@ -176,6 +200,20 @@ pub mod pkg_inst_ident {
 
         pub(crate) fn ident(&self) -> String {
             self.ident_ref().to_string()
+        }
+
+        pub(crate) fn get_type(&self) -> Type {
+            match self {
+                PackageInstanceIdentifier::State(state_ident) => state_ident.tipe.clone(),
+                PackageInstanceIdentifier::Local(local_ident) => local_ident.tipe.clone(),
+                PackageInstanceIdentifier::OracleArg(arg_ident) => arg_ident.tipe.clone(),
+                PackageInstanceIdentifier::OracleImport(oracle_import) => {
+                    oracle_import.return_type.clone()
+                }
+                PackageInstanceIdentifier::GameConst(const_ident) => const_ident.tipe.clone(),
+                PackageInstanceIdentifier::ImportsLoopVar(loopvar) => Type::Integer,
+                PackageInstanceIdentifier::LoopVar(local_ident) => Type::Integer,
+            }
         }
     }
 
@@ -319,6 +357,17 @@ impl Identifier {
     // TODO implement correct converter trait to identifier expression
     pub fn to_expression(&self) -> Expression {
         Expression::Identifier(self.clone())
+    }
+
+    pub fn get_type(&self) -> Option<Type> {
+        match self {
+            Identifier::PackageIdentifier(pkg_ident) => Some(pkg_ident.get_type()),
+            Identifier::PackageInstanceIdentifier(pkg_inst_ident) => {
+                Some(pkg_inst_ident.get_type())
+            }
+            Identifier::GameIdentifier(game_ident) => Some(game_ident.get_type()),
+            _ => None,
+        }
     }
 
     pub fn ident_ref(&self) -> &str {

@@ -211,6 +211,10 @@ pub fn handle_expression(
                 | crate::util::scope::Declaration::PackageOracleImportsForSpec { .. } => {
                     unreachable!()
                 }
+                crate::util::scope::Declaration::Identifier(ident) => ident,
+                crate::util::scope::Declaration::Oracle(_, _) => {
+                    todo!("handle error, oracle is not an expression")
+                }
             };
 
             Expression::Identifier(identifier)

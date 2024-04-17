@@ -20,6 +20,7 @@ use crate::util::resolver::Resolver;
 use crate::util::resolver::SliceResolver;
 use crate::util::scope;
 use crate::util::scope::Declaration;
+use crate::util::scope::OracleContext;
 use crate::util::scope::Scope;
 use crate::util::scope::ValidityContext;
 use crate::writers::smt::declare::declare_const;
@@ -40,8 +41,9 @@ use pest::iterators::Pair;
 
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::ops::Deref;
 
-pub fn handle_decl_list<F: Fn(Type) -> Declaration>(
+pub fn handle_decl_list<F: Fn(String, Type) -> Declaration>(
     decl_list: Pair<Rule>,
     scope: &mut Scope,
     file_name: &str,
@@ -55,7 +57,10 @@ pub fn handle_decl_list<F: Fn(Type) -> Declaration>(
             let mut inner = entry.into_inner();
             let identifier = inner.next().unwrap().as_str();
             let tipe = handle_type(inner.next().unwrap());
-            scope.declare(identifier, type_to_declaration(tipe.clone()))?;
+            scope.declare(
+                identifier,
+                type_to_declaration(identifier.to_string(), tipe.clone()),
+            )?;
             Ok((identifier.to_string(), tipe, file_pos))
         })
         .collect()
@@ -83,7 +88,7 @@ pub fn handle_arglist(arglist: Pair<Rule>) -> Vec<(String, Type)> {
 }
 
 #[derive(Debug)]
-enum ParseExpressionError {
+pub enum ParseExpressionError {
     UndefinedIdentifier(String, FilePosition),
 }
 
@@ -287,6 +292,10 @@ pub fn handle_expression(
                         end_comp,
                     },
                 )),
+                Declaration::Identifier(ident) => ident,
+                Declaration::Oracle(_, _) => {
+                    todo!("handle error, user tried assigning to an oracle")
+                }
             };
             Expression::Identifier(ident)
         }
@@ -345,6 +354,10 @@ fn transpose_result_option<T, E>(value: Result<Option<T>, E>) -> Option<Result<T
 #[derive(Debug)]
 pub enum ParseCodeError {
     ParseExpression(ParseExpressionError),
+    ScopeDeclare(crate::util::scope::Error),
+    ParseIdentifier(ParseIdentifierError),
+    UndefinedOracle(String),
+    InvokingNonOracle(Identifier),
 }
 
 impl From<ParseExpressionError> for ParseCodeError {
@@ -357,6 +370,153 @@ impl core::fmt::Display for ParseCodeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ParseCodeError::ParseExpression(err) => write!(f, "error parsing expression: {err}"),
+            ParseCodeError::ScopeDeclare(err) => {
+                write!(f, "error declaring name in scope: {err}")
+            }
+            ParseCodeError::ParseIdentifier(err) => write!(f, "error parsing identifier: {err}"),
+            ParseCodeError::UndefinedOracle(name) => write!(f, "oracle {name} is not defined"),
+            ParseCodeError::InvokingNonOracle(ident) => {
+                write!(
+                    f,
+                    "code invokes identifier {ident:?}, but it is not an oracle"
+                )
+            }
+        }
+    }
+}
+
+pub fn handle_identifier_in_code_rhs(
+    name: &str,
+    scope: &mut Scope,
+    pkg_name: &str,
+    oracle_name: &str,
+    file_name: &str,
+) -> Result<Identifier, ParseIdentifierError> {
+    let ident = match scope
+        .lookup(name)
+        .ok_or(ParseIdentifierError::Undefined(name.to_string()))?
+    {
+        Declaration::Identifier(ident) => ident,
+        Declaration::Oracle(_, _) => todo!("handle error: oracle is not allowed here"),
+        //// the ones below are all old...
+        // these are allowed:
+        Declaration::PackageConst { tipe, pkg_name } => {
+            Identifier::PackageIdentifier(PackageIdentifier::Const(PackageConstIdentifier {
+                pkg_name,
+                name: name.to_string(),
+                tipe,
+            }))
+        }
+        Declaration::PackageState { tipe, pkg_name } => todo!(),
+        Declaration::PackageOracleArg {
+            tipe,
+            pkg_name,
+            oracle_name,
+        } => todo!(),
+        Declaration::PackageOracleLocal {
+            tipe,
+            pkg_name,
+            oracle_name,
+        } => todo!(),
+        // this one indicates user error:
+        Declaration::PackageOracleImport {
+            pkg_name,
+            index,
+            index_forspecs,
+            args,
+            out,
+        } => todo!(),
+        // these can't happen:
+        Declaration::PackageOracleImportsForSpec { .. }
+        | Declaration::CompositionConst { .. }
+        | Declaration::CompositionForSpec { .. } => unreachable!(),
+    };
+
+    Ok(ident)
+}
+
+pub fn handle_identifier_in_code_lhs(
+    name: &str,
+    scope: &mut Scope,
+    pkg_name: &str,
+    oracle_name: &str,
+    file_name: &str,
+    expected_type: Type,
+) -> Result<Identifier, ParseIdentifierError> {
+    let ident = if let Some(decl) = scope.lookup(name) {
+        match decl {
+            // these are allowed:
+            Declaration::Identifier(ident) => ident,
+            Declaration::PackageConst { tipe, pkg_name } => {
+                Identifier::PackageIdentifier(PackageIdentifier::Const(PackageConstIdentifier {
+                    pkg_name,
+                    name: name.to_string(),
+                    tipe,
+                }))
+            }
+            Declaration::PackageState { .. } => todo!(),
+            Declaration::PackageOracleArg { .. } => todo!(),
+            Declaration::PackageOracleLocal { .. } => todo!(),
+            // this one indicates user error:
+            Declaration::PackageOracleImport { .. } => todo!(),
+            // these can't happen:
+            Declaration::PackageOracleImportsForSpec { .. }
+            | Declaration::CompositionConst { .. }
+            | Declaration::CompositionForSpec { .. } => unreachable!(),
+            Declaration::Oracle(_, _) => {
+                todo!("handle error, can't use oracle name on lhs of assign or invoke")
+            }
+        }
+    } else {
+        let ident =
+            Identifier::PackageIdentifier(PackageIdentifier::Local(PackageLocalIdentifier {
+                pkg_name: pkg_name.to_string(),
+                oracle_name: oracle_name.to_string(),
+                name: name.to_string(),
+                tipe: expected_type.clone(),
+            }));
+
+        scope
+            .declare(name, Declaration::Identifier(ident.clone()))
+            .map_err(ParseIdentifierError::ScopeDeclareError)?;
+
+        ident
+    };
+
+    if ident.get_type().unwrap() != expected_type {
+        Err(ParseIdentifierError::TypeMismatch(ident, expected_type))
+    } else {
+        Ok(ident)
+    }
+}
+
+#[derive(Debug)]
+pub enum ParseIdentifierError {
+    ParseExpression(ParseExpressionError),
+    ScopeDeclareError(crate::util::scope::Error),
+    Undefined(String),
+    TypeMismatch(Identifier, Type),
+}
+
+impl core::fmt::Display for ParseIdentifierError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseIdentifierError::ParseExpression(err) => {
+                write!(f, "error parsing expression: {err}")
+            }
+            ParseIdentifierError::ScopeDeclareError(err) => {
+                write!(f, "error declaring variable in scope: {err}")
+            }
+            ParseIdentifierError::Undefined(name) => {
+                write!(f, "found undefined variable `{name}`.")
+            }
+            ParseIdentifierError::TypeMismatch(ident, expected_type) => write!(
+                f,
+                "expected identifier {name} to have type {exp_tipe:?}, but found {real_type:?}",
+                name = ident.ident_ref(),
+                exp_tipe = expected_type,
+                real_type = ident.get_type().unwrap()
+            ),
         }
     }
 }
@@ -364,6 +524,8 @@ impl core::fmt::Display for ParseCodeError {
 pub fn handle_code(
     code: Pair<Rule>,
     scope: &mut Scope,
+    pkg_name: &str,
+    oracle_name: &str,
     file_name: &str,
 ) -> Result<CodeBlock, ParseCodeError> {
     code.into_inner()
@@ -376,11 +538,17 @@ pub fn handle_code(
                 Rule::ite => {
                     let mut inner = stmt.into_inner();
                     let expr = handle_expression(inner.next().unwrap(), file_name, scope)?;
-                    let ifcode = handle_code(inner.next().unwrap(), scope, file_name)?;
+                    let ifcode = handle_code(
+                        inner.next().unwrap(),
+                        scope,
+                        pkg_name,
+                        oracle_name,
+                        file_name,
+                    )?;
                     let maybe_elsecode = inner.next();
                     let elsecode = match maybe_elsecode {
                         None => CodeBlock(vec![]),
-                        Some(c) => handle_code(c, scope, file_name)?,
+                        Some(c) => handle_code(c, scope, pkg_name, oracle_name, file_name)?,
                     };
 
                     Statement::IfThenElse(expr, ifcode, elsecode, file_pos)
@@ -408,14 +576,28 @@ pub fn handle_code(
                     let ident = Identifier::new_scalar(inner.next().unwrap().as_str());
                     let tipe = handle_type(inner.next().unwrap());
                     Statement::Sample(ident, None, None, tipe, file_pos)
-                    //Statement::Assign(ident, Expression::Sample(tipe))
                 }
+
                 Rule::assign => {
                     let mut inner = stmt.into_inner();
-                    let ident = Identifier::new_scalar(inner.next().unwrap().as_str());
-                    let expr = handle_expression(inner.next().unwrap(), file_name, scope)?;
+                    let name = inner.next().unwrap().as_str();
+                    let expr = handle_expression(inner.next().unwrap(), file_name, scope)
+                        .map_err(ParseCodeError::ParseExpression)?;
+
+                    let expected_type = infer_type(scope, &expr);
+                    let ident = handle_identifier_in_code_lhs(
+                        name,
+                        scope,
+                        pkg_name,
+                        oracle_name,
+                        file_name,
+                        expected_type,
+                    )
+                    .map_err(ParseCodeError::ParseIdentifier)?;
+
                     Statement::Assign(ident, None, expr, file_pos)
                 }
+
                 Rule::table_sample => {
                     let mut inner = stmt.into_inner();
                     let ident = Identifier::new_scalar(inner.next().unwrap().as_str());
@@ -423,6 +605,7 @@ pub fn handle_code(
                     let tipe = handle_type(inner.next().unwrap());
                     Statement::Sample(ident, Some(index), None, tipe, file_pos)
                 }
+
                 Rule::table_assign => {
                     let mut inner = stmt.into_inner();
                     let ident = Identifier::new_scalar(inner.next().unwrap().as_str());
@@ -430,9 +613,10 @@ pub fn handle_code(
                     let expr = handle_expression(inner.next().unwrap(), file_name, scope)?;
                     Statement::Assign(ident, Some(index), expr, file_pos)
                 }
+
                 Rule::invocation => {
                     let mut inner = stmt.into_inner();
-                    let target_ident = Identifier::new_scalar(inner.next().unwrap().as_str());
+                    let target_ident_name = inner.next().unwrap().as_str();
                     let maybe_index = inner.next().unwrap();
                     let (opt_idx, oracle_inv) = if maybe_index.as_rule() == Rule::table_index {
                         let mut inner_index = maybe_index.into_inner();
@@ -470,6 +654,28 @@ pub fn handle_code(
                         }
                     }
 
+                    let oracle_decl = scope
+                        .lookup(oracle_name)
+                        .ok_or(ParseCodeError::UndefinedOracle(oracle_name.to_string()))?;
+
+                    let expected_type = match oracle_decl {
+                        Declaration::Oracle(context, oracle_sig) => Ok(oracle_sig.tipe),
+                        Declaration::Identifier(ident) => {
+                            Err(ParseCodeError::InvokingNonOracle(ident))
+                        }
+                        other => panic!("found old-style declaration {other:?}"),
+                    }?;
+
+                    let target_ident = handle_identifier_in_code_lhs(
+                        target_ident_name,
+                        scope,
+                        pkg_name,
+                        oracle_name,
+                        file_name,
+                        expected_type,
+                    )
+                    .map_err(ParseCodeError::ParseIdentifier)?;
+
                     Statement::InvokeOracle {
                         id: target_ident,
                         opt_idx,
@@ -503,7 +709,8 @@ pub fn handle_code(
                     let bound_var_name = parsed[2].as_str();
                     let upper_bound_type = parsed[3].as_str();
                     let upper_bound = handle_expression(parsed.remove(4), file_name, scope)?;
-                    let body = handle_code(parsed.remove(4), scope, file_name)?;
+                    let body =
+                        handle_code(parsed.remove(4), scope, pkg_name, oracle_name, file_name)?;
 
                     if decl_var_name != bound_var_name {
                         todo!("return proper error here")
@@ -561,6 +768,7 @@ impl core::fmt::Display for ParseOracleDefError {
 pub fn handle_oracle_def(
     oracle_def: Pair<Rule>,
     scope: &mut Scope,
+    pkg_name: &str,
     file_name: &str,
 ) -> Result<OracleDef, ParseOracleDefError> {
     let span = oracle_def.as_span();
@@ -569,7 +777,7 @@ pub fn handle_oracle_def(
 
     let sig =
         handle_oracle_sig(inner.next().unwrap()).map_err(ParseOracleDefError::ParseOracleSig)?;
-    let code = handle_code(inner.next().unwrap(), scope, file_name)
+    let code = handle_code(inner.next().unwrap(), scope, pkg_name, &sig.name, file_name)
         .map_err(ParseOracleDefError::ParseCode)?;
 
     let oracle_def = OracleDef {
@@ -628,9 +836,14 @@ pub fn handle_pkg_spec(
                 scope.enter();
 
                 let ast = spec.into_inner().next();
-                let declaration_constructor = |t| Declaration::PackageConst {
-                    tipe: t,
-                    pkg_name: pkg_name.to_string(),
+                let declaration_constructor = |name, tipe| {
+                    Declaration::Identifier(Identifier::PackageIdentifier(
+                        PackageIdentifier::Const(PackageConstIdentifier {
+                            pkg_name: pkg_name.to_string(),
+                            name,
+                            tipe,
+                        }),
+                    ))
                 };
                 let params_option_result: Option<Result<_, _>> = ast.map(|params| {
                     handle_decl_list(params, scope, file_name, declaration_constructor)
@@ -642,9 +855,14 @@ pub fn handle_pkg_spec(
             Rule::state => {
                 scope.enter();
                 let ast = spec.into_inner().next();
-                let declaration_constructor = |t| Declaration::PackageState {
-                    tipe: t,
-                    pkg_name: pkg_name.to_string(),
+                let declaration_constructor = |name, tipe| {
+                    Declaration::Identifier(Identifier::PackageIdentifier(
+                        PackageIdentifier::State(PackageStateIdentifier {
+                            pkg_name: pkg_name.to_string(),
+                            name,
+                            tipe,
+                        }),
+                    ))
                 };
                 let state_option_result: Option<Result<_, _>> = ast.map(|state| {
                     handle_decl_list(state, scope, file_name, declaration_constructor)
@@ -667,7 +885,7 @@ pub fn handle_pkg_spec(
             }
             Rule::oracle_def => {
                 oracles.push(
-                    handle_oracle_def(spec, scope, file_name)
+                    handle_oracle_def(spec, scope, pkg_name, file_name)
                         .map_err(ParsePackageError::ParseOracleDef)?,
                 );
             }
@@ -1298,7 +1516,18 @@ pub fn handle_import_oracles_body(
                     .map_err(|e| {
                         ParseImportOraclesError::ParseImportOracleSig(e, file_pos.clone())
                     })?;
-                imported_oracles.insert(sig.name.clone(), (sig, file_pos));
+                imported_oracles.insert(sig.name.clone(), (sig.clone(), file_pos.clone()));
+                scope
+                    .declare(
+                        &sig.name,
+                        Declaration::Oracle(
+                            OracleContext::Package {
+                                pkg_name: pkg_name.to_string(),
+                            },
+                            sig.clone(),
+                        ),
+                    )
+                    .map_err(|err| ParseImportOraclesError::DeclareError(err, file_pos))?;
             }
 
             Rule::import_oracles_for => {
@@ -1388,6 +1617,72 @@ pub fn handle_import_oracles_body(
     }
 
     Ok(())
+}
+
+pub fn infer_type(scope: &Scope, expr: &Expression) -> Type {
+    match expr {
+        Expression::Typed(tipe, _) => tipe.clone(),
+        Expression::Bot => Type::Empty,
+        Expression::Sample(tipe) => tipe.clone(),
+        Expression::StringLiteral(_) => Type::String,
+        Expression::IntegerLiteral(_) => Type::Integer,
+        Expression::BooleanLiteral(_) => Type::Boolean,
+        Expression::Identifier(ident) => ident.get_type().unwrap(),
+        Expression::EmptyTable => todo!(),
+        Expression::TableAccess(ident, _) => match ident.get_type().unwrap() {
+            Type::Table(_, value_type) => value_type.deref().clone(),
+            _ => unreachable!(),
+        },
+        Expression::Tuple(exprs) => {
+            Type::Tuple(exprs.iter().map(|expr| infer_type(scope, expr)).collect())
+        }
+        Expression::List(exprs) if !exprs.is_empty() => {
+            Type::List(Box::new(infer_type(scope, &exprs[0])))
+        }
+        Expression::List(exprs) => todo!(),
+        Expression::Set(exprs) if !exprs.is_empty() => {
+            Type::Set(Box::new(infer_type(scope, &exprs[0])))
+        }
+        Expression::Set(_) => todo!(),
+        Expression::FnCall(_, _) => todo!(),
+        Expression::None(tipe) => Type::Maybe(Box::new(tipe.clone())),
+        Expression::Some(expr) => Type::Maybe(Box::new(infer_type(scope, expr))),
+        Expression::Unwrap(expr) => match infer_type(scope, expr) {
+            Type::Maybe(tipe) => *tipe,
+            _ => unreachable!(),
+        },
+
+        Expression::Sum(expr)
+        | Expression::Prod(expr)
+        | Expression::Neg(expr)
+        | Expression::Inv(expr)
+        | Expression::Add(expr, _)
+        | Expression::Sub(expr, _)
+        | Expression::Mul(expr, _)
+        | Expression::Div(expr, _)
+        | Expression::Pow(expr, _)
+        | Expression::Mod(expr, _) => infer_type(scope, expr),
+
+        Expression::Not(_)
+        | Expression::Any(_)
+        | Expression::All(_)
+        | Expression::Equals(_)
+        | Expression::And(_)
+        | Expression::Or(_)
+        | Expression::Xor(_) => Type::Boolean,
+
+        Expression::Concat(exprs) => match infer_type(scope, &exprs[0]) {
+            Type::List(t) => *t,
+            _ => unreachable!(),
+        },
+
+        Expression::Union(expr) | Expression::Cut(expr) | Expression::SetDiff(expr) => {
+            match infer_type(scope, &*expr) {
+                Type::List(t) => *t,
+                _ => unreachable!(),
+            }
+        }
+    }
 }
 
 pub fn handle_pkg(

@@ -1033,6 +1033,28 @@ mod tests {
               return n;
             }
         }"#;
+    const SMALL_FOR_PKG_CODE: &str = r#"package SmallForPkg {
+       params {
+          n: Integer,
+       }
+
+       import oracles {
+         for i: 1 <= i <= n {
+           N[i]() -> Integer,
+         }
+       }
+
+       oracle Sum() -> Integer {
+         sum <- 0;
+
+         for i: 1 <= i <= n {
+           n_i <- invoke N[i]();
+           sum <- (sum + n_i);
+         }
+
+         return sum;
+       }
+    }"#;
 
     const TINY_GAME_CODE: &str = r#"composition TinyGame {
                 const n: Integer;
@@ -1062,16 +1084,17 @@ mod tests {
 
     #[test]
     fn tiny_package() {
-        let pkg = parse_pkg(TINY_PKG_CODE, "tiny-pkg");
+        let (name, pkg) = parse_pkg(TINY_PKG_CODE, "tiny-pkg");
 
-        assert_eq!(pkg.0, "TinyPkg");
-        assert_eq!(pkg.1.params.len(), 1);
-        assert_eq!(pkg.1.params[0].0, "n");
-        assert_eq!(pkg.1.params[0].1, Type::Integer);
-        assert_eq!(pkg.1.oracles.len(), 1);
-        assert_eq!(pkg.1.oracles[0].sig.name, "N");
-        assert_eq!(pkg.1.oracles[0].sig.tipe, Type::Integer);
-        assert!(pkg.1.oracles[0].sig.args.is_empty());
+        assert_eq!(name, "TinyPkg");
+        assert_eq!(pkg.params.len(), 1);
+        assert_eq!(pkg.params[0].0, "n");
+        assert_eq!(pkg.params[0].1, Type::Integer);
+        assert_eq!(pkg.oracles.len(), 1);
+        assert_eq!(pkg.oracles[0].sig.name, "N");
+        assert_eq!(pkg.oracles[0].sig.tipe, Type::Integer);
+        assert!(pkg.oracles[0].sig.args.is_empty());
+        assert!(pkg.imports.is_empty());
     }
 
     #[test]
@@ -1099,5 +1122,19 @@ mod tests {
             )))
         );
         assert_eq!(game.pkgs[0].pkg, pkg);
+    }
+
+    #[test]
+    fn small_for_package() {
+        let (name, pkg) = parse_pkg(SMALL_FOR_PKG_CODE, "small-for-pkg");
+
+        assert_eq!(name, "SmallForPkg");
+        assert_eq!(pkg.params.len(), 1);
+        assert_eq!(pkg.params[0].0, "n");
+        assert_eq!(pkg.params[0].1, Type::Integer);
+        assert_eq!(pkg.oracles.len(), 1);
+        assert_eq!(pkg.oracles[0].sig.name, "Sum");
+        assert_eq!(pkg.oracles[0].sig.tipe, Type::Integer);
+        assert!(pkg.oracles[0].sig.args.is_empty());
     }
 }

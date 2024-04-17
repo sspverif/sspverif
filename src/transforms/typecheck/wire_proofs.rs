@@ -4,7 +4,7 @@ use crate::{
     expressions::Expression,
     identifier::Identifier,
     package::{Composition, Edge, MultiInstanceEdge, OracleSig},
-    parser::package::{ForSpec, MultiInstanceIndices},
+    parser::package::ForSpec,
     types::Type,
     util::resolver::Named,
     writers::smt::{
@@ -352,6 +352,7 @@ fn extract_imports_set_per_source(
 }
 
 /// Extract the wires that import the package instance with the specified index
+/*
 pub fn extract_import_ranges(
     comp: &Composition,
     mi_pkg_inst_idx: usize,
@@ -472,6 +473,7 @@ pub fn extract_import_ranges(
 
     out
 }
+*/
 
 // f
 struct WireCountFn;
