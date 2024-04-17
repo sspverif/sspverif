@@ -1,9 +1,8 @@
-use crate::identifier::{GameConstIdentifier, GameIdentifier, GameLoopVarIdentifier};
+use crate::identifier::game_ident::{GameConstIdentifier, GameIdentifier, GameLoopVarIdentifier};
 use crate::statement::FilePosition;
 use crate::util::scope::Scope;
 use crate::{expressions::Expression, identifier::Identifier, types::Type};
 
-use super::composition::ParseGameError;
 use super::error::{Error, OwnedSpan, Result, SpanError};
 use super::{error, Rule};
 

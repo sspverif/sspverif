@@ -2,10 +2,10 @@ use crate::{expressions::Expression, parser::package::ForComp};
 
 #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord)]
 pub enum Identifier {
-    PackageIdentifier(PackageIdentifier),
+    PackageIdentifier(pkg_ident::PackageIdentifier),
+    PackageInstanceIdentifier(pkg_inst_ident::PackageInstanceIdentifier),
+    GameIdentifier(game_ident::GameIdentifier),
     // TODO Add
-    // PackageInstanceIdentifier(PackageInstanceIdenfier),
-    GameIdentifier(GameIdentifier),
     // GameInstanceIdentifier(GameInstanceIdentifier),
 
     // get rid of the rest
@@ -27,117 +27,231 @@ pub enum Identifier {
 // the point is we can see the context in which the identifier is valid from the outermost enum
 // variant
 
-#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
-pub enum PackageIdentifier {
-    Const(PackageConstIdentifier),
-    State(PackageStateIdentifier),
-    Local(PackageLocalIdentifier),
-    OracleImport(PackageOracleImportIdentifier),
-    OracleArg(PackageOracleArgIdentifier),
-    ImportsLoopVar(PackageImportsLoopVarIdentifier),
-}
+pub mod pkg_ident {
+    use super::*;
 
-impl PackageIdentifier {
-    pub(crate) fn ident_ref(&self) -> &str {
-        match self {
-            PackageIdentifier::Const(const_ident) => &const_ident.name,
-            PackageIdentifier::State(state_ident) => &state_ident.name,
-            PackageIdentifier::Local(local_ident) => &local_ident.name,
-            PackageIdentifier::OracleArg(arg_ident) => &arg_ident.name,
-            PackageIdentifier::OracleImport(oracle_import) => &oracle_import.name,
-            PackageIdentifier::ImportsLoopVar(loopvar) => &loopvar.name,
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub enum PackageIdentifier {
+        Const(PackageConstIdentifier),
+        State(PackageStateIdentifier),
+        Local(PackageLocalIdentifier),
+        OracleImport(PackageOracleImportIdentifier),
+        OracleArg(PackageOracleArgIdentifier),
+        ImportsLoopVar(PackageImportsLoopVarIdentifier),
+    }
+
+    impl PackageIdentifier {
+        pub(crate) fn ident_ref(&self) -> &str {
+            match self {
+                PackageIdentifier::Const(const_ident) => &const_ident.name,
+                PackageIdentifier::State(state_ident) => &state_ident.name,
+                PackageIdentifier::Local(local_ident) => &local_ident.name,
+                PackageIdentifier::OracleArg(arg_ident) => &arg_ident.name,
+                PackageIdentifier::OracleImport(oracle_import) => &oracle_import.name,
+                PackageIdentifier::ImportsLoopVar(loopvar) => &loopvar.name,
+            }
+        }
+
+        pub(crate) fn ident(&self) -> String {
+            self.ident_ref().to_string()
         }
     }
 
-    pub(crate) fn ident(&self) -> String {
-        self.ident_ref().to_string()
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct PackageConstIdentifier {
+        pkg_name: String,
+        name: String,
+        tipe: crate::types::Type,
+    }
+
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct PackageStateIdentifier {
+        pkg_name: String,
+        name: String,
+        tipe: crate::types::Type,
+    }
+
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct PackageLocalIdentifier {
+        pkg_name: String,
+        oracle_name: String,
+        name: String,
+        tipe: crate::types::Type,
+    }
+
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct PackageOracleArgIdentifier {
+        pkg_name: String,
+        oracle_name: String,
+        name: String,
+        tipe: crate::types::Type,
+    }
+
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct PackageOracleImportIdentifier {
+        pkg_name: String,
+        name: String,
+        args: Vec<crate::types::Type>,
+        return_type: crate::types::Type,
+    }
+
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct PackageImportsLoopVarIdentifier {
+        pkg_name: String,
+        name: String,
+        // tipe is always Integer
+        start: Box<Expression>,
+        end: Box<Expression>,
+        start_comp: ForComp,
+        end_comp: ForComp,
     }
 }
 
-impl GameIdentifier {
-    pub(crate) fn ident_ref(&self) -> &str {
-        match self {
-            GameIdentifier::Const(const_ident) => &const_ident.name,
-            GameIdentifier::LoopVar(loopvar) => &loopvar.name,
+pub mod game_ident {
+    use super::*;
+
+    impl GameIdentifier {
+        pub(crate) fn ident_ref(&self) -> &str {
+            match self {
+                GameIdentifier::Const(const_ident) => &const_ident.name,
+                GameIdentifier::LoopVar(loopvar) => &loopvar.name,
+            }
+        }
+
+        pub(crate) fn ident(&self) -> String {
+            self.ident_ref().to_string()
         }
     }
 
-    pub(crate) fn ident(&self) -> String {
-        self.ident_ref().to_string()
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub enum GameIdentifier {
+        Const(GameConstIdentifier),
+        LoopVar(GameLoopVarIdentifier),
+    }
+
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct GameConstIdentifier {
+        game_name: String,
+        name: String,
+        tipe: crate::types::Type,
+    }
+
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct GameLoopVarIdentifier {
+        game_name: String,
+        name: String,
+        // tipe is always Integer
+        start: Box<Expression>,
+        end: Box<Expression>,
+        start_comp: ForComp,
+        end_comp: ForComp,
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
-pub struct PackageConstIdentifier {
-    pkg_name: String,
-    name: String,
-    tipe: crate::types::Type,
-}
+pub mod pkg_inst_ident {
+    use super::*;
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub enum PackageInstanceIdentifier {
+        State(PackageInstanceStateIdentifier),
+        Local(PackageInstanceLocalIdentifier),
+        OracleImport(PackageInstanceOracleImportIdentifier),
+        OracleArg(PackageInstanceOracleArgIdentifier),
+        ImportsLoopVar(PackageInstanceImportsLoopVarIdentifier),
+        GameConst(PackageInstanceGameConstIdentifier),
+        LoopVar(PackageInstanceGameLoopVarIdentifier),
+    }
 
-#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
-pub struct PackageStateIdentifier {
-    pkg_name: String,
-    name: String,
-    tipe: crate::types::Type,
-}
+    impl PackageInstanceIdentifier {
+        pub(crate) fn ident_ref(&self) -> &str {
+            match self {
+                PackageInstanceIdentifier::State(state_ident) => &state_ident.name,
+                PackageInstanceIdentifier::Local(local_ident) => &local_ident.name,
+                PackageInstanceIdentifier::OracleArg(arg_ident) => &arg_ident.name,
+                PackageInstanceIdentifier::OracleImport(oracle_import) => &oracle_import.name,
+                PackageInstanceIdentifier::ImportsLoopVar(loopvar) => &loopvar.name,
+                PackageInstanceIdentifier::GameConst(game_const) => &game_const.name,
+                PackageInstanceIdentifier::LoopVar(loopvar) => &loopvar.name,
+            }
+        }
 
-#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
-pub struct PackageLocalIdentifier {
-    pkg_name: String,
-    oracle_name: String,
-    name: String,
-    tipe: crate::types::Type,
-}
+        pub(crate) fn ident(&self) -> String {
+            self.ident_ref().to_string()
+        }
+    }
 
-#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
-pub struct PackageOracleArgIdentifier {
-    pkg_name: String,
-    oracle_name: String,
-    name: String,
-    tipe: crate::types::Type,
-}
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct PackageInstanceGameConstIdentifier {
+        game_name: String,
+        pkg_inst_name: String,
+        pkg_name: String,
+        name: String,
+        tipe: crate::types::Type,
+    }
 
-#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
-pub struct PackageOracleImportIdentifier {
-    pkg_name: String,
-    name: String,
-    args: Vec<crate::types::Type>,
-    return_type: crate::types::Type,
-}
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct PackageInstanceGameLoopVarIdentifier {
+        game_name: String,
+        pkg_inst_name: String,
+        pkg_name: String,
+        name: String,
+        // tipe is always Integer
+        start: Box<Expression>,
+        end: Box<Expression>,
+        start_comp: ForComp,
+        end_comp: ForComp,
+    }
 
-#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
-pub struct PackageImportsLoopVarIdentifier {
-    pkg_name: String,
-    name: String,
-    // tipe is always Integer
-    start: Box<Expression>,
-    end: Box<Expression>,
-    start_comp: ForComp,
-    end_comp: ForComp,
-}
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct PackageInstanceStateIdentifier {
+        game_name: String,
+        pkg_inst_name: String,
+        pkg_name: String,
+        name: String,
+        tipe: crate::types::Type,
+    }
 
-#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
-pub enum GameIdentifier {
-    Const(GameConstIdentifier),
-    LoopVar(GameLoopVarIdentifier),
-}
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct PackageInstanceLocalIdentifier {
+        game_name: String,
+        pkg_inst_name: String,
+        pkg_name: String,
+        oracle_name: String,
+        name: String,
+        tipe: crate::types::Type,
+    }
 
-#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
-pub struct GameConstIdentifier {
-    game_name: String,
-    name: String,
-    tipe: crate::types::Type,
-}
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct PackageInstanceOracleArgIdentifier {
+        game_name: String,
+        pkg_inst_name: String,
+        pkg_name: String,
+        oracle_name: String,
+        name: String,
+        tipe: crate::types::Type,
+    }
 
-#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
-pub struct GameLoopVarIdentifier {
-    game_name: String,
-    name: String,
-    // tipe is always Integer
-    start: Box<Expression>,
-    end: Box<Expression>,
-    start_comp: ForComp,
-    end_comp: ForComp,
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct PackageInstanceOracleImportIdentifier {
+        game_name: String,
+        pkg_inst_name: String,
+        pkg_name: String,
+        name: String,
+        args: Vec<crate::types::Type>,
+        return_type: crate::types::Type,
+    }
+
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct PackageInstanceImportsLoopVarIdentifier {
+        game_name: String,
+        pkg_inst_name: String,
+        pkg_name: String,
+        name: String,
+        // tipe is always Integer
+        start: Box<Expression>,
+        end: Box<Expression>,
+        start_comp: ForComp,
+        end_comp: ForComp,
+    }
 }
 
 //// old stuff /////
@@ -214,6 +328,7 @@ impl Identifier {
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident_ref(),
             Identifier::GameInstanceConst(_) => todo!(),
             Identifier::GameIdentifier(game_ident) => game_ident.ident_ref(),
+            Identifier::PackageInstanceIdentifier(pkg_inst_ident) => pkg_inst_ident.ident_ref(),
         }
     }
 
@@ -227,6 +342,7 @@ impl Identifier {
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident(),
             Identifier::GameInstanceConst(_) => todo!(),
             Identifier::GameIdentifier(game_ident) => game_ident.ident(),
+            Identifier::PackageInstanceIdentifier(pkg_inst_ident) => pkg_inst_ident.ident(),
         }
     }
 }

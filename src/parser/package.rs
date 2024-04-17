@@ -1,13 +1,13 @@
 use crate::expressions::Expression;
+use crate::identifier::pkg_ident::PackageConstIdentifier;
+use crate::identifier::pkg_ident::PackageIdentifier;
+use crate::identifier::pkg_ident::PackageImportsLoopVarIdentifier;
+use crate::identifier::pkg_ident::PackageLocalIdentifier;
+use crate::identifier::pkg_ident::PackageOracleArgIdentifier;
+use crate::identifier::pkg_ident::PackageOracleImportIdentifier;
+use crate::identifier::pkg_ident::PackageStateIdentifier;
 use crate::identifier::ComposeLoopVar;
 use crate::identifier::Identifier;
-use crate::identifier::PackageConstIdentifier;
-use crate::identifier::PackageIdentifier;
-use crate::identifier::PackageImportsLoopVarIdentifier;
-use crate::identifier::PackageLocalIdentifier;
-use crate::identifier::PackageOracleArgIdentifier;
-use crate::identifier::PackageOracleImportIdentifier;
-use crate::identifier::PackageStateIdentifier;
 use crate::package::OracleDef;
 use crate::package::OracleSig;
 use crate::package::Package;
@@ -260,10 +260,9 @@ pub fn handle_expression(
                 )),
                 Declaration::PackageOracleImport {
                     pkg_name,
-                    index,
-                    index_forspecs,
                     args,
                     out,
+                    ..
                 } => Identifier::PackageIdentifier(PackageIdentifier::OracleImport(
                     PackageOracleImportIdentifier {
                         pkg_name,
@@ -1307,7 +1306,6 @@ pub fn handle_import_oracles_body(
                 let mut for_ast = entry.into_inner();
 
                 let ident_ast = for_ast.next().unwrap();
-                let ident_file_pos = FilePosition::from_span(file_name, ident_ast.as_span());
                 let ident = ident_ast.as_str().to_string();
 
                 let for_start_ast = for_ast.next().unwrap();
