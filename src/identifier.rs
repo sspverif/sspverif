@@ -5,7 +5,7 @@ pub enum Identifier {
     PackageIdentifier(PackageIdentifier),
     // TODO Add
     // PackageInstanceIdentifier(PackageInstanceIdenfier),
-    // GameIdentifier(GameIdentifier),
+    GameIdentifier(GameIdentifier),
     // GameInstanceIdentifier(GameInstanceIdentifier),
 
     // get rid of the rest
@@ -46,6 +46,19 @@ impl PackageIdentifier {
             PackageIdentifier::OracleArg(arg_ident) => &arg_ident.name,
             PackageIdentifier::OracleImport(oracle_import) => &oracle_import.name,
             PackageIdentifier::ImportsLoopVar(loopvar) => &loopvar.name,
+        }
+    }
+
+    pub(crate) fn ident(&self) -> String {
+        self.ident_ref().to_string()
+    }
+}
+
+impl GameIdentifier {
+    pub(crate) fn ident_ref(&self) -> &str {
+        match self {
+            GameIdentifier::Const(const_ident) => &const_ident.name,
+            GameIdentifier::LoopVar(loopvar) => &loopvar.name,
         }
     }
 
@@ -102,6 +115,32 @@ pub struct PackageImportsLoopVarIdentifier {
     start_comp: ForComp,
     end_comp: ForComp,
 }
+
+#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+pub enum GameIdentifier {
+    Const(GameConstIdentifier),
+    LoopVar(GameLoopVarIdentifier),
+}
+
+#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+pub struct GameConstIdentifier {
+    game_name: String,
+    name: String,
+    tipe: crate::types::Type,
+}
+
+#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+pub struct GameLoopVarIdentifier {
+    game_name: String,
+    name: String,
+    // tipe is always Integer
+    start: Box<Expression>,
+    end: Box<Expression>,
+    start_comp: ForComp,
+    end_comp: ForComp,
+}
+
+//// old stuff /////
 
 #[derive(Debug, Clone, PartialEq, Hash, PartialOrd, Eq, Ord)]
 pub struct PackageState {
@@ -174,6 +213,7 @@ impl Identifier {
             Identifier::ComposeLoopVar(ComposeLoopVar { name_in_pkg, .. }) => &name_in_pkg,
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident_ref(),
             Identifier::GameInstanceConst(_) => todo!(),
+            Identifier::GameIdentifier(game_ident) => game_ident.ident_ref(),
         }
     }
 
@@ -186,6 +226,7 @@ impl Identifier {
             Identifier::ComposeLoopVar(ComposeLoopVar { name_in_pkg, .. }) => name_in_pkg.clone(),
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident(),
             Identifier::GameInstanceConst(_) => todo!(),
+            Identifier::GameIdentifier(game_ident) => game_ident.ident(),
         }
     }
 }
