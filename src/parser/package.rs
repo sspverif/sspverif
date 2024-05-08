@@ -473,7 +473,7 @@ pub fn handle_code(
                     let expr = handle_expression(inner.next().unwrap(), file_name, scope)
                         .map_err(ParseCodeError::ParseExpression)?;
 
-                    let expected_type = infer_type(&expr);
+                    let expected_type = expr.get_type();
                     let ident = handle_identifier_in_code_lhs(
                         name,
                         scope,
@@ -1519,80 +1519,6 @@ pub fn handle_import_oracles_body(
         }
     }
     Ok(())
-}
-
-pub fn infer_type(expr: &Expression) -> Type {
-    match expr {
-        Expression::Typed(tipe, _) => tipe.clone(),
-        Expression::Bot => Type::Empty,
-        Expression::Sample(tipe) => tipe.clone(),
-        Expression::StringLiteral(_) => Type::String,
-        Expression::BooleanLiteral(_) => Type::Boolean,
-        Expression::IntegerLiteral(_) => Type::Integer,
-        Expression::Identifier(ident) => ident.get_type().unwrap(),
-        Expression::EmptyTable(t) => t.clone(),
-        Expression::TableAccess(ident, _) => match ident.get_type().unwrap() {
-            Type::Table(_, value_type) => value_type.deref().clone(),
-            _ => unreachable!(),
-        },
-        Expression::Tuple(exprs) => {
-            Type::Tuple(exprs.iter().map(|expr| infer_type(expr)).collect())
-        }
-        Expression::List(exprs) if !exprs.is_empty() => Type::List(Box::new(infer_type(&exprs[0]))),
-        Expression::List(exprs) => todo!(),
-        Expression::Set(exprs) if !exprs.is_empty() => Type::Set(Box::new(infer_type(&exprs[0]))),
-        Expression::Set(_) => todo!(),
-        Expression::FnCall(ident, _) => match ident {
-            Identifier::PackageIdentifier(pkg_ident) => pkg_ident.get_type(),
-            Identifier::PackageInstanceIdentifier(pkg_inst_ident) => pkg_inst_ident.get_type(),
-            Identifier::GameIdentifier(game_ident) => game_ident.get_type(),
-
-            // These are old and need to go
-            Identifier::Scalar(_)
-            | Identifier::State(_)
-            | Identifier::Parameter(_)
-            | Identifier::ComposeLoopVar(_)
-            | Identifier::Local(_)
-            | Identifier::GameInstanceConst(_) => unreachable!(),
-        },
-        Expression::None(tipe) => Type::Maybe(Box::new(tipe.clone())),
-        Expression::Some(expr) => Type::Maybe(Box::new(infer_type(expr))),
-        Expression::Unwrap(expr) => match infer_type(expr) {
-            Type::Maybe(tipe) => *tipe,
-            _ => unreachable!(),
-        },
-
-        Expression::Sum(expr)
-        | Expression::Prod(expr)
-        | Expression::Neg(expr)
-        | Expression::Inv(expr)
-        | Expression::Add(expr, _)
-        | Expression::Sub(expr, _)
-        | Expression::Mul(expr, _)
-        | Expression::Div(expr, _)
-        | Expression::Pow(expr, _)
-        | Expression::Mod(expr, _) => infer_type(expr),
-
-        Expression::Not(_)
-        | Expression::Any(_)
-        | Expression::All(_)
-        | Expression::Equals(_)
-        | Expression::And(_)
-        | Expression::Or(_)
-        | Expression::Xor(_) => Type::Boolean,
-
-        Expression::Concat(exprs) => match infer_type(&exprs[0]) {
-            Type::List(t) => *t,
-            _ => unreachable!(),
-        },
-
-        Expression::Union(expr) | Expression::Cut(expr) | Expression::SetDiff(expr) => {
-            match infer_type(&*expr) {
-                Type::List(t) => *t,
-                _ => unreachable!(),
-            }
-        }
-    }
 }
 
 pub fn handle_pkg(

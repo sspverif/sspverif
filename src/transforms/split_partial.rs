@@ -631,8 +631,8 @@ fn get_declarations(stmt: &Statement) -> Option<(String, Type)> {
         }
         Statement::Assign(Identifier::Local(id_name), Some(idx), expr, _) => Some((
             id_name.to_string(),
-            Type::Table(Box::new(idx.get_type().unwrap().clone()), {
-                let expr_outer_type = expr.get_type().unwrap();
+            Type::Table(Box::new(idx.get_type().clone()), {
+                let expr_outer_type = expr.get_type();
                 let expr_inner_type = match expr_outer_type {
                     Type::Maybe(inner) => inner,
                     other => unreachable!("assignment to table must be a maybe, got {:?}", other),
@@ -642,7 +642,7 @@ fn get_declarations(stmt: &Statement) -> Option<(String, Type)> {
             }),
         )),
         Statement::Assign(Identifier::Local(id_name), None, expr, _) => {
-            Some((id_name.to_string(), expr.get_type().unwrap().clone()))
+            Some((id_name.to_string(), expr.get_type().clone()))
         }
         Statement::InvokeOracle {
             id: Identifier::Local(id_name),
@@ -652,10 +652,7 @@ fn get_declarations(stmt: &Statement) -> Option<(String, Type)> {
         }
         | Statement::Sample(Identifier::Local(id_name), Some(idx), _, tipe, _) => Some((
             id_name.to_string(),
-            Type::Table(
-                Box::new(idx.get_type().unwrap().clone()),
-                Box::new(tipe.clone()),
-            ),
+            Type::Table(Box::new(idx.get_type().clone()), Box::new(tipe.clone())),
         )),
         Statement::InvokeOracle {
             id: Identifier::Local(id_name),
