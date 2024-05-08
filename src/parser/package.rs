@@ -41,6 +41,7 @@ use pest::iterators::Pair;
 
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::hash::Hash;
 use std::ops::Deref;
 
 pub fn handle_decl_list<F: Fn(String, Type) -> Declaration>(
@@ -1051,12 +1052,11 @@ impl crate::error::LocationError for ParseImportOraclesError {
     }
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialOrd, Ord)]
 pub struct MultiInstanceIndices {
     pub(crate) indices: Vec<Expression>,
     pub(crate) forspecs: Vec<ForSpec>,
 }
-
 impl MultiInstanceIndices {
     pub(crate) fn new(indices: Vec<Expression>, forspecs: Vec<ForSpec>) -> Self {
         Self { indices, forspecs }
@@ -1083,6 +1083,21 @@ impl MultiInstanceIndices {
                 .map(Expression::Identifier)
                 .collect(),
             forspecs,
+        }
+    }
+}
+
+impl Hash for MultiInstanceIndices {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let resolver = SliceResolver(&self.forspecs);
+        for index in &self.indices {
+            match index {
+                Expression::IntegerLiteral(_) => index.hash(state),
+                Expression::Identifier(ident) => {
+                    resolver.resolve_value(ident.ident_ref()).hash(state)
+                }
+                _ => unreachable!(),
+            }
         }
     }
 }
@@ -1218,37 +1233,31 @@ impl MultiInstanceIndices {
     pub(crate) fn smt_range_predicate(&self, varname: &str) -> SmtExpr {
         let resolver = SliceResolver(&self.forspecs);
         //assert!(self.indices.len() == 1);
-        for index in &self.indices {
-            let does_match: SmtExpr = match index {
-                Expression::IntegerLiteral(index) => SmtEq2 {
-                    lhs: *index,
-                    rhs: varname,
-                }
-                .into(),
-                Expression::Identifier(Identifier::Scalar(var))
-                | Expression::Identifier(Identifier::ComposeLoopVar(ComposeLoopVar {
-                    name_in_comp: var,
-                    ..
-                })) => {
-                    let forspec = resolver.resolve_value(var).unwrap();
-                    SmtAnd(vec![
-                        SmtLte(forspec.start.clone(), varname).into(),
-                        SmtLt(varname, forspec.end.clone()).into(),
-                    ])
-                    .into()
-                }
-                Expression::Identifier(Identifier::Parameter(pkg_const)) => SmtEq2 {
-                    lhs: pkg_const.name_in_comp.clone(),
-                    rhs: varname,
-                }
-                .into(),
-                _ => unreachable!(),
-            };
-
-            return does_match;
+        match &self.indices[0] {
+            Expression::IntegerLiteral(index) => SmtEq2 {
+                lhs: *index,
+                rhs: varname,
+            }
+            .into(),
+            Expression::Identifier(Identifier::Scalar(var))
+            | Expression::Identifier(Identifier::ComposeLoopVar(ComposeLoopVar {
+                name_in_comp: var,
+                ..
+            })) => {
+                let forspec = resolver.resolve_value(var).unwrap();
+                SmtAnd(vec![
+                    SmtLte(forspec.start.clone(), varname).into(),
+                    SmtLt(varname, forspec.end.clone()).into(),
+                ])
+                .into()
+            }
+            Expression::Identifier(Identifier::Parameter(pkg_const)) => SmtEq2 {
+                lhs: pkg_const.name_in_comp.clone(),
+                rhs: varname,
+            }
+            .into(),
+            _ => unreachable!(),
         }
-
-        unreachable!()
     }
 }
 

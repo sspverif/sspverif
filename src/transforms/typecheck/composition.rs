@@ -33,7 +33,7 @@ impl std::hash::Hash for IgnoreArgNameOracleSig {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.name.hash(state);
         self.0.tipe.hash(state);
-        self.0.multi_inst_idx.hash(state);
+        //self.0.multi_inst_idx.hash(state);
         state.write_usize(self.0.args.len());
 
         for (_, arg_type) in &self.0.args {

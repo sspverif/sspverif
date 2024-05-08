@@ -1,5 +1,8 @@
 use crate::{expressions::Expression, parser::package::ForComp, types::Type};
 
+// TODO: remove the Parameter and GameInstanceConst variants so we can derive PartialEq again. Then
+//       we can also remove the linter exception
+#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord)]
 pub enum Identifier {
     PackageIdentifier(pkg_ident::PackageIdentifier),
