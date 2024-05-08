@@ -1,10 +1,5 @@
-use crate::expressions::Expression;
 use crate::identifier::Identifier;
 use crate::package::OracleSig;
-use crate::parser::package::ForComp;
-use crate::parser::package::ForSpec;
-use crate::types;
-use crate::types::Type;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -187,6 +182,7 @@ mod test {
                             pkg_name: "SomePkg".to_string(),
                             name: id.to_string(),
                             tipe: t.clone(),
+                            game_ident: None,
                         },
                     ),
                 )),
@@ -223,6 +219,7 @@ mod test {
                             pkg_name: "SomePkg".to_string(),
                             name: id.to_string(),
                             tipe: t.clone(),
+                            game_ident: None,
                         },
                     ),
                 )),
@@ -251,6 +248,7 @@ mod test {
                             pkg_name: "SomePkg".to_string(),
                             name: id.to_string(),
                             tipe: t.clone(),
+                            game_ident: None,
                         },
                     ),
                 )),
@@ -267,6 +265,7 @@ mod test {
                             pkg_name: "SomePkg".to_string(),
                             name: id2.to_string(),
                             tipe: t2.clone(),
+                            game_ident: None,
                         },
                     ),
                 )),

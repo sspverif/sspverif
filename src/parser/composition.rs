@@ -7,6 +7,7 @@ use std::convert::TryInto;
 use std::iter::FromIterator;
 
 use crate::expressions::Expression;
+use crate::identifier::game_ident::GameIdentifier;
 use crate::identifier::Identifier;
 use crate::package::{
     Composition, Edge, Export, MultiInstanceEdge, MultiInstanceExport, NotSingleInstanceEdgeError,
@@ -539,26 +540,25 @@ pub fn handle_for_loop(
         _ => unreachable!(),
     };
 
-    let for_spec = ForSpec::new(
-        Identifier::Scalar(decl_var_name.into()),
-        lower_bound,
-        upper_bound,
+    let loopvar = crate::identifier::game_ident::GameLoopVarIdentifier {
+        game_name: comp_name.to_string(),
+        name: decl_var_name.to_string(),
+        start: Box::new(lower_bound),
+        end: Box::new(upper_bound),
         start_comp,
         end_comp,
-    );
+    };
+    let loopvar = GameIdentifier::LoopVar(loopvar);
+    let loopvar = Identifier::GameIdentifier(loopvar);
+    let decl = Declaration::Identifier(loopvar);
+    scope.declare(decl_var_name, decl).unwrap();
 
-    loopvars.push(for_spec);
-
-    let result = handle_for_loop_body(
+    handle_for_loop_body(
         body_ast, scope, comp_name, loopvars, pkgs, pkg_insts, consts, file_name,
-    );
-
-    loopvars.pop();
-
-    result
+    )
 }
 
-use crate::util::scope::Scope;
+use crate::util::scope::{Declaration, Scope};
 
 pub fn handle_comp_spec_list(
     ast: Pair<Rule>,

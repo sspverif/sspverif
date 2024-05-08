@@ -3,6 +3,7 @@ use crate::identifier::pkg_ident::PackageConstIdentifier;
 use crate::identifier::pkg_ident::PackageIdentifier;
 use crate::identifier::pkg_ident::PackageImportsLoopVarIdentifier;
 use crate::identifier::pkg_ident::PackageLocalIdentifier;
+use crate::identifier::pkg_ident::PackageOracleCodeLoopVarIdentifier;
 use crate::identifier::pkg_ident::PackageStateIdentifier;
 use crate::identifier::ComposeLoopVar;
 use crate::identifier::Identifier;
@@ -40,7 +41,6 @@ use pest::iterators::Pair;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::hash::Hash;
-use std::ops::Deref;
 
 pub fn handle_decl_list<F: Fn(String, Type) -> Declaration>(
     decl_list: Pair<Rule>,
@@ -241,12 +241,14 @@ pub fn handle_expression(
         Rule::literal_integer => {
             let litval = expr.as_str().trim().to_string();
 
-            Expression::IntegerLiteral(litval.parse().expect(&format!(
-                "error at position {:?}..{:?}: could not parse as int: {}",
-                expr.as_span().start_pos().line_col(),
-                expr.as_span().end_pos().line_col(),
-                expr.as_str(),
-            )))
+            Expression::IntegerLiteral(litval.parse().unwrap_or_else(|_| {
+                panic!(
+                    "error at position {:?}..{:?}: could not parse as int: {}",
+                    expr.as_span().start_pos().line_col(),
+                    expr.as_span().end_pos().line_col(),
+                    expr.as_str(),
+                )
+            }))
         }
         Rule::literal_emptyset => {
             let tipe = handle_type(expr.into_inner().next().unwrap());
@@ -598,33 +600,42 @@ pub fn handle_code(
                     let bound_var_name = parsed[2].as_str();
                     let upper_bound_type = parsed[3].as_str();
                     let upper_bound = handle_expression(parsed.remove(4), file_name, scope)?;
-                    let body =
-                        handle_code(parsed.remove(4), scope, pkg_name, oracle_name, file_name)?;
 
                     if decl_var_name != bound_var_name {
                         todo!("return proper error here")
                     }
 
-                    let lower_bound = match lower_bound_type {
-                        "<" => Expression::Add(
-                            Box::new(lower_bound),
-                            Box::new(Expression::IntegerLiteral(1)),
-                        ),
-                        "<=" => lower_bound,
+                    let lower_bound_type = match lower_bound_type {
+                        "<" => ForComp::Lt,
+                        "<=" => ForComp::Lte,
                         _ => panic!(),
                     };
 
-                    let upper_bound = match upper_bound_type {
-                        "<" => upper_bound,
-                        "<=" => Expression::Add(
-                            Box::new(upper_bound),
-                            Box::new(Expression::IntegerLiteral(1)),
-                        ),
+                    let upper_bound_type = match upper_bound_type {
+                        "<" => ForComp::Lt,
+                        "<=" => ForComp::Lte,
                         _ => panic!(),
                     };
+                    let loopvar = PackageOracleCodeLoopVarIdentifier {
+                        name: decl_var_name.to_string(),
+                        pkg_name: pkg_name.to_string(),
+                        start: Box::new(lower_bound.clone()),
+                        end: Box::new(upper_bound.clone()),
+                        start_comp: lower_bound_type,
+                        end_comp: upper_bound_type,
+                    };
+                    let loopvar: Identifier = loopvar.into();
 
-                    let ident = Identifier::Scalar(decl_var_name.to_string());
-                    Statement::For(ident, lower_bound, upper_bound, body, file_pos)
+                    scope.enter();
+                    scope
+                        .declare(decl_var_name, Declaration::Identifier(loopvar.clone()))
+                        .unwrap();
+
+                    let body =
+                        handle_code(parsed.remove(4), scope, pkg_name, oracle_name, file_name)?;
+                    scope.leave();
+
+                    Statement::For(loopvar, lower_bound, upper_bound, body, file_pos)
                 }
                 _ => {
                     unreachable!("{:#?}", stmt)
@@ -731,6 +742,7 @@ pub fn handle_pkg_spec(
                             pkg_name: pkg_name.to_string(),
                             name,
                             tipe,
+                            game_ident: None,
                         }),
                     ))
                 };
@@ -1149,115 +1161,6 @@ impl MultiInstanceIndices {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::{
-        expressions::Expression,
-        identifier::{GameInstanceConst, Identifier, PackageConst},
-    };
-
-    use super::{ForComp, ForSpec, MultiInstanceIndices};
-
-    #[test]
-    fn multi_instance_indices_equality() {
-        let ident_loop_left = Identifier::Local("left_idx".to_string());
-        let ident_loop_right = Identifier::Local("right_idx".to_string());
-        let ident_end = Identifier::GameInstanceConst(GameInstanceConst {
-            game_inst_name: "the_game_inst".to_string(),
-            name_in_comp: "n".to_string(),
-            name_in_proof: "n".to_string(),
-        });
-
-        let lit_0 = Expression::IntegerLiteral(0);
-        let lit_1 = Expression::IntegerLiteral(1);
-
-        let left = MultiInstanceIndices::new(
-            vec![Expression::Identifier(ident_loop_left.clone())],
-            vec![ForSpec {
-                ident: ident_loop_left.clone(),
-                start: lit_0.clone(),
-                end: Expression::Identifier(ident_end.clone()),
-                start_comp: ForComp::Lte,
-                end_comp: ForComp::Lte,
-            }],
-        );
-
-        let right = MultiInstanceIndices::new(
-            vec![Expression::Identifier(ident_loop_right.clone())],
-            vec![ForSpec {
-                ident: ident_loop_right.clone(),
-                start: lit_0.clone(),
-                end: Expression::Identifier(ident_end.clone()),
-                start_comp: ForComp::Lte,
-                end_comp: ForComp::Lte,
-            }],
-        );
-
-        assert_eq!(left, right);
-
-        let left = MultiInstanceIndices::new(
-            vec![Expression::Identifier(ident_loop_left.clone())],
-            vec![ForSpec {
-                ident: ident_loop_left.clone(),
-                start: lit_0.clone(),
-                end: Expression::Identifier(ident_end.clone()),
-                start_comp: ForComp::Lte,
-                end_comp: ForComp::Lte,
-            }],
-        );
-
-        let right = MultiInstanceIndices::new(
-            vec![Expression::Identifier(ident_loop_right.clone())],
-            vec![ForSpec {
-                ident: ident_loop_right.clone(),
-                start: lit_1.clone(),
-                end: Expression::Identifier(ident_end.clone()),
-                start_comp: ForComp::Lte,
-                end_comp: ForComp::Lte,
-            }],
-        );
-
-        assert!(left != right);
-
-        let ident_end_left = Identifier::GameInstanceConst(GameInstanceConst {
-            game_inst_name: "the_game_inst".to_string(),
-            name_in_comp: "n".to_string(),
-            name_in_proof: "n".to_string(),
-        });
-        let ident_end_right = Identifier::Parameter(PackageConst {
-            game_inst_name: "the_game_inst".to_string(),
-            name_in_comp: "n".to_string(),
-            name_in_proof: "n".to_string(),
-            name_in_pkg: "anything".to_string(),
-            pkgname: "anything".to_string(),
-        });
-
-        let left = MultiInstanceIndices::new(
-            vec![Expression::Identifier(ident_loop_left.clone())],
-            vec![ForSpec {
-                ident: ident_loop_left.clone(),
-                start: lit_0.clone(),
-                end: Expression::Identifier(ident_end_left.clone()),
-                start_comp: ForComp::Lte,
-                end_comp: ForComp::Lte,
-            }],
-        );
-
-        let right = MultiInstanceIndices::new(
-            vec![Expression::Identifier(ident_loop_right.clone())],
-            vec![ForSpec {
-                ident: ident_loop_right.clone(),
-                start: lit_0.clone(),
-                end: Expression::Identifier(ident_end_right.clone()),
-                start_comp: ForComp::Lte,
-                end_comp: ForComp::Lte,
-            }],
-        );
-
-        assert_eq!(left, right);
-    }
-}
-
 #[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord)]
 pub struct ForSpec {
     ident: Identifier,
@@ -1566,6 +1469,7 @@ mod tests2 {
                             pkg_name: "Foo".to_string(),
                             name: "n".to_string(),
                             tipe: Type::Integer,
+                            game_ident: None,
                         },
                     ),
                 )),

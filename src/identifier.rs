@@ -1,13 +1,21 @@
 use crate::{expressions::Expression, parser::package::ForComp, types::Type};
 
+use self::{
+    game_ident::GameConstIdentifier,
+    pkg_ident::{PackageIdentifier, PackageOracleCodeLoopVarIdentifier},
+};
+
 // TODO: remove the Parameter and GameInstanceConst variants so we can derive PartialEq again. Then
 //       we can also remove the linter exception
 #[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord)]
 pub enum Identifier {
     PackageIdentifier(pkg_ident::PackageIdentifier),
-    PackageInstanceIdentifier(pkg_inst_ident::PackageInstanceIdentifier),
     GameIdentifier(game_ident::GameIdentifier),
+
+    // this is likely not needed. We added an Option<GameIdentifier> to the package const type,
+    // which will contain the resolved identifer.
+    PackageInstanceIdentifier(pkg_inst_ident::PackageInstanceIdentifier),
     // TODO Add
     // GameInstanceIdentifier(GameInstanceIdentifier),
 
@@ -19,6 +27,18 @@ pub enum Identifier {
     Local(String),
     GameInstanceConst(GameInstanceConst),
     // TODO add parameter identifiers for each place of definition (package/game/proof)
+}
+
+impl From<GameConstIdentifier> for Identifier {
+    fn from(value: GameConstIdentifier) -> Self {
+        Identifier::GameIdentifier(game_ident::GameIdentifier::Const(value))
+    }
+}
+
+impl From<PackageOracleCodeLoopVarIdentifier> for Identifier {
+    fn from(value: PackageOracleCodeLoopVarIdentifier) -> Self {
+        Identifier::PackageIdentifier(PackageIdentifier::CodeLoopVar(value))
+    }
 }
 
 // later we can do something like this, not entirely sure about the semantics.
@@ -33,6 +53,8 @@ pub enum Identifier {
 pub mod pkg_ident {
     use crate::types::Type;
 
+    use self::game_ident::GameIdentifier;
+
     use super::*;
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
@@ -43,6 +65,7 @@ pub mod pkg_ident {
         OracleImport(PackageOracleImportIdentifier),
         OracleArg(PackageOracleArgIdentifier),
         ImportsLoopVar(PackageImportsLoopVarIdentifier),
+        CodeLoopVar(PackageOracleCodeLoopVarIdentifier),
     }
 
     impl PackageIdentifier {
@@ -54,6 +77,7 @@ pub mod pkg_ident {
                 PackageIdentifier::OracleArg(arg_ident) => &arg_ident.name,
                 PackageIdentifier::OracleImport(oracle_import) => &oracle_import.name,
                 PackageIdentifier::ImportsLoopVar(loopvar) => &loopvar.name,
+                PackageIdentifier::CodeLoopVar(loopvar) => &loopvar.name,
             }
         }
 
@@ -68,7 +92,8 @@ pub mod pkg_ident {
                 PackageIdentifier::Local(local_ident) => local_ident.tipe.clone(),
                 PackageIdentifier::OracleArg(arg_ident) => arg_ident.tipe.clone(),
                 PackageIdentifier::OracleImport(oracle_import) => oracle_import.return_type.clone(),
-                PackageIdentifier::ImportsLoopVar(loopvar) => Type::Integer,
+                PackageIdentifier::ImportsLoopVar(_loopvar) => Type::Integer,
+                PackageIdentifier::CodeLoopVar(_loopvar) => Type::Integer,
             }
         }
     }
@@ -78,6 +103,7 @@ pub mod pkg_ident {
         pub pkg_name: String,
         pub name: String,
         pub tipe: crate::types::Type,
+        pub game_ident: Option<GameIdentifier>,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
@@ -113,6 +139,16 @@ pub mod pkg_ident {
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct PackageImportsLoopVarIdentifier {
+        pub pkg_name: String,
+        pub name: String,
+        // tipe is always Integer
+        pub start: Box<Expression>,
+        pub end: Box<Expression>,
+        pub start_comp: ForComp,
+        pub end_comp: ForComp,
+    }
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct PackageOracleCodeLoopVarIdentifier {
         pub pkg_name: String,
         pub name: String,
         // tipe is always Integer
