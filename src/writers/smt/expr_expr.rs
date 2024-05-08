@@ -8,7 +8,7 @@ impl From<Expression> for SmtExpr {
     fn from(expr: Expression) -> SmtExpr {
         //eprintln!("DEBUG expr->smt: {expr:?}");
         match expr {
-            Expression::Typed(t, inner) if *inner == Expression::EmptyTable => {
+            Expression::EmptyTable(t) => {
                 if let Type::Table(idxtipe, valtipe) = t {
                     (
                         (

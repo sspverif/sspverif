@@ -146,10 +146,8 @@ pub fn handle_expression(
             let mut inner = expr.into_inner();
             let idxtipe = handle_type(inner.next().unwrap());
             let valtipe = handle_type(inner.next().unwrap());
-            Expression::Typed(
-                Type::Table(Box::new(idxtipe), Box::new(valtipe)),
-                Box::new(Expression::EmptyTable),
-            )
+            let tabletype = Type::Table(Box::new(idxtipe), Box::new(valtipe));
+            Expression::EmptyTable(tabletype)
         }
         Rule::table_access => {
             let mut inner = expr.into_inner();

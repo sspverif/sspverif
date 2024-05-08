@@ -75,7 +75,7 @@ pub fn tableinitialize(cb: &CodeBlock, initialized: &Vec<String>) -> Result<Code
                     newcode.push(Statement::Assign(
                         Identifier::Local(id.clone()),
                         None,
-                        Expression::Typed(tabletype, Box::new(Expression::EmptyTable)),
+                        Expression::EmptyTable(tabletype),
                         file_pos.clone(),
                     ))
                 }
@@ -104,7 +104,7 @@ pub fn tableinitialize(cb: &CodeBlock, initialized: &Vec<String>) -> Result<Code
                     newcode.push(Statement::Assign(
                         Identifier::Local(id.clone()),
                         None,
-                        Expression::Typed(tabletype, Box::new(Expression::EmptyTable)),
+                        Expression::EmptyTable(tabletype),
                         file_pos.clone(),
                     ))
                 }
@@ -133,7 +133,7 @@ pub fn tableinitialize(cb: &CodeBlock, initialized: &Vec<String>) -> Result<Code
                     newcode.push(Statement::Assign(
                         Identifier::Local(id.clone()),
                         None,
-                        Expression::Typed(tabletype, Box::new(Expression::EmptyTable)),
+                        Expression::EmptyTable(tabletype),
                         file_pos.clone(),
                     ))
                 }

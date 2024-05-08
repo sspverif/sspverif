@@ -47,7 +47,7 @@ impl Type {
             Type::Tuple(tipes) => {
                 Expression::Tuple(tipes.iter().map(|tipe| tipe.default_value()).collect())
             }
-            Type::Table(_, _) => Expression::EmptyTable,
+            Type::Table(_, _) => Expression::EmptyTable(self.clone()),
             Type::Maybe(tipe) => Expression::None(*tipe.clone()),
             Type::Empty | Type::Fn(_, _) => {
                 panic!("No default value for type {:?}", self)

@@ -183,10 +183,7 @@ pub fn handle_expression(
             let mut inner = expr.into_inner();
             let idxtipe = handle_type(inner.next().unwrap());
             let valtipe = handle_type(inner.next().unwrap());
-            Expression::Typed(
-                Type::Table(Box::new(idxtipe), Box::new(valtipe)),
-                Box::new(Expression::EmptyTable),
-            )
+            Expression::EmptyTable(Type::Table(Box::new(idxtipe), Box::new(valtipe)))
         }
         Rule::table_access => {
             let mut inner = expr.into_inner();
@@ -1624,7 +1621,6 @@ pub fn handle_import_oracles_body(
             _ => unreachable!(),
         }
     }
-
     Ok(())
 }
 
@@ -1634,10 +1630,10 @@ pub fn infer_type(scope: &Scope, expr: &Expression) -> Type {
         Expression::Bot => Type::Empty,
         Expression::Sample(tipe) => tipe.clone(),
         Expression::StringLiteral(_) => Type::String,
-        Expression::IntegerLiteral(_) => Type::Integer,
         Expression::BooleanLiteral(_) => Type::Boolean,
+        Expression::IntegerLiteral(_) => Type::Integer,
         Expression::Identifier(ident) => ident.get_type().unwrap(),
-        Expression::EmptyTable => todo!(),
+        Expression::EmptyTable(t) => t.clone(),
         Expression::TableAccess(ident, _) => match ident.get_type().unwrap() {
             Type::Table(_, value_type) => value_type.deref().clone(),
             _ => unreachable!(),

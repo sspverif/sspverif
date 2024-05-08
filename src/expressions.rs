@@ -11,7 +11,7 @@ pub enum Expression {
     IntegerLiteral(i64),
     BooleanLiteral(String),
     Identifier(Identifier),
-    EmptyTable,
+    EmptyTable(Type),
     TableAccess(Identifier, Box<Expression>),
     Tuple(Vec<Expression>),
     List(Vec<Expression>),
@@ -65,7 +65,7 @@ impl Expression {
 
         match self {
             Expression::Bot
-            | Expression::EmptyTable
+            | Expression::EmptyTable(_)
             | Expression::None(_)
             | Expression::Sample(_)
             | Expression::StringLiteral(_)
@@ -112,7 +112,7 @@ impl Expression {
     {
         f(match &self {
             Expression::Bot
-            | Expression::EmptyTable
+            | Expression::EmptyTable(_)
             | Expression::None(_)
             | Expression::Sample(_)
             | Expression::StringLiteral(_)
@@ -174,7 +174,7 @@ impl Expression {
     {
         let (ac, ex) = match &self {
             Expression::Bot
-            | Expression::EmptyTable
+            | Expression::EmptyTable(_)
             | Expression::None(_)
             | Expression::Sample(_)
             | Expression::StringLiteral(_)
