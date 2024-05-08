@@ -473,7 +473,7 @@ pub fn handle_code(
                     let expr = handle_expression(inner.next().unwrap(), file_name, scope)
                         .map_err(ParseCodeError::ParseExpression)?;
 
-                    let expected_type = infer_type(scope, &expr);
+                    let expected_type = infer_type(&expr);
                     let ident = handle_identifier_in_code_lhs(
                         name,
                         scope,
@@ -1521,7 +1521,7 @@ pub fn handle_import_oracles_body(
     Ok(())
 }
 
-pub fn infer_type(scope: &Scope, expr: &Expression) -> Type {
+pub fn infer_type(expr: &Expression) -> Type {
     match expr {
         Expression::Typed(tipe, _) => tipe.clone(),
         Expression::Bot => Type::Empty,
@@ -1536,15 +1536,11 @@ pub fn infer_type(scope: &Scope, expr: &Expression) -> Type {
             _ => unreachable!(),
         },
         Expression::Tuple(exprs) => {
-            Type::Tuple(exprs.iter().map(|expr| infer_type(scope, expr)).collect())
+            Type::Tuple(exprs.iter().map(|expr| infer_type(expr)).collect())
         }
-        Expression::List(exprs) if !exprs.is_empty() => {
-            Type::List(Box::new(infer_type(scope, &exprs[0])))
-        }
+        Expression::List(exprs) if !exprs.is_empty() => Type::List(Box::new(infer_type(&exprs[0]))),
         Expression::List(exprs) => todo!(),
-        Expression::Set(exprs) if !exprs.is_empty() => {
-            Type::Set(Box::new(infer_type(scope, &exprs[0])))
-        }
+        Expression::Set(exprs) if !exprs.is_empty() => Type::Set(Box::new(infer_type(&exprs[0]))),
         Expression::Set(_) => todo!(),
         Expression::FnCall(ident, _) => match ident {
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.get_type(),
@@ -1560,8 +1556,8 @@ pub fn infer_type(scope: &Scope, expr: &Expression) -> Type {
             | Identifier::GameInstanceConst(_) => unreachable!(),
         },
         Expression::None(tipe) => Type::Maybe(Box::new(tipe.clone())),
-        Expression::Some(expr) => Type::Maybe(Box::new(infer_type(scope, expr))),
-        Expression::Unwrap(expr) => match infer_type(scope, expr) {
+        Expression::Some(expr) => Type::Maybe(Box::new(infer_type(expr))),
+        Expression::Unwrap(expr) => match infer_type(expr) {
             Type::Maybe(tipe) => *tipe,
             _ => unreachable!(),
         },
@@ -1575,7 +1571,7 @@ pub fn infer_type(scope: &Scope, expr: &Expression) -> Type {
         | Expression::Mul(expr, _)
         | Expression::Div(expr, _)
         | Expression::Pow(expr, _)
-        | Expression::Mod(expr, _) => infer_type(scope, expr),
+        | Expression::Mod(expr, _) => infer_type(expr),
 
         Expression::Not(_)
         | Expression::Any(_)
@@ -1585,13 +1581,13 @@ pub fn infer_type(scope: &Scope, expr: &Expression) -> Type {
         | Expression::Or(_)
         | Expression::Xor(_) => Type::Boolean,
 
-        Expression::Concat(exprs) => match infer_type(scope, &exprs[0]) {
+        Expression::Concat(exprs) => match infer_type(&exprs[0]) {
             Type::List(t) => *t,
             _ => unreachable!(),
         },
 
         Expression::Union(expr) | Expression::Cut(expr) | Expression::SetDiff(expr) => {
-            match infer_type(scope, &*expr) {
+            match infer_type(&*expr) {
                 Type::List(t) => *t,
                 _ => unreachable!(),
             }

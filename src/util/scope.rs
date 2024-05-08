@@ -199,7 +199,7 @@ mod test {
         //assert_matches!(t_, Type::Type(t_), "t_ should be a real type, found {t_:?}");
 
         if let Declaration::Identifier(ident) = decl {
-            let t_ = crate::parser::package::infer_type(&scope, &Expression::Identifier(ident));
+            let t_ = crate::parser::package::infer_type(&Expression::Identifier(ident));
             assert_eq!(t, t_, "lookup returned wrong type");
         } else {
             panic!("t_ should be a real type, found {:?}", decl);
@@ -280,7 +280,7 @@ mod test {
         //assert_matches!(t_, Type::Type(t_), "t_ should be a real type, found {t_:?}");
 
         if let Declaration::Identifier(ident) = decl {
-            let t_ = crate::parser::package::infer_type(&scope, &Expression::Identifier(ident));
+            let t_ = crate::parser::package::infer_type(&Expression::Identifier(ident));
             assert_eq!(t, t_, "lookup returned wrong type");
         } else {
             panic!("t_ should be a real type, found {:?}", decl);
