@@ -31,56 +31,6 @@ pub enum OracleContext {
 pub enum Declaration {
     Identifier(Identifier),
     Oracle(OracleContext, OracleSig),
-    // old stuff below
-    CompositionConst {
-        tipe: Type,
-        game_name: String,
-    },
-
-    CompositionForSpec {
-        game_name: String,
-        start: Expression,
-        end: Expression,
-        start_comp: ForComp,
-        end_comp: ForComp,
-    },
-
-    PackageConst {
-        tipe: Type,
-        pkg_name: String,
-    },
-    PackageState {
-        tipe: Type,
-        pkg_name: String,
-    },
-
-    PackageOracleArg {
-        tipe: Type,
-        pkg_name: String,
-        oracle_name: String,
-    },
-
-    PackageOracleLocal {
-        tipe: Type,
-        pkg_name: String,
-        oracle_name: String,
-    },
-
-    PackageOracleImport {
-        pkg_name: String,
-        index: Vec<Expression>,
-        index_forspecs: Vec<ForSpec>,
-        args: Vec<types::Type>,
-        out: types::Type,
-    },
-
-    PackageOracleImportsForSpec {
-        pkg_name: String,
-        start: Expression,
-        end: Expression,
-        start_comp: ForComp,
-        end_comp: ForComp,
-    },
 }
 
 impl Declaration {
@@ -95,15 +45,6 @@ impl Declaration {
                     panic!("found old-style identifier, should not be used")
                 }
             },
-            Declaration::CompositionConst { .. } | Declaration::CompositionForSpec { .. } => {
-                ValidityContext::Game
-            }
-            Declaration::PackageConst { .. }
-            | Declaration::PackageState { .. }
-            | Declaration::PackageOracleArg { .. }
-            | Declaration::PackageOracleLocal { .. }
-            | Declaration::PackageOracleImport { .. }
-            | Declaration::PackageOracleImportsForSpec { .. } => ValidityContext::Package,
         }
     }
 }
@@ -162,25 +103,6 @@ impl Scope {
         self.types.clone()
     }
 
-    pub fn declare_oracle(
-        &mut self,
-        id: &str,
-        pkg_name: String,
-        arg_types: Vec<types::Type>,
-        ret_type: types::Type,
-    ) -> Result<(), Error> {
-        self.declare(
-            id,
-            Declaration::PackageOracleImport {
-                pkg_name,
-                index: vec![],
-                index_forspecs: vec![],
-                args: arg_types,
-                out: ret_type,
-            },
-        )
-    }
-
     /* Error conditions:
      *  - No scope at all
      *  - Identifier exists somewhere in the scope tower already
@@ -232,7 +154,7 @@ impl Scope {
 #[cfg(test)]
 mod test {
     use super::Declaration;
-    use crate::types;
+    use crate::{expressions::Expression, types};
 
     use super::Scope;
 
@@ -253,21 +175,28 @@ mod test {
         scope
             .declare(
                 id,
-                Declaration::PackageConst {
-                    tipe: t.clone(),
-                    pkg_name: "SomePkg".to_string(),
-                },
+                Declaration::Identifier(crate::identifier::Identifier::PackageIdentifier(
+                    crate::identifier::pkg_ident::PackageIdentifier::Const(
+                        crate::identifier::pkg_ident::PackageConstIdentifier {
+                            pkg_name: "SomePkg".to_string(),
+                            name: id.to_string(),
+                            tipe: t.clone(),
+                        },
+                    ),
+                )),
             )
             .expect("declare failed");
-        let t_ = scope.lookup(&id).expect("lookup failed");
+
+        let decl = scope.lookup(id).expect("lookup failed");
 
         // TODO: use this instead, once it doesn't require nightly:
         //assert_matches!(t_, Type::Type(t_), "t_ should be a real type, found {t_:?}");
 
-        if let Declaration::PackageConst { tipe: t_, .. } = t_ {
+        if let Declaration::Identifier(ident) = decl {
+            let t_ = crate::parser::package::infer_type(&scope, &Expression::Identifier(ident));
             assert_eq!(t, t_, "lookup returned wrong type");
         } else {
-            panic!("t_ should be a real type, found {:?}", t_);
+            panic!("t_ should be a real type, found {:?}", decl);
         }
     }
 
@@ -282,10 +211,15 @@ mod test {
         scope
             .declare(
                 id,
-                Declaration::PackageConst {
-                    tipe: t,
-                    pkg_name: "SomePkg".to_string(),
-                },
+                Declaration::Identifier(crate::identifier::Identifier::PackageIdentifier(
+                    crate::identifier::pkg_ident::PackageIdentifier::Const(
+                        crate::identifier::pkg_ident::PackageConstIdentifier {
+                            pkg_name: "SomePkg".to_string(),
+                            name: id.to_string(),
+                            tipe: t.clone(),
+                        },
+                    ),
+                )),
             )
             .expect("declare failed");
         scope.leave();
@@ -305,10 +239,15 @@ mod test {
         scope
             .declare(
                 id,
-                Declaration::PackageConst {
-                    tipe: t.clone(),
-                    pkg_name: "SomePkg".to_string(),
-                },
+                Declaration::Identifier(crate::identifier::Identifier::PackageIdentifier(
+                    crate::identifier::pkg_ident::PackageIdentifier::Const(
+                        crate::identifier::pkg_ident::PackageConstIdentifier {
+                            pkg_name: "SomePkg".to_string(),
+                            name: id.to_string(),
+                            tipe: t.clone(),
+                        },
+                    ),
+                )),
             )
             .expect("declare id failed");
 
@@ -316,23 +255,29 @@ mod test {
         scope
             .declare(
                 id2,
-                Declaration::PackageConst {
-                    tipe: t2.clone(),
-                    pkg_name: "SomePkg".to_string(),
-                },
+                Declaration::Identifier(crate::identifier::Identifier::PackageIdentifier(
+                    crate::identifier::pkg_ident::PackageIdentifier::Const(
+                        crate::identifier::pkg_ident::PackageConstIdentifier {
+                            pkg_name: "SomePkg".to_string(),
+                            name: id2.to_string(),
+                            tipe: t2.clone(),
+                        },
+                    ),
+                )),
             )
             .expect("declare id2 failed");
         scope.leave();
 
-        let t_ = scope.lookup(id).expect("lookup failed");
+        let decl = scope.lookup(id).expect("lookup failed");
 
         // TODO: use this instead, once it doesn't require nightly:
         //assert_matches!(t_, Type::Type(t_), "t_ should be a real type, found {t_:?}");
 
-        if let Declaration::PackageConst { tipe: t_, .. } = t_ {
+        if let Declaration::Identifier(ident) = decl {
+            let t_ = crate::parser::package::infer_type(&scope, &Expression::Identifier(ident));
             assert_eq!(t, t_, "lookup returned wrong type");
         } else {
-            panic!("t_ should be a real type, found {:?}", t_);
+            panic!("t_ should be a real type, found {:?}", decl);
         }
     }
 }

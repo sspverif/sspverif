@@ -3,8 +3,6 @@ use crate::identifier::pkg_ident::PackageConstIdentifier;
 use crate::identifier::pkg_ident::PackageIdentifier;
 use crate::identifier::pkg_ident::PackageImportsLoopVarIdentifier;
 use crate::identifier::pkg_ident::PackageLocalIdentifier;
-use crate::identifier::pkg_ident::PackageOracleArgIdentifier;
-use crate::identifier::pkg_ident::PackageOracleImportIdentifier;
 use crate::identifier::pkg_ident::PackageStateIdentifier;
 use crate::identifier::ComposeLoopVar;
 use crate::identifier::Identifier;
@@ -232,76 +230,6 @@ pub fn handle_expression(
             assert_eq!(decl.validity_context(), expect_context, "invariant does not hold! when looking up name `{name}` in scope, we got declaration {decl:?}, which is valid in context {got_context:?} but we are in context {expect_context:?}.");
 
             let ident = match decl {
-                Declaration::CompositionConst { .. } | Declaration::CompositionForSpec { .. } => {
-                    unreachable!()
-                }
-                Declaration::PackageConst { pkg_name, tipe } => Identifier::PackageIdentifier(
-                    PackageIdentifier::Const(PackageConstIdentifier {
-                        pkg_name,
-                        name,
-                        tipe,
-                    }),
-                ),
-                Declaration::PackageState { pkg_name, tipe } => Identifier::PackageIdentifier(
-                    PackageIdentifier::State(PackageStateIdentifier {
-                        pkg_name,
-                        name,
-                        tipe,
-                    }),
-                ),
-                Declaration::PackageOracleArg {
-                    pkg_name,
-                    tipe,
-                    oracle_name,
-                } => Identifier::PackageIdentifier(PackageIdentifier::OracleArg(
-                    PackageOracleArgIdentifier {
-                        pkg_name,
-                        oracle_name,
-                        name,
-                        tipe,
-                    },
-                )),
-                Declaration::PackageOracleLocal {
-                    pkg_name,
-                    tipe,
-                    oracle_name,
-                } => Identifier::PackageIdentifier(PackageIdentifier::Local(
-                    PackageLocalIdentifier {
-                        pkg_name,
-                        oracle_name,
-                        name,
-                        tipe,
-                    },
-                )),
-                Declaration::PackageOracleImport {
-                    pkg_name,
-                    args,
-                    out,
-                    ..
-                } => Identifier::PackageIdentifier(PackageIdentifier::OracleImport(
-                    PackageOracleImportIdentifier {
-                        pkg_name,
-                        name,
-                        args,
-                        return_type: out,
-                    },
-                )),
-                Declaration::PackageOracleImportsForSpec {
-                    pkg_name,
-                    start,
-                    end,
-                    start_comp,
-                    end_comp,
-                } => Identifier::PackageIdentifier(PackageIdentifier::ImportsLoopVar(
-                    PackageImportsLoopVarIdentifier {
-                        pkg_name,
-                        name,
-                        start: Box::new(start),
-                        end: Box::new(end),
-                        start_comp,
-                        end_comp,
-                    },
-                )),
                 Declaration::Identifier(ident) => ident,
                 Declaration::Oracle(_, _) => {
                     todo!("handle error, user tried assigning to an oracle")
@@ -408,38 +336,6 @@ pub fn handle_identifier_in_code_rhs(
     {
         Declaration::Identifier(ident) => ident,
         Declaration::Oracle(_, _) => todo!("handle error: oracle is not allowed here"),
-        //// the ones below are all old...
-        // these are allowed:
-        Declaration::PackageConst { tipe, pkg_name } => {
-            Identifier::PackageIdentifier(PackageIdentifier::Const(PackageConstIdentifier {
-                pkg_name,
-                name: name.to_string(),
-                tipe,
-            }))
-        }
-        Declaration::PackageState { tipe, pkg_name } => todo!(),
-        Declaration::PackageOracleArg {
-            tipe,
-            pkg_name,
-            oracle_name,
-        } => todo!(),
-        Declaration::PackageOracleLocal {
-            tipe,
-            pkg_name,
-            oracle_name,
-        } => todo!(),
-        // this one indicates user error:
-        Declaration::PackageOracleImport {
-            pkg_name,
-            index,
-            index_forspecs,
-            args,
-            out,
-        } => todo!(),
-        // these can't happen:
-        Declaration::PackageOracleImportsForSpec { .. }
-        | Declaration::CompositionConst { .. }
-        | Declaration::CompositionForSpec { .. } => unreachable!(),
     };
 
     Ok(ident)
@@ -457,22 +353,7 @@ pub fn handle_identifier_in_code_lhs(
         match decl {
             // these are allowed:
             Declaration::Identifier(ident) => ident,
-            Declaration::PackageConst { tipe, pkg_name } => {
-                Identifier::PackageIdentifier(PackageIdentifier::Const(PackageConstIdentifier {
-                    pkg_name,
-                    name: name.to_string(),
-                    tipe,
-                }))
-            }
-            Declaration::PackageState { .. } => todo!(),
-            Declaration::PackageOracleArg { .. } => todo!(),
-            Declaration::PackageOracleLocal { .. } => todo!(),
-            // this one indicates user error:
-            Declaration::PackageOracleImport { .. } => todo!(),
             // these can't happen:
-            Declaration::PackageOracleImportsForSpec { .. }
-            | Declaration::CompositionConst { .. }
-            | Declaration::CompositionForSpec { .. } => unreachable!(),
             Declaration::Oracle(_, _) => {
                 todo!("handle error, can't use oracle name on lhs of assign or invoke")
             }
@@ -1594,20 +1475,26 @@ pub fn handle_import_oracles_body(
                     ));
                 }
 
-                let for_decl = Declaration::PackageOracleImportsForSpec {
+                let ident_data = PackageImportsLoopVarIdentifier {
                     pkg_name: pkg_name.to_string(),
-                    start: for_start.clone(),
-                    end: for_end.clone(),
+                    name: ident.clone(),
+                    start: Box::new(for_start.clone()),
+                    end: Box::new(for_end.clone()),
                     start_comp,
                     end_comp,
                 };
 
-                scope.declare(&ident, for_decl).map_err(|e| {
-                    ParseImportOraclesError::DeclareError(
-                        e,
-                        FilePosition::from_span(file_name, for_span),
-                    )
-                })?;
+                let identifier =
+                    Identifier::PackageIdentifier(PackageIdentifier::ImportsLoopVar(ident_data));
+
+                scope
+                    .declare(&ident, Declaration::Identifier(identifier))
+                    .map_err(|e| {
+                        ParseImportOraclesError::DeclareError(
+                            e,
+                            FilePosition::from_span(file_name, for_span),
+                        )
+                    })?;
 
                 let for_spec = ForSpec {
                     ident: Identifier::Scalar(ident2),

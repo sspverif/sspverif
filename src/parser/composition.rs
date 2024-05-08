@@ -588,10 +588,15 @@ pub fn handle_comp_spec_list(
                 scope
                     .declare(
                         &name,
-                        crate::util::scope::Declaration::CompositionConst {
-                            tipe,
-                            game_name: game_name.to_string(),
-                        },
+                        crate::util::scope::Declaration::Identifier(Identifier::GameIdentifier(
+                            crate::identifier::game_ident::GameIdentifier::Const(
+                                crate::identifier::game_ident::GameConstIdentifier {
+                                    game_name: game_name.to_string(),
+                                    name: name.clone(),
+                                    tipe,
+                                },
+                            ),
+                        )),
                     )
                     .unwrap();
             }

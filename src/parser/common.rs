@@ -1,4 +1,4 @@
-use crate::identifier::game_ident::{GameConstIdentifier, GameIdentifier, GameLoopVarIdentifier};
+use crate::identifier::game_ident::GameIdentifier;
 use crate::statement::FilePosition;
 use crate::util::scope::Scope;
 use crate::{expressions::Expression, identifier::Identifier, types::Type};
@@ -180,35 +180,6 @@ pub fn handle_expression(
                 ))?;
 
             let identifier = match decl {
-                crate::util::scope::Declaration::CompositionConst { tipe, game_name } => {
-                    Identifier::GameIdentifier(GameIdentifier::Const(GameConstIdentifier {
-                        game_name,
-                        name,
-                        tipe,
-                    }))
-                }
-                crate::util::scope::Declaration::CompositionForSpec {
-                    game_name,
-                    start,
-                    end,
-                    start_comp,
-                    end_comp,
-                } => Identifier::GameIdentifier(GameIdentifier::LoopVar(GameLoopVarIdentifier {
-                    game_name,
-                    name,
-                    start: Box::new(start),
-                    end: Box::new(end),
-                    start_comp,
-                    end_comp,
-                })),
-                crate::util::scope::Declaration::PackageConst { .. }
-                | crate::util::scope::Declaration::PackageState { .. }
-                | crate::util::scope::Declaration::PackageOracleArg { .. }
-                | crate::util::scope::Declaration::PackageOracleLocal { .. }
-                | crate::util::scope::Declaration::PackageOracleImport { .. }
-                | crate::util::scope::Declaration::PackageOracleImportsForSpec { .. } => {
-                    unreachable!()
-                }
                 crate::util::scope::Declaration::Identifier(ident) => ident,
                 crate::util::scope::Declaration::Oracle(_, _) => {
                     todo!("handle error, oracle is not an expression")
