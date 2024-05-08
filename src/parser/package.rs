@@ -193,6 +193,8 @@ pub fn handle_expression(
             Expression::TableAccess(Identifier::new_scalar(ident), Box::new(expr))
         }
         Rule::fn_call => {
+            let span = expr.as_span();
+            let file_pos = FilePosition::from_span(file_name, span);
             let mut inner = expr.into_inner();
             let ident = inner.next().unwrap().as_str();
             let args = match inner.next() {
@@ -202,7 +204,17 @@ pub fn handle_expression(
                     .map(|expr| handle_expression(expr, file_name, scope))
                     .collect::<Result<_, _>>()?,
             };
-            Expression::FnCall(Identifier::new_scalar(ident), args)
+            let decl = scope
+                .lookup(ident)
+                .ok_or(ParseExpressionError::UndefinedIdentifier(
+                    ident.to_string(),
+                    file_pos,
+                ))?;
+            let ident = match decl {
+                Declaration::Identifier(ident) => ident,
+                _ => unreachable!(),
+            };
+            Expression::FnCall(ident, args)
         }
         Rule::identifier => {
             let span = expr.as_span();
