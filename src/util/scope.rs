@@ -34,6 +34,12 @@ pub enum Declaration {
 }
 
 impl Declaration {
+    pub fn into_identifier(self) -> Result<Identifier, Self> {
+        match self {
+            Declaration::Identifier(ident) => Ok(ident),
+            Declaration::Oracle(_, _) => Err(self),
+        }
+    }
     pub fn validity_context(&self) -> ValidityContext {
         match self {
             Declaration::Oracle(_, _) => ValidityContext::Package,

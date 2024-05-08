@@ -208,10 +208,7 @@ pub fn handle_expression(
                     ident.to_string(),
                     file_pos,
                 ))?;
-            let ident = match decl {
-                Declaration::Identifier(ident) => ident,
-                _ => unreachable!(),
-            };
+            let ident = decl.into_identifier().unwrap();
             Expression::FnCall(ident, args)
         }
         Rule::identifier => {
@@ -330,13 +327,16 @@ pub fn handle_identifier_in_code_rhs(
     oracle_name: &str,
     file_name: &str,
 ) -> Result<Identifier, ParseIdentifierError> {
-    let ident = match scope
+    let ident = scope
         .lookup(name)
         .ok_or(ParseIdentifierError::Undefined(name.to_string()))?
-    {
-        Declaration::Identifier(ident) => ident,
-        Declaration::Oracle(_, _) => todo!("handle error: oracle is not allowed here"),
-    };
+        .into_identifier()
+        .unwrap_or_else(|decl| {
+            panic!(
+                "expected an identifier, got a declaration {decl:?}",
+                decl = decl
+            )
+        });
 
     Ok(ident)
 }
@@ -350,14 +350,8 @@ pub fn handle_identifier_in_code_lhs(
     expected_type: Type,
 ) -> Result<Identifier, ParseIdentifierError> {
     let ident = if let Some(decl) = scope.lookup(name) {
-        match decl {
-            // these are allowed:
-            Declaration::Identifier(ident) => ident,
-            // these can't happen:
-            Declaration::Oracle(_, _) => {
-                todo!("handle error, can't use oracle name on lhs of assign or invoke")
-            }
-        }
+        decl.into_identifier()
+            .map_err(|decl| ParseIdentifierError::InvalidLeftHandSide(name.to_string(), decl))?
     } else {
         let ident =
             Identifier::PackageIdentifier(PackageIdentifier::Local(PackageLocalIdentifier {
@@ -387,11 +381,15 @@ pub enum ParseIdentifierError {
     ScopeDeclareError(crate::util::scope::Error),
     Undefined(String),
     TypeMismatch(Identifier, Type),
+    InvalidLeftHandSide(String, Declaration),
 }
 
 impl core::fmt::Display for ParseIdentifierError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            ParseIdentifierError::InvalidLeftHandSide(name, decl) => {
+                write!(f, "error parsing left-hand-side name `{name}`: expected an identifier, got {decl:?}")
+            }
             ParseIdentifierError::ParseExpression(err) => {
                 write!(f, "error parsing expression: {err}")
             }
