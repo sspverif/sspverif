@@ -1546,7 +1546,19 @@ pub fn infer_type(scope: &Scope, expr: &Expression) -> Type {
             Type::Set(Box::new(infer_type(scope, &exprs[0])))
         }
         Expression::Set(_) => todo!(),
-        Expression::FnCall(_, _) => todo!(),
+        Expression::FnCall(ident, _) => match ident {
+            Identifier::PackageIdentifier(pkg_ident) => pkg_ident.get_type(),
+            Identifier::PackageInstanceIdentifier(pkg_inst_ident) => pkg_inst_ident.get_type(),
+            Identifier::GameIdentifier(game_ident) => game_ident.get_type(),
+
+            // These are old and need to go
+            Identifier::Scalar(_)
+            | Identifier::State(_)
+            | Identifier::Parameter(_)
+            | Identifier::ComposeLoopVar(_)
+            | Identifier::Local(_)
+            | Identifier::GameInstanceConst(_) => unreachable!(),
+        },
         Expression::None(tipe) => Type::Maybe(Box::new(tipe.clone())),
         Expression::Some(expr) => Type::Maybe(Box::new(infer_type(scope, expr))),
         Expression::Unwrap(expr) => match infer_type(scope, expr) {
