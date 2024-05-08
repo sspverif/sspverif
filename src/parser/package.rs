@@ -1715,6 +1715,7 @@ mod tests2 {
             package::{ForComp, ForSpec},
             Rule, SspParser,
         },
+        types::Type,
         util::scope::Scope,
         writers::smt::exprs::{SmtLt, SmtLte},
     };
@@ -1724,6 +1725,22 @@ mod tests2 {
     #[test]
     fn example_smt_stuff() {
         let mut scope = Scope::new();
+        scope.enter();
+        scope
+            .declare(
+                "n",
+                crate::util::scope::Declaration::Identifier(Identifier::PackageIdentifier(
+                    crate::identifier::pkg_ident::PackageIdentifier::Const(
+                        crate::identifier::pkg_ident::PackageConstIdentifier {
+                            pkg_name: "Foo".to_string(),
+                            name: "n".to_string(),
+                            tipe: Type::Integer,
+                        },
+                    ),
+                )),
+            )
+            .unwrap();
+
         let mut parse_expr = |text: &str| {
             handle_expression(
                 SspParser::parse(Rule::expression, text)

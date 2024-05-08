@@ -91,6 +91,9 @@ impl From<Expression> for SmtExpr {
                 }
                 list
             }),
+            Expression::Identifier(Identifier::PackageIdentifier(pkg_ident)) => {
+                pkg_ident.ident_ref().into()
+            }
             Expression::Identifier(Identifier::Scalar(identname)) => {
                 panic! {"Found a scalar {:} which should have been removed by varspecify at this point", identname}
             }
