@@ -103,7 +103,28 @@ pub mod pkg_ident {
         pub pkg_name: String,
         pub name: String,
         pub tipe: crate::types::Type,
-        pub game_ident: Option<GameIdentifier>,
+        pub game_assignment: Option<Box<Expression>>,
+    }
+
+    impl PackageConstIdentifier {
+        pub(crate) fn ident(&self) -> String {
+            self.name.clone()
+        }
+
+        pub(crate) fn ident_ref(&self) -> &str {
+            &self.name
+        }
+
+        pub(crate) fn eq_except_game_assignment(&self, other: &Self) -> bool {
+            let Self {
+                pkg_name,
+                name,
+                tipe,
+                game_assignment: _unused,
+            } = self;
+
+            pkg_name == &other.pkg_name && name == &other.name && tipe == &other.tipe
+        }
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
@@ -147,6 +168,7 @@ pub mod pkg_ident {
         pub start_comp: ForComp,
         pub end_comp: ForComp,
     }
+
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct PackageOracleCodeLoopVarIdentifier {
         pub pkg_name: String,

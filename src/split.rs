@@ -65,6 +65,10 @@ impl SplitPath {
         Self(vec![])
     }
 
+    pub fn new(comps: Vec<SplitPathComponent>) -> Self {
+        Self(comps)
+    }
+
     pub fn path(&self) -> &Vec<SplitPathComponent> {
         &self.0
     }

@@ -242,12 +242,6 @@ fn var_specify_oracle_sig(
         .multi_inst_idx
         .clone()
         .map(|multi_instance_indices| {
-            println!(
-                "ASDASD {}.{} -- {}",
-                pkg_inst.name,
-                oracle_sig.name,
-                oracle_sig.multi_inst_idx.is_some()
-            );
             let mut new_forspecs = vec![];
             for forspec in &multi_instance_indices.forspecs {
                 new_forspecs.push(ForSpec::new(

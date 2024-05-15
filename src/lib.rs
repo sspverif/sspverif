@@ -5,6 +5,7 @@ pub mod expressions;
 pub mod gamehops;
 pub mod identifier;
 pub mod package;
+pub mod packageinstance;
 pub mod split;
 pub mod statement;
 pub mod types;

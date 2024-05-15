@@ -5,7 +5,6 @@ use crate::identifier::pkg_ident::PackageImportsLoopVarIdentifier;
 use crate::identifier::pkg_ident::PackageLocalIdentifier;
 use crate::identifier::pkg_ident::PackageOracleCodeLoopVarIdentifier;
 use crate::identifier::pkg_ident::PackageStateIdentifier;
-use crate::identifier::ComposeLoopVar;
 use crate::identifier::Identifier;
 use crate::package::OracleDef;
 use crate::package::OracleSig;
@@ -15,8 +14,6 @@ use crate::statement::FilePosition;
 use crate::statement::Statement;
 use crate::types::Type;
 use crate::util::resolver::Named;
-use crate::util::resolver::Resolver;
-use crate::util::resolver::SliceResolver;
 use crate::util::scope;
 use crate::util::scope::Declaration;
 use crate::util::scope::OracleContext;
@@ -65,10 +62,10 @@ pub fn handle_decl_list<F: Fn(String, Type) -> Declaration>(
         .collect()
 }
 
-pub fn handle_types_list(types: Pair<Rule>) -> Vec<Type> {
+pub fn handle_types_list(types: Pair<Rule>) -> Vec<String> {
     types
         .into_inner()
-        .map(|entry| Type::UserDefined(entry.as_str().to_string()))
+        .map(|entry| entry.as_str().to_string())
         .collect()
 }
 
@@ -742,7 +739,7 @@ pub fn handle_pkg_spec(
                             pkg_name: pkg_name.to_string(),
                             name,
                             tipe,
-                            game_ident: None,
+                            game_assignment: None,
                         }),
                     ))
                 };
@@ -773,6 +770,9 @@ pub fn handle_pkg_spec(
             }
             Rule::import_oracles => {
                 scope.enter();
+
+                let mut loopvar_scope = scope.clone();
+
                 let body_ast = spec.into_inner().next().unwrap();
                 handle_import_oracles_body(
                     body_ast,
@@ -780,7 +780,7 @@ pub fn handle_pkg_spec(
                     pkg_name,
                     file_name,
                     scope,
-                    &vec![],
+                    &mut loopvar_scope,
                 )
                 .map_err(ParsePackageError::ParseImportOracleSig)?
             }
@@ -837,7 +837,7 @@ pub fn handle_oracle_sig(oracle_sig: Pair<Rule>) -> Result<OracleSig, ParseOracl
         name: name.to_string(),
         tipe,
         args,
-        multi_inst_idx: None,
+        multi_inst_idx: MultiInstanceIndices::new(vec![]),
     })
 }
 
@@ -866,7 +866,7 @@ pub fn handle_oracle_imports_oracle_sig(
     oracle_sig: Pair<Rule>,
     file_name: &str,
     scope: &mut Scope,
-    for_stack: &Vec<ForSpec>,
+    loopvar_scope: &Scope,
 ) -> Result<OracleSig, ParseImportsOracleSigError> {
     println!("{:?}", oracle_sig.as_rule());
 
@@ -876,7 +876,7 @@ pub fn handle_oracle_imports_oracle_sig(
     let name = inner.next().unwrap().as_str();
 
     let (multi_inst_idx, args) = {
-        let mut multi_inst_idx = None;
+        let mut multi_inst_idx = vec![];
         let mut arglist = vec![];
 
         while let Some(next) = inner.peek() {
@@ -884,10 +884,10 @@ pub fn handle_oracle_imports_oracle_sig(
                 Rule::indices_expr => {
                     let indices: Vec<_> = next
                         .into_inner()
-                        .map(|expr| handle_expression(expr, file_name, scope))
+                        .map(|expr| handle_expression(expr, file_name, loopvar_scope))
                         .collect::<Result<_, _>>()
                         .map_err(ParseImportsOracleSigError::IndexParseError)?;
-                    multi_inst_idx = Some(MultiInstanceIndices::new(indices, for_stack.to_owned()));
+                    multi_inst_idx.extend_from_slice(&indices);
                     inner.next();
                 }
                 Rule::fn_maybe_arglist => {
@@ -900,7 +900,7 @@ pub fn handle_oracle_imports_oracle_sig(
             }
         }
 
-        (multi_inst_idx, arglist)
+        (MultiInstanceIndices::new(multi_inst_idx), arglist)
     };
 
     let maybe_tipe = inner.next();
@@ -952,108 +952,17 @@ impl crate::error::LocationError for ParseImportOraclesError {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MultiInstanceIndices {
     pub(crate) indices: Vec<Expression>,
-    pub(crate) forspecs: Vec<ForSpec>,
 }
 impl MultiInstanceIndices {
-    pub(crate) fn new(indices: Vec<Expression>, forspecs: Vec<ForSpec>) -> Self {
-        Self { indices, forspecs }
+    pub(crate) fn new(indices: Vec<Expression>) -> Self {
+        Self { indices }
     }
 
-    pub(crate) fn from_strings(indices: &[String], forspecs: Vec<ForSpec>) -> Self {
-        MultiInstanceIndices {
-            indices: indices
-                .iter()
-                .cloned()
-                .map(Identifier::Scalar)
-                .map(Expression::Identifier)
-                .collect(),
-            forspecs,
-        }
-    }
-    pub(crate) fn from_strs(indices: &[&str], forspecs: Vec<ForSpec>) -> Self {
-        MultiInstanceIndices {
-            indices: indices
-                .iter()
-                .cloned()
-                .map(str::to_string)
-                .map(Identifier::Scalar)
-                .map(Expression::Identifier)
-                .collect(),
-            forspecs,
-        }
-    }
-}
-
-impl Hash for MultiInstanceIndices {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        let resolver = SliceResolver(&self.forspecs);
-        for index in &self.indices {
-            match index {
-                Expression::IntegerLiteral(_) => index.hash(state),
-                Expression::Identifier(ident) => {
-                    resolver.resolve_value(ident.ident_ref()).hash(state)
-                }
-                _ => unreachable!(),
-            }
-        }
-    }
-}
-
-impl PartialEq for MultiInstanceIndices {
-    fn eq(&self, other: &Self) -> bool {
-        if self.indices.len() != other.indices.len() {
-            return false;
-        }
-
-        let left_resolver = SliceResolver(&self.forspecs);
-        let right_resolver = SliceResolver(&other.forspecs);
-
-        let left = self.indices.iter();
-        let right = other.indices.iter();
-
-        for (i, (left, right)) in left.zip(right).enumerate() {
-            match (left, right) {
-                (Expression::IntegerLiteral(left), Expression::IntegerLiteral(right)) => {
-                    if left != right {
-                        return false;
-                    }
-                }
-                (Expression::Identifier(left), Expression::Identifier(right)) => {
-                    let left = left_resolver
-                        .resolve_value(left.ident_ref())
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "invalid input: index #{i} is not specified in {indices:?}",
-                                i = i,
-                                indices = self
-                            )
-                        });
-
-                    let right = right_resolver
-                        .resolve_value(right.ident_ref())
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "invalid input: index #{i} is not specified in {indices:?}",
-                                i = i,
-                                indices = other
-                            )
-                        });
-                    if left.start != right.start
-                        || left.end != right.end
-                        || left.start_comp != right.end_comp
-                        || left.end_comp != right.end_comp
-                    {
-                        return false;
-                    }
-                }
-                _ => return false,
-            }
-        }
-
-        true
+    pub(crate) fn empty() -> Self {
+        Self { indices: vec![] }
     }
 }
 
@@ -1131,7 +1040,6 @@ impl MultiInstanceIndices {
     /// returns smt code that checks whether a variable with name `varname` is in the range.
     /// currently only works for one-dimensional indices and panics for higher dimensions.
     pub(crate) fn smt_range_predicate(&self, varname: &str) -> SmtExpr {
-        let resolver = SliceResolver(&self.forspecs);
         //assert!(self.indices.len() == 1);
         match &self.indices[0] {
             Expression::IntegerLiteral(index) => SmtEq2 {
@@ -1139,17 +1047,20 @@ impl MultiInstanceIndices {
                 rhs: varname,
             }
             .into(),
-            Expression::Identifier(Identifier::Scalar(var))
-            | Expression::Identifier(Identifier::ComposeLoopVar(ComposeLoopVar {
-                name_in_comp: var,
-                ..
-            })) => {
-                let forspec = resolver.resolve_value(var).unwrap();
-                SmtAnd(vec![
-                    SmtLte(forspec.start.clone(), varname).into(),
-                    SmtLt(varname, forspec.end.clone()).into(),
-                ])
-                .into()
+            Expression::Identifier(Identifier::PackageIdentifier(
+                PackageIdentifier::ImportsLoopVar(loopvar),
+            )) => {
+                let start_comp: SmtExpr = match loopvar.start_comp {
+                    ForComp::Lt => SmtLt((*loopvar.start).clone(), varname).into(),
+                    ForComp::Lte => SmtLte((*loopvar.start).clone(), varname).into(),
+                };
+
+                let end_comp: SmtExpr = match loopvar.end_comp {
+                    ForComp::Lt => SmtLt(varname, (*loopvar.end).clone()).into(),
+                    ForComp::Lte => SmtLte(varname, (*loopvar.end).clone()).into(),
+                };
+
+                SmtAnd(vec![start_comp, end_comp]).into()
             }
             Expression::Identifier(Identifier::Parameter(pkg_const)) => SmtEq2 {
                 lhs: pkg_const.name_in_comp.clone(),
@@ -1304,7 +1215,7 @@ pub fn handle_import_oracles_body(
     pkg_name: &str,
     file_name: &str,
     scope: &mut Scope,
-    for_stack: &Vec<ForSpec>,
+    loopvar_scope: &mut Scope,
 ) -> Result<(), ParseImportOraclesError> {
     assert_eq!(ast.as_rule(), Rule::import_oracles_body);
 
@@ -1312,7 +1223,7 @@ pub fn handle_import_oracles_body(
         match entry.as_rule() {
             Rule::import_oracles_oracle_sig => {
                 let file_pos = FilePosition::from_span(file_name, entry.as_span());
-                let sig = handle_oracle_imports_oracle_sig(entry, file_name, scope, for_stack)
+                let sig = handle_oracle_imports_oracle_sig(entry, file_name, scope, loopvar_scope)
                     .map_err(|e| {
                         ParseImportOraclesError::ParseImportOracleSig(e, file_pos.clone())
                     })?;
@@ -1388,7 +1299,9 @@ pub fn handle_import_oracles_body(
                 let identifier =
                     Identifier::PackageIdentifier(PackageIdentifier::ImportsLoopVar(ident_data));
 
-                scope
+                loopvar_scope.enter();
+
+                loopvar_scope
                     .declare(&ident, Declaration::Identifier(identifier))
                     .map_err(|e| {
                         ParseImportOraclesError::DeclareError(
@@ -1397,25 +1310,15 @@ pub fn handle_import_oracles_body(
                         )
                     })?;
 
-                let for_spec = ForSpec {
-                    ident: Identifier::Scalar(ident2),
-                    start: for_start,
-                    end: for_end,
-                    start_comp,
-                    end_comp,
-                };
-
-                let mut new_for_stack = for_stack.clone();
-                new_for_stack.push(for_spec);
-
                 handle_import_oracles_body(
                     for_ast.next().unwrap(),
                     imported_oracles,
                     pkg_name,
                     file_name,
                     scope,
-                    &new_for_stack,
+                    loopvar_scope,
                 )?;
+                loopvar_scope.leave();
             }
 
             _ => unreachable!(),
@@ -1443,12 +1346,8 @@ mod tests2 {
 
     use crate::{
         expressions::Expression,
-        identifier::Identifier,
-        parser::{
-            common::handle_expression,
-            package::{ForComp, ForSpec},
-            Rule, SspParser,
-        },
+        identifier::{pkg_ident::PackageIdentifier, Identifier},
+        parser::{common::handle_expression, package::ForComp, Rule, SspParser},
         types::Type,
         util::scope::Scope,
         writers::smt::exprs::{SmtLt, SmtLte},
@@ -1458,6 +1357,7 @@ mod tests2 {
 
     #[test]
     fn example_smt_stuff() {
+        let pkg_name = || "Foo".to_string();
         let mut scope = Scope::new();
         scope.enter();
         scope
@@ -1466,10 +1366,10 @@ mod tests2 {
                 crate::util::scope::Declaration::Identifier(Identifier::PackageIdentifier(
                     crate::identifier::pkg_ident::PackageIdentifier::Const(
                         crate::identifier::pkg_ident::PackageConstIdentifier {
-                            pkg_name: "Foo".to_string(),
+                            pkg_name: pkg_name(),
                             name: "n".to_string(),
                             tipe: Type::Integer,
-                            game_ident: None,
+                            game_assignment: None,
                         },
                     ),
                 )),
@@ -1494,16 +1394,20 @@ mod tests2 {
             x => x,
         });
 
-        let indices_group = MultiInstanceIndicesGroup(vec![MultiInstanceIndices::from_strs(
-            &["i"],
-            vec![ForSpec {
-                ident: Identifier::Scalar("i".to_string()),
-                start: parse_expr("0"),
-                end,
-                start_comp: ForComp::Lte,
-                end_comp: ForComp::Lt,
-            }],
-        )]);
+        let indices_group = MultiInstanceIndicesGroup(vec![MultiInstanceIndices::new(vec![
+            Expression::Identifier(Identifier::PackageIdentifier(
+                PackageIdentifier::ImportsLoopVar(
+                    crate::identifier::pkg_ident::PackageImportsLoopVarIdentifier {
+                        pkg_name: pkg_name(),
+                        name: "i".to_string(),
+                        start: Box::new(parse_expr("0")),
+                        end: Box::new(end),
+                        start_comp: ForComp::Lte,
+                        end_comp: ForComp::Lt,
+                    },
+                ),
+            )),
+        ])]);
 
         let smt = indices_group.smt_check_total(
             vec![SmtLte(0, "x").into(), SmtLt("x", "n").into()],

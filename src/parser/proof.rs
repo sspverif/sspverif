@@ -175,7 +175,7 @@ fn handle_instance_assign_list(
     file_name: &str,
     proof_consts: &[(String, Type)],
     ast: Pair<Rule>,
-) -> Result<(Vec<(Type, Type)>, Vec<(String, Expression)>)> {
+) -> Result<(Vec<(String, Type)>, Vec<(String, Expression)>)> {
     let ast = ast.into_inner();
 
     let mut types = vec![];

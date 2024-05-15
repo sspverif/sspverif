@@ -1,6 +1,7 @@
 use crate::expressions::Expression;
+use crate::identifier::pkg_ident::PackageConstIdentifier;
 use crate::identifier::Identifier;
-use crate::parser::package::{ForSpec, MultiInstanceIndices};
+use crate::parser::package::MultiInstanceIndices;
 use crate::split::{SplitOracleDef, SplitOracleSig};
 use crate::statement::{CodeBlock, FilePosition};
 use crate::types::Type;
@@ -19,7 +20,7 @@ pub struct FnSig {
 pub struct OracleSig {
     pub name: String,
     pub args: Vec<(String, Type)>,
-    pub multi_inst_idx: Option<MultiInstanceIndices>,
+    pub multi_inst_idx: MultiInstanceIndices,
     pub tipe: Type,
 }
 
@@ -33,7 +34,7 @@ pub struct OracleDef {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Package {
     pub name: String,
-    pub types: Vec<Type>,
+    pub types: Vec<String>,
     pub params: Vec<(String, Type, FilePosition)>,
     pub state: Vec<(String, Type, FilePosition)>,
     pub oracles: Vec<OracleDef>,
@@ -43,11 +44,11 @@ pub struct Package {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PackageInstance {
-    pub params: Vec<(String, Expression)>,
-    pub types: Vec<(Type, Type)>,
+    pub params: Vec<(PackageConstIdentifier, Expression)>,
+    pub types: Vec<(String, Type)>,
     pub pkg: Package,
     pub name: String,
-    pub multi_instance_indices: Option<MultiInstanceIndices>,
+    pub multi_instance_indices: MultiInstanceIndices,
 }
 
 impl PackageInstance {
@@ -206,13 +207,14 @@ impl TryFrom<MultiInstanceEdge> for Edge {
     type Error = NotSingleInstanceEdgeError;
 
     fn try_from(value: MultiInstanceEdge) -> Result<Self, Self::Error> {
-        match value.oracle_sig.multi_inst_idx {
-            Some(_) => Err(NotSingleInstanceEdgeError(value)),
-            None => Ok(Edge(
+        if value.oracle_sig.multi_inst_idx.indices.is_empty() {
+            Ok(Edge(
                 value.source_pkgidx,
                 value.dest_pkgidx,
                 value.oracle_sig,
-            )),
+            ))
+        } else {
+            Err(NotSingleInstanceEdgeError(value))
         }
     }
 }
@@ -223,9 +225,10 @@ impl TryFrom<MultiInstanceExport> for Export {
     type Error = NotSingleInstanceExportError;
 
     fn try_from(value: MultiInstanceExport) -> Result<Self, Self::Error> {
-        match value.oracle_sig.multi_inst_idx {
-            Some(_) => Err(NotSingleInstanceExportError(value)),
-            None => Ok(Export(value.dest_pkgidx, value.oracle_sig)),
+        if value.oracle_sig.multi_inst_idx.indices.is_empty() {
+            Ok(Export(value.dest_pkgidx, value.oracle_sig))
+        } else {
+            Err(NotSingleInstanceExportError(value))
         }
     }
 }

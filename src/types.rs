@@ -55,4 +55,37 @@ impl Type {
             _ => todo!("No default value for type {:?}", self),
         }
     }
+
+    pub(crate) fn rewrite(&self, rules: &[(Type, Type)]) -> Self {
+        match self {
+            Type::UserDefined(_) => {
+                if let Some((_, replace)) = rules.iter().find(|(search, _)| self == search) {
+                    replace.clone()
+                } else {
+                    self.clone()
+                }
+            }
+
+            Type::Empty
+            | Type::Integer
+            | Type::String
+            | Type::Boolean
+            | Type::Bits(_)
+            | Type::AddiGroupEl(_)
+            | Type::MultGroupEl(_) => self.clone(),
+
+            Type::List(t) => Type::List(Box::new(t.rewrite(rules))),
+            Type::Maybe(t) => Type::Maybe(Box::new(t.rewrite(rules))),
+            Type::Set(t) => Type::Set(Box::new(t.rewrite(rules))),
+
+            Type::Tuple(ts) => Type::Tuple(ts.iter().map(|t| t.rewrite(rules)).collect()),
+            Type::Table(t1, t2) => {
+                Type::Table(Box::new(t1.rewrite(rules)), Box::new(t2.rewrite(rules)))
+            }
+            Type::Fn(ts, t) => Type::Fn(
+                ts.iter().map(|t| t.rewrite(rules)).collect(),
+                Box::new(t.rewrite(rules)),
+            ),
+        }
+    }
 }

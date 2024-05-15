@@ -4,6 +4,7 @@ use crate::util::scope::Scope;
 use crate::{expressions::Expression, identifier::Identifier, types::Type};
 
 use super::error::{Error, OwnedSpan, Result, SpanError};
+use super::package::handle_identifier_in_code_rhs;
 use super::{error, Rule};
 
 use pest::iterators::Pair;
@@ -279,6 +280,7 @@ pub fn handle_params_def_list(
                 | Expression::IntegerLiteral(_)
                 | Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(_))) => {}
                 Expression::Identifier(Identifier::Scalar(ident)) => {
+                    panic!("scalar is deprecated");
                     if !defined_consts
                         .iter()
                         .any(|(defd_name, _)| ident == defd_name)
@@ -300,7 +302,7 @@ pub fn handle_types_def_list(
     ast: Pair<Rule>,
     inst_name: &str,
     file_name: &str,
-) -> Result<Vec<(Type, Type)>> {
+) -> Result<Vec<(String, Type)>> {
     ast.into_inner()
         .map(|def_spec| handle_types_def_spec(def_spec, inst_name, file_name))
         .collect()
@@ -310,7 +312,7 @@ pub fn handle_types_def_spec(
     ast: Pair<Rule>,
     inst_name: &str,
     file_name: &str,
-) -> Result<(Type, Type)> {
+) -> Result<(String, Type)> {
     let span = ast.as_span();
     let file_pos = FilePosition::from_span(file_name, span);
     let mut iter = ast.into_inner();
@@ -333,7 +335,7 @@ pub fn handle_types_def_spec(
         return Err(error::Error::from(err).with_span(snd_span));
     }
 
-    Ok((handle_type(fst), snd_type))
+    Ok((fst.to_string(), snd_type))
 }
 
 pub fn handle_const_decl(ast: Pair<Rule>) -> (String, Type) {

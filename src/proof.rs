@@ -14,7 +14,7 @@ pub struct GameInstance {
     name: String,
     game_name: String,
     game: Composition,
-    types: Vec<(Type, Type)>,
+    types: Vec<(String, Type)>,
     consts: Vec<(String, Expression)>,
 }
 
@@ -24,7 +24,7 @@ impl GameInstance {
     pub fn new(
         name: String,
         game: Composition,
-        types: Vec<(Type, Type)>,
+        types: Vec<(String, Type)>,
         consts: Vec<(String, Expression)>,
     ) -> GameInstance {
         let game_name = game.name.clone();
@@ -53,7 +53,7 @@ impl GameInstance {
         &self.consts
     }
 
-    pub fn types(&self) -> &[(Type, Type)] {
+    pub fn types(&self) -> &[(String, Type)] {
         &self.types
     }
 

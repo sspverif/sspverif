@@ -7,7 +7,8 @@ use std::convert::TryInto;
 use std::iter::FromIterator;
 
 use crate::expressions::Expression;
-use crate::identifier::game_ident::GameIdentifier;
+use crate::identifier::game_ident::{GameConstIdentifier, GameIdentifier};
+use crate::identifier::pkg_ident::PackageConstIdentifier;
 use crate::identifier::Identifier;
 use crate::package::{
     Composition, Edge, Export, MultiInstanceEdge, MultiInstanceExport, NotSingleInstanceEdgeError,
@@ -89,7 +90,7 @@ pub fn handle_types_def(
     ast: Pair<Rule>,
     inst_name: &str,
     file_name: &str,
-) -> error::Result<Vec<(Type, Type)>> {
+) -> error::Result<Vec<(String, Type)>> {
     match ast.into_inner().next() {
         None => Ok(vec![]),
         Some(ast) => handle_types_def_list(ast, inst_name, file_name),
@@ -375,13 +376,12 @@ fn handle_export_compose_assign_list_multi_inst(
             Some(def) => def.sig.clone(),
         };
 
-        assert!(oracle_sig.multi_inst_idx.is_none());
+        assert!(oracle_sig.multi_inst_idx.indices.is_empty());
 
         if !dst_instance_idx.is_empty() {
-            oracle_sig.multi_inst_idx = Some(MultiInstanceIndices {
+            oracle_sig.multi_inst_idx = MultiInstanceIndices {
                 indices: dst_instance_idx,
-                forspecs: loopvars.clone(),
-            });
+            };
         }
 
         exports.push(MultiInstanceExport {
@@ -475,13 +475,8 @@ fn handle_edges_compose_assign_list_multi_inst(
             Some(def) => def.sig.clone(),
         };
 
-        let multi_inst_idx = if dst_instance_idx.is_empty() {
-            None
-        } else {
-            Some(MultiInstanceIndices {
-                indices: dst_instance_idx,
-                forspecs: loopvars.clone(),
-            })
+        let multi_inst_idx = MultiInstanceIndices {
+            indices: dst_instance_idx,
         };
 
         let oracle_sig = OracleSig {
@@ -684,22 +679,37 @@ pub fn handle_comp_spec_list(
 pub fn handle_instance_assign_list(
     ast: Pair<Rule>,
     scope: &mut Scope,
+    game_name: &str,
     inst_name: &str,
+    pkg_name: &str,
     file_name: &str,
     defined_consts: &[(String, Type)],
-) -> error::Result<(Vec<(String, Expression)>, Vec<(Type, Type)>)> {
+) -> error::Result<(
+    Vec<(PackageConstIdentifier, Expression)>,
+    Vec<(String, Type)>,
+)> {
     let mut params = vec![];
     let mut types = vec![];
 
     for elem in ast.into_inner() {
         match elem.as_rule() {
             Rule::params_def => {
-                let mut defs = handle_params_def_list(
+                let defs = handle_params_def_list(
                     elem.into_inner().next().unwrap(),
                     defined_consts,
                     scope,
                 )?;
-                params.append(&mut defs);
+                params.extend(defs.into_iter().map(|(name, value)| {
+                    (
+                        PackageConstIdentifier {
+                            pkg_name: pkg_name.to_string(),
+                            name,
+                            tipe: value.get_type(),
+                            game_assignment: Some(Box::new(value.clone())),
+                        },
+                        value,
+                    )
+                }))
             }
             Rule::types_def => {
                 let mut defs =
@@ -733,18 +743,14 @@ pub fn handle_instance_decl_multi_inst(
         .map(|ast| ast.as_str())
         .collect();
 
+    let indices_ast = inner.next().unwrap();
+    let indices = indices_ast
+        .into_inner()
+        .map(|index_ast| handle_expression(index_ast, scope))
+        .collect::<Result<Vec<_>, _>>()?;
+
     let pkg_name = inner.next().unwrap().as_str();
     let data = inner.next().unwrap();
-
-    for index in &index_id_list {
-        if loopvars
-            .iter()
-            .find(|for_spec| for_spec.ident().ident_ref() == *index)
-            .is_none()
-        {
-            return Err(error::Error::UndefinedIdentifer(index.to_string()).with_span(span));
-        }
-    }
 
     let pkg = match pkg_map.get(pkg_name) {
         None => {
@@ -765,8 +771,15 @@ pub fn handle_instance_decl_multi_inst(
         .collect();
 
     let data_span = data.as_span();
-    let (mut param_list, type_list) =
-        handle_instance_assign_list(data, scope, inst_name, file_name, &defined_consts)?;
+    let (mut param_list, type_list) = handle_instance_assign_list(
+        data,
+        scope,
+        game_name,
+        inst_name,
+        pkg_name,
+        file_name,
+        &defined_consts,
+    )?;
 
     param_list.sort();
 
@@ -787,10 +800,10 @@ pub fn handle_instance_decl_multi_inst(
                 }
             };
 
-            error::Result::Ok((pkg_param.to_string(), const_type))
+            error::Result::Ok((pkg_param.name.clone(), const_type))
         })
         .collect();
-    let mut typed_params = typed_params?;
+    let mut typed_params: Vec<(_, _)> = typed_params?;
     typed_params.sort();
 
     let mut pkg_params: Vec<_> = pkg
@@ -835,10 +848,7 @@ pub fn handle_instance_decl_multi_inst(
         ));
     }
 
-    let multi_instance_indices = Some(MultiInstanceIndices::from_strs(
-        &index_id_list,
-        loopvars.clone(),
-    ));
+    let multi_instance_indices = MultiInstanceIndices::new(indices);
 
     let inst = PackageInstance {
         name: inst_name.to_owned(),
@@ -876,18 +886,17 @@ pub fn handle_instance_decl(
 
     let index_or_pkgname = inner.next().unwrap();
     let (multi_instance_indices, pkg_name) = if index_or_pkgname.as_rule() == Rule::index_id_list {
+        let indices_ast = index_or_pkgname.into_inner();
+        let indices: Vec<_> = indices_ast
+            .map(|index| handle_expression(index, scope))
+            .collect::<Result<_, _>>()?;
         (
-            Some(MultiInstanceIndices::from_strings(
-                &handle_index_id_list(index_or_pkgname),
-                vec![],
-            )),
+            MultiInstanceIndices::new(indices),
             inner.next().unwrap().as_str(),
         )
     } else {
-        (None, index_or_pkgname.as_str())
+        (MultiInstanceIndices::empty(), index_or_pkgname.as_str())
     };
-
-    let data = inner.next().unwrap();
 
     let pkg = match pkg_map.get(pkg_name) {
         None => {
@@ -904,8 +913,16 @@ pub fn handle_instance_decl(
         .map(|(name, tipe)| (name.clone(), tipe.clone()))
         .collect();
 
-    let (mut param_list, type_list) =
-        handle_instance_assign_list(data, scope, inst_name, file_name, &defined_consts)?;
+    let instance_assign_ast = inner.next().unwrap();
+    let (mut param_list, type_list) = handle_instance_assign_list(
+        instance_assign_ast,
+        scope,
+        game_name,
+        inst_name,
+        pkg_name,
+        file_name,
+        &defined_consts,
+    )?;
 
     param_list.sort();
 
@@ -922,10 +939,10 @@ pub fn handle_instance_decl(
                     id.ident(),
                     span
                 );
-                (pkg_param.to_owned(), maybe_type.unwrap().clone())
+                (pkg_param.ident(), maybe_type.unwrap().clone())
             }
-            Expression::BooleanLiteral(_) => (pkg_param.to_string(), Type::Boolean),
-            Expression::IntegerLiteral(_) => (pkg_param.to_string(), Type::Integer),
+            Expression::BooleanLiteral(_) => (pkg_param.ident(), Type::Boolean),
+            Expression::IntegerLiteral(_) => (pkg_param.ident(), Type::Integer),
             otherwise => {
                 panic!("unhandled expression: {:?}", otherwise)
             }
@@ -975,13 +992,13 @@ pub fn handle_instance_decl(
         ));
     }
 
-    let inst = PackageInstance {
-        name: inst_name.to_owned(),
-        params: param_list,
-        types: type_list,
-        pkg: pkg.clone(),
+    let inst = PackageInstance::new(
+        inst_name.to_string(),
+        pkg,
         multi_instance_indices,
-    };
+        param_list,
+        type_list,
+    );
 
     match ResolveTypesPackageInstanceTransform.transform_package_instance(&inst) {
         Ok((inst, _)) => Ok(inst),
@@ -1115,7 +1132,7 @@ mod tests {
         assert_eq!(game.pkgs.len(), 1);
         assert_eq!(game.pkgs[0].name, "tiny_instance");
         assert_eq!(game.pkgs[0].params.len(), 1);
-        assert_eq!(game.pkgs[0].params[0].0, "n");
+        assert_eq!(game.pkgs[0].params[0].0.ident_ref(), "n");
         assert_eq!(
             game.pkgs[0].params[0].1,
             Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(
@@ -1126,7 +1143,6 @@ mod tests {
                 }
             )))
         );
-        assert_eq!(game.pkgs[0].pkg, pkg);
     }
 
     #[test]

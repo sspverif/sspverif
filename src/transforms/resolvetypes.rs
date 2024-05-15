@@ -20,7 +20,11 @@ impl super::PackageInstanceTransform for ResolveTypesPackageInstanceTransform {
         let mut inst = inst.clone();
 
         let inst_name = &inst.name;
-        let type_mapping = HashMap::from_iter(inst.types.iter().cloned());
+        let type_mapping = HashMap::from_iter(
+            inst.types
+                .iter()
+                .map(|(name, newtipe)| (Type::UserDefined(name.to_string()), newtipe.clone())),
+        );
 
         /*
         Things we need to do here:
