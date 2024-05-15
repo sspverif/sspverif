@@ -223,7 +223,7 @@ mod instantiate {
     pub(super) fn rewrite_expression(
         expr: &Expression,
         const_assignments: &[(PackageConstIdentifier, Expression)],
-        type_assignments: &[(String, Type)],
+        _type_assignments: &[(String, Type)],
     ) -> Expression {
         expr.map(|expr| match expr {
             Expression::Identifier(Identifier::PackageIdentifier(PackageIdentifier::Const(
@@ -231,10 +231,13 @@ mod instantiate {
             ))) => const_assignments
                 .iter()
                 .find_map(|(search, replace)| {
-                    // we can't compare equiality directly, because the value we look up already
-                    // has the game value set, so it is not equal and we wouldn't find it.
-                    if search.eq_except_game_assignment(&pkg_const_ident) {
-                        Some(replace.clone())
+                    if search == &pkg_const_ident {
+                        Some(Expression::Identifier(Identifier::PackageIdentifier(
+                            PackageIdentifier::Const(PackageConstIdentifier {
+                                game_assignment: Some(Box::new(replace.clone())),
+                                ..pkg_const_ident.clone()
+                            }),
+                        )))
                     } else {
                         None
                     }

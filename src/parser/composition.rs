@@ -705,7 +705,9 @@ pub fn handle_instance_assign_list(
                             pkg_name: pkg_name.to_string(),
                             name,
                             tipe: value.get_type(),
-                            game_assignment: Some(Box::new(value.clone())),
+                            // we don't resolve it here yet, so we can easily find it when
+                            // searching this list when we don't have the value yet.
+                            game_assignment: None,
                         },
                         value,
                     )
