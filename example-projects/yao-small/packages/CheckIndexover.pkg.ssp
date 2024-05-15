@@ -1,0 +1,25 @@
+package CheckIndexover {
+    params {
+        t: Integer,
+        n: Integer,
+    }
+
+    import oracles {
+        GETA(h: Integer)           -> Bits(n),
+        SETBIT(h: Integer,zz:Bool) -> (),
+    }
+
+
+    oracle GETA(h: Integer) -> Bits(n) {
+        assert ( t==h );
+        k <- invoke GETA(h);
+        return k; 
+    }
+
+    oracle SETBIT(h: Integer, zz:Bool) -> () {
+        assert ( t==h );
+        _ <- invoke SETBIT(h,zz);
+        return ;
+    }
+
+}
