@@ -7,6 +7,10 @@ package En {
         z: Table(Integer,Bool),
     }
 
+    import oracles {
+        GETKEYS(h: Integer) -> Table(Bool,Bits(n)),
+    }
+
     oracle GETAOUT(h: Integer) -> Bits(n) {
         assert (z[h] != None as Bool);
         zz <- Unwrap(z[h]);
@@ -19,10 +23,6 @@ package En {
         assert (z[h] == None as Bool);
         z[h] <- Some(zz);
         return ;
-    }
-
-    import oracles {
-        GETKEYS(h: Integer) -> Table(Bool,Bits(n)),
     }
 
 }

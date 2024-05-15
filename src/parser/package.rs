@@ -3,6 +3,7 @@ use crate::identifier::pkg_ident::PackageConstIdentifier;
 use crate::identifier::pkg_ident::PackageIdentifier;
 use crate::identifier::pkg_ident::PackageImportsLoopVarIdentifier;
 use crate::identifier::pkg_ident::PackageLocalIdentifier;
+use crate::identifier::pkg_ident::PackageOracleArgIdentifier;
 use crate::identifier::pkg_ident::PackageOracleCodeLoopVarIdentifier;
 use crate::identifier::pkg_ident::PackageStateIdentifier;
 use crate::identifier::Identifier;
@@ -182,10 +183,11 @@ pub fn handle_expression(
         }
         Rule::table_access => {
             let mut inner = expr.into_inner();
-            let ident = inner.next().unwrap().as_str();
+            let ident_name = inner.next().unwrap().as_str();
+            let ident = handle_identifier_in_code_rhs(ident_name, scope).unwrap();
             let expr = handle_expression(inner.next().unwrap(), file_name, scope)?;
             // TODO properly parse this identifier
-            Expression::TableAccess(Identifier::new_scalar(ident), Box::new(expr))
+            Expression::TableAccess(ident, Box::new(expr))
         }
         Rule::fn_call => {
             let span = expr.as_span();
@@ -321,10 +323,7 @@ impl core::fmt::Display for ParseCodeError {
 
 pub fn handle_identifier_in_code_rhs(
     name: &str,
-    scope: &mut Scope,
-    pkg_name: &str,
-    oracle_name: &str,
-    file_name: &str,
+    scope: &Scope,
 ) -> Result<Identifier, ParseIdentifierError> {
     let ident = scope
         .lookup(name)
@@ -461,8 +460,17 @@ pub fn handle_code(
                 Rule::abort => Statement::Abort(file_pos),
                 Rule::sample => {
                     let mut inner = stmt.into_inner();
-                    let ident = Identifier::new_scalar(inner.next().unwrap().as_str());
+                    let name = inner.next().unwrap().as_str();
                     let tipe = handle_type(inner.next().unwrap());
+                    let ident = handle_identifier_in_code_lhs(
+                        name,
+                        scope,
+                        pkg_name,
+                        oracle_name,
+                        file_name,
+                        tipe.clone(),
+                    )
+                    .map_err(ParseCodeError::ParseIdentifier)?;
                     Statement::Sample(ident, None, None, tipe, file_pos)
                 }
 
@@ -488,17 +496,45 @@ pub fn handle_code(
 
                 Rule::table_sample => {
                     let mut inner = stmt.into_inner();
-                    let ident = Identifier::new_scalar(inner.next().unwrap().as_str());
+                    let name = inner.next().unwrap().as_str();
                     let index = handle_expression(inner.next().unwrap(), file_name, scope)?;
                     let tipe = handle_type(inner.next().unwrap());
+                    let ident = handle_identifier_in_code_lhs(
+                        name,
+                        scope,
+                        pkg_name,
+                        oracle_name,
+                        file_name,
+                        Type::Table(Box::new(index.get_type()),  Box::new(tipe.clone())),
+                    )
+                    .map_err(ParseCodeError::ParseIdentifier)?;
                     Statement::Sample(ident, Some(index), None, tipe, file_pos)
                 }
 
                 Rule::table_assign => {
                     let mut inner = stmt.into_inner();
-                    let ident = Identifier::new_scalar(inner.next().unwrap().as_str());
+                    println!("DFGERT {inner:#?}");
+
+                    let name = inner.next().unwrap().as_str();
                     let index = handle_expression(inner.next().unwrap(), file_name, scope)?;
-                    let expr = handle_expression(inner.next().unwrap(), file_name, scope)?;
+                    let expr = handle_expression(inner.next().unwrap(), file_name, scope)
+                        .map_err(ParseCodeError::ParseExpression)?;
+
+                    let expected_type = match expr.get_type() {
+                        Type::Maybe(t) => Type::Table(Box::new(index.get_type()), t),
+                        _ => panic!("assigning non-maybe value to table {expr:?} in {oracle_name}, {pkg_name}", expr = expr, oracle_name=oracle_name, pkg_name=pkg_name),
+                    };
+
+                    let ident = handle_identifier_in_code_lhs(
+                        name,
+                        scope,
+                        pkg_name,
+                        oracle_name,
+                        file_name,
+                        expected_type,
+                    )
+                    .map_err(ParseCodeError::ParseIdentifier)?;
+
                     Statement::Assign(ident, Some(index), expr, file_pos)
                 }
 
@@ -580,12 +616,23 @@ pub fn handle_code(
                     let list = inner.next().unwrap();
                     let expr = inner.next().unwrap();
 
+                    let expr = handle_expression(expr, file_name, scope)?;
+                    let tipe = expr.get_type();
+
+                    let tipes = match tipe {
+                        Type::Tuple(tipes) => tipes,
+                        other => panic!("expected tuple type in parse, but got {other:?} in {file_name}, {pkg_name}, {oracle_name}, {expr:?}", other=other, file_name=file_name, pkg_name=pkg_name, oracle_name=oracle_name, expr=expr)
+                    };
+
                     let idents = list
                         .into_inner()
-                        .map(|ident_name| Identifier::new_scalar(ident_name.as_str()))
-                        .collect();
+                        .enumerate()
+                        .map(|(i, ident_name)| {
+                            handle_identifier_in_code_lhs(ident_name.as_str(), scope, pkg_name, oracle_name, file_name, tipes[i].clone())
+                                .map_err(ParseCodeError::ParseIdentifier)
+                        })
+                        .collect::<Result<_,_>>()?;
 
-                    let expr = handle_expression(expr, file_name, scope)?;
 
                     Statement::Parse(idents, expr, file_pos)
                 }
@@ -674,8 +721,29 @@ pub fn handle_oracle_def(
 
     let sig =
         handle_oracle_sig(inner.next().unwrap()).map_err(ParseOracleDefError::ParseOracleSig)?;
+
+    scope.enter();
+
+    for (name, tipe) in &sig.args {
+        scope
+            .declare(
+                name,
+                Declaration::Identifier(Identifier::PackageIdentifier(
+                    PackageIdentifier::OracleArg(PackageOracleArgIdentifier {
+                        pkg_name: pkg_name.to_string(),
+                        oracle_name: sig.name.clone(),
+                        name: name.clone(),
+                        tipe: tipe.clone(),
+                    }),
+                )),
+            )
+            .unwrap();
+    }
+
     let code = handle_code(inner.next().unwrap(), scope, pkg_name, &sig.name, file_name)
         .map_err(ParseOracleDefError::ParseCode)?;
+
+    scope.leave();
 
     let oracle_def = OracleDef {
         sig,

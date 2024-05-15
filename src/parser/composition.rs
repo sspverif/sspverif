@@ -248,7 +248,13 @@ pub fn handle_compose_assign_body_list_multi_inst(
             inner.next();
             maybe_src_indices
                 .into_inner()
-                .map(|idx_ident| Identifier::Scalar(idx_ident.as_str().to_string()))
+                .map(
+                    // TODO: Error handling
+                    |idx_ident| match scope.lookup(idx_ident.as_str()).unwrap() {
+                        Declaration::Oracle(_, _) => panic!("expected an identifier"),
+                        Declaration::Identifier(ident) => ident,
+                    },
+                )
                 .collect()
         } else {
             vec![]

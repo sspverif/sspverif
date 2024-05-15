@@ -39,8 +39,7 @@ impl TypedCodeBlock {
                     new_block.push(stmt.clone());
                 }
                 Statement::Return(Some(expr), file_pos) => {
-                    let typed_expr = typify(expr, scope)?;
-                    let expr_type = get_type(&typed_expr, scope)?;
+                    let expr_type = expr.get_type();
                     if i < block.len() - 1 {
                         return Err(TypeCheckError::MisplacedStatement(
                             ErrorLocation::FilePosition(file_pos.clone()),
@@ -56,7 +55,7 @@ impl TypedCodeBlock {
                             ret_type.clone(),
                         ));
                     }
-                    new_block.push(Statement::Return(Some(typed_expr), file_pos.clone()))
+                    new_block.push(Statement::Return(Some(expr.clone()), file_pos.clone()))
                 }
                 Statement::Return(None, file_pos) => {
                     if Type::Empty != *ret_type {
@@ -74,12 +73,10 @@ impl TypedCodeBlock {
                 Statement::Assign(id, opt_idx, expr, file_pos) => {
                     //println!("scope: {:?}", scope);
 
-                    let typed_expr = typify(expr, scope)?;
-                    let expr_type = get_type(&typed_expr, scope)?;
+                    let expr_type = expr.get_type();
                     if let Some(ScopeType::Type(id_type)) = scope.lookup(id) {
                         if let Some(idx) = opt_idx {
-                            let typed_idx = typify(idx, scope)?;
-                            let idx_type = get_type(&typed_idx, scope)?;
+                            let idx_type = idx.get_type();
                             if let Type::Table(k, v) = id_type {
                                 if *k != idx_type {
                                     return Err(TypeCheckError::TypeMismatch(
@@ -123,7 +120,7 @@ impl TypedCodeBlock {
                     } else {
                         //eprintln!("DEBUG optidx is {opt_idx:?}; expr_type is {expr_type:?}");
                         if let Some(idxexpr) = opt_idx {
-                            let idx_type = get_type(&idxexpr, scope)?;
+                            let idx_type = idxexpr.get_type();
                             let tabletipe = Type::Table(Box::new(idx_type), Box::new(expr_type));
                             scope
                                 .declare(id.clone(), tabletipe)
@@ -135,22 +132,15 @@ impl TypedCodeBlock {
                         }
                     }
 
-                    let opt_idx = if opt_idx.is_some() {
-                        Some(typify(&opt_idx.clone().unwrap(), scope)?)
-                    } else {
-                        None
-                    };
-
                     new_block.push(Statement::Assign(
                         id.clone(),
-                        opt_idx,
-                        typed_expr,
+                        opt_idx.clone(),
+                        expr.clone(),
                         file_pos.clone(),
                     ));
                 }
                 Statement::Parse(idents, expr, file_pos) => {
-                    let typed_expr = typify(expr, scope)?;
-                    let expr_type = get_type(&typed_expr, scope)?;
+                    let expr_type = expr.get_type();
 
                     if let Type::Tuple(types) = &expr_type {
                         if idents.len() != types.len() {
@@ -204,7 +194,7 @@ impl TypedCodeBlock {
                     }
                     new_block.push(Statement::Parse(
                         idents.clone(),
-                        typed_expr,
+                        expr.clone(),
                         file_pos.clone(),
                     ));
                 }
@@ -213,8 +203,7 @@ impl TypedCodeBlock {
 
                     if let Some(ScopeType::Type(id_type)) = scope.lookup(id) {
                         if let Some(idx) = opt_idx {
-                            let typed_idx = typify(idx, scope)?;
-                            let idx_type = get_type(&typed_idx, scope)?;
+                            let idx_type = idx.get_type();
                             if let Type::Table(k, v) = id_type {
                                 if *k != idx_type {
                                     return Err(TypeCheckError::TypeMismatch(
@@ -261,15 +250,9 @@ impl TypedCodeBlock {
                             .map_err(|err| TypeCheckError::new_scope_error(err, file_pos))?;
                     }
 
-                    let opt_idx = if opt_idx.is_some() {
-                        Some(typify(&opt_idx.clone().unwrap(), scope)?)
-                    } else {
-                        None
-                    };
-
                     new_block.push(Statement::Sample(
                         id.clone(),
-                        opt_idx,
+                        opt_idx.clone(),
                         *sample_id,
                         sample_type.clone(),
                         file_pos.clone(),
@@ -328,10 +311,8 @@ impl TypedCodeBlock {
                         ));
                     }
 
-                    let mut typified_args = vec![];
                     for (i, arg) in args.iter().enumerate() {
-                        let typified_arg = typify(arg, scope)?;
-                        let t_arg = get_type(&typified_arg, scope)?;
+                        let t_arg = arg.get_type();
                         if t_arg != arg_types[i] {
                             return Err(TypeCheckError::TypeMismatch(
                                 ErrorLocation::FilePosition(file_pos.clone()),
@@ -341,13 +322,10 @@ impl TypedCodeBlock {
                                 arg_types[i].clone(),
                             ));
                         }
-
-                        typified_args.push(typified_arg);
                     }
                     if let Some(ScopeType::Type(id_type)) = scope.lookup(id) {
                         if let Some(idx) = opt_idx {
-                            let typed_idx = typify(idx, scope)?;
-                            let idx_type = get_type(&typed_idx, scope)?;
+                            let idx_type = idx.get_type();
                             if let Type::Table(k, v) = id_type {
                                 if *k != idx_type {
                                     return Err(TypeCheckError::TypeMismatch(
@@ -394,26 +372,19 @@ impl TypedCodeBlock {
                             .map_err(|err| TypeCheckError::new_scope_error(err, file_pos))?;
                     }
 
-                    let opt_idx = if opt_idx.is_some() {
-                        Some(typify(&opt_idx.clone().unwrap(), scope)?)
-                    } else {
-                        None
-                    };
-
                     new_block.push(Statement::InvokeOracle {
                         id: id.clone(),
                         opt_idx: opt_idx.clone(),
                         opt_dst_inst_idx: opt_dst_inst_idx.clone(),
                         name: name.clone(),
-                        args: typified_args,
+                        args: args.clone(),
                         target_inst_name: target_inst_name.clone(),
                         tipe: Some(ret_type.clone()),
                         file_pos: file_pos.clone(),
                     })
                 }
                 Statement::IfThenElse(expr, ifcode, elsecode, file_pos) => {
-                    let typed_expr = typify(expr, scope)?;
-                    let expr_type = get_type(&typed_expr, scope)?;
+                    let expr_type = expr.get_type();
 
                     if expr_type != Type::Boolean {
                         return Err(TypeCheckError::TypeMismatch(
@@ -439,18 +410,15 @@ impl TypedCodeBlock {
                     .typecheck(scope)?;
 
                     new_block.push(Statement::IfThenElse(
-                        typed_expr,
+                        expr.clone(),
                         typed_ifcode.block,
                         typed_elsecode.block,
                         file_pos.clone(),
                     ));
                 }
                 Statement::For(for_ident, lower_bound, upper_bound, body, file_pos) => {
-                    let typed_lower_bound = typify(lower_bound, scope)?;
-                    let typed_upper_bound = typify(upper_bound, scope)?;
-
-                    let lower_bound_type = get_type(&typed_lower_bound, scope)?;
-                    let upper_bound_type = get_type(&typed_upper_bound, scope)?;
+                    let lower_bound_type = lower_bound.get_type();
+                    let upper_bound_type = upper_bound.get_type();
 
                     if lower_bound_type != Type::Integer {
                         return Err(TypeCheckError::TypeMismatch(
@@ -485,8 +453,8 @@ impl TypedCodeBlock {
                     match tcb.typecheck(scope) {
                         Ok(typed_body) => new_block.push(Statement::For(
                             for_ident.clone(),
-                            typed_lower_bound,
-                            typed_upper_bound,
+                            lower_bound.clone(),
+                            upper_bound.clone(),
                             typed_body.block,
                             file_pos.clone(),
                         )),
@@ -554,7 +522,7 @@ mod test {
         };
         let ret = code.typecheck(&mut scope);
 
-        assert!(matches!(ret, Ok(_)), "Typecheck should succeed");
+        assert!(ret.is_ok(), "Typecheck should succeed");
     }
 
     #[test]

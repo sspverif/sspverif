@@ -70,10 +70,13 @@ impl Expression {
             Expression::IntegerLiteral(_) => Type::Integer,
             Expression::Identifier(ident) => ident.get_type().unwrap(),
             Expression::EmptyTable(t) => t.clone(),
-            Expression::TableAccess(ident, _) => match ident.get_type().unwrap() {
-                Type::Table(_, value_type) => value_type.deref().clone(),
-                _ => unreachable!(),
-            },
+            Expression::TableAccess(ident, _) => {
+                println!("{ident:?}");
+                match ident.get_type().unwrap() {
+                    Type::Table(_, value_type) => Type::Maybe(Box::new(value_type.deref().clone())),
+                    _ => unreachable!(),
+                }
+            }
             Expression::Tuple(exprs) => {
                 Type::Tuple(exprs.iter().map(|expr| expr.get_type()).collect())
             }
@@ -83,24 +86,37 @@ impl Expression {
             Expression::List(exprs) => todo!(),
             Expression::Set(exprs) if !exprs.is_empty() => Type::Set(Box::new(exprs[0].get_type())),
             Expression::Set(_) => todo!(),
-            Expression::FnCall(ident, _) => match ident {
-                Identifier::PackageIdentifier(pkg_ident) => pkg_ident.get_type(),
-                Identifier::PackageInstanceIdentifier(pkg_inst_ident) => pkg_inst_ident.get_type(),
-                Identifier::GameIdentifier(game_ident) => game_ident.get_type(),
+            Expression::FnCall(ident, _) => {
+                let fn_type = match ident {
+                    Identifier::PackageIdentifier(pkg_ident) => pkg_ident.get_type(),
+                    Identifier::PackageInstanceIdentifier(pkg_inst_ident) => {
+                        pkg_inst_ident.get_type()
+                    }
+                    Identifier::GameIdentifier(game_ident) => game_ident.get_type(),
 
-                // These are old and need to go
-                Identifier::Scalar(_)
-                | Identifier::State(_)
-                | Identifier::Parameter(_)
-                | Identifier::ComposeLoopVar(_)
-                | Identifier::Local(_)
-                | Identifier::GameInstanceConst(_) => unreachable!(),
-            },
+                    // These are old and need to go
+                    Identifier::Scalar(_)
+                    | Identifier::State(_)
+                    | Identifier::Parameter(_)
+                    | Identifier::ComposeLoopVar(_)
+                    | Identifier::Local(_)
+                    | Identifier::GameInstanceConst(_) => unreachable!(),
+                };
+
+                match &fn_type {
+                    Type::Fn(_args, ret_type) => *ret_type.clone(),
+                    other => unreachable!(&format!(
+                        "found non-function type {:?} when calling function `{}`",
+                        fn_type,
+                        ident.ident()
+                    )),
+                }
+            }
             Expression::None(tipe) => Type::Maybe(Box::new(tipe.clone())),
             Expression::Some(expr) => Type::Maybe(Box::new(expr.get_type())),
             Expression::Unwrap(expr) => match expr.get_type() {
                 Type::Maybe(tipe) => *tipe,
-                _ => unreachable!(),
+                _ => unreachable!(&format!("{expr:?}")),
             },
 
             Expression::Sum(expr)
