@@ -736,20 +736,21 @@ pub fn handle_instance_decl_multi_inst(
 ) -> error::Result<PackageInstance> {
     let span = ast.as_span();
 
+    println!(">>>> {:#?}:{:?}", ast, ast.as_rule());
+
     let mut inner = ast.into_inner();
     let inst_name = inner.next().unwrap().as_str();
-    let index_id_list: Vec<_> = inner
-        .next()
-        .unwrap()
-        .into_inner()
-        .map(|ast| ast.as_str())
-        .collect();
+
+    println!("inst_name: {:?}", inst_name);
 
     let indices_ast = inner.next().unwrap();
+    println!("indices: {:?}", indices_ast);
     let indices = indices_ast
         .into_inner()
         .map(|index_ast| handle_expression(index_ast, scope))
         .collect::<Result<Vec<_>, _>>()?;
+
+    println!("indices: {:?}", indices);
 
     let pkg_name = inner.next().unwrap().as_str();
     let data = inner.next().unwrap();
@@ -786,26 +787,10 @@ pub fn handle_instance_decl_multi_inst(
     param_list.sort();
 
     // check that const param lists match
-    let typed_params: Result<Vec<_>, _> = param_list
+    let mut typed_params: Vec<_> = param_list
         .iter()
-        .map(|(pkg_param, comp_param)| {
-            let const_type = match comp_param {
-                Expression::Identifier(id) => defined_consts
-                    .iter()
-                    .find(|(name, _)| name == &id.ident())
-                    .map(|(_, tipe)| tipe.to_owned())
-                    .unwrap(),
-                Expression::BooleanLiteral(_) => Type::Boolean,
-                Expression::IntegerLiteral(_) => Type::Integer,
-                otherwise => {
-                    panic!("unhandled expression: {:?}", otherwise)
-                }
-            };
-
-            error::Result::Ok((pkg_param.name.clone(), const_type))
-        })
+        .map(|(pkg_param, comp_param)| (pkg_param.name.clone(), comp_param.get_type()))
         .collect();
-    let mut typed_params: Vec<(_, _)> = typed_params?;
     typed_params.sort();
 
     let mut pkg_params: Vec<_> = pkg
@@ -1095,6 +1080,16 @@ mod tests {
         }
     }"#;
 
+    const SMALL_MULTI_INST_GAME_CODE: &str = r#"composition SmallMultiInstGame {
+        for i: 0 <= i < 200 {
+            instance tiny_instance[i] = TinyPkg {
+                params {
+                    n:  i
+                }
+            }
+        }
+    }"#;
+
     #[test]
     fn tiny_game_without_packages() {
         let game = parse_game(TINY_GAME_CODE, "tiny-game", &HashMap::default());
@@ -1124,7 +1119,7 @@ mod tests {
     #[test]
     fn small_game() {
         let (name, pkg) = parse_pkg(TINY_PKG_CODE, "tiny-pkg");
-        let pkg_map = HashMap::from_iter(vec![(name, pkg.clone())].into_iter());
+        let pkg_map = HashMap::from_iter(vec![(name, pkg.clone())]);
         let game = parse_game(SMALL_GAME_CODE, "small-game", &pkg_map);
 
         assert_eq!(game.name, "SmallGame");
@@ -1159,5 +1154,19 @@ mod tests {
         assert_eq!(pkg.oracles[0].sig.name, "Sum");
         assert_eq!(pkg.oracles[0].sig.tipe, Type::Integer);
         assert!(pkg.oracles[0].sig.args.is_empty());
+    }
+
+    #[test]
+    fn small_multi_inst_game() {
+        let (name, pkg) = parse_pkg(TINY_PKG_CODE, "tiny-pkg");
+        let pkg_map = HashMap::from_iter(vec![(name, pkg.clone())]);
+        let game = parse_game(
+            SMALL_MULTI_INST_GAME_CODE,
+            "small-multi-inst-game",
+            &pkg_map,
+        );
+        println!("{game:#?}");
+
+        assert_eq!(game.pkgs[0].multi_instance_indices.indices.len(), 1);
     }
 }

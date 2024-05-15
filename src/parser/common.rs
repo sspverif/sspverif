@@ -278,6 +278,7 @@ pub fn handle_params_def_list(
                 Expression::BooleanLiteral(_)
                 | Expression::StringLiteral(_)
                 | Expression::IntegerLiteral(_)
+                | Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::LoopVar(_)))
                 | Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(_))) => {}
                 Expression::Identifier(Identifier::Scalar(ident)) => {
                     panic!("scalar is deprecated");
