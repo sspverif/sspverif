@@ -11,13 +11,23 @@ package CheckIndexunder {
 
 
     oracle GETA(h: Integer) -> Bits(n) {
-        assert (h == t);
+                b <- false;
+        for i: 1 <= i <= t {
+            if ( h==i ) 
+            {b <- true;}
+        }
+        assert b;
         k <- invoke GETA(h);
         return k; 
     }
 
     oracle SETBIT(h: Integer, zz:Bool) -> () {
-        assert (h == t);
+                b <- false;
+        for i: 1 <= i <= t {
+            if ( h==i ) 
+            {b <- true;}
+        }
+        assert b;
         _ <- invoke SETBIT(h,zz);
         return ;
     }
