@@ -4,7 +4,7 @@ package OT {
         n:     Integer,
         v:     Integer,
         q:     Integer,
-        view:  fn Table(Integer,Bool),Bits(q) -> (Bits(q),Table(Integer,Table(Bool,Bits(n)))),
+        view:  fn Table(Integer,Bool),Bits(q),Integer -> (Bits(q),Table(Integer,Table(Bool,Bits(n)))),
     }
 
     types {
@@ -17,6 +17,7 @@ package OT {
     }
 
     oracle SETBIT(h: Integer, zz:Bool) -> () {
+        assert (h == t);
         assert (z[h] == None as Bool);
         z[h] <- Some(zz);
         return ;
@@ -28,7 +29,7 @@ package OT {
             flag[i] <- Some(true);
                           }
         r <-$ Bits(q); 
-        tmp <- view(z,r);
+        tmp <- view(z,r,t);
         (vw,keys) <- parse tmp;
         T <- keys;
         return vw;
