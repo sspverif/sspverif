@@ -1,4 +1,6 @@
 use crate::expressions::Expression;
+use crate::identifier::game_ident::GameIdentifier;
+use crate::identifier::game_ident::GameIdentifier::Const;
 use crate::identifier::pkg_ident::PackageConstIdentifier;
 use crate::identifier::pkg_ident::PackageIdentifier;
 use crate::identifier::pkg_ident::PackageImportsLoopVarIdentifier;
@@ -1115,27 +1117,54 @@ impl MultiInstanceIndices {
                 rhs: varname,
             }
             .into(),
-            Expression::Identifier(Identifier::PackageIdentifier(
-                PackageIdentifier::ImportsLoopVar(loopvar),
-            )) => {
-                let start_comp: SmtExpr = match loopvar.start_comp {
-                    ForComp::Lt => SmtLt((*loopvar.start).clone(), varname).into(),
-                    ForComp::Lte => SmtLte((*loopvar.start).clone(), varname).into(),
+            // I don't think we need to check totality for imports inside the package's import
+            // block, so we don't need to handle ImportsLoopVar.
+            // Expression::Identifier(Identifier::PackageIdentifier(
+            // PackageIdentifier::ImportsLoopVar(loopvar),
+            // )) => {
+            // let start_comp: SmtExpr = match loopvar.start_comp {
+            // ForComp::Lt => SmtLt((*loopvar.start).clone(), varname).into(),
+            // ForComp::Lte => SmtLte((*loopvar.start).clone(), varname).into(),
+            // };
+            //
+            // let end_comp: SmtExpr = match loopvar.end_comp {
+            // ForComp::Lt => SmtLt(varname, (*loopvar.end).clone()).into(),
+            // ForComp::Lte => SmtLte(varname, (*loopvar.end).clone()).into(),
+            // };
+            //
+            // SmtAnd(vec![start_comp, end_comp]).into()
+            // }
+            Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(
+                game_const_ident,
+            ))) => SmtEq2 {
+                lhs: &game_const_ident.name,
+                rhs: varname,
+            }
+            .into(),
+            Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::LoopVar(
+                game_loop_var,
+            ))) => {
+                let lower_comp: SmtExpr = match game_loop_var.start_comp {
+                    ForComp::Lt => SmtLt((*game_loop_var.start).clone(), varname).into(),
+                    ForComp::Lte => SmtLte((*game_loop_var.start).clone(), varname).into(),
                 };
 
-                let end_comp: SmtExpr = match loopvar.end_comp {
-                    ForComp::Lt => SmtLt(varname, (*loopvar.end).clone()).into(),
-                    ForComp::Lte => SmtLte(varname, (*loopvar.end).clone()).into(),
+                let upper_comp: SmtExpr = match game_loop_var.end_comp {
+                    ForComp::Lt => SmtLt((*game_loop_var.end).clone(), varname).into(),
+                    ForComp::Lte => SmtLte((*game_loop_var.end).clone(), varname).into(),
                 };
 
-                SmtAnd(vec![start_comp, end_comp]).into()
+                SmtAnd(vec![lower_comp, upper_comp]).into()
             }
             Expression::Identifier(Identifier::Parameter(pkg_const)) => SmtEq2 {
                 lhs: pkg_const.name_in_comp.clone(),
                 rhs: varname,
             }
             .into(),
-            _ => unreachable!(),
+            other => unreachable!(
+                "in smt_range_predicate, found unhandled expression variant {expr:?}",
+                expr = other
+            ),
         }
     }
 }

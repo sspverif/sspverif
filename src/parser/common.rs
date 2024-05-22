@@ -1,4 +1,5 @@
 use crate::identifier::game_ident::GameIdentifier;
+use crate::identifier::proof_ident::ProofIdentifier;
 use crate::statement::FilePosition;
 use crate::util::scope::Scope;
 use crate::{expressions::Expression, identifier::Identifier, types::Type};
@@ -255,7 +256,7 @@ pub fn handle_type(tipe: Pair<Rule>) -> Type {
     }
 }
 
-pub fn handle_params_def_list(
+pub fn handle_game_params_def_list(
     ast: Pair<Rule>,
     defined_consts: &[(String, Type)],
     scope: &mut Scope,
@@ -280,6 +281,49 @@ pub fn handle_params_def_list(
                 | Expression::IntegerLiteral(_)
                 | Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::LoopVar(_)))
                 | Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(_))) => {}
+                Expression::Identifier(Identifier::Scalar(ident)) => {
+                    panic!("scalar is deprecated");
+                    if !defined_consts
+                        .iter()
+                        .any(|(defd_name, _)| ident == defd_name)
+                    {
+                        return Err(Error::UndefinedIdentifer(ident.clone()).with_span(right_span));
+                    }
+                }
+                _ => {
+                    return Err(Error::IllegalExpression(right.clone()).with_span(right_span));
+                }
+            }
+
+            Ok((left.to_owned(), right.clone()))
+        })
+        .collect()
+}
+pub fn handle_proof_params_def_list(
+    ast: Pair<Rule>,
+    defined_consts: &[(String, Type)],
+    scope: &mut Scope,
+) -> Result<Vec<(String, Expression)>> {
+    ast.into_inner()
+        .map(|inner| {
+            //let inner = inner.into_inner().next().unwrap();
+
+            let mut inner = inner.into_inner();
+            let left_ast = inner.next().unwrap();
+            let left = left_ast.as_str();
+
+            let right_ast = inner.next().unwrap();
+            let right_span = right_ast.as_span();
+
+            let right = handle_expression(right_ast, scope)?;
+
+            match &right {
+                // TODO: also allow proof constant identifiers, once we have them
+                Expression::BooleanLiteral(_)
+                | Expression::StringLiteral(_)
+                | Expression::IntegerLiteral(_)
+                | Expression::Identifier(Identifier::ProofIdentifier(ProofIdentifier::LoopVar(_)))
+                | Expression::Identifier(Identifier::ProofIdentifier(ProofIdentifier::Const(_))) => {}
                 Expression::Identifier(Identifier::Scalar(ident)) => {
                     panic!("scalar is deprecated");
                     if !defined_consts
@@ -336,7 +380,7 @@ pub fn handle_types_def_spec(
         return Err(error::Error::from(err).with_span(snd_span));
     }
 
-    Ok((fst.to_string(), snd_type))
+    Ok((fst.as_str().to_string(), snd_type))
 }
 
 pub fn handle_const_decl(ast: Pair<Rule>) -> (String, Type) {

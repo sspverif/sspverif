@@ -93,6 +93,7 @@ impl Expression {
                         pkg_inst_ident.get_type()
                     }
                     Identifier::GameIdentifier(game_ident) => game_ident.get_type(),
+                    Identifier::ProofIdentifier(proof_ident) => proof_ident.get_type(),
 
                     // These are old and need to go
                     Identifier::Scalar(_)

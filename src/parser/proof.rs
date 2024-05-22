@@ -1,12 +1,16 @@
 use crate::{
     expressions::Expression,
+    identifier::{
+        proof_ident::{ProofConstIdentifier, ProofIdentifier::Const},
+        Identifier,
+    },
     package::{Composition, Package},
     parser::Rule,
     proof::{Assumption, Claim, Equivalence, GameHop, GameInstance, Mapping, Proof, Reduction},
     types::Type,
     util::{
         resolver::{Resolver, SliceResolver},
-        scope::Scope,
+        scope::{Declaration, Scope},
     },
 };
 
@@ -27,7 +31,7 @@ pub fn handle_proof<'a>(
     file_name: &str,
 ) -> Result<Proof> {
     let mut iter = ast.into_inner();
-    let name = iter.next().unwrap().as_str();
+    let proof_name = iter.next().unwrap().as_str();
     let proof_ast = iter.next().unwrap();
 
     let mut assumptions = vec![];
@@ -35,10 +39,21 @@ pub fn handle_proof<'a>(
     let mut instances = vec![];
     let mut consts = vec![];
 
+    scope.enter();
+
     for ast in proof_ast.into_inner() {
         match ast.as_rule() {
             Rule::const_decl => {
-                consts.push(common::handle_const_decl(ast));
+                let (const_name, tipe) = common::handle_const_decl(ast);
+                let declaration = Declaration::Identifier(Identifier::ProofIdentifier(Const(
+                    ProofConstIdentifier {
+                        proof_name: proof_name.to_string(),
+                        name: const_name.clone(),
+                        tipe: tipe.clone(),
+                    },
+                )));
+                scope.declare(&const_name, declaration);
+                consts.push((const_name, tipe));
             }
             Rule::assumptions => {
                 let more_assumptions = handle_assumptions(ast.into_inner(), &instances)?;
@@ -59,7 +74,7 @@ pub fn handle_proof<'a>(
     }
 
     Ok(Proof::new(
-        name.to_string(),
+        proof_name.to_string(),
         consts,
         instances,
         assumptions,
@@ -189,7 +204,11 @@ fn handle_instance_assign_list(
             }
             Rule::params_def => {
                 let ast = ast.into_inner().next().unwrap();
-                consts.extend(common::handle_params_def_list(ast, proof_consts, scope)?);
+                consts.extend(common::handle_proof_params_def_list(
+                    ast,
+                    proof_consts,
+                    scope,
+                )?);
             }
             otherwise => {
                 unreachable!("unexpected {:?} at {:?}", otherwise, ast.as_span())

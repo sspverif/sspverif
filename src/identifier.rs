@@ -3,6 +3,7 @@ use crate::{expressions::Expression, parser::package::ForComp, types::Type};
 use self::{
     game_ident::GameConstIdentifier,
     pkg_ident::{PackageIdentifier, PackageOracleCodeLoopVarIdentifier},
+    proof_ident::{ProofConstIdentifier, ProofIdentifier, ProofLoopVarIdentifier},
 };
 
 // TODO: remove the Parameter and GameInstanceConst variants so we can derive PartialEq again. Then
@@ -12,6 +13,7 @@ use self::{
 pub enum Identifier {
     PackageIdentifier(pkg_ident::PackageIdentifier),
     GameIdentifier(game_ident::GameIdentifier),
+    ProofIdentifier(proof_ident::ProofIdentifier),
 
     // this is likely not needed. We added an Option<GameIdentifier> to the package const type,
     // which will contain the resolved identifer.
@@ -222,6 +224,56 @@ pub mod game_ident {
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct GameLoopVarIdentifier {
         pub game_name: String,
+        pub name: String,
+        // tipe is always Integer
+        pub start: Box<Expression>,
+        pub end: Box<Expression>,
+        pub start_comp: ForComp,
+        pub end_comp: ForComp,
+    }
+}
+
+pub mod proof_ident {
+    use crate::types::Type;
+
+    use super::*;
+
+    impl ProofIdentifier {
+        pub(crate) fn ident_ref(&self) -> &str {
+            match self {
+                ProofIdentifier::Const(const_ident) => &const_ident.name,
+                ProofIdentifier::LoopVar(loopvar) => &loopvar.name,
+            }
+        }
+
+        pub(crate) fn ident(&self) -> String {
+            self.ident_ref().to_string()
+        }
+
+        pub(crate) fn get_type(&self) -> Type {
+            match self {
+                ProofIdentifier::Const(const_ident) => const_ident.tipe.clone(),
+                ProofIdentifier::LoopVar(local_ident) => Type::Integer,
+            }
+        }
+    }
+
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub enum ProofIdentifier {
+        Const(ProofConstIdentifier),
+        LoopVar(ProofLoopVarIdentifier),
+    }
+
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct ProofConstIdentifier {
+        pub proof_name: String,
+        pub name: String,
+        pub tipe: crate::types::Type,
+    }
+
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct ProofLoopVarIdentifier {
+        pub proof_name: String,
         pub name: String,
         // tipe is always Integer
         pub start: Box<Expression>,
@@ -442,6 +494,7 @@ impl Identifier {
             Identifier::GameInstanceConst(_) => todo!(),
             Identifier::GameIdentifier(game_ident) => game_ident.ident_ref(),
             Identifier::PackageInstanceIdentifier(pkg_inst_ident) => pkg_inst_ident.ident_ref(),
+            Identifier::ProofIdentifier(proof_ident) => proof_ident.ident_ref(),
         }
     }
 
@@ -456,6 +509,7 @@ impl Identifier {
             Identifier::GameInstanceConst(_) => todo!(),
             Identifier::GameIdentifier(game_ident) => game_ident.ident(),
             Identifier::PackageInstanceIdentifier(pkg_inst_ident) => pkg_inst_ident.ident(),
+            Identifier::ProofIdentifier(proof_ident) => proof_ident.ident(),
         }
     }
 }

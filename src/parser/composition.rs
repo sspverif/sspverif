@@ -552,11 +552,17 @@ pub fn handle_for_loop(
     let loopvar = GameIdentifier::LoopVar(loopvar);
     let loopvar = Identifier::GameIdentifier(loopvar);
     let decl = Declaration::Identifier(loopvar);
+
+    scope.enter();
     scope.declare(decl_var_name, decl).unwrap();
 
-    handle_for_loop_body(
+    let result = handle_for_loop_body(
         body_ast, scope, comp_name, loopvars, pkgs, pkg_insts, consts, file_name,
-    )
+    );
+
+    scope.leave();
+
+    result
 }
 
 use crate::util::scope::{Declaration, Scope};
@@ -700,7 +706,7 @@ pub fn handle_instance_assign_list(
     for elem in ast.into_inner() {
         match elem.as_rule() {
             Rule::params_def => {
-                let defs = handle_params_def_list(
+                let defs = handle_game_params_def_list(
                     elem.into_inner().next().unwrap(),
                     defined_consts,
                     scope,
@@ -830,6 +836,8 @@ pub fn handle_instance_decl_multi_inst(
     pkg_types.sort();
 
     if assigned_types != pkg_types {
+        println!("assigned: {assigned_types:?}");
+        println!("pkg:      {pkg_types:?}");
         // TODO include the difference in here
         return Err(error::SpanError::new_with_span(
             error::Error::TypeParameterMismatch {
@@ -974,6 +982,8 @@ pub fn handle_instance_decl(
     pkg_types.sort();
 
     if assigned_types != pkg_types {
+        println!("assigned: {assigned_types:?}");
+        println!("pkg:      {pkg_types:?}");
         // TODO include the difference in here
         return Err(error::SpanError::new_with_span(
             error::Error::TypeParameterMismatch {

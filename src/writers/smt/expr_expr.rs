@@ -1,6 +1,8 @@
 use super::exprs::SmtExpr;
-use super::patterns::{GlobalStatePattern, SelfStatePattern};
+use super::patterns::{GlobalStatePattern, PackageStatePattern, SelfStatePattern};
 use crate::expressions::Expression;
+use crate::identifier::pkg_ident::PackageIdentifier;
+use crate::identifier::pkg_inst_ident::PackageInstanceIdentifier;
 use crate::identifier::{GameInstanceConst, Identifier, PackageConst, PackageState};
 use crate::types::Type;
 

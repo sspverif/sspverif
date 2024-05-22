@@ -46,8 +46,8 @@ package SIMtdyao {
              assert (not (op[(true, false)] == None as Bool));
              assert (not (op[(false, true)] == None as Bool));
              assert (not (op[(false,false)] == None as Bool));
-             dl <- true; 
-             dr <- true;
+             bl <- true; 
+             br <- true;
              k         <- zeron;
              XX        <- Unwrap(S[(ii-1)]);
              ZZZ       <- Unwrap(XX[l]);
@@ -59,8 +59,8 @@ package SIMtdyao {
              cin       <-  encn(kleft,k,rrr);
              c         <-  encm(kright,cin,rrrr);
              gtilde[c] <- Some(true); 
-             dl <- false; 
-             dr <- true;
+             bl <- false; 
+             br <- true;
              k         <- zeron;
              XX        <- Unwrap(S[(ii-1)]);
              ZZZ       <- Unwrap(XX[l]);
@@ -72,8 +72,8 @@ package SIMtdyao {
              cin       <-  encn(kleft,k,rrr);
              c         <-  encm(kright,cin,rrrr);
              gtilde[c] <- Some(true); 
-             dl  <- true; 
-             dr  <- false;
+             bl  <- true; 
+             br  <- false;
              k         <- zeron;
              XX        <- Unwrap(S[(ii-1)]);
              ZZZ       <- Unwrap(XX[l]);
@@ -85,8 +85,8 @@ package SIMtdyao {
              cin       <-  encn(kleft,k,rrr);
              c         <-  encm(kright,cin,rrrr);
              gtilde[c] <- Some(true); 
-             dl  <- false; 
-             dr  <- false;
+             bl  <- false; 
+             br  <- false;
              YY        <- Unwrap(S[ii]); 
              XX        <- Unwrap(S[(ii-1)]);
              ZZZ       <- Unwrap(YY[jj]);
