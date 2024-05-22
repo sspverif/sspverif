@@ -891,7 +891,7 @@ pub fn handle_instance_decl(
     let span = ast.as_span();
 
     let mut inner = ast.into_inner();
-    let inst_name = inner.next().unwrap().as_str();
+    let pkg_inst_name = inner.next().unwrap().as_str();
 
     let index_or_pkgname = inner.next().unwrap();
     let (multi_instance_indices, pkg_name) = if index_or_pkgname.as_rule() == Rule::index_id_list {
@@ -927,7 +927,7 @@ pub fn handle_instance_decl(
         instance_assign_ast,
         scope,
         game_name,
-        inst_name,
+        pkg_inst_name,
         pkg_name,
         file_name,
         &defined_consts,
@@ -971,7 +971,7 @@ pub fn handle_instance_decl(
         // TODO: include the difference in here
         return Err(error::Error::PackageConstParameterMismatch {
             pkg_name: pkg_name.to_string(),
-            inst_name: inst_name.to_string(),
+            inst_name: pkg_inst_name.to_string(),
             bound_params: typed_params,
             pkg_params,
         }
@@ -997,14 +997,15 @@ pub fn handle_instance_decl(
             error::Error::TypeParameterMismatch {
                 game_name: game_name.to_string(),
                 pkg_name: pkg_name.to_string(),
-                pkg_inst_name: inst_name.to_string(),
+                pkg_inst_name: pkg_inst_name.to_string(),
             },
             span,
         ));
     }
 
     let inst = PackageInstance::new(
-        inst_name.to_string(),
+        pkg_inst_name,
+        game_name,
         pkg,
         multi_instance_indices,
         param_list,
