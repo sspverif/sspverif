@@ -3,7 +3,6 @@ use crate::{expressions::Expression, parser::package::ForComp, types::Type};
 use self::{
     game_ident::GameConstIdentifier,
     pkg_ident::{PackageIdentifier, PackageOracleCodeLoopVarIdentifier},
-    proof_ident::{ProofConstIdentifier, ProofIdentifier, ProofLoopVarIdentifier},
 };
 
 // TODO: remove the Parameter and GameInstanceConst variants so we can derive PartialEq again. Then
@@ -15,9 +14,6 @@ pub enum Identifier {
     GameIdentifier(game_ident::GameIdentifier),
     ProofIdentifier(proof_ident::ProofIdentifier),
 
-    // this is likely not needed. We added an Option<GameIdentifier> to the package const type,
-    // which will contain the resolved identifer.
-    PackageInstanceIdentifier(pkg_inst_ident::PackageInstanceIdentifier),
     // TODO Add
     // GameInstanceIdentifier(GameInstanceIdentifier),
 
@@ -456,7 +452,6 @@ impl PartialEq for Identifier {
             }
             (Self::GameIdentifier(x), Self::GameIdentifier(y)) => x == y,
             (Self::PackageIdentifier(x), Self::PackageIdentifier(y)) => x == y,
-            (Self::PackageInstanceIdentifier(x), Self::PackageInstanceIdentifier(y)) => x == y,
             _ => false,
         }
     }
@@ -475,9 +470,6 @@ impl Identifier {
     pub fn get_type(&self) -> Option<Type> {
         match self {
             Identifier::PackageIdentifier(pkg_ident) => Some(pkg_ident.get_type()),
-            Identifier::PackageInstanceIdentifier(pkg_inst_ident) => {
-                Some(pkg_inst_ident.get_type())
-            }
             Identifier::GameIdentifier(game_ident) => Some(game_ident.get_type()),
             _ => None,
         }
@@ -493,7 +485,6 @@ impl Identifier {
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident_ref(),
             Identifier::GameInstanceConst(_) => todo!(),
             Identifier::GameIdentifier(game_ident) => game_ident.ident_ref(),
-            Identifier::PackageInstanceIdentifier(pkg_inst_ident) => pkg_inst_ident.ident_ref(),
             Identifier::ProofIdentifier(proof_ident) => proof_ident.ident_ref(),
         }
     }
@@ -508,7 +499,6 @@ impl Identifier {
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident(),
             Identifier::GameInstanceConst(_) => todo!(),
             Identifier::GameIdentifier(game_ident) => game_ident.ident(),
-            Identifier::PackageInstanceIdentifier(pkg_inst_ident) => pkg_inst_ident.ident(),
             Identifier::ProofIdentifier(proof_ident) => proof_ident.ident(),
         }
     }

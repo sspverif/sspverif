@@ -40,7 +40,6 @@ impl Declaration {
             Declaration::Oracle(_, _) => ValidityContext::Package,
             Declaration::Identifier(ident) => match ident {
                 Identifier::PackageIdentifier(_) => ValidityContext::Package,
-                Identifier::PackageInstanceIdentifier(_) => ValidityContext::Package,
                 Identifier::GameIdentifier(_) => ValidityContext::Game,
                 _ => {
                     panic!("found old-style identifier, should not be used")

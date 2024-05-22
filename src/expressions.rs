@@ -89,9 +89,6 @@ impl Expression {
             Expression::FnCall(ident, _) => {
                 let fn_type = match ident {
                     Identifier::PackageIdentifier(pkg_ident) => pkg_ident.get_type(),
-                    Identifier::PackageInstanceIdentifier(pkg_inst_ident) => {
-                        pkg_inst_ident.get_type()
-                    }
                     Identifier::GameIdentifier(game_ident) => game_ident.get_type(),
                     Identifier::ProofIdentifier(proof_ident) => proof_ident.get_type(),
 

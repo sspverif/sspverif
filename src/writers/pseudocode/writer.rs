@@ -39,7 +39,6 @@ impl<W: Write> Writer<W> {
             Identifier::ComposeLoopVar(_) => todo!(),
             Identifier::GameInstanceConst(_) => todo!(),
             Identifier::PackageIdentifier(_) => todo!(),
-            Identifier::PackageInstanceIdentifier(_) => todo!(),
             Identifier::GameIdentifier(_) => todo!(),
             Identifier::ProofIdentifier(_) => todo!(),
         }
