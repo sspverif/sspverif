@@ -548,6 +548,8 @@ pub fn handle_for_loop(
         end: Box::new(upper_bound),
         start_comp,
         end_comp,
+        game_inst_name: None,
+        proof_name: None,
     };
     let loopvar = GameIdentifier::LoopVar(loopvar);
     let loopvar = Identifier::GameIdentifier(loopvar);
@@ -601,6 +603,8 @@ pub fn handle_comp_spec_list(
                                     game_name: game_name.to_string(),
                                     name: name.clone(),
                                     tipe,
+                                    game_inst_name: None,
+                                    proof_name: None,
                                 },
                             ),
                         )),
@@ -720,6 +724,10 @@ pub fn handle_instance_assign_list(
                             // we don't resolve it here yet, so we can easily find it when
                             // searching this list when we don't have the value yet.
                             game_assignment: None,
+                            pkg_inst_name: None,
+                            game_name: None,
+                            game_inst_name: None,
+                            proof_name: None,
                         },
                         value,
                     )
@@ -1152,7 +1160,9 @@ mod tests {
                 GameConstIdentifier {
                     name: "n".to_string(),
                     tipe: Type::Integer,
-                    game_name: "SmallGame".to_string()
+                    game_name: "SmallGame".to_string(),
+                    game_inst_name: None,
+                    proof_name: None
                 }
             )))
         );

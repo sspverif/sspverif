@@ -359,6 +359,10 @@ pub fn handle_identifier_in_code_lhs(
                 oracle_name: oracle_name.to_string(),
                 name: name.to_string(),
                 tipe: expected_type.clone(),
+                pkg_inst_name: None,
+                game_name: None,
+                game_inst_name: None,
+                proof_name: None,
             }));
 
         scope
@@ -669,6 +673,10 @@ pub fn handle_code(
                         end: Box::new(upper_bound.clone()),
                         start_comp: lower_bound_type,
                         end_comp: upper_bound_type,
+                        pkg_inst_name: None,
+                        game_name: None,
+                        game_inst_name: None,
+                        proof_name: None,
                     };
                     let loopvar: Identifier = loopvar.into();
 
@@ -736,6 +744,10 @@ pub fn handle_oracle_def(
                         oracle_name: sig.name.clone(),
                         name: name.clone(),
                         tipe: tipe.clone(),
+                        pkg_inst_name: None,
+                        game_name: None,
+                        game_inst_name: None,
+                        proof_name: None,
                     }),
                 )),
             )
@@ -810,6 +822,10 @@ pub fn handle_pkg_spec(
                             name,
                             tipe,
                             game_assignment: None,
+                            pkg_inst_name: None,
+                            game_name: None,
+                            game_inst_name: None,
+                            proof_name: None,
                         }),
                     ))
                 };
@@ -829,6 +845,10 @@ pub fn handle_pkg_spec(
                             pkg_name: pkg_name.to_string(),
                             name,
                             tipe,
+                            pkg_inst_name: None,
+                            game_name: None,
+                            game_inst_name: None,
+                            proof_name: None,
                         }),
                     ))
                 };
@@ -1391,6 +1411,10 @@ pub fn handle_import_oracles_body(
                     end: Box::new(for_end.clone()),
                     start_comp,
                     end_comp,
+                    pkg_inst_name: None,
+                    game_name: None,
+                    game_inst_name: None,
+                    proof_name: None,
                 };
 
                 let identifier =
@@ -1467,6 +1491,10 @@ mod tests2 {
                             name: "n".to_string(),
                             tipe: Type::Integer,
                             game_assignment: None,
+                            pkg_inst_name: None,
+                            game_name: None,
+                            game_inst_name: None,
+                            proof_name: None,
                         },
                     ),
                 )),
@@ -1501,6 +1529,10 @@ mod tests2 {
                         end: Box::new(end),
                         start_comp: ForComp::Lte,
                         end_comp: ForComp::Lt,
+                        pkg_inst_name: todo!(),
+                        game_name: todo!(),
+                        game_inst_name: None,
+                        proof_name: None,
                     },
                 ),
             )),

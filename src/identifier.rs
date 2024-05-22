@@ -39,19 +39,8 @@ impl From<PackageOracleCodeLoopVarIdentifier> for Identifier {
     }
 }
 
-// later we can do something like this, not entirely sure about the semantics.
-//
-// ```
-// fn resolve_packageInstanceIdentifier: package_identifier x pkg_inst_name x game -> package_instance_identifier
-// ```
-//
-// the point is we can see the context in which the identifier is valid from the outermost enum
-// variant
-
 pub mod pkg_ident {
     use crate::types::Type;
-
-    use self::game_ident::GameIdentifier;
 
     use super::*;
 
@@ -102,6 +91,10 @@ pub mod pkg_ident {
         pub name: String,
         pub tipe: crate::types::Type,
         pub game_assignment: Option<Box<Expression>>,
+        pub pkg_inst_name: Option<String>,
+        pub game_name: Option<String>,
+        pub game_inst_name: Option<String>,
+        pub proof_name: Option<String>,
     }
 
     impl PackageConstIdentifier {
@@ -114,14 +107,17 @@ pub mod pkg_ident {
         }
 
         pub(crate) fn eq_except_game_assignment(&self, other: &Self) -> bool {
-            let Self {
-                pkg_name,
-                name,
-                tipe,
-                game_assignment: _unused,
-            } = self;
+            let left = Self {
+                game_assignment: None,
+                ..self.clone()
+            };
 
-            pkg_name == &other.pkg_name && name == &other.name && tipe == &other.tipe
+            let right = Self {
+                game_assignment: None,
+                ..other.clone()
+            };
+
+            left == right
         }
     }
 
@@ -130,6 +126,10 @@ pub mod pkg_ident {
         pub pkg_name: String,
         pub name: String,
         pub tipe: crate::types::Type,
+        pub pkg_inst_name: Option<String>,
+        pub game_name: Option<String>,
+        pub game_inst_name: Option<String>,
+        pub proof_name: Option<String>,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
@@ -138,6 +138,10 @@ pub mod pkg_ident {
         pub oracle_name: String,
         pub name: String,
         pub tipe: crate::types::Type,
+        pub pkg_inst_name: Option<String>,
+        pub game_name: Option<String>,
+        pub game_inst_name: Option<String>,
+        pub proof_name: Option<String>,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
@@ -146,6 +150,10 @@ pub mod pkg_ident {
         pub oracle_name: String,
         pub name: String,
         pub tipe: crate::types::Type,
+        pub pkg_inst_name: Option<String>,
+        pub game_name: Option<String>,
+        pub game_inst_name: Option<String>,
+        pub proof_name: Option<String>,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
@@ -154,6 +162,10 @@ pub mod pkg_ident {
         pub name: String,
         pub args: Vec<crate::types::Type>,
         pub return_type: crate::types::Type,
+        pub pkg_inst_name: Option<String>,
+        pub game_name: Option<String>,
+        pub game_inst_name: Option<String>,
+        pub proof_name: Option<String>,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
@@ -165,6 +177,10 @@ pub mod pkg_ident {
         pub end: Box<Expression>,
         pub start_comp: ForComp,
         pub end_comp: ForComp,
+        pub pkg_inst_name: Option<String>,
+        pub game_name: Option<String>,
+        pub game_inst_name: Option<String>,
+        pub proof_name: Option<String>,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
@@ -176,6 +192,10 @@ pub mod pkg_ident {
         pub end: Box<Expression>,
         pub start_comp: ForComp,
         pub end_comp: ForComp,
+        pub pkg_inst_name: Option<String>,
+        pub game_name: Option<String>,
+        pub game_inst_name: Option<String>,
+        pub proof_name: Option<String>,
     }
 }
 
@@ -215,6 +235,8 @@ pub mod game_ident {
         pub game_name: String,
         pub name: String,
         pub tipe: crate::types::Type,
+        pub game_inst_name: Option<String>,
+        pub proof_name: Option<String>,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
@@ -226,6 +248,8 @@ pub mod game_ident {
         pub end: Box<Expression>,
         pub start_comp: ForComp,
         pub end_comp: ForComp,
+        pub game_inst_name: Option<String>,
+        pub proof_name: Option<String>,
     }
 }
 
