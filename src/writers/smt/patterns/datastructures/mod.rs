@@ -79,7 +79,15 @@ pub trait DatastructurePattern<'a> {
     ) -> Option<SmtExpr> {
         spec.0.iter().find(|(_con, sels)| sels.contains(selector))?;
 
-        Some((self.selector_name(selector), structure).into())
+        Some(self.access_unchecked(selector, structure))
+    }
+
+    fn access_unchecked<S: Into<SmtExpr>>(
+        &self,
+        selector: &Self::Selector,
+        structure: S,
+    ) -> SmtExpr {
+        (self.selector_name(selector), structure).into()
     }
 
     fn update<S: Into<SmtExpr>, V: Into<SmtExpr>>(
