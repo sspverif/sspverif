@@ -5,20 +5,22 @@ package modPRF {
     }
     
     state {
-        ltk: Bits(n),
+        ltk: Maybe(Bits(n)),
     }
     
     import oracles {
-        Get(h: Integer) -> Bits(n),
-        Set(k: Bits(n), h: Integer), 
+        Set(k: Bits(n), h__: Bits(n)), 
     }
     
-    oracle Eval(h: Integer, h: Bits(n)) {
-        if (ltk == Bot) {
-            ltk <-$ Bits(n);
+    oracle Eval(h: Integer, h_: Bits(n)) {
+        if (ltk == None as Bits(n)) {
+            ltk_ <-$ Bits(n);
+	    ltk <- Some(ltk_);
         }
+
+	ltk_ <- Unwrap(ltk);
         
-        k <- prf(ltk, h);
-        _ <- invoke Set(k, h);
+        k <- prf(ltk_, h_);
+        _ <- invoke Set(k, h_);
     } 
 }

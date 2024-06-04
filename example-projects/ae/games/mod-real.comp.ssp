@@ -1,8 +1,8 @@
 composition Real {
     const n: Integer;
     const prf: fn Bits(n), Bits(n) -> Bits(n);
+    const dec: fn Bits(n), Bits(n) -> Bits(n);
     const enc: fn Bits(n), Bits(n), Bits(n) -> Bits(n);
-    const dec: fn Bits(n), Bits(n), Bits(n) -> Bits(n);
     
     instance prf = modPRF {
         params {
@@ -17,11 +17,11 @@ composition Real {
         }
     }
     
-    instance ae = AEReal {
+    instance ae = modAEReal {
         params {
             n:   n,
             enc: enc,
-            dec: enc,
+            dec: dec,
         }
     }
     
@@ -36,6 +36,7 @@ composition Real {
         },
         ae: {
             Get: key,
+            Get_: key,
         }
     }
 }

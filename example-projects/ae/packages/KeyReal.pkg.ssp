@@ -1,0 +1,23 @@
+package KeyReal {
+    params {
+	n: Integer,
+    }
+    
+    state {
+       K: Table(Bits(n), Bits(n)),
+    }
+    oracle Get(h: Bits(n)) -> Bits(n) {
+        return  Unwrap(K[h]);
+    }
+    
+    oracle Get_(h_: Bits(n)) -> Bits(n) {
+        return  Unwrap(K[h_]);
+    }
+    oracle Set(k: Bits(n), h__: Bits(n))  {
+        if (K[h__]==None as Bits(n)) {
+            K[h__] <- Some(k);
+	}
+    }
+    
+
+}
