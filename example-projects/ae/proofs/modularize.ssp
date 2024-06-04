@@ -1,0 +1,21 @@
+proof AEProto {
+    const n: Integer;
+    const prf: fn Bits(n),Bits(m) -> Bits(n);
+    const enc: fn Bits(n),Bits(n),Bits(n) -> Bits(n);
+    const dec: fn Bits(n),Bits(n),Bits(n) -> Bits(n);
+  
+    instance real = Real {
+        params {
+            n: n,
+	    prf: prf,
+            enc: enc,
+            dec: dec,
+        }
+    }
+
+    assumptions {
+    }
+
+    gamehops {
+    }
+}

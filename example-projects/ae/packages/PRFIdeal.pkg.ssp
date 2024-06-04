@@ -1,0 +1,18 @@
+package PRFIdeal {
+	params {
+		n: Integer,
+	}
+    
+    state {
+          K: Table(Bits(n),Bits(n))
+          }
+        
+    oracle Eval(h: Bits(n), h: Bits(n)) {
+        if (K[h] == None as Bits(n)) {
+           y    <-$ Bits(n);
+           K[h] <- Some(y);
+        }    
+        return Unwrap(K[h]);
+    } 
+}
+
