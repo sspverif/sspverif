@@ -1,0 +1,16 @@
+package PRFIdeal {
+    const n: Integer;
+    
+    state {
+          K: Table(Integer,Bits(n))
+          }
+        
+    oracle Eval(h: Integer, h: Bits(n)) {
+        if K[h] == Bot {
+           y    <-$ Bits(n);
+           K[h] <- Some(y);
+        }    
+        return Unwrap(K[h]);
+    } 
+}
+

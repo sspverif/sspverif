@@ -1,0 +1,23 @@
+package AEReal {
+    const n: Integer;
+    const enc: fn Bits(n), Bits(n), Bits(n) -> Bits(n);
+ state{
+    K: Table(Integer) -> Bits(n);
+      }
+
+    oracle Set(k: Bits(n), h: Integer)  {
+        if (K[h] == None) {
+            K[h] <- Some(k);}
+    }
+    oracle Enc(h: Integer, msg: Bits(n)) -> Bits(m) {
+        k <- Unwrap(K(h));   
+        r <-$ Bits(n);
+        return enc(k,msg,r);
+    }
+    
+    oracle Dec(h: Integer, c: Bits(m)) -> Bits(n) {
+        k <- Unwrap(K[h]);
+        return dec(k,c);
+    }
+}
+

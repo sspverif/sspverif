@@ -1,0 +1,15 @@
+package PRFReal {
+    const n: Integer;
+    const prf: fn(k: Bits(n), msg: Bits(n)) -> Bits(n);
+    
+    state {
+        ltk: Maybe(Bits(n)),
+    }
+        
+    oracle Eval(h: Integer, h: Bits(n)) {
+        if ltk == None {
+           ltk <-$ Bits(n);
+        }       
+        return prf(Unwrap(ltk), h);
+    } 
+}

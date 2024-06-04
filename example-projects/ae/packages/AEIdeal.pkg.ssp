@@ -1,0 +1,23 @@
+package AEIdeal {
+    const n: Integer;
+    const enc: fn Bits(n), Bits(n), Bits(n) -> Bits(n);
+    const zeron: Bits(n);
+
+state{
+    K: Table(Integer) -> Bits(n);
+    T: Table((Bits(m),Integer) -> Bits(n));
+     }
+     
+    oracle Set(k: Bits(n), h: Integer)  {
+        if (K[h]==Bot) {
+            K[h] <- Some(k);}
+    }
+    oracle Enc(h: Integer, msg: Bits(n)) -> Bits(m) {
+        k <- Unwrap(K(h));   
+        T[enc(k,msg,r)] <- Some(enc(k,msg,r));
+        return enc(k,msg,r);
+    }
+    oracle Dec(h: Integer, c: Bits(m)) -> Bits(n) {
+        return Unwrap(T[enc(k,msg,r)]);
+    }
+}
