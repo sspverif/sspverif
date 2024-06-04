@@ -10,7 +10,7 @@ package AEIdeal {
     }
      
     oracle Set(k: Bits(n), h: Bits(n))  {
-        if K[h]==None as Bits(n) {
+        if (K[h]==None as Bits(n)) {
             K[h] <- Some(k);
 	}
     }
