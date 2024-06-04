@@ -9,7 +9,7 @@ package modAEReal {
         Get(h: Integer) -> Bits(n),
     }
     
-    oracle Enc(h: Integer, msg: Bits(n)) -> Bits(m) {
+    oracle Enc(h: Integer, msg: Bits(n)) -> Bits(n) {
         k <- invoke Get(h);   
         r <-$ Bits(n);
         return enc(k,msg,r);
