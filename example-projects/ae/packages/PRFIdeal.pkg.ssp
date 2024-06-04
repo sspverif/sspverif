@@ -1,12 +1,14 @@
 package PRFIdeal {
-    const n: Integer;
+	params {
+		n: Integer,
+	}
     
     state {
           K: Table(Integer,Bits(n))
           }
         
     oracle Eval(h: Integer, h: Bits(n)) {
-        if K[h] == Bot {
+        if (K[h] == None as Bits(n)) {
            y    <-$ Bits(n);
            K[h] <- Some(y);
         }    

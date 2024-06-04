@@ -1,8 +1,10 @@
 package AEReal {
-    const n: Integer;
-    const enc: fn Bits(n), Bits(n), Bits(n) -> Bits(n);
+params {
+    n: Integer,
+    enc: fn Bits(n), Bits(n), Bits(n) -> Bits(n),
+}
  state{
-    K: Table(Integer) -> Bits(n);
+    K: Table(Integer,  Bits(n)),
       }
 
     oracle Set(k: Bits(n), h: Integer)  {
