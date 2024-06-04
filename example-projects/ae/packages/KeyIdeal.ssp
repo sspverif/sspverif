@@ -1,0 +1,19 @@
+package KeyIdeal {
+    params{
+	 n: Integer,
+    }
+    
+    state {
+       K: Table(Integer, Bits(n)),
+    }
+    oracle Set(k: Bits(n), h: Integer)  {
+        if (K[h]==Bot) {
+            K[h] <-$ Bits(n);
+	}
+    }
+    
+    oracle Get(h: Integer) -> Bits(n) {
+        return  Unwrap(K[h]);
+    }
+
+}

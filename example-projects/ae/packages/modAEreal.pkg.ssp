@@ -1,0 +1,22 @@
+package modAEReal {
+    params {
+     n: Integer,
+     enc: fn Bits(n), Bits(n), Bits(n) -> Bits(n),
+    }
+
+
+    import oracles {
+        Get(h: Integer) -> Bits(n),
+    }
+    
+    oracle Enc(h: Integer, msg: Bits(n)) -> Bits(m) {
+        k <- invoke Get(h);   
+        r <-$ Bits(n);
+        return enc(k,msg,r);
+    }
+
+    oracle Dec(h: Integer, c: Bits(m)) -> Bits(n) {
+        k <- invoke Get(h);   
+        return dec(k,c);
+    }
+}

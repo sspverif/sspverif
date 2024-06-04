@@ -1,0 +1,24 @@
+package modPRF {
+    params {
+        n: Integer,
+        prf: fn Bits(n), Bits(n)  -> Bits(n),
+    }
+    
+    state {
+        ltk: Bits(n),
+    }
+    
+    import oracles {
+        Get(h: Integer) -> Bits(n),
+        Set(k: Bits(n), h: Integer), 
+    }
+    
+    oracle Eval(h: Integer, h: Bits(n)) {
+        if (ltk == Bot) {
+            ltk <-$ Bits(n);
+        }
+        
+        k <- prf(ltk, h);
+        _ <- invoke Set(k, h);
+    } 
+}
