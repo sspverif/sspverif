@@ -4,21 +4,21 @@ params {
     enc: fn Bits(n), Bits(n), Bits(n) -> Bits(n),
 }
  state{
-    K: Table(Integer,  Bits(n)),
+    K: Table(Bits(n),  Bits(n)),
       }
 
-    oracle Set(k: Bits(n), h: Integer)  {
-        if (K[h] == None) {
+    oracle Set(k: Bits(n), h: Bits(n))  {
+        if (K[h] == None as Bits(n)) {
             K[h] <- Some(k);}
     }
-    oracle Enc(h: Integer, msg: Bits(n)) -> Bits(m) {
-        k <- Unwrap(K(h));   
+    oracle Enc(h_: Bits(n), msg: Bits(n)) -> Bits(m) {
+        k <- Unwrap(K[h_]);   
         r <-$ Bits(n);
         return enc(k,msg,r);
     }
     
-    oracle Dec(h: Integer, c: Bits(m)) -> Bits(n) {
-        k <- Unwrap(K[h]);
+    oracle Dec(h__: Bits(n), c: Bits(m)) -> Bits(n) {
+        k <- Unwrap(K[h__]);
         return dec(k,c);
     }
 }

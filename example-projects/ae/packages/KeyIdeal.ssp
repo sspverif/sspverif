@@ -4,15 +4,15 @@ package KeyIdeal {
     }
     
     state {
-       K: Table(Integer, Bits(n)),
+       K: Table(Bits(n), Bits(n)),
     }
-    oracle Set(k: Bits(n), h: Integer)  {
+    oracle Set(k: Bits(n), h: Bits(n))  {
         if (K[h]==Bot) {
             K[h] <-$ Bits(n);
 	}
     }
     
-    oracle Get(h_: Integer) -> Bits(n) {
+    oracle Get(h_: Bits(n)) -> Bits(n) {
         return  Unwrap(K[h_]);
     }
 

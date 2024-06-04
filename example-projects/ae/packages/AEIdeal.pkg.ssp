@@ -15,13 +15,14 @@ package AEIdeal {
 	}
     }
 
-    oracle Enc(h: Bits(n), msg: Bits(n)) -> Bits(n) {
-        k <- Unwrap(K(h));   
-        T[(h, enc(k,msg,r))] <- Some(enc(k,msg,r));
+    oracle Enc(h_: Bits(n), msg: Bits(n)) -> Bits(n) {
+        k <- Unwrap(K[h_]);   
+	r <-$ Bits(n);
+        T[(h_, enc(k,msg,r))] <- Some(enc(k,msg,r));
         return enc(k,msg,r);
     }
 
-    oracle Dec(h: Bits(n), c: Bits(n)) -> Bits(n) {
-        return Unwrap(T[(h,enc(k,msg,r))]);
+    oracle Dec(h__: Bits(n), c: Bits(n)) -> Bits(n) {
+        return Unwrap(T[(h__,enc(k,msg,r))]);
     }
 }

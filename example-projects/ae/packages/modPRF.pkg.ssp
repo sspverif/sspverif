@@ -12,7 +12,7 @@ package modPRF {
         Set(k: Bits(n), h__: Bits(n)), 
     }
     
-    oracle Eval(h: Integer, h_: Bits(n)) {
+    oracle Eval(h: Bits(n)) {
         if (ltk == None as Bits(n)) {
             ltk_ <-$ Bits(n);
 	    ltk <- Some(ltk_);
@@ -20,7 +20,7 @@ package modPRF {
 
 	ltk_ <- Unwrap(ltk);
         
-        k <- prf(ltk_, h_);
-        _ <- invoke Set(k, h_);
+        k <- prf(ltk_, h);
+        _ <- invoke Set(k, h);
     } 
 }
