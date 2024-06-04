@@ -11,7 +11,7 @@ package CheckIndexover {
 
 
     oracle GETA(h: Integer) -> Bits(n) {
-        b <- false;
+            b <- false;
         for i: t < i <= n {
             if ( h==i ) 
             {b <- true;}
@@ -22,7 +22,7 @@ package CheckIndexover {
     }
 
     oracle SETBIT(h: Integer, zz:Bool) -> () {
-        b <- false;
+            b <- false;
         for i: t < i <= n {
             if ( h==i ) 
             {b <- true;}
