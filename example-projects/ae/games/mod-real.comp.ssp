@@ -1,0 +1,41 @@
+composition Real {
+    const n: Integer;
+    const prf: fn Bits(n), Bits(n) -> Bits(n);
+    const enc: fn Bits(n), Bits(n), Bits(n) -> Bits(n);
+    const dec: fn Bits(n), Bits(n), Bits(n) -> Bits(n);
+    
+    instance prf = modPRF {
+        params {
+            n:   n,
+            prf: prf,
+        }
+    }
+    
+    instance key = KeyReal {
+        params {
+            n: n,
+        }
+    }
+    
+    instance ae = AEReal {
+        params {
+            n:   n,
+            enc: enc,
+            dec: enc,
+        }
+    }
+    
+    compose {
+        adversary: {
+            Eval: prf,
+            Enc:  ae,
+            Dec: ae,
+        },
+        prf: {
+            Set: key,
+        },
+        ae: {
+            Get: key,
+        }
+    }
+}
