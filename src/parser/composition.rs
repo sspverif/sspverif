@@ -37,6 +37,8 @@ impl<'a> ParseContext<'a> {
         let mut scope = Scope::new();
         scope.enter();
 
+        let consts = HashMap::new();
+
         let instances = vec![];
         let instances_table = HashMap::new();
 
@@ -52,6 +54,8 @@ impl<'a> ParseContext<'a> {
             game_name,
 
             scope,
+
+            consts,
 
             instances,
             instances_table,
@@ -73,6 +77,8 @@ pub struct ParseGameContext<'a> {
 
     pub scope: Scope,
 
+    pub consts: HashMap<String, Type>,
+
     pub instances: Vec<PackageInstance>,
     pub instances_table: HashMap<String, (usize, PackageInstance)>,
 
@@ -84,6 +90,7 @@ pub struct ParseGameContext<'a> {
 }
 
 impl<'a> ParseGameContext<'a> {
+    // TODO: check dupes here?
     fn add_pkg_instance(&mut self, pkg_inst: PackageInstance) {
         let offset = self.instances.len();
         self.instances.push(pkg_inst.clone());
@@ -98,6 +105,22 @@ impl<'a> ParseGameContext<'a> {
         self.instances_table
             .get(name)
             .map(|(offset, pkg_inst)| (*offset, pkg_inst))
+    }
+
+    // TODO: check dupes here?
+    fn add_const(&mut self, name: String, ty: Type) {
+        self.consts.insert(name, ty);
+    }
+
+    fn consts_as_vec(&self) -> Vec<(String, Type)> {
+        self.consts
+            .iter()
+            .map(|(name, ty)| (name.to_string(), ty.clone()))
+            .collect()
+    }
+
+    fn get_const(&self, name: &str) -> Option<&Type> {
+        self.consts.get(name)
     }
 
     fn add_edge(&mut self, edge: Edge) {
@@ -135,13 +158,11 @@ pub fn handle_comp_spec_list<'a>(
     ast: Pair<Rule>,
     pkg_map: &HashMap<String, Package>,
 ) -> error::Result<Composition> {
-    let mut consts = HashMap::new();
-
     for comp_spec in ast.into_inner() {
         match comp_spec.as_rule() {
             Rule::const_decl => {
                 let (name, tipe) = handle_const_decl(comp_spec);
-                consts.insert(name.clone(), tipe.clone());
+                ctx.add_const(name.clone(), tipe.clone());
                 ctx.scope
                     .declare(
                         &name,
@@ -160,10 +181,10 @@ pub fn handle_comp_spec_list<'a>(
                     .unwrap();
             }
             Rule::game_for => {
-                handle_for_loop(&mut ctx, comp_spec, pkg_map, &consts)?;
+                handle_for_loop(&mut ctx, comp_spec, pkg_map)?;
             }
             Rule::instance_decl => {
-                let pkg_inst = handle_instance_decl(&mut ctx, comp_spec, pkg_map, &consts)?;
+                let pkg_inst = handle_instance_decl(&mut ctx, comp_spec, pkg_map)?;
                 ctx.add_pkg_instance(pkg_inst)
             }
             Rule::compose_decl => {
@@ -177,7 +198,7 @@ pub fn handle_comp_spec_list<'a>(
         }
     }
 
-    let mut consts = Vec::from_iter(consts);
+    let mut consts = Vec::from_iter(ctx.consts);
     consts.sort();
 
     Ok(Composition {
@@ -289,13 +310,12 @@ pub fn handle_for_loop_body<'a>(
     ctx: &mut ParseGameContext<'a>,
     ast: Pair<Rule>,
     pkgs: &HashMap<String, Package>,
-    consts: &HashMap<String, Type>,
 ) -> error::Result<()> {
     for comp_spec in ast.into_inner() {
         match comp_spec.as_rule() {
-            Rule::game_for => handle_for_loop(ctx, comp_spec, pkgs, &consts)?,
+            Rule::game_for => handle_for_loop(ctx, comp_spec, pkgs)?,
 
-            Rule::instance_decl => handle_instance_decl_multi_inst(ctx, comp_spec, pkgs, &consts)?,
+            Rule::instance_decl => handle_instance_decl_multi_inst(ctx, comp_spec, pkgs)?,
 
             Rule::compose_decl_multi_inst => {
                 let comp_spec_span = comp_spec.as_span();
@@ -578,7 +598,6 @@ pub fn handle_for_loop<'a>(
     ctx: &mut ParseGameContext<'a>,
     ast: Pair<Rule>,
     pkgs: &HashMap<String, Package>,
-    consts: &HashMap<String, Type>,
 ) -> error::Result<()> {
     let mut parsed: Vec<Pair<Rule>> = ast.into_inner().collect();
     let decl_var_name = parsed[0].as_str();
@@ -621,7 +640,7 @@ pub fn handle_for_loop<'a>(
     ctx.scope.enter();
     ctx.scope.declare(decl_var_name, decl).unwrap();
 
-    let result = handle_for_loop_body(ctx, body_ast, pkgs, consts);
+    let result = handle_for_loop_body(ctx, body_ast, pkgs);
 
     ctx.scope.leave();
 
@@ -688,7 +707,6 @@ pub fn handle_instance_decl_multi_inst(
     ctx: &mut ParseGameContext,
     ast: Pair<Rule>,
     pkg_map: &HashMap<String, Package>,
-    consts: &HashMap<String, Type>,
 ) -> error::Result<()> {
     let span = ast.as_span();
 
@@ -718,12 +736,7 @@ pub fn handle_instance_decl_multi_inst(
         Some(pkg) => error::Result::Ok(pkg),
     }?;
 
-    // a list of (name, type) pairs of game constants/params and loop variables
-    let defined_consts: Vec<_> = consts
-        .iter()
-        .map(|(name, tipe)| (name.clone(), tipe.clone()))
-        .collect();
-
+    let defined_consts = ctx.consts_as_vec();
     let (mut param_list, type_list) =
         handle_instance_assign_list(ctx, data, inst_name, pkg_name, &defined_consts)?;
 
@@ -805,7 +818,6 @@ pub fn handle_instance_decl(
     ctx: &mut ParseGameContext,
     ast: Pair<Rule>,
     pkg_map: &HashMap<String, Package>,
-    consts: &HashMap<String, Type>,
 ) -> error::Result<PackageInstance> {
     let span = ast.as_span();
 
@@ -836,11 +848,7 @@ pub fn handle_instance_decl(
         Some(pkg) => error::Result::Ok(pkg),
     }?;
 
-    let defined_consts: Vec<_> = consts
-        .iter()
-        .map(|(name, tipe)| (name.clone(), tipe.clone()))
-        .collect();
-
+    let defined_consts = ctx.consts_as_vec();
     let instance_assign_ast = inner.next().unwrap();
     let (mut param_list, type_list) = handle_instance_assign_list(
         ctx,
@@ -857,7 +865,7 @@ pub fn handle_instance_decl(
         .iter()
         .map(|(pkg_param, comp_param)| match comp_param {
             Expression::Identifier(id) => {
-                let maybe_type = consts.get(&id.ident());
+                let maybe_type = ctx.get_const(id.ident_ref());
 
                 assert!(
                     maybe_type.is_some(),
