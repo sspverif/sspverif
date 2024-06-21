@@ -5,7 +5,6 @@ use crate::util::scope::Scope;
 use crate::{expressions::Expression, identifier::Identifier, types::Type};
 
 use super::error::{Error, OwnedSpan, Result, SpanError};
-use super::package::handle_identifier_in_code_rhs;
 use super::{error, Rule};
 
 use pest::iterators::Pair;

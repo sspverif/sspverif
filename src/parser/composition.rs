@@ -2,7 +2,7 @@ use super::{
     common::*,
     error,
     package::{ForComp, MultiInstanceIndices},
-    Rule,
+    ParseContext, Rule,
 };
 use crate::{
     expressions::Expression,
@@ -24,12 +24,6 @@ use pest::iterators::{Pair, Pairs};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::iter::FromIterator as _;
-
-#[derive(Debug, Clone, Copy)]
-pub struct ParseContext<'a> {
-    pub file_name: &'a str,
-    pub file_content: &'a str,
-}
 
 impl<'a> ParseContext<'a> {
     fn game_context(

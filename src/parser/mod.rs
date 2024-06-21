@@ -15,6 +15,12 @@ use pest::iterators::Pairs;
 #[grammar = "parser/ssp.pest"]
 pub struct SspParser;
 
+#[derive(Debug, Clone, Copy)]
+pub struct ParseContext<'a> {
+    pub file_name: &'a str,
+    pub file_content: &'a str,
+}
+
 impl SspParser {
     pub fn parse_package(contents: &str) -> Result<Pairs<Rule>, Error<Rule>> {
         SspParser::parse(Rule::package, contents)
@@ -41,7 +47,7 @@ mod tests {
 
         let mut pairs =
             super::SspParser::parse_package(sspcode).expect("empty param section fails parsing");
-        super::package::handle_pkg(pairs.next().unwrap(), file_name);
+        super::package::handle_pkg(pairs.next().unwrap(), file_name).unwrap();
     }
 
     #[test]
@@ -54,6 +60,6 @@ mod tests {
 
         let mut pairs =
             super::SspParser::parse_package(sspcode).expect("empty state section fails parsing");
-        super::package::handle_pkg(pairs.next().unwrap(), file_name);
+        super::package::handle_pkg(pairs.next().unwrap(), file_name).unwrap();
     }
 }
