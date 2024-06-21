@@ -258,7 +258,6 @@ pub fn handle_type(tipe: Pair<Rule>) -> Type {
 
 pub fn handle_game_params_def_list(
     ast: Pair<Rule>,
-    defined_consts: &[(String, Type)],
     scope: &mut Scope,
 ) -> Result<Vec<(String, Expression)>> {
     ast.into_inner()
@@ -281,14 +280,8 @@ pub fn handle_game_params_def_list(
                 | Expression::IntegerLiteral(_)
                 | Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::LoopVar(_)))
                 | Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(_))) => {}
-                Expression::Identifier(Identifier::Scalar(ident)) => {
+                Expression::Identifier(Identifier::Scalar(_)) => {
                     panic!("scalar is deprecated");
-                    if !defined_consts
-                        .iter()
-                        .any(|(defd_name, _)| ident == defd_name)
-                    {
-                        return Err(Error::UndefinedIdentifer(ident.clone()).with_span(right_span));
-                    }
                 }
                 _ => {
                     return Err(Error::IllegalExpression(right.clone()).with_span(right_span));
