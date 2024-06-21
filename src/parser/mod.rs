@@ -21,6 +21,11 @@ pub struct ParseContext<'a> {
     pub file_content: &'a str,
 }
 
+pub trait CommonContext {
+    fn scope_enter(&mut self);
+    fn scope_leave(&mut self);
+}
+
 impl SspParser {
     pub fn parse_package(contents: &str) -> Result<Pairs<Rule>, Error<Rule>> {
         SspParser::parse(Rule::package, contents)

@@ -97,7 +97,26 @@ pub mod pkg_ident {
         pub proof_name: Option<String>,
     }
 
+    impl From<PackageConstIdentifier> for Identifier {
+        fn from(value: PackageConstIdentifier) -> Self {
+            Identifier::PackageIdentifier(PackageIdentifier::Const(value))
+        }
+    }
+
     impl PackageConstIdentifier {
+        pub(crate) fn new(name: String, pkg_name: String, ty: Type) -> Self {
+            Self {
+                pkg_name,
+                name,
+                tipe: ty,
+                game_assignment: None,
+                pkg_inst_name: None,
+                game_name: None,
+                game_inst_name: None,
+                proof_name: None,
+            }
+        }
+
         pub(crate) fn ident(&self) -> String {
             self.name.clone()
         }
@@ -130,6 +149,26 @@ pub mod pkg_ident {
         pub game_name: Option<String>,
         pub game_inst_name: Option<String>,
         pub proof_name: Option<String>,
+    }
+
+    impl From<PackageStateIdentifier> for Identifier {
+        fn from(value: PackageStateIdentifier) -> Self {
+            Identifier::PackageIdentifier(PackageIdentifier::State(value))
+        }
+    }
+
+    impl PackageStateIdentifier {
+        pub(crate) fn new(name: String, pkg_name: String, ty: Type) -> Self {
+            Self {
+                pkg_name,
+                name,
+                tipe: ty,
+                pkg_inst_name: None,
+                game_name: None,
+                game_inst_name: None,
+                proof_name: None,
+            }
+        }
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]

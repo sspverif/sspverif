@@ -2,7 +2,7 @@ use super::{
     common::*,
     error,
     package::{ForComp, MultiInstanceIndices},
-    ParseContext, Rule,
+    CommonContext, ParseContext, Rule,
 };
 use crate::{
     expressions::Expression,
@@ -82,6 +82,16 @@ pub struct ParseGameContext<'a> {
     pub multi_inst_exports: Vec<MultiInstanceExport>,
 }
 
+impl<'a> CommonContext for ParseGameContext<'a> {
+    fn scope_enter(&mut self) {
+        self.scope.enter()
+    }
+
+    fn scope_leave(&mut self) {
+        self.scope.leave()
+    }
+}
+
 impl<'a> ParseGameContext<'a> {
     fn into_game(self) -> Composition {
         let mut consts = Vec::from_iter(self.consts);
@@ -107,14 +117,6 @@ impl<'a> ParseGameContext<'a> {
         declaration: Declaration,
     ) -> Result<(), crate::util::scope::Error> {
         self.scope.declare(name, declaration)
-    }
-
-    fn scope_enter(&mut self) {
-        self.scope.enter()
-    }
-
-    fn scope_leave(&mut self) {
-        self.scope.leave()
     }
 
     // TODO: check dupes here?
