@@ -8,7 +8,7 @@ use std::fmt::Debug;
 use std::iter::FromIterator;
 
 use crate::expressions::Expression;
-use crate::identifier::game_ident::GameIdentifier;
+use crate::identifier::game_ident::{GameConstIdentifier, GameIdentifier};
 use crate::identifier::pkg_ident::PackageConstIdentifier;
 use crate::identifier::Identifier;
 use crate::package::{
@@ -90,6 +90,24 @@ pub struct ParseGameContext<'a> {
 }
 
 impl<'a> ParseGameContext<'a> {
+    fn into_game(self) -> Composition {
+        let mut consts = self.consts_as_vec();
+        consts.sort();
+
+        Composition {
+            name: self.game_name.to_string(),
+            consts,
+            pkgs: self.instances,
+            edges: self.edges,
+            exports: self.exports,
+            multi_inst_edges: self.multi_inst_edges,
+            multi_inst_exports: self.multi_inst_exports,
+
+            // this one will be populated in a transform, not in the parser
+            split_exports: vec![],
+        }
+    }
+
     // TODO: check dupes here?
     fn add_pkg_instance(&mut self, pkg_inst: PackageInstance) {
         let offset = self.instances.len();
@@ -166,17 +184,16 @@ pub fn handle_comp_spec_list<'a>(
                 ctx.scope
                     .declare(
                         &name,
-                        crate::util::scope::Declaration::Identifier(Identifier::GameIdentifier(
-                            crate::identifier::game_ident::GameIdentifier::Const(
-                                crate::identifier::game_ident::GameConstIdentifier {
-                                    game_name: ctx.game_name.to_string(),
-                                    name: name.clone(),
-                                    tipe,
-                                    game_inst_name: None,
-                                    proof_name: None,
-                                },
-                            ),
-                        )),
+                        Declaration::Identifier(
+                            GameConstIdentifier {
+                                game_name: ctx.game_name.to_string(),
+                                name: name.clone(),
+                                tipe,
+                                game_inst_name: None,
+                                proof_name: None,
+                            }
+                            .into(),
+                        ),
                     )
                     .unwrap();
             }
@@ -198,24 +215,7 @@ pub fn handle_comp_spec_list<'a>(
         }
     }
 
-    let mut consts = Vec::from_iter(ctx.consts);
-    consts.sort();
-
-    Ok(Composition {
-        name: ctx.game_name.to_owned(),
-
-        consts,
-        pkgs: ctx.instances,
-
-        edges: ctx.edges,
-        exports: ctx.exports,
-
-        // these will be populated by a transform later
-        split_exports: vec![],
-
-        multi_inst_edges: ctx.multi_inst_edges,
-        multi_inst_exports: ctx.multi_inst_exports,
-    })
+    Ok(ctx.into_game())
 }
 
 pub fn handle_compose_assign_list_multi_inst<'a>(
