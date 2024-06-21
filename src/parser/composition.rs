@@ -137,14 +137,7 @@ pub fn handle_comp_spec_list<'a>(
                 multi_exports.append(&mut new_multi_exports);
             }
             Rule::instance_decl => {
-                let inst = handle_instance_decl(
-                    comp_spec,
-                    &mut ctx.scope,
-                    ctx.game_name,
-                    pkg_map,
-                    &consts,
-                    ctx.file_name,
-                )?;
+                let inst = handle_instance_decl(ctx, comp_spec, pkg_map, &consts)?;
                 instances.push(inst.clone());
                 let offset = instances.len() - 1;
                 instance_table.insert(inst.name.clone(), (offset, inst));
@@ -310,14 +303,7 @@ pub fn handle_for_loop_body<'a>(
                 multi_exports.append(&mut new_multi_exports);
             }
             Rule::instance_decl => {
-                let inst = handle_instance_decl_multi_inst(
-                    comp_spec,
-                    &mut ctx.scope,
-                    ctx.game_name,
-                    pkgs,
-                    &consts,
-                    ctx.file_name,
-                )?;
+                let inst = handle_instance_decl_multi_inst(ctx, comp_spec, pkgs, &consts)?;
                 instances.push(inst);
             }
             Rule::compose_decl_multi_inst => {
@@ -694,12 +680,10 @@ pub fn handle_for_loop<'a>(
 use crate::util::scope::{Declaration, Scope};
 
 pub fn handle_instance_assign_list(
+    ctx: &mut ParseGameContext,
     ast: Pair<Rule>,
-    scope: &mut Scope,
-    game_name: &str,
     inst_name: &str,
     pkg_name: &str,
-    file_name: &str,
     defined_consts: &[(String, Type)],
 ) -> error::Result<(
     Vec<(PackageConstIdentifier, Expression)>,
@@ -714,7 +698,7 @@ pub fn handle_instance_assign_list(
                 let defs = handle_game_params_def_list(
                     elem.into_inner().next().unwrap(),
                     defined_consts,
-                    scope,
+                    &mut ctx.scope,
                 )?;
                 params.extend(defs.into_iter().map(|(name, value)| {
                     (
@@ -724,9 +708,9 @@ pub fn handle_instance_assign_list(
                             tipe: value.get_type(),
                             // we don't resolve it here yet, so we can easily find it when
                             // searching this list when we don't have the value yet.
+                            game_name: None,
                             game_assignment: None,
                             pkg_inst_name: None,
-                            game_name: None,
                             game_inst_name: None,
                             proof_name: None,
                         },
@@ -735,8 +719,11 @@ pub fn handle_instance_assign_list(
                 }))
             }
             Rule::types_def => {
-                let mut defs =
-                    handle_types_def_list(elem.into_inner().next().unwrap(), inst_name, file_name)?;
+                let mut defs = handle_types_def_list(
+                    elem.into_inner().next().unwrap(),
+                    inst_name,
+                    ctx.file_name,
+                )?;
                 types.append(&mut defs);
             }
             _ => unreachable!("{:#?}", elem),
@@ -747,12 +734,10 @@ pub fn handle_instance_assign_list(
 }
 
 pub fn handle_instance_decl_multi_inst(
+    ctx: &mut ParseGameContext,
     ast: Pair<Rule>,
-    scope: &mut Scope,
-    game_name: &str,
     pkg_map: &HashMap<String, Package>,
     consts: &HashMap<String, Type>,
-    file_name: &str,
 ) -> error::Result<PackageInstance> {
     let span = ast.as_span();
 
@@ -767,7 +752,7 @@ pub fn handle_instance_decl_multi_inst(
     println!("indices: {:?}", indices_ast);
     let indices = indices_ast
         .into_inner()
-        .map(|index_ast| handle_expression(index_ast, scope))
+        .map(|index_ast| handle_expression(index_ast, &mut ctx.scope))
         .collect::<Result<Vec<_>, _>>()?;
 
     println!("indices: {:?}", indices);
@@ -789,15 +774,8 @@ pub fn handle_instance_decl_multi_inst(
         .collect();
 
     let data_span = data.as_span();
-    let (mut param_list, type_list) = handle_instance_assign_list(
-        data,
-        scope,
-        game_name,
-        inst_name,
-        pkg_name,
-        file_name,
-        &defined_consts,
-    )?;
+    let (mut param_list, type_list) =
+        handle_instance_assign_list(ctx, data, inst_name, pkg_name, &defined_consts)?;
 
     param_list.sort();
 
@@ -844,7 +822,7 @@ pub fn handle_instance_decl_multi_inst(
         // TODO include the difference in here
         return Err(error::SpanError::new_with_span(
             error::Error::TypeParameterMismatch {
-                game_name: game_name.to_string(),
+                game_name: ctx.game_name.to_string(),
                 pkg_name: pkg_name.to_string(),
                 pkg_inst_name: inst_name.to_string(),
             },
@@ -876,12 +854,10 @@ pub fn handle_index_id_list<'a>(ast: Pair<'a, Rule>) -> Vec<String> {
 }
 
 pub fn handle_instance_decl(
+    ctx: &mut ParseGameContext,
     ast: Pair<Rule>,
-    scope: &mut Scope,
-    game_name: &str,
     pkg_map: &HashMap<String, Package>,
     consts: &HashMap<String, Type>,
-    file_name: &str,
 ) -> error::Result<PackageInstance> {
     let span = ast.as_span();
 
@@ -892,7 +868,7 @@ pub fn handle_instance_decl(
     let (multi_instance_indices, pkg_name) = if index_or_pkgname.as_rule() == Rule::index_id_list {
         let indices_ast = index_or_pkgname.into_inner();
         let indices: Vec<_> = indices_ast
-            .map(|index| handle_expression(index, scope))
+            .map(|index| handle_expression(index, &mut ctx.scope))
             .collect::<Result<_, _>>()?;
         (
             MultiInstanceIndices::new(indices),
@@ -905,8 +881,8 @@ pub fn handle_instance_decl(
     let pkg = match pkg_map.get(pkg_name) {
         None => {
             panic!(
-                "package {} is unknown in composition {}",
-                pkg_name, file_name
+                "package {pkg_name} is unknown in composition {file_name}",
+                file_name = ctx.file_name
             );
         }
         Some(pkg) => error::Result::Ok(pkg),
@@ -919,12 +895,10 @@ pub fn handle_instance_decl(
 
     let instance_assign_ast = inner.next().unwrap();
     let (mut param_list, type_list) = handle_instance_assign_list(
+        ctx,
         instance_assign_ast,
-        scope,
-        game_name,
         pkg_inst_name,
         pkg_name,
-        file_name,
         &defined_consts,
     )?;
 
@@ -990,7 +964,7 @@ pub fn handle_instance_decl(
         // TODO include the difference in here
         return Err(error::SpanError::new_with_span(
             error::Error::TypeParameterMismatch {
-                game_name: game_name.to_string(),
+                game_name: ctx.game_name.to_string(),
                 pkg_name: pkg_name.to_string(),
                 pkg_inst_name: pkg_inst_name.to_string(),
             },
@@ -1000,7 +974,7 @@ pub fn handle_instance_decl(
 
     let inst = PackageInstance::new(
         pkg_inst_name,
-        game_name,
+        ctx.game_name,
         pkg,
         multi_instance_indices,
         param_list,
