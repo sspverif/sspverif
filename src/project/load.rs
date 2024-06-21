@@ -13,76 +13,9 @@ use crate::proof::Proof;
 use crate::util::scope::Scope;
 extern crate toml_edit;
 
-/*
-[assumptions]
-[assumptions.LeftRight]
-left = "Left"
-right = "Right"
-
-[[game_hops]]
-
-[game_hops.Reduction]
-
-left = "Left"
-right = "Right"
-assumption = "LeftRight"
- */
-
 // left is the name of the lemma, right is list of names of dependency lemmas
 pub type ProofTreeSpec = Vec<(String, Vec<String>)>;
 
-// TODO: add a HybridArgument variant
-#[derive(Debug, Serialize, Deserialize)]
-pub enum TomlGameHop {
-    Reduction {
-        left: String,
-        right: String,
-        assumption: String,
-        leftmap: Vec<(String, String)>,
-        rightmap: Vec<(String, String)>,
-        //direction: String,
-        // we probably have to provide more information here,
-        // in order to easily figure out how to perform the rewrite
-    },
-    Equivalence {
-        left: String,
-        right: String,
-        invariant_path: String,
-        // the key here is the oracle name I guess??
-        trees: HashMap<String, ProofTreeSpec>,
-    },
-}
-
-/*
-#[derive(Debug, Serialize, Deserialize)]
-struct TomlStructure {
-    game_hops: Vec<TomlGameHop>,
-    assumptions: HashMap<String, Assumption>,
-}
-
-pub(crate) fn toml_file(
-    root: PathBuf,
-    games: &HashMap<String, Composition>,
-) -> Result<(Vec<GameHop>, HashMap<String, Assumption>)> {
-    let mut path = root.clone();
-    path.push(PROJECT_FILE);
-
-    let filecontent = std::fs::read(&path)?;
-    let toml_data = toml_edit::easy::from_slice::<TomlStructure>(&filecontent).unwrap();
-
-    validate_assumptions(&toml_data.assumptions, games)?;
-
-    let hops: Vec<GameHop> = toml_data
-        .game_hops
-        .into_iter()
-        .map(|toml_hop| toml_hop.into())
-        .collect();
-
-    validate_game_hops(&hops, games, &toml_data.assumptions)?;
-
-    Ok((hops, toml_data.assumptions))
-}
-*/
 pub(crate) fn packages(root: PathBuf) -> Result<HashMap<String, Package>> {
     let mut dir = root;
     dir.push(PACKAGES_DIR);
