@@ -163,13 +163,8 @@ pub fn handle_comp_spec_list<'a>(
                     mut multi_instance_edges_,
                     mut exports_,
                     mut multi_instance_exports_,
-                ) = handle_compose_assign_body_list(
-                    comp_spec,
-                    &mut ctx.scope,
-                    &instance_table,
-                    ctx.file_name,
-                )
-                .map_err(|e| error::Error::ParseGameError(e).with_span(comp_spec_span))?;
+                ) = handle_compose_assign_body_list(ctx, comp_spec, &instance_table)
+                    .map_err(|e| error::Error::ParseGameError(e).with_span(comp_spec_span))?;
                 edges.append(&mut edges_);
                 exports.append(&mut exports_);
                 multi_edges.append(&mut multi_instance_edges_);
@@ -196,24 +191,10 @@ pub fn handle_comp_spec_list<'a>(
     })
 }
 
-pub fn handle_compose_assign_list(ast: Pairs<Rule>) -> Vec<(String, String)> {
-    ast.map(|assignment| {
-        let mut inner = assignment.into_inner();
-
-        let oracle_name = inner.next().unwrap().as_str();
-        let dst_inst_name = inner.next().unwrap().as_str();
-
-        (oracle_name.to_owned(), dst_inst_name.to_owned())
-    })
-    .collect()
-}
-
 pub fn handle_compose_assign_list_multi_inst<'a>(
-    ctx: ParseGameContext<'a>,
+    ctx: &mut ParseGameContext<'a>,
     ast: Pairs<Rule>,
-    scope: &mut Scope,
     instances: &HashMap<String, (usize, PackageInstance)>,
-    file_name: &str,
 ) -> Result<Vec<(String, String, Vec<Expression>)>, ParseGameError> {
     ast.map(|assignment| -> Result<_, ParseGameError> {
         let mut line_builder = (None, None, vec![]);
@@ -226,7 +207,7 @@ pub fn handle_compose_assign_list_multi_inst<'a>(
                     if !instances.contains_key(piece.as_str()) {
                         return Err(ParseGameError::UndeclaredInstance(
                             piece.as_str().to_string(),
-                            FilePosition::from_span(file_name, piece.as_span()),
+                            FilePosition::from_span(ctx.file_name, piece.as_span()),
                         ));
                     }
 
@@ -239,7 +220,7 @@ pub fn handle_compose_assign_list_multi_inst<'a>(
                         .unwrap()
                         .into_inner()
                         .map(|e| {
-                            handle_expression(e, scope)
+                            handle_expression(e, &mut ctx.scope)
                                 .map_err(ParseGameError::ParseExpressionError)
                         })
                         .collect::<Result<Vec<Expression>, ParseGameError>>()?,
@@ -260,17 +241,6 @@ pub fn handle_compose_assign_list_multi_inst<'a>(
         // (oracle_name.to_owned(), dst_inst_name.to_owned())
     })
     .collect::<Result<Vec<_>, _>>()
-}
-
-pub fn handle_types_def(
-    ast: Pair<Rule>,
-    inst_name: &str,
-    file_name: &str,
-) -> error::Result<Vec<(String, Type)>> {
-    match ast.into_inner().next() {
-        None => Ok(vec![]),
-        Some(ast) => handle_types_def_list(ast, inst_name, file_name),
-    }
 }
 
 #[derive(Debug)]
@@ -363,11 +333,7 @@ pub fn handle_for_loop_body<'a>(
                 let comp_spec_span = comp_spec.as_span();
                 let (mut edges_, mut multi_edges_, mut exports_, mut multi_exports_) =
                     handle_compose_assign_body_list_multi_inst(
-                        comp_spec,
-                        &mut ctx.scope,
-                        &pkg_insts,
-                        loopvars,
-                        ctx.file_name,
+                        ctx, comp_spec, &pkg_insts, loopvars,
                     )
                     .map_err(|e| error::Error::ParseGameError(e).with_span(comp_spec_span))?;
                 edges.append(&mut edges_);
@@ -386,10 +352,9 @@ pub fn handle_for_loop_body<'a>(
 This functions parses the body of a compose block. It returns internal edges and exports.
  */
 pub fn handle_compose_assign_body_list(
+    ctx: &mut ParseGameContext,
     ast: Pair<Rule>,
-    scope: &mut Scope,
     instances: &HashMap<String, (usize, PackageInstance)>,
-    file_name: &str,
 ) -> Result<
     (
         Vec<Edge>,
@@ -399,15 +364,14 @@ pub fn handle_compose_assign_body_list(
     ),
     ParseGameError,
 > {
-    handle_compose_assign_body_list_multi_inst(ast, scope, instances, &vec![], file_name)
+    handle_compose_assign_body_list_multi_inst(ctx, ast, instances, &vec![])
 }
 
 pub fn handle_compose_assign_body_list_multi_inst(
+    ctx: &mut ParseGameContext,
     ast: Pair<Rule>,
-    scope: &mut Scope,
     instances: &HashMap<String, (usize, PackageInstance)>,
     loopvars: &Vec<ForSpec>,
-    file_name: &str,
 ) -> Result<
     (
         Vec<Edge>,
@@ -421,6 +385,7 @@ pub fn handle_compose_assign_body_list_multi_inst(
     let mut multi_edges = vec![];
     let mut exports = vec![];
     let mut multi_exports = vec![];
+
     for body in ast.into_inner() {
         let mut inner = body.into_inner();
         let src_inst_name = inner.next().unwrap().as_str();
@@ -432,7 +397,7 @@ pub fn handle_compose_assign_body_list_multi_inst(
                 .into_inner()
                 .map(
                     // TODO: Error handling
-                    |idx_ident| match scope.lookup(idx_ident.as_str()).unwrap() {
+                    |idx_ident| match ctx.scope.lookup(idx_ident.as_str()).unwrap() {
                         Declaration::Oracle(_, _) => panic!("expected an identifier"),
                         Declaration::Identifier(ident) => ident,
                     },
@@ -445,7 +410,11 @@ pub fn handle_compose_assign_body_list_multi_inst(
         match src_inst_name {
             "adversary" => {
                 for multi_inst_export in handle_export_compose_assign_list_multi_inst(
-                    inner, scope, instances, loopvars, file_name,
+                    inner,
+                    &mut ctx.scope,
+                    instances,
+                    loopvars,
+                    ctx.file_name,
                 )? {
                     match multi_inst_export.try_into() {
                         Ok(export) => exports.push(export),
@@ -461,17 +430,15 @@ pub fn handle_compose_assign_body_list_multi_inst(
                     .unwrap_or_else(|| {
                         panic!(
                             "instance {} not found in composition {}",
-                            src_inst_name, file_name
+                            src_inst_name, ctx.file_name
                         )
                     })
                     .0;
 
                 for multi_instance_edge in handle_edges_compose_assign_list_multi_inst(
+                    ctx,
                     inner,
-                    scope,
                     instances,
-                    loopvars,
-                    file_name,
                     &source_instance_idx,
                     source_pkgidx,
                 )? {
@@ -582,11 +549,9 @@ fn handle_export_compose_assign_list_multi_inst(
 }
 
 fn handle_edges_compose_assign_list_multi_inst(
+    ctx: &mut ParseGameContext,
     ast: Pairs<Rule>,
-    scope: &mut Scope,
     instances: &HashMap<String, (usize, PackageInstance)>,
-    loopvars: &Vec<ForSpec>,
-    file_name: &str,
     source_instance_idx: &[Identifier],
     source_pkgidx: usize,
 ) -> Result<Vec<MultiInstanceEdge>, ParseGameError> {
@@ -606,7 +571,7 @@ fn handle_edges_compose_assign_list_multi_inst(
                     if !instances.contains_key(piece.as_str()) {
                         return Err(ParseGameError::UndeclaredInstance(
                             piece.as_str().to_string(),
-                            FilePosition::from_span(file_name, piece.as_span()),
+                            FilePosition::from_span(ctx.file_name, piece.as_span()),
                         ));
                     }
 
@@ -619,7 +584,7 @@ fn handle_edges_compose_assign_list_multi_inst(
                         .unwrap()
                         .into_inner()
                         .map(|e| {
-                            handle_expression(e, scope)
+                            handle_expression(e, &mut ctx.scope)
                                 .map_err(ParseGameError::ParseExpressionError)
                         })
                         .collect::<Result<_, _>>()?,
@@ -636,7 +601,7 @@ fn handle_edges_compose_assign_list_multi_inst(
         let (dst_offset, dst_inst) = match instances.get(dst_inst_name) {
             None => {
                 let pos = FilePosition::new(
-                    file_name.to_string(),
+                    ctx.file_name.to_string(),
                     span.start_pos().line_col().0,
                     span.end_pos().line_col().0,
                 );
@@ -656,8 +621,8 @@ fn handle_edges_compose_assign_list_multi_inst(
         {
             None => {
                 panic!(
-                    "oracle {} not found in package instance {}, file name {file_name}",
-                    oracle_name, dst_inst_name
+                    "oracle {oracle_name} not found in package instance {dst_inst_name}, file name {file_name}",
+                    file_name = ctx.file_name
                 );
             }
             Some(def) => def.sig.clone(),
@@ -1241,4 +1206,16 @@ mod tests {
 
         assert_eq!(game.pkgs[0].multi_instance_indices.indices.len(), 1);
     }
+}
+
+pub fn handle_compose_assign_list(ast: Pairs<Rule>) -> Vec<(String, String)> {
+    ast.map(|assignment| {
+        let mut inner = assignment.into_inner();
+
+        let oracle_name = inner.next().unwrap().as_str();
+        let dst_inst_name = inner.next().unwrap().as_str();
+
+        (oracle_name.to_owned(), dst_inst_name.to_owned())
+    })
+    .collect()
 }
