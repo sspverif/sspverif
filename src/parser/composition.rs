@@ -970,7 +970,11 @@ mod tests {
 
     fn parse_pkg(code: &str, name: &str) -> (String, Package) {
         let mut pkg_pairs = unwrap_parse_err(SspParser::parse_package(code));
-        handle_pkg(pkg_pairs.next().unwrap(), name).unwrap()
+        let ctx = ParseContext {
+            file_name: name,
+            file_content: code,
+        };
+        handle_pkg(ctx, pkg_pairs.next().unwrap()).unwrap()
     }
 
     const TINY_PKG_CODE: &str = r#"package TinyPkg {

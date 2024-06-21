@@ -27,24 +27,28 @@ pub(crate) fn packages(root: PathBuf) -> Result<HashMap<String, Package>> {
     for dir_entry in std::fs::read_dir(dir_str)? {
         let dir_entry = dir_entry?;
         let filename = dir_entry.file_name();
-        if let Some(filename) = filename.to_str() {
-            if filename.ends_with(PACKAGE_EXT) {
-                let contents = std::fs::read_to_string(dir_entry.path())?;
+        if let Some(file_name) = filename.to_str() {
+            if file_name.ends_with(PACKAGE_EXT) {
+                let file_content = &std::fs::read_to_string(dir_entry.path())?;
 
-                let mut ast = SspParser::parse_package(&contents).map_err(|e| (filename, e))?;
+                let mut ast = SspParser::parse_package(file_content).map_err(|e| (file_name, e))?;
+                let ctx = ParseContext {
+                    file_name,
+                    file_content,
+                };
                 let (pkg_name, pkg) =
-                    handle_pkg(ast.next().unwrap(), filename).map_err(Error::PackageParse)?;
+                    handle_pkg(ctx, ast.next().unwrap()).map_err(Error::PackageParse)?;
 
                 if let Some(other_filename) = pkgs_filenames.get(&pkg_name) {
                     return Err(Error::RedefinedPackage(
                         pkg_name,
-                        filename.to_string(),
+                        file_name.to_string(),
                         other_filename.to_string(),
                     ));
                 }
 
                 pkgs.insert(pkg_name.clone(), pkg);
-                pkgs_filenames.insert(pkg_name, filename.to_string());
+                pkgs_filenames.insert(pkg_name, file_name.to_string());
             }
         }
     }

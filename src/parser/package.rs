@@ -1,46 +1,174 @@
-use crate::expressions::Expression;
-use crate::identifier::game_ident::GameIdentifier;
-use crate::identifier::game_ident::GameIdentifier::Const;
-use crate::identifier::pkg_ident::PackageConstIdentifier;
-use crate::identifier::pkg_ident::PackageIdentifier;
-use crate::identifier::pkg_ident::PackageImportsLoopVarIdentifier;
-use crate::identifier::pkg_ident::PackageLocalIdentifier;
-use crate::identifier::pkg_ident::PackageOracleArgIdentifier;
-use crate::identifier::pkg_ident::PackageOracleCodeLoopVarIdentifier;
-use crate::identifier::pkg_ident::PackageStateIdentifier;
-use crate::identifier::Identifier;
-use crate::package::OracleDef;
-use crate::package::OracleSig;
-use crate::package::Package;
-use crate::statement::CodeBlock;
-use crate::statement::FilePosition;
-use crate::statement::Statement;
-use crate::types::Type;
-use crate::util::resolver::Named;
-use crate::util::scope;
-use crate::util::scope::Declaration;
-use crate::util::scope::OracleContext;
-use crate::util::scope::Scope;
-use crate::util::scope::ValidityContext;
-use crate::writers::smt::declare::declare_const;
-use crate::writers::smt::exprs::SmtAnd;
-use crate::writers::smt::exprs::SmtAssert;
-use crate::writers::smt::exprs::SmtEq2;
-use crate::writers::smt::exprs::SmtExpr;
-use crate::writers::smt::exprs::SmtIte;
-use crate::writers::smt::exprs::SmtLt;
-use crate::writers::smt::exprs::SmtLte;
-use crate::writers::smt::exprs::SmtNot;
-use crate::writers::smt::sorts::SmtInt;
+use crate::{
+    expressions::Expression,
+    identifier::{
+        game_ident::GameIdentifier,
+        pkg_ident::{
+            PackageConstIdentifier, PackageIdentifier, PackageImportsLoopVarIdentifier,
+            PackageLocalIdentifier, PackageOracleArgIdentifier, PackageOracleCodeLoopVarIdentifier,
+            PackageStateIdentifier,
+        },
+        Identifier,
+    },
+    package::{OracleDef, OracleSig, Package},
+    statement::{CodeBlock, FilePosition, Statement},
+    types::Type,
+    util::{
+        resolver::Named,
+        scope::{self, Declaration, OracleContext, Scope, ValidityContext},
+    },
+    writers::smt::{
+        declare::declare_const,
+        exprs::{SmtAnd, SmtAssert, SmtEq2, SmtExpr, SmtIte, SmtLt, SmtLte, SmtNot},
+        sorts::SmtInt,
+    },
+};
 
-use super::common::*;
 use super::Rule;
+use super::{common::*, ParseContext};
 
 use pest::iterators::Pair;
 
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::hash::Hash;
+
+#[derive(Clone, Debug)]
+pub struct PackageParseContext<'a> {
+    pub file_name: &'a str,
+    pub file_content: &'a str,
+
+    pub pkg_name: &'a str,
+    //pub scope: Scope,
+}
+
+impl<'a> ParseContext<'a> {
+    fn pkg_parse_context(self, pkg_name: &'a str) -> PackageParseContext {
+        PackageParseContext {
+            file_name: self.file_name,
+            file_content: self.file_content,
+            pkg_name,
+        }
+    }
+}
+
+pub fn handle_pkg(
+    ctx: ParseContext,
+    pkg: Pair<Rule>,
+) -> Result<(String, Package), ParsePackageError> {
+    let mut inner = pkg.into_inner();
+    let mut scope = crate::util::scope::Scope::new();
+    let pkg_name = inner.next().unwrap().as_str();
+    let spec = inner.next().unwrap();
+
+    let ctx = ctx.pkg_parse_context(pkg_name);
+    let pkg = handle_pkg_spec(ctx, spec, &mut scope)?;
+
+    Ok((pkg_name.to_owned(), pkg))
+}
+
+pub fn handle_pkg_spec(
+    ctx: PackageParseContext,
+    pkg_spec: Pair<Rule>,
+    scope: &mut Scope,
+) -> Result<Package, ParsePackageError> {
+    let mut oracles = vec![];
+    let mut state = None;
+    let mut params = None;
+    let mut types = None;
+    let mut imported_oracles = HashMap::new();
+
+    // TODO(2024-04-03): get rid of the unwraps in params, state, import_oracles
+    for spec in pkg_spec.into_inner() {
+        match spec.as_rule() {
+            Rule::types => {
+                types = spec.into_inner().next().map(handle_types_list);
+            }
+            Rule::params => {
+                scope.enter();
+
+                let ast = spec.into_inner().next();
+                let declaration_constructor = |name, tipe| {
+                    Declaration::Identifier(Identifier::PackageIdentifier(
+                        PackageIdentifier::Const(PackageConstIdentifier {
+                            pkg_name: ctx.pkg_name.to_string(),
+                            name,
+                            tipe,
+                            game_assignment: None,
+                            pkg_inst_name: None,
+                            game_name: None,
+                            game_inst_name: None,
+                            proof_name: None,
+                        }),
+                    ))
+                };
+                let params_option_result: Option<Result<_, _>> = ast.map(|params| {
+                    handle_decl_list(params, scope, ctx.file_name, declaration_constructor)
+                        .map_err(ParsePackageError::ParseParams)
+                });
+
+                params = transpose_option_result(params_option_result)?;
+            }
+            Rule::state => {
+                scope.enter();
+                let ast = spec.into_inner().next();
+                let declaration_constructor = |name, tipe| {
+                    Declaration::Identifier(Identifier::PackageIdentifier(
+                        PackageIdentifier::State(PackageStateIdentifier {
+                            pkg_name: ctx.pkg_name.to_string(),
+                            name,
+                            tipe,
+                            pkg_inst_name: None,
+                            game_name: None,
+                            game_inst_name: None,
+                            proof_name: None,
+                        }),
+                    ))
+                };
+                let state_option_result: Option<Result<_, _>> = ast.map(|state| {
+                    handle_decl_list(state, scope, ctx.file_name, declaration_constructor)
+                        .map_err(ParsePackageError::ParseParams)
+                });
+                state = transpose_option_result(state_option_result)?;
+            }
+            Rule::import_oracles => {
+                scope.enter();
+
+                let mut loopvar_scope = scope.clone();
+
+                let body_ast = spec.into_inner().next().unwrap();
+                handle_import_oracles_body(
+                    body_ast,
+                    &mut imported_oracles,
+                    ctx.pkg_name,
+                    ctx.file_name,
+                    scope,
+                    &mut loopvar_scope,
+                )
+                .map_err(ParsePackageError::ParseImportOracleSig)?
+            }
+            Rule::oracle_def => {
+                oracles.push(
+                    handle_oracle_def(spec, scope, ctx.pkg_name, ctx.file_name)
+                        .map_err(ParsePackageError::ParseOracleDef)?,
+                );
+            }
+            _ => unreachable!("unhandled ast node in package: {}", spec),
+        }
+    }
+
+    Ok(Package {
+        name: ctx.pkg_name.to_string(),
+        oracles,
+        types: types.unwrap_or_default(),
+        params: params.unwrap_or_default(),
+        imports: imported_oracles
+            .iter()
+            .map(|(_k, (v, loc))| (v.clone(), loc.clone()))
+            .collect(),
+        state: state.unwrap_or_default(),
+        split_oracles: vec![],
+    })
+}
 
 pub fn handle_decl_list<F: Fn(String, Type) -> Declaration>(
     decl_list: Pair<Rule>,
@@ -793,111 +921,6 @@ impl core::fmt::Display for ParsePackageError {
     }
 }
 
-pub fn handle_pkg_spec(
-    pkg_spec: Pair<Rule>,
-    scope: &mut Scope,
-    pkg_name: &str,
-    file_name: &str,
-) -> Result<Package, ParsePackageError> {
-    let mut oracles = vec![];
-    let mut state = None;
-    let mut params = None;
-    let mut types = None;
-    let mut imported_oracles = HashMap::new();
-
-    // TODO(2024-04-03): get rid of the unwraps in params, state, import_oracles
-    for spec in pkg_spec.into_inner() {
-        match spec.as_rule() {
-            Rule::types => {
-                types = spec.into_inner().next().map(handle_types_list);
-            }
-            Rule::params => {
-                scope.enter();
-
-                let ast = spec.into_inner().next();
-                let declaration_constructor = |name, tipe| {
-                    Declaration::Identifier(Identifier::PackageIdentifier(
-                        PackageIdentifier::Const(PackageConstIdentifier {
-                            pkg_name: pkg_name.to_string(),
-                            name,
-                            tipe,
-                            game_assignment: None,
-                            pkg_inst_name: None,
-                            game_name: None,
-                            game_inst_name: None,
-                            proof_name: None,
-                        }),
-                    ))
-                };
-                let params_option_result: Option<Result<_, _>> = ast.map(|params| {
-                    handle_decl_list(params, scope, file_name, declaration_constructor)
-                        .map_err(ParsePackageError::ParseParams)
-                });
-
-                params = transpose_option_result(params_option_result)?;
-            }
-            Rule::state => {
-                scope.enter();
-                let ast = spec.into_inner().next();
-                let declaration_constructor = |name, tipe| {
-                    Declaration::Identifier(Identifier::PackageIdentifier(
-                        PackageIdentifier::State(PackageStateIdentifier {
-                            pkg_name: pkg_name.to_string(),
-                            name,
-                            tipe,
-                            pkg_inst_name: None,
-                            game_name: None,
-                            game_inst_name: None,
-                            proof_name: None,
-                        }),
-                    ))
-                };
-                let state_option_result: Option<Result<_, _>> = ast.map(|state| {
-                    handle_decl_list(state, scope, file_name, declaration_constructor)
-                        .map_err(ParsePackageError::ParseParams)
-                });
-                state = transpose_option_result(state_option_result)?;
-            }
-            Rule::import_oracles => {
-                scope.enter();
-
-                let mut loopvar_scope = scope.clone();
-
-                let body_ast = spec.into_inner().next().unwrap();
-                handle_import_oracles_body(
-                    body_ast,
-                    &mut imported_oracles,
-                    pkg_name,
-                    file_name,
-                    scope,
-                    &mut loopvar_scope,
-                )
-                .map_err(ParsePackageError::ParseImportOracleSig)?
-            }
-            Rule::oracle_def => {
-                oracles.push(
-                    handle_oracle_def(spec, scope, pkg_name, file_name)
-                        .map_err(ParsePackageError::ParseOracleDef)?,
-                );
-            }
-            _ => unreachable!("unhandled ast node in package: {}", spec),
-        }
-    }
-
-    Ok(Package {
-        name: pkg_name.to_string(),
-        oracles,
-        types: types.unwrap_or_default(),
-        params: params.unwrap_or_default(),
-        imports: imported_oracles
-            .iter()
-            .map(|(_k, (v, loc))| (v.clone(), loc.clone()))
-            .collect(),
-        state: state.unwrap_or_default(),
-        split_oracles: vec![],
-    })
-}
-
 #[derive(Debug)]
 pub enum ParseOracleSigError {}
 
@@ -1446,19 +1469,6 @@ pub fn handle_import_oracles_body(
         }
     }
     Ok(())
-}
-
-pub fn handle_pkg(
-    pkg: Pair<Rule>,
-    file_name: &str,
-) -> Result<(String, Package), ParsePackageError> {
-    let mut inner = pkg.into_inner();
-    let mut scope = crate::util::scope::Scope::new();
-    let pkg_name = inner.next().unwrap().as_str();
-    let spec = inner.next().unwrap();
-    let pkg = handle_pkg_spec(spec, &mut scope, pkg_name, file_name)?;
-
-    Ok((pkg_name.to_owned(), pkg))
 }
 
 #[cfg(test)]
