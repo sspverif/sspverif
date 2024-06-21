@@ -43,6 +43,9 @@ impl<'a> ParseContext<'a> {
         let edges = vec![];
         let exports = vec![];
 
+        let multi_inst_edges = vec![];
+        let multi_inst_exports = vec![];
+
         ParseGameContext {
             file_name,
             file_content,
@@ -55,6 +58,9 @@ impl<'a> ParseContext<'a> {
 
             edges,
             exports,
+
+            multi_inst_edges,
+            multi_inst_exports,
         }
     }
 }
@@ -72,6 +78,9 @@ pub struct ParseGameContext<'a> {
 
     pub edges: Vec<Edge>,
     pub exports: Vec<Export>,
+
+    pub multi_inst_edges: Vec<MultiInstanceEdge>,
+    pub multi_inst_exports: Vec<MultiInstanceExport>,
 }
 
 impl<'a> ParseGameContext<'a> {
@@ -97,6 +106,13 @@ impl<'a> ParseGameContext<'a> {
     fn add_export(&mut self, export: Export) {
         self.exports.push(export)
     }
+
+    fn add_multi_inst_edge(&mut self, edge: MultiInstanceEdge) {
+        self.multi_inst_edges.push(edge)
+    }
+    fn add_multi_inst_export(&mut self, export: MultiInstanceExport) {
+        self.multi_inst_exports.push(export)
+    }
 }
 
 pub fn handle_composition<'a>(
@@ -121,9 +137,6 @@ pub fn handle_comp_spec_list<'a>(
 ) -> error::Result<Composition> {
     let mut consts = HashMap::new();
 
-    let mut multi_edges = vec![];
-    let mut multi_exports = vec![];
-
     for comp_spec in ast.into_inner() {
         match comp_spec.as_rule() {
             Rule::const_decl => {
@@ -147,11 +160,7 @@ pub fn handle_comp_spec_list<'a>(
                     .unwrap();
             }
             Rule::game_for => {
-                let (mut new_multi_edges, mut new_multi_exports) =
-                    handle_for_loop(&mut ctx, comp_spec, pkg_map, &consts)?;
-
-                multi_edges.append(&mut new_multi_edges);
-                multi_exports.append(&mut new_multi_exports);
+                handle_for_loop(&mut ctx, comp_spec, pkg_map, &consts)?;
             }
             Rule::instance_decl => {
                 let pkg_inst = handle_instance_decl(&mut ctx, comp_spec, pkg_map, &consts)?;
@@ -159,11 +168,8 @@ pub fn handle_comp_spec_list<'a>(
             }
             Rule::compose_decl => {
                 let comp_spec_span = comp_spec.as_span();
-                let (mut multi_instance_edges_, mut multi_instance_exports_) =
-                    handle_compose_assign_body_list(&mut ctx, comp_spec)
-                        .map_err(|e| error::Error::ParseGameError(e).with_span(comp_spec_span))?;
-                multi_edges.append(&mut multi_instance_edges_);
-                multi_exports.append(&mut multi_instance_exports_);
+                handle_compose_assign_body_list(&mut ctx, comp_spec)
+                    .map_err(|e| error::Error::ParseGameError(e).with_span(comp_spec_span))?;
             }
             _ => {
                 unreachable!();
@@ -175,14 +181,19 @@ pub fn handle_comp_spec_list<'a>(
     consts.sort();
 
     Ok(Composition {
+        name: ctx.game_name.to_owned(),
+
+        consts,
+        pkgs: ctx.instances,
+
         edges: ctx.edges,
         exports: ctx.exports,
+
+        // these will be populated by a transform later
         split_exports: vec![],
-        name: ctx.game_name.to_owned(),
-        pkgs: ctx.instances,
-        consts,
-        multi_inst_edges: multi_edges,
-        multi_inst_exports: multi_exports,
+
+        multi_inst_edges: ctx.multi_inst_edges,
+        multi_inst_exports: ctx.multi_inst_exports,
     })
 }
 
@@ -279,35 +290,23 @@ pub fn handle_for_loop_body<'a>(
     ast: Pair<Rule>,
     pkgs: &HashMap<String, Package>,
     consts: &HashMap<String, Type>,
-) -> error::Result<(Vec<MultiInstanceEdge>, Vec<MultiInstanceExport>)> {
-    let mut multi_edges = vec![];
-    let mut multi_exports = vec![];
-
+) -> error::Result<()> {
     for comp_spec in ast.into_inner() {
         match comp_spec.as_rule() {
-            Rule::game_for => {
-                let (mut new_multi_edges, mut new_multi_exports) =
-                    handle_for_loop(ctx, comp_spec, pkgs, &consts)?;
+            Rule::game_for => handle_for_loop(ctx, comp_spec, pkgs, &consts)?,
 
-                multi_edges.append(&mut new_multi_edges);
-                multi_exports.append(&mut new_multi_exports);
-            }
-            Rule::instance_decl => {
-                handle_instance_decl_multi_inst(ctx, comp_spec, pkgs, &consts)?;
-            }
+            Rule::instance_decl => handle_instance_decl_multi_inst(ctx, comp_spec, pkgs, &consts)?,
+
             Rule::compose_decl_multi_inst => {
                 let comp_spec_span = comp_spec.as_span();
-                let (mut multi_edges_, mut multi_exports_) =
-                    handle_compose_assign_body_list_multi_inst(ctx, comp_spec)
-                        .map_err(|e| error::Error::ParseGameError(e).with_span(comp_spec_span))?;
-                multi_edges.append(&mut multi_edges_);
-                multi_exports.append(&mut multi_exports_);
+                handle_compose_assign_body_list_multi_inst(ctx, comp_spec)
+                    .map_err(|e| error::Error::ParseGameError(e).with_span(comp_spec_span))?;
             }
             _ => unreachable!(),
         }
     }
 
-    Ok((multi_edges, multi_exports))
+    Ok(())
 }
 
 /*
@@ -316,17 +315,14 @@ This functions parses the body of a compose block. It returns internal edges and
 pub fn handle_compose_assign_body_list(
     ctx: &mut ParseGameContext,
     ast: Pair<Rule>,
-) -> Result<(Vec<MultiInstanceEdge>, Vec<MultiInstanceExport>), ParseGameError> {
+) -> Result<(), ParseGameError> {
     handle_compose_assign_body_list_multi_inst(ctx, ast)
 }
 
 pub fn handle_compose_assign_body_list_multi_inst(
     ctx: &mut ParseGameContext,
     ast: Pair<Rule>,
-) -> Result<(Vec<MultiInstanceEdge>, Vec<MultiInstanceExport>), ParseGameError> {
-    let mut multi_edges = vec![];
-    let mut multi_exports = vec![];
-
+) -> Result<(), ParseGameError> {
     for body in ast.into_inner() {
         let mut inner = body.into_inner();
         let src_inst_name = inner.next().unwrap().as_str();
@@ -354,7 +350,7 @@ pub fn handle_compose_assign_body_list_multi_inst(
                     match multi_inst_export.try_into() {
                         Ok(export) => ctx.add_export(export),
                         Err(NotSingleInstanceExportError(multi_export)) => {
-                            multi_exports.push(multi_export)
+                            ctx.add_multi_inst_export(multi_export)
                         }
                     }
                 }
@@ -379,14 +375,16 @@ pub fn handle_compose_assign_body_list_multi_inst(
                 )? {
                     match multi_instance_edge.try_into() {
                         Ok(edge) => ctx.add_edge(edge),
-                        Err(NotSingleInstanceEdgeError(multi_edge)) => multi_edges.push(multi_edge),
+                        Err(NotSingleInstanceEdgeError(multi_edge)) => {
+                            ctx.add_multi_inst_edge(multi_edge)
+                        }
                     }
                 }
             }
         }
     }
 
-    Ok((multi_edges, multi_exports))
+    Ok(())
 }
 
 fn handle_export_compose_assign_list_multi_inst(
@@ -581,7 +579,7 @@ pub fn handle_for_loop<'a>(
     ast: Pair<Rule>,
     pkgs: &HashMap<String, Package>,
     consts: &HashMap<String, Type>,
-) -> error::Result<(Vec<MultiInstanceEdge>, Vec<MultiInstanceExport>)> {
+) -> error::Result<()> {
     let mut parsed: Vec<Pair<Rule>> = ast.into_inner().collect();
     let decl_var_name = parsed[0].as_str();
     let lower_bound = handle_expression(parsed.remove(1), &mut ctx.scope)?;
