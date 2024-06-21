@@ -83,11 +83,11 @@ impl<'a> CommonContext for PackageParseContext<'a> {
         self.scope.leave()
     }
 
-    fn file_name<'b>(&'b self) -> &'b str {
+    fn file_name(&self) -> &str {
         self.file_name
     }
 
-    fn file_contents<'b>(&'b self) -> &'b str {
+    fn file_contents(&self) -> &str {
         self.file_content
     }
 }
