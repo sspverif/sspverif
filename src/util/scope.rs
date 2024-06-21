@@ -1,3 +1,5 @@
+use thiserror::Error;
+
 use crate::identifier::Identifier;
 use crate::package::OracleSig;
 use std::collections::{HashMap, HashSet};
@@ -49,23 +51,11 @@ impl Declaration {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
+    #[error("identifier `{0}` already declared with {1:?}")]
     AlreadyDefined(String, Declaration),
 }
-
-impl core::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::AlreadyDefined(name, declaration) => write!(
-                f,
-                "identifier `{name}` already declared with {declaration:?}"
-            ),
-        }
-    }
-}
-
-impl std::error::Error for Error {}
 
 #[derive(Debug, Clone)]
 pub struct Scope {

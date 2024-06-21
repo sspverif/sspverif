@@ -1,4 +1,8 @@
-use super::{common::*, CommonContext, ParseContext, Rule};
+use super::{
+    common::*,
+    error::{IdentifierAlreadyDeclaredError, UndefinedIdentifierError},
+    CommonContext, ParseContext, Rule,
+};
 use crate::{
     expressions::Expression,
     identifier::{
@@ -24,7 +28,9 @@ use crate::{
     },
 };
 
+use miette::{Diagnostic, NamedSource};
 use pest::iterators::Pair;
+use thiserror::Error;
 
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -53,6 +59,21 @@ impl<'a> ParseContext<'a> {
     }
 }
 
+#[derive(Debug, Error, Diagnostic)]
+pub enum ParsePackageError {
+    #[error(transparent)]
+    UndefinedIdentifier(#[from] UndefinedIdentifierError),
+    #[error(transparent)]
+    IdentifierAlreadyDeclared(#[from] IdentifierAlreadyDeclaredError),
+    #[error("error parsing package's import oracle block: {0}")]
+    ParseImportOracleSig(#[from] ParseImportOraclesError),
+    #[error("error parsing oracle definition: {0}")]
+    ParseOracleDef(#[from] ParseOracleDefError),
+}
+
+#[derive(Error, Debug)]
+pub enum ParseOracleSigError {}
+
 impl<'a> CommonContext for PackageParseContext<'a> {
     fn scope_enter(&mut self) {
         self.scope.enter()
@@ -60,6 +81,14 @@ impl<'a> CommonContext for PackageParseContext<'a> {
 
     fn scope_leave(&mut self) {
         self.scope.leave()
+    }
+
+    fn file_name<'b>(&'b self) -> &'b str {
+        self.file_name
+    }
+
+    fn file_contents<'b>(&'b self) -> &'b str {
+        self.file_content
     }
 }
 
@@ -111,20 +140,16 @@ pub fn handle_pkg_spec(
             Rule::params => {
                 ctx.scope_enter();
                 let ast = spec.into_inner().next();
-                let params_option_result: Option<Result<_, _>> = ast.map(|params| {
-                    handle_decl_list(&mut ctx, params, IdentType::Const)
-                        .map_err(ParsePackageError::ParseParams)
-                });
+                let params_option_result: Option<Result<_, _>> =
+                    ast.map(|params| handle_decl_list(&mut ctx, params, IdentType::Const));
 
                 params = transpose_option_result(params_option_result)?;
             }
             Rule::state => {
                 ctx.scope_enter();
                 let ast = spec.into_inner().next();
-                let state_option_result: Option<Result<_, _>> = ast.map(|state| {
-                    handle_decl_list(&mut ctx, state, IdentType::State)
-                        .map_err(ParsePackageError::ParseParams)
-                });
+                let state_option_result: Option<Result<_, _>> =
+                    ast.map(|state| handle_decl_list(&mut ctx, state, IdentType::State));
                 state = transpose_option_result(state_option_result)?;
             }
             Rule::import_oracles => {
@@ -141,9 +166,7 @@ pub fn handle_pkg_spec(
                 .map_err(ParsePackageError::ParseImportOracleSig)?
             }
             Rule::oracle_def => {
-                oracles.push(
-                    handle_oracle_def(&mut ctx, spec).map_err(ParsePackageError::ParseOracleDef)?,
-                );
+                oracles.push(handle_oracle_def(&mut ctx, spec)?);
             }
             _ => unreachable!("unhandled ast node in package: {}", spec),
         }
@@ -167,14 +190,16 @@ pub fn handle_decl_list(
     ctx: &mut PackageParseContext,
     decl_list: Pair<Rule>,
     ident_type: IdentType,
-) -> Result<Vec<(String, Type, FilePosition)>, scope::Error> {
+) -> Result<Vec<(String, Type, FilePosition)>, IdentifierAlreadyDeclaredError> {
     decl_list
         .into_inner()
         .map(|entry| {
             let span = entry.as_span();
             let file_pos = FilePosition::from_span(ctx.file_name, span);
             let mut inner = entry.into_inner();
-            let name = inner.next().unwrap().as_str();
+            let name_ast = inner.next().unwrap();
+            let name_span = name_ast.as_span();
+            let name = name_ast.as_str();
             let tipe = handle_type(inner.next().unwrap());
 
             let ident: Identifier = match ident_type {
@@ -192,7 +217,20 @@ pub fn handle_decl_list(
                 .into(),
             };
 
-            ctx.scope.declare(name, Declaration::Identifier(ident))?;
+            ctx.scope
+                .declare(name, Declaration::Identifier(ident))
+                .map_err(|e| {
+                    let scope::Error::AlreadyDefined(existing_name, _decl) = e;
+                    assert_eq!(name, existing_name);
+
+                    let length = name_span.end() - name_span.start();
+
+                    IdentifierAlreadyDeclaredError {
+                        at: (name_span.start(), length).into(),
+                        ident_name: name.to_string(),
+                        source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
+                    }
+                })?;
             Ok((name.to_string(), tipe, file_pos))
         })
         .collect()
@@ -311,14 +349,14 @@ pub fn handle_expression(
         Rule::table_access => {
             let mut inner = expr.into_inner();
             let ident_name = inner.next().unwrap().as_str();
-            let ident = handle_identifier_in_code_rhs(ident_name, &mut ctx.scope).unwrap();
+            let ident = handle_identifier_in_code_rhs(ident_name, &ctx.scope).unwrap();
             let expr = handle_expression(ctx, inner.next().unwrap())?;
             // TODO properly parse this identifier
             Expression::TableAccess(ident, Box::new(expr))
         }
         Rule::fn_call => {
             let span = expr.as_span();
-            let file_pos = FilePosition::from_span(&mut ctx.file_name, span);
+            let file_pos = FilePosition::from_span(ctx.file_name, span);
             let mut inner = expr.into_inner();
             let ident = inner.next().unwrap().as_str();
             let args = match inner.next() {
@@ -408,45 +446,21 @@ fn transpose_option_result<T, E>(value: Option<Result<T, E>>) -> Result<Option<T
     }
 }
 
-fn transpose_result_option<T, E>(value: Result<Option<T>, E>) -> Option<Result<T, E>> {
-    match value {
-        Err(err) => Some(Err(err)),
-        Ok(Some(v)) => Some(Ok(v)),
-        Ok(None) => None,
-    }
-}
-
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum ParseCodeError {
+    #[error("error parsing expression: {0}")]
     ParseExpression(ParseExpressionError),
-    ScopeDeclare(crate::util::scope::Error),
+    #[error("error parsing identifier: {0}")]
     ParseIdentifier(ParseIdentifierError),
+    #[error("undefined oracle: {0}")]
     UndefinedOracle(String),
+    #[error("invoking an identifier that is not an oracle: {0:?}")]
     InvokingNonOracle(Identifier),
 }
 
 impl From<ParseExpressionError> for ParseCodeError {
     fn from(value: ParseExpressionError) -> Self {
         ParseCodeError::ParseExpression(value)
-    }
-}
-
-impl core::fmt::Display for ParseCodeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ParseCodeError::ParseExpression(err) => write!(f, "error parsing expression: {err}"),
-            ParseCodeError::ScopeDeclare(err) => {
-                write!(f, "error declaring name in scope: {err}")
-            }
-            ParseCodeError::ParseIdentifier(err) => write!(f, "error parsing identifier: {err}"),
-            ParseCodeError::UndefinedOracle(name) => write!(f, "oracle {name} is not defined"),
-            ParseCodeError::InvokingNonOracle(ident) => {
-                write!(
-                    f,
-                    "code invokes identifier {ident:?}, but it is not an oracle"
-                )
-            }
-        }
     }
 }
 
@@ -473,7 +487,6 @@ pub fn handle_identifier_in_code_lhs(
     scope: &mut Scope,
     pkg_name: &str,
     oracle_name: &str,
-    file_name: &str,
     expected_type: Type,
 ) -> Result<Identifier, ParseIdentifierError> {
     let ident = if let Some(decl) = scope.lookup(name) {
@@ -596,7 +609,6 @@ pub fn handle_code(
                         &mut ctx.scope,
                         ctx.pkg_name,
                         oracle_name,
-                        ctx.file_name,
                         tipe.clone(),
                     )
                     .map_err(ParseCodeError::ParseIdentifier)?;
@@ -615,7 +627,6 @@ pub fn handle_code(
                         &mut ctx.scope,
                         ctx.pkg_name,
                         oracle_name,
-                        ctx.file_name,
                         expected_type,
                     )
                     .map_err(ParseCodeError::ParseIdentifier)?;
@@ -633,7 +644,6 @@ pub fn handle_code(
                         &mut ctx.scope,
                         ctx.pkg_name,
                         oracle_name,
-                        ctx.file_name,
                         Type::Table(Box::new(index.get_type()),  Box::new(tipe.clone())),
                     )
                     .map_err(ParseCodeError::ParseIdentifier)?;
@@ -659,7 +669,6 @@ pub fn handle_code(
                         &mut ctx.scope,
                         ctx.pkg_name,
                         oracle_name,
-                        ctx.file_name,
                         expected_type,
                     )
                     .map_err(ParseCodeError::ParseIdentifier)?;
@@ -712,11 +721,10 @@ pub fn handle_code(
                         .ok_or(ParseCodeError::UndefinedOracle(oracle_name.to_string()))?;
 
                     let expected_type = match oracle_decl {
-                        Declaration::Oracle(context, oracle_sig) => Ok(oracle_sig.tipe),
+                        Declaration::Oracle(_context, oracle_sig) => Ok(oracle_sig.tipe),
                         Declaration::Identifier(ident) => {
                             Err(ParseCodeError::InvokingNonOracle(ident))
                         }
-                        other => panic!("found old-style declaration {other:?}"),
                     }?;
 
                     let target_ident = handle_identifier_in_code_lhs(
@@ -724,7 +732,6 @@ pub fn handle_code(
                         &mut ctx.scope,
                         ctx.pkg_name,
                         oracle_name,
-                        ctx.file_name,
                         expected_type,
                     )
                     .map_err(ParseCodeError::ParseIdentifier)?;
@@ -757,7 +764,7 @@ pub fn handle_code(
                         .into_inner()
                         .enumerate()
                         .map(|(i, ident_name)| {
-                            handle_identifier_in_code_lhs(ident_name.as_str(), &mut ctx.scope, ctx.pkg_name, oracle_name, ctx.file_name, tipes[i].clone())
+                            handle_identifier_in_code_lhs(ident_name.as_str(), &mut ctx.scope, ctx.pkg_name, oracle_name, tipes[i].clone())
                                 .map_err(ParseCodeError::ParseIdentifier)
                         })
                         .collect::<Result<_,_>>()?;
@@ -825,21 +832,12 @@ pub fn handle_code(
         .map(CodeBlock)
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum ParseOracleDefError {
-    ParseOracleSig(ParseOracleSigError),
-    ParseCode(ParseCodeError),
-}
-
-impl core::fmt::Display for ParseOracleDefError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ParseOracleDefError::ParseOracleSig(err) => {
-                write!(f, "error parsing oracle signature: {err}")
-            }
-            ParseOracleDefError::ParseCode(err) => write!(f, "error parsing oracle code: {err}"),
-        }
-    }
+    #[error(transparent)]
+    ParseOracleSig(#[from] ParseOracleSigError),
+    #[error(transparent)]
+    ParseCode(#[from] ParseCodeError),
 }
 
 pub fn handle_oracle_def(
@@ -887,40 +885,6 @@ pub fn handle_oracle_def(
     };
 
     Ok(oracle_def)
-}
-
-#[derive(Debug)]
-pub enum ParsePackageError {
-    ParseParams(scope::Error),
-    ParseState(scope::Error),
-    ParseImportOracleSig(ParseImportOraclesError),
-    ParseOracleDef(ParseOracleDefError),
-}
-
-impl core::fmt::Display for ParsePackageError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ParsePackageError::ParseParams(err) => {
-                write!(f, "error parsing package params/consts: {err}")
-            }
-            ParsePackageError::ParseState(err) => write!(f, "error parsing package state: {err}"),
-            ParsePackageError::ParseImportOracleSig(err) => {
-                write!(f, "error parsing oracle imports: {err}")
-            }
-            ParsePackageError::ParseOracleDef(err) => {
-                write!(f, "error parsing oracle definition: {err}")
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum ParseOracleSigError {}
-
-impl core::fmt::Display for ParseOracleSigError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {}
-    }
 }
 
 pub fn handle_oracle_sig(oracle_sig: Pair<Rule>) -> Result<OracleSig, ParseOracleSigError> {
@@ -1045,7 +1009,7 @@ impl std::fmt::Display for ForCompError {
 impl std::error::Error for ForCompError {}
 
 impl crate::error::LocationError for ParseImportOraclesError {
-    fn file_pos<'a>(&'a self) -> &'a FilePosition {
+    fn file_pos(&self) -> &FilePosition {
         match self {
             ParseImportOraclesError::IdentifierMismatch(_, _, file_pos)
             | ParseImportOraclesError::ParseImportOracleSig(_, file_pos)
@@ -1101,10 +1065,7 @@ impl MultiInstanceIndicesGroup {
         })
         .into();
 
-        let and_terms = assumptions
-            .into_iter()
-            .chain(vec![neg_claim].into_iter())
-            .collect();
+        let and_terms = assumptions.into_iter().chain(vec![neg_claim]).collect();
 
         let assert = SmtAssert(SmtAnd(and_terms));
 
@@ -1462,7 +1423,14 @@ pub fn handle_import_oracles_body(
     Ok(())
 }
 
+pub fn handle_types_list(types: Pair<Rule>) -> Vec<String> {
+    types
+        .into_inner()
+        .map(|entry| entry.as_str().to_string())
+        .collect()
+}
 #[cfg(test)]
+
 mod tests2 {
     use pest::Parser;
 
@@ -1552,11 +1520,4 @@ mod tests2 {
         println!("(check-sat)");
         println!("(get-model)")
     }
-}
-
-pub fn handle_types_list(types: Pair<Rule>) -> Vec<String> {
-    types
-        .into_inner()
-        .map(|entry| entry.as_str().to_string())
-        .collect()
 }

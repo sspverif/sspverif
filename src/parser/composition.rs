@@ -90,6 +90,14 @@ impl<'a> CommonContext for ParseGameContext<'a> {
     fn scope_leave(&mut self) {
         self.scope.leave()
     }
+
+    fn file_name<'b>(&'b self) -> &'b str {
+        self.file_name
+    }
+
+    fn file_contents<'b>(&'b self) -> &'b str {
+        self.file_content
+    }
 }
 
 impl<'a> ParseGameContext<'a> {

@@ -5,6 +5,7 @@ pub mod package;
 pub mod error;
 pub mod proof;
 
+use miette::{NamedSource, SourceSpan};
 use pest::Parser;
 extern crate pest;
 
@@ -22,6 +23,8 @@ pub struct ParseContext<'a> {
 }
 
 pub trait CommonContext {
+    fn file_name<'a>(&'a self) -> &'a str;
+    fn file_contents<'a>(&'a self) -> &'a str;
     fn scope_enter(&mut self);
     fn scope_leave(&mut self);
 }
