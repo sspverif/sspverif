@@ -5,7 +5,7 @@ use super::*;
 use error::{Error, Result};
 
 use crate::package::{Composition, Package};
-use crate::parser::composition::handle_composition;
+use crate::parser::composition::{handle_composition, ParseContext};
 use crate::parser::package::handle_pkg;
 use crate::parser::proof::handle_proof;
 use crate::parser::SspParser;
@@ -133,15 +133,20 @@ pub(crate) fn games(
         let dir_entry = dir_entry?;
         if let Some(file_name) = dir_entry.file_name().to_str() {
             if file_name.ends_with(GAME_EXT) {
-                let filecontent = std::fs::read_to_string(dir_entry.path())?;
+                let file_content = std::fs::read_to_string(dir_entry.path())?;
                 let mut ast =
-                    SspParser::parse_composition(&filecontent).map_err(|err| (file_name, err))?;
+                    SspParser::parse_composition(&file_content).map_err(|err| (file_name, err))?;
 
-                let comp = match handle_composition(ast.next().unwrap(), pkgs, file_name) {
+                let ctx = ParseContext {
+                    file_name,
+                    file_content: &file_content,
+                };
+
+                let comp = match handle_composition(&ctx, ast.next().unwrap(), pkgs) {
                     Ok(game) => game,
                     Err(err) => {
                         println!("printing error...");
-                        return Err(err.with_source(filecontent).into());
+                        return Err(err.with_source(file_content).into());
                     }
                 };
                 let comp_name = comp.name.clone();

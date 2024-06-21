@@ -21,6 +21,7 @@ subprocess = "0.2.9"
 toml_edit = {version = "0.14.4", features = [ "easy"] }
 expectrl = "0.5.2"
 itertools = "0.10"
+miette = "7.2.0"
 
 [lib]
 name = "sspverif"

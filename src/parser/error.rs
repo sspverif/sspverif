@@ -1,14 +1,75 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
-use pest::Span;
+use miette::{Diagnostic, SourceSpan};
+use pest::{error::ErrorVariant, Span};
 use thiserror::Error;
 
-use crate::{
-    expressions::Expression, identifier::pkg_ident::PackageConstIdentifier,
-    transforms::resolvetypes, types::Type,
-};
+use crate::{expressions::Expression, transforms::resolvetypes, types::Type};
 
 use super::composition::ParseGameError;
+
+pub enum NewError {}
+
+#[derive(Error, Diagnostic, Debug)]
+#[error("syntax error: {variant}")]
+#[diagnostic(code(ssbee::syntax))]
+pub struct PestParseError {
+    #[label("here")]
+    pub at: SourceSpan,
+
+    variant: PestErrorVariantPrinter,
+}
+
+#[derive(Debug)]
+pub struct PestErrorVariantPrinter(ErrorVariant<super::Rule>);
+
+impl Display for PestErrorVariantPrinter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.0 {
+            ErrorVariant::ParsingError {
+                positives,
+                negatives,
+            } => {
+                writeln!(f, "(pos {positives:?}) (neg {negatives:?}) ")?;
+            }
+            ErrorVariant::CustomError { message } => write!(f, "{message}")?,
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Error, Diagnostic, Debug)]
+#[error("undefined type '{text}'")]
+#[diagnostic(code(ssbee::syntax))]
+pub struct UndefinedTypeError {
+    #[label("this type is not defined")]
+    pub at: SourceSpan,
+
+    pub text: String,
+}
+
+#[derive(Error, Diagnostic, Debug)]
+#[error("undefined identifier '{text}'")]
+#[diagnostic(code(ssbee::syntax))]
+pub struct UndefinedIdentiferError {
+    #[label("this identifier is not defined")]
+    pub at: SourceSpan,
+
+    pub text: String,
+}
+
+#[derive(Error, Diagnostic, Debug)]
+#[error("type mismatch: got {got:?}, expected {expected:?}")]
+#[diagnostic(code(ssbee::syntax))]
+pub struct TypeMismatchError {
+    #[label("this expression has the wrong type")]
+    pub at: SourceSpan,
+
+    pub expected: Type,
+
+    pub got: Type,
+}
 
 pub struct SpanError {
     err: Error,
