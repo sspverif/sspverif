@@ -1,4 +1,4 @@
-use super::package::{ForComp, ForSpec, MultiInstanceIndices};
+use super::package::{ForComp, MultiInstanceIndices};
 use super::{common::*, error, Rule};
 
 use pest::iterators::{Pair, Pairs};
@@ -8,7 +8,7 @@ use std::fmt::Debug;
 use std::iter::FromIterator;
 
 use crate::expressions::Expression;
-use crate::identifier::game_ident::{GameConstIdentifier, GameIdentifier};
+use crate::identifier::game_ident::GameIdentifier;
 use crate::identifier::pkg_ident::PackageConstIdentifier;
 use crate::identifier::Identifier;
 use crate::package::{
@@ -784,7 +784,6 @@ pub fn handle_instance_decl_multi_inst(
         .map(|(name, tipe)| (name.clone(), tipe.clone()))
         .collect();
 
-    let data_span = data.as_span();
     let (mut param_list, type_list) =
         handle_instance_assign_list(ctx, data, inst_name, pkg_name, &defined_consts)?;
 
