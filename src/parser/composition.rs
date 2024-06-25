@@ -2,7 +2,7 @@ use super::{
     common::*,
     error,
     package::{ForComp, MultiInstanceIndices},
-    CommonContext, ParseContext, Rule,
+    ParseContext, Rule,
 };
 use crate::{
     expressions::Expression,
@@ -34,10 +34,8 @@ impl<'a> ParseContext<'a> {
         let Self {
             file_name,
             file_content,
+            scope,
         } = self;
-
-        let mut scope = Scope::new();
-        scope.enter();
 
         ParseGameContext {
             file_name,
@@ -61,7 +59,7 @@ impl<'a> ParseContext<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ParseGameContext<'a> {
     pub file_name: &'a str,
     pub file_content: &'a str,
@@ -80,24 +78,6 @@ pub struct ParseGameContext<'a> {
 
     pub multi_inst_edges: Vec<MultiInstanceEdge>,
     pub multi_inst_exports: Vec<MultiInstanceExport>,
-}
-
-impl<'a> CommonContext for ParseGameContext<'a> {
-    fn scope_enter(&mut self) {
-        self.scope.enter()
-    }
-
-    fn scope_leave(&mut self) {
-        self.scope.leave()
-    }
-
-    fn file_name(&self) -> &str {
-        self.file_name
-    }
-
-    fn file_contents(&self) -> &str {
-        self.file_content
-    }
 }
 
 impl<'a> ParseGameContext<'a> {
@@ -168,14 +148,19 @@ impl<'a> ParseGameContext<'a> {
     }
 }
 
-pub fn handle_composition<'a>(
-    ctx: &ParseContext<'a>,
+pub fn handle_composition(
+    file_name: &str,
+    file_content: &str,
     ast: Pair<Rule>,
     pkg_map: &HashMap<String, Package>,
 ) -> error::Result<Composition> {
     let mut inner = ast.into_inner();
     let game_name = inner.next().unwrap().as_str();
-    let ctx = ctx.game_context(game_name, pkg_map);
+
+    let mut scope = Scope::new();
+    scope.enter();
+
+    let ctx = ParseContext::new(file_name, file_content).game_context(game_name, pkg_map);
 
     let spec = inner.next().unwrap();
     handle_comp_spec_list(ctx, spec)
@@ -183,8 +168,8 @@ pub fn handle_composition<'a>(
 
 /// Parses the main body of a game (aka composition).
 /// This function takes ownership of the context because it needs to move all the information stored in there into the game.
-pub fn handle_comp_spec_list<'a>(
-    mut ctx: ParseGameContext<'a>,
+pub fn handle_comp_spec_list(
+    mut ctx: ParseGameContext,
     ast: Pair<Rule>,
 ) -> error::Result<Composition> {
     for comp_spec in ast.into_inner() {
@@ -642,12 +627,12 @@ pub fn handle_for_loop<'a>(ctx: &mut ParseGameContext<'a>, ast: Pair<Rule>) -> e
     let loopvar = Identifier::GameIdentifier(loopvar);
     let decl = Declaration::Identifier(loopvar);
 
-    ctx.scope_enter();
+    ctx.scope.enter();
     ctx.declare(decl_var_name, decl).unwrap();
 
     let result = handle_for_loop_body(ctx, body_ast);
 
-    ctx.scope_leave();
+    ctx.scope.leave();
 
     result
 }
@@ -970,21 +955,13 @@ mod tests {
 
     fn parse_game(code: &str, name: &str, pkg_map: &HashMap<String, Package>) -> Composition {
         let mut game_pairs = unwrap_parse_err(SspParser::parse_composition(code));
-        let ctx = ParseContext {
-            file_name: name,
-            file_content: code,
-        };
-        handle_composition(&ctx, game_pairs.next().unwrap(), pkg_map)
+        handle_composition(name, code, game_pairs.next().unwrap(), pkg_map)
             .unwrap_or_else(|err| panic!("handle error: {err}", err = err))
     }
 
     fn parse_pkg(code: &str, name: &str) -> (String, Package) {
         let mut pkg_pairs = unwrap_parse_err(SspParser::parse_package(code));
-        let ctx = ParseContext {
-            file_name: name,
-            file_content: code,
-        };
-        handle_pkg(ctx, pkg_pairs.next().unwrap()).unwrap()
+        handle_pkg(name, code, pkg_pairs.next().unwrap()).unwrap()
     }
 
     const TINY_PKG_CODE: &str = r#"package TinyPkg {

@@ -1,7 +1,7 @@
 use super::{
     common::*,
     error::{IdentifierAlreadyDeclaredError, UndefinedIdentifierError},
-    CommonContext, ParseContext, Rule,
+    ParseContext, Rule,
 };
 use crate::{
     expressions::Expression,
@@ -74,24 +74,6 @@ pub enum ParsePackageError {
 #[derive(Error, Debug)]
 pub enum ParseOracleSigError {}
 
-impl<'a> CommonContext for PackageParseContext<'a> {
-    fn scope_enter(&mut self) {
-        self.scope.enter()
-    }
-
-    fn scope_leave(&mut self) {
-        self.scope.leave()
-    }
-
-    fn file_name(&self) -> &str {
-        self.file_name
-    }
-
-    fn file_contents(&self) -> &str {
-        self.file_content
-    }
-}
-
 impl<'a> PackageParseContext<'a> {
     fn with_scope(self, scope: Scope) -> Self {
         Self { scope, ..self }
@@ -99,16 +81,17 @@ impl<'a> PackageParseContext<'a> {
 }
 
 pub fn handle_pkg(
-    ctx: ParseContext,
+    file_name: &str,
+    file_content: &str,
     pkg: Pair<Rule>,
 ) -> Result<(String, Package), ParsePackageError> {
     let mut inner = pkg.into_inner();
     let pkg_name = inner.next().unwrap().as_str();
     let spec = inner.next().unwrap();
 
-    let ctx = ctx.pkg_parse_context(pkg_name);
-    let pkg = handle_pkg_spec(ctx, spec)?;
+    let ctx = ParseContext::new(file_name, file_content).pkg_parse_context(pkg_name);
 
+    let pkg = handle_pkg_spec(ctx, spec)?;
     Ok((pkg_name.to_owned(), pkg))
 }
 
@@ -134,7 +117,7 @@ pub fn handle_pkg_spec(
                 types = spec.into_inner().next().map(handle_types_list);
             }
             Rule::params => {
-                ctx.scope_enter();
+                ctx.scope.enter();
                 let ast = spec.into_inner().next();
                 let params_option_result: Option<Result<_, _>> =
                     ast.map(|params| handle_decl_list(&mut ctx, params, IdentType::Const));
@@ -142,14 +125,14 @@ pub fn handle_pkg_spec(
                 params = transpose_option_result(params_option_result)?;
             }
             Rule::state => {
-                ctx.scope_enter();
+                ctx.scope.enter();
                 let ast = spec.into_inner().next();
                 let state_option_result: Option<Result<_, _>> =
                     ast.map(|state| handle_decl_list(&mut ctx, state, IdentType::State));
                 state = transpose_option_result(state_option_result)?;
             }
             Rule::import_oracles => {
-                ctx.scope_enter();
+                ctx.scope.enter();
                 let mut loopvar_scope = ctx.scope.clone();
 
                 let body_ast = spec.into_inner().next().unwrap();
@@ -847,14 +830,14 @@ pub fn handle_code(
                     };
                     let loopvar: Identifier = loopvar.into();
 
-                    ctx.scope_enter();
+                    ctx.scope.enter();
                     ctx.scope
                         .declare(decl_var_name, Declaration::Identifier(loopvar.clone()))
                         .unwrap();
 
                     let body =
                         handle_code(ctx, parsed.remove(4),oracle_name)?;
-                    ctx.scope_leave();
+                    ctx.scope.leave();
 
                     Statement::For(loopvar, lower_bound, upper_bound, body, file_pos)
                 }
@@ -888,7 +871,7 @@ pub fn handle_oracle_def(
     let sig =
         handle_oracle_sig(inner.next().unwrap()).map_err(ParseOracleDefError::ParseOracleSig)?;
 
-    ctx.scope_enter();
+    ctx.scope.enter();
 
     for (name, tipe) in &sig.args {
         ctx.scope
@@ -913,7 +896,7 @@ pub fn handle_oracle_def(
     let code = handle_code(ctx, inner.next().unwrap(), &sig.name)
         .map_err(ParseOracleDefError::ParseCode)?;
 
-    ctx.scope_leave();
+    ctx.scope.leave();
 
     let oracle_def = OracleDef {
         sig,

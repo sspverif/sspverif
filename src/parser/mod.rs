@@ -5,28 +5,36 @@ pub mod package;
 pub mod error;
 pub mod proof;
 
-use miette::{NamedSource, SourceSpan};
 use pest::Parser;
 extern crate pest;
 
 use pest::error::Error;
 use pest::iterators::Pairs;
 
+use crate::util::scope::Scope;
+
 #[derive(Parser)]
 #[grammar = "parser/ssp.pest"]
 pub struct SspParser;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ParseContext<'a> {
     pub file_name: &'a str,
     pub file_content: &'a str,
+    pub scope: Scope,
 }
 
-pub trait CommonContext {
-    fn file_name(&self) -> &str;
-    fn file_contents(&self) -> &str;
-    fn scope_enter(&mut self);
-    fn scope_leave(&mut self);
+impl<'a> ParseContext<'a> {
+    pub fn new(file_name: &'a str, file_content: &'a str) -> Self {
+        let mut scope = Scope::new();
+        scope.enter();
+
+        Self {
+            file_name,
+            file_content,
+            scope,
+        }
+    }
 }
 
 impl SspParser {
@@ -45,7 +53,6 @@ impl SspParser {
 
 #[cfg(test)]
 mod tests {
-    use super::ParseContext;
 
     #[test]
     fn empty_param_section_is_fine() {
@@ -55,15 +62,10 @@ mod tests {
         }
         "#;
 
-        let ctx = ParseContext {
-            file_name,
-            file_content,
-        };
-
         let mut pairs = super::SspParser::parse_package(file_content)
             .expect("empty param section fails parsing");
 
-        super::package::handle_pkg(ctx, pairs.next().unwrap()).unwrap();
+        super::package::handle_pkg(file_name, file_content, pairs.next().unwrap()).unwrap();
     }
 
     #[test]
@@ -74,13 +76,8 @@ mod tests {
         }
         "#;
 
-        let ctx = ParseContext {
-            file_name,
-            file_content,
-        };
-
         let mut pairs = super::SspParser::parse_package(file_content)
             .expect("empty state section fails parsing");
-        super::package::handle_pkg(ctx, pairs.next().unwrap()).unwrap();
+        super::package::handle_pkg(file_name, file_content, pairs.next().unwrap()).unwrap();
     }
 }

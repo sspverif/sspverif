@@ -32,12 +32,8 @@ pub(crate) fn packages(root: PathBuf) -> Result<HashMap<String, Package>> {
                 let file_content = &std::fs::read_to_string(dir_entry.path())?;
 
                 let mut ast = SspParser::parse_package(file_content).map_err(|e| (file_name, e))?;
-                let ctx = ParseContext {
-                    file_name,
-                    file_content,
-                };
-                let (pkg_name, pkg) =
-                    handle_pkg(ctx, ast.next().unwrap()).map_err(Error::PackageParse)?;
+                let (pkg_name, pkg) = handle_pkg(file_name, file_content, ast.next().unwrap())
+                    .map_err(Error::PackageParse)?;
 
                 if let Some(other_filename) = pkgs_filenames.get(&pkg_name) {
                     return Err(Error::RedefinedPackage(
@@ -74,18 +70,14 @@ pub(crate) fn games(
                 let mut ast =
                     SspParser::parse_composition(&file_content).map_err(|err| (file_name, err))?;
 
-                let ctx = ParseContext {
-                    file_name,
-                    file_content: &file_content,
-                };
-
-                let comp = match handle_composition(&ctx, ast.next().unwrap(), pkgs) {
-                    Ok(game) => game,
-                    Err(err) => {
-                        println!("printing error...");
-                        return Err(err.with_source(file_content).into());
-                    }
-                };
+                let comp =
+                    match handle_composition(file_name, &file_content, ast.next().unwrap(), pkgs) {
+                        Ok(game) => game,
+                        Err(err) => {
+                            println!("printing error...");
+                            return Err(err.with_source(file_content).into());
+                        }
+                    };
                 let comp_name = comp.name.clone();
 
                 games.insert(comp_name, comp);
