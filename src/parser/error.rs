@@ -41,7 +41,7 @@ impl Display for PestErrorVariantPrinter {
 
 #[derive(Error, Diagnostic, Debug)]
 #[error("undefined type '{text}'")]
-#[diagnostic(code(ssbee::syntax))]
+#[diagnostic(code(ssbee::code::undefined_type))]
 pub struct UndefinedTypeError {
     #[label("this type is not defined")]
     pub at: SourceSpan,
@@ -51,7 +51,7 @@ pub struct UndefinedTypeError {
 
 #[derive(Error, Diagnostic, Debug)]
 #[error("undefined identifier '{ident_name}'")]
-#[diagnostic(code(ssbee::syntax))]
+#[diagnostic(code(ssbee::code::undefined_identifier))]
 pub struct UndefinedIdentifierError {
     #[source_code]
     pub source_code: miette::NamedSource<String>,
@@ -64,7 +64,7 @@ pub struct UndefinedIdentifierError {
 
 #[derive(Debug, Diagnostic, Error)]
 #[error("identifier '{ident_name}' has already been declared")]
-#[diagnostic(code(ssbee::syntax::ident_already_declared))]
+#[diagnostic(code(ssbee::code::identifier_already_declared))]
 pub struct IdentifierAlreadyDeclaredError {
     #[source_code]
     pub source_code: miette::NamedSource<String>,
@@ -79,7 +79,7 @@ pub struct IdentifierAlreadyDeclaredError {
 
 #[derive(Error, Diagnostic, Debug)]
 #[error("type mismatch: got {got:?}, expected {expected:?}")]
-#[diagnostic(code(ssbee::syntax))]
+#[diagnostic(code(ssbee::code::type_mismatch))]
 pub struct TypeMismatchError {
     #[label("this expression has the wrong type")]
     pub at: SourceSpan,

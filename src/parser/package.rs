@@ -71,6 +71,12 @@ impl<'a> ParseContext<'a> {
     }
 }
 
+impl<'a> PackageParseContext<'a> {
+    fn named_source(&self) -> NamedSource<String> {
+        NamedSource::new(self.file_name, self.file_content.to_string())
+    }
+}
+
 #[derive(Debug, Error, Diagnostic)]
 pub enum ParsePackageError {
     #[error("error parsing package's import oracle block: {0}")]
@@ -257,7 +263,7 @@ pub enum ParseExpressionError {
 
     #[error(transparent)]
     #[diagnostic(transparent)]
-    TypeMismatch(TypeMismatchError),
+    TypeMismatch(#[from] TypeMismatchError),
 }
 
 pub fn handle_expression(
@@ -267,38 +273,62 @@ pub fn handle_expression(
 ) -> Result<Expression, ParseExpressionError> {
     let span = ast.as_span();
     let expr = match ast.as_rule() {
-        // expr_equals | expr_not_equals | fn_call | table_access | identifier
         Rule::expr_add => {
+            if let Some(ty_expect) = expected_type {
+                if ty_expect != &Type::Integer {
+                    return Err(TypeMismatchError {
+                        at: (span.start()..span.end()).into(),
+                        expected: ty_expect.clone(),
+                        got: Type::Integer,
+                        source_code: ctx.named_source(),
+                    }
+                    .into());
+                }
+            }
+
             let mut inner = ast.into_inner();
 
             let lhs_ast = inner.next().unwrap();
             let rhs_ast = inner.next().unwrap();
+            let span = lhs_ast.as_span();
 
-            let lhs = handle_expression(ctx, lhs_ast, expected_type.clone())?;
+            let lhs = handle_expression(ctx, lhs_ast, expected_type)?;
 
             let ty_lhs = lhs.get_type();
+
+            if ty_lhs != Type::Integer {
+                return Err(TypeMismatchError {
+                    at: (span.start()..span.end()).into(),
+                    expected: Type::Integer,
+                    got: ty_lhs,
+                    source_code: ctx.named_source(),
+                }
+                .into());
+            }
+
             let rhs = handle_expression(ctx, rhs_ast, Some(&ty_lhs))?;
 
             Expression::Add(Box::new(lhs), Box::new(rhs))
         }
         Rule::expr_sub => {
             let mut inner = ast.into_inner();
-            let lhs = handle_expression(ctx, inner.next().unwrap(), expected_type.clone())?;
+            let lhs = handle_expression(ctx, inner.next().unwrap(), expected_type)?;
             let rhs = handle_expression(ctx, inner.next().unwrap(), expected_type)?;
             Expression::Sub(Box::new(lhs), Box::new(rhs))
         }
         Rule::expr_mul => {
             let mut inner = ast.into_inner();
-            let lhs = handle_expression(ctx, inner.next().unwrap(), expected_type.clone())?;
+            let lhs = handle_expression(ctx, inner.next().unwrap(), expected_type)?;
             let rhs = handle_expression(ctx, inner.next().unwrap(), expected_type)?;
             Expression::Mul(Box::new(lhs), Box::new(rhs))
         }
         Rule::expr_div => {
             let mut inner = ast.into_inner();
-            let lhs = handle_expression(ctx, inner.next().unwrap(), expected_type.clone())?;
+            let lhs = handle_expression(ctx, inner.next().unwrap(), expected_type)?;
             let rhs = handle_expression(ctx, inner.next().unwrap(), expected_type)?;
             Expression::Div(Box::new(lhs), Box::new(rhs))
         }
+
         Rule::expr_and => Expression::And(
             ast.into_inner()
                 .map(|expr| handle_expression(ctx, expr, Some(&Type::Boolean)))
@@ -319,6 +349,7 @@ pub fn handle_expression(
             let content = handle_expression(ctx, inner.next().unwrap(), Some(&Type::Boolean))?;
             Expression::Not(Box::new(content))
         }
+
         Rule::expr_equals => Expression::Equals(
             ast.into_inner()
                 .map(|expr| handle_expression(ctx, expr, None))
@@ -329,6 +360,7 @@ pub fn handle_expression(
                 .map(|expr| handle_expression(ctx, expr, None))
                 .collect::<Result<_, _>>()?,
         ))),
+
         Rule::expr_none => {
             let tipe = handle_type(ast.into_inner().next().unwrap());
             Expression::None(tipe)
@@ -359,6 +391,7 @@ pub fn handle_expression(
             )?;
             Expression::Unwrap(Box::new(expr))
         }
+
         Rule::expr_newtable => {
             let mut inner = ast.into_inner();
             let idxtipe = handle_type(inner.next().unwrap());
@@ -383,6 +416,7 @@ pub fn handle_expression(
             // TODO properly parse this identifier
             Expression::TableAccess(ident, Box::new(expr))
         }
+
         Rule::fn_call => {
             let span = ast.as_span();
             let mut inner = ast.into_inner();
@@ -409,6 +443,7 @@ pub fn handle_expression(
             let ident = decl.into_identifier().unwrap();
             Expression::FnCall(ident, args)
         }
+
         Rule::identifier => {
             let span = ast.as_span();
 
@@ -436,6 +471,7 @@ pub fn handle_expression(
             };
             Expression::Identifier(ident)
         }
+
         Rule::literal_boolean => {
             let litval = ast.as_str().to_string();
             Expression::BooleanLiteral(litval)
@@ -456,6 +492,7 @@ pub fn handle_expression(
             let tipe = handle_type(ast.into_inner().next().unwrap());
             Expression::Typed(Type::Set(Box::new(tipe)), Box::new(Expression::Set(vec![])))
         }
+
         Rule::expr_tuple => Expression::Tuple(
             ast.into_inner()
                 .map(|expr| handle_expression(ctx, expr, None))
@@ -1506,6 +1543,30 @@ mod tests {
             }
         }"#;
 
+    const TINY_BAD_PKG_3_CODE: &str = r#"package TinyBadPkg3 {
+            oracle N() -> Integer {
+              return (true + false);
+            }
+        }"#;
+
+    const TINY_BAD_PKG_4_CODE: &str = r#"package TinyBadPkg4 {
+            oracle N() -> Integer {
+              return (true + 3);
+            }
+        }"#;
+
+    const TINY_BAD_PKG_5_CODE: &str = r#"package TinyBadPkg5 {
+            oracle N() -> Integer {
+              return (3 + true);
+            }
+        }"#;
+
+    const TINY_BAD_PKG_6_CODE: &str = r#"package TinyBadPkg6 {
+            oracle N() -> Bool {
+              return (3 + 2);
+            }
+        }"#;
+
     #[test]
     fn wrong_return_type_fails() {
         let err = fail_parse_pkg(TINY_BAD_PKG_1_CODE, "tiny-bad-pkg-1");
@@ -1539,6 +1600,115 @@ mod tests {
         ));
 
         println!("{:?}", miette::Report::new(err));
+    }
+
+    #[test]
+    fn bad_add_fails_1() {
+        let err = fail_parse_pkg(TINY_BAD_PKG_3_CODE, "tiny-bad-pkg-3");
+
+        assert!(
+            matches!(
+                err,
+                ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
+                    ParseCodeError::ParseExpression(ParseExpressionError::TypeMismatch(
+                        TypeMismatchError {
+                            expected: Type::Integer,
+                            got: Type::Boolean,
+                            ref at,
+                            ref source_code,
+                        }
+                    ))
+                )) if slice_source_span(source_code, at) == "true"
+            ),
+            "got: {:#?}",
+            err
+        );
+
+        println!("{:?}", miette::Report::new(err));
+    }
+
+    #[test]
+    fn bad_add_fails_2() {
+        let err = fail_parse_pkg(TINY_BAD_PKG_4_CODE, "tiny-bad-pkg-4");
+
+        assert!(
+            matches!(
+                err,
+                ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
+                    ParseCodeError::ParseExpression(ParseExpressionError::TypeMismatch(
+                        TypeMismatchError {
+                            expected: Type::Integer,
+                            got: Type::Boolean,
+                            ref at,
+                            ref source_code,
+                        }
+                    ))
+                )) if slice_source_span(source_code, at) == "true"
+            ),
+            "got: {:#?}",
+            err
+        );
+
+        println!("{:?}", miette::Report::new(err));
+    }
+
+    #[test]
+    fn bad_add_fails_3() {
+        let err = fail_parse_pkg(TINY_BAD_PKG_5_CODE, "tiny-bad-pkg-5");
+
+        assert!(
+            matches!(
+                err,
+                ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
+                    ParseCodeError::ParseExpression(ParseExpressionError::TypeMismatch(
+                        TypeMismatchError {
+                            expected: Type::Integer,
+                            got: Type::Boolean,
+                            ref at,
+                            ref source_code,
+                        }
+                    ))
+                ))
+                    if slice_source_span(source_code, at) == "true"
+            ),
+            "got: {:#?}",
+            err
+        );
+
+        println!("{:?}", miette::Report::new(err));
+    }
+    #[test]
+    fn bad_add_fails_4() {
+        let err = fail_parse_pkg(TINY_BAD_PKG_6_CODE, "tiny-bad-pkg-6");
+
+        assert!(
+            matches!(
+                err,
+                ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
+                    ParseCodeError::ParseExpression(ParseExpressionError::TypeMismatch(
+                        TypeMismatchError {
+                            expected: Type::Boolean,
+                            got: Type::Integer,
+                            ref at,
+                            ref source_code,
+                        },
+                    )),
+                ))
+                    if slice_source_span(source_code, at) == "(3 + 2)"
+            ),
+            "got: {:#?}",
+            err
+        );
+
+        println!("{:?}", miette::Report::new(err));
+    }
+
+    fn slice_source_span<'a>(source: &'a NamedSource<String>, span: &'a SourceSpan) -> &'a str {
+        let out = &source.inner().as_str()[span.offset()..(span.offset() + span.len())];
+
+        println!("slice result: `{out}`");
+
+        out
     }
 }
 
