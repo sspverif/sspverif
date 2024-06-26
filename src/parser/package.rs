@@ -207,12 +207,19 @@ pub fn handle_decl_list(
                 )
                 .into()
             }
-            IdentType::Const => PackageConstIdentifier::new(
-                name.to_string(),
-                ctx.pkg_name.to_string(),
-                tipe.clone(),
-            )
-            .into(),
+            IdentType::Const => {
+                ctx.params.push((
+                    name.to_string(),
+                    tipe.clone(),
+                    (span.start()..span.end()).into(),
+                ));
+                PackageConstIdentifier::new(
+                    name.to_string(),
+                    ctx.pkg_name.to_string(),
+                    tipe.clone(),
+                )
+                .into()
+            }
         };
 
         ctx.scope
