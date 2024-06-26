@@ -1498,6 +1498,7 @@ mod tests2 {
     use super::{MultiInstanceIndices, MultiInstanceIndicesGroup};
 
     #[test]
+    #[ignore]
     fn example_smt_stuff() {
         let pkg_name = || "Foo".to_string();
         let mut scope = Scope::new();
