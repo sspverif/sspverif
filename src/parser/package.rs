@@ -47,7 +47,7 @@ pub struct PackageParseContext<'a> {
     pub oracles: Vec<OracleDef>,
     pub state: Vec<(String, Type, SourceSpan)>,
     pub params: Vec<(String, Type, SourceSpan)>,
-    pub types: Vec<String>,
+    pub types: Vec<(String, SourceSpan)>,
     pub imported_oracles: HashMap<String, (OracleSig, SourceSpan)>,
 }
 
@@ -1463,10 +1463,16 @@ pub fn handle_import_oracles_body(
     Ok(())
 }
 
-pub fn handle_types_list(types: Pair<Rule>) -> Vec<String> {
+pub fn handle_types_list(types: Pair<Rule>) -> Vec<(String, SourceSpan)> {
     types
         .into_inner()
-        .map(|entry| entry.as_str().to_string())
+        .map(|entry| {
+            let span = entry.as_span();
+            (
+                entry.as_str().to_string(),
+                (span.start()..span.end()).into(),
+            )
+        })
         .collect()
 }
 #[cfg(test)]

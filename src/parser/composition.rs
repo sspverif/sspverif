@@ -759,7 +759,7 @@ pub fn handle_instance_decl_multi_inst(
         .collect();
     assigned_types.sort();
 
-    let mut pkg_types = pkg.types.clone();
+    let mut pkg_types: Vec<_> = pkg.types.iter().map(|(ty, _span)| ty.clone()).collect();
     pkg_types.sort();
 
     if assigned_types != pkg_types {
@@ -887,7 +887,7 @@ pub fn handle_instance_decl(
         .collect();
     assigned_types.sort();
 
-    let mut pkg_types = pkg.types.clone();
+    let mut pkg_types: Vec<_> = pkg.types.iter().map(|(ty, _span)| ty.clone()).collect();
     pkg_types.sort();
 
     if assigned_types != pkg_types {
