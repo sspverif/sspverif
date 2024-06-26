@@ -6,6 +6,7 @@ use super::{
 use crate::{
     expressions::Expression,
     identifier::{
+        self,
         game_ident::GameIdentifier,
         pkg_ident::{
             PackageConstIdentifier, PackageIdentifier, PackageImportsLoopVarIdentifier,
@@ -14,7 +15,7 @@ use crate::{
         },
         Identifier,
     },
-    package::{OracleDef, OracleSig, Package},
+    package::{Edge, OracleDef, OracleSig, Package},
     statement::{CodeBlock, FilePosition, Statement},
     types::Type,
     util::{
@@ -32,9 +33,9 @@ use miette::{Diagnostic, NamedSource, SourceSpan};
 use pest::iterators::Pair;
 use thiserror::Error;
 
-use std::collections::HashMap;
 use std::convert::TryInto;
 use std::hash::Hash;
+use std::{any::type_name, collections::HashMap};
 
 #[derive(Clone, Debug)]
 pub struct PackageParseContext<'a> {
@@ -366,7 +367,26 @@ pub fn handle_expression(
             Expression::None(tipe)
         }
         Rule::expr_some => {
-            let expected_type = expected_type.map(|ty| Type::Maybe(Box::new(ty.clone())));
+            // make sure the expected type is a maybe.
+            // if yes, extract the expected type for the inner expression
+            // if not, abort with an error
+            let expected_type = if let Some(ty_expect) = expected_type {
+                let Type::Maybe(ty) = ty_expect else {
+                    return Err(TypeMismatchError {
+                        at: (span.start()..span.end()).into(),
+                        expected: ty_expect.clone(),
+                        // TODO: maybe actually keep parsing here to produce better diagnostic
+                        // output (whole type)
+                        got: Type::Maybe(Box::new(Type::Unknown)),
+                        source_code: ctx.named_source(),
+                    }
+                    .into());
+                };
+                Some(*ty.clone())
+            } else {
+                None
+            };
+
             let expr = handle_expression(
                 ctx,
                 ast.into_inner().next().unwrap(),
@@ -543,11 +563,20 @@ pub enum ParseCodeError {
     #[diagnostic(transparent)]
     ParseExpression(#[from] ParseExpressionError),
     #[error("error parsing identifier: {0}")]
-    ParseIdentifier(ParseIdentifierError),
+    #[diagnostic(transparent)]
+    ParseIdentifier(#[from] ParseIdentifierError),
     #[error("undefined oracle: {0}")]
     UndefinedOracle(String),
     #[error("invoking an identifier that is not an oracle: {0:?}")]
     InvokingNonOracle(Identifier),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    UndefinedIdentifier(#[from] UndefinedIdentifierError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    TypeMismatch(#[from] TypeMismatchError),
 }
 
 pub fn handle_identifier_in_code_rhs(
@@ -569,19 +598,23 @@ pub fn handle_identifier_in_code_rhs(
 }
 
 pub fn handle_identifier_in_code_lhs(
-    name: &str,
-    scope: &mut Scope,
-    pkg_name: &str,
+    ctx: &mut PackageParseContext,
+    name_ast: Pair<Rule>,
     oracle_name: &str,
     expected_type: Type,
 ) -> Result<Identifier, ParseIdentifierError> {
+    let name = name_ast.as_str();
+    let span = name_ast.as_span();
+
+    let scope = &mut ctx.scope;
+
     let ident = if let Some(decl) = scope.lookup(name) {
         decl.into_identifier()
             .map_err(|decl| ParseIdentifierError::InvalidLeftHandSide(name.to_string(), decl))?
     } else {
         let ident =
             Identifier::PackageIdentifier(PackageIdentifier::Local(PackageLocalIdentifier {
-                pkg_name: pkg_name.to_string(),
+                pkg_name: ctx.pkg_name.to_string(),
                 oracle_name: oracle_name.to_string(),
                 name: name.to_string(),
                 tipe: expected_type.clone(),
@@ -598,46 +631,33 @@ pub fn handle_identifier_in_code_lhs(
         ident
     };
 
-    if ident.get_type().unwrap() != expected_type {
-        Err(ParseIdentifierError::TypeMismatch(ident, expected_type))
+    let got = ident.get_type().unwrap();
+    if got != expected_type {
+        Err(ParseIdentifierError::TypeMismatch(TypeMismatchError {
+            at: (span.start()..span.end()).into(),
+            expected: expected_type,
+            got,
+            source_code: ctx.named_source(),
+        }))
     } else {
         Ok(ident)
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error, Diagnostic)]
 pub enum ParseIdentifierError {
+    #[error(transparent)]
+    #[diagnostic(transparent)]
     ParseExpression(ParseExpressionError),
+    #[error(transparent)]
     ScopeDeclareError(crate::util::scope::Error),
+    #[error("found undefined variable `{0}`.")]
     Undefined(String),
-    TypeMismatch(Identifier, Type),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    TypeMismatch(TypeMismatchError),
+    #[error("error parsing left-hand-side name `{0}`: expected an identifier, got {1:?}")]
     InvalidLeftHandSide(String, Declaration),
-}
-
-impl core::fmt::Display for ParseIdentifierError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ParseIdentifierError::InvalidLeftHandSide(name, decl) => {
-                write!(f, "error parsing left-hand-side name `{name}`: expected an identifier, got {decl:?}")
-            }
-            ParseIdentifierError::ParseExpression(err) => {
-                write!(f, "error parsing expression: {err}")
-            }
-            ParseIdentifierError::ScopeDeclareError(err) => {
-                write!(f, "error declaring variable in scope: {err}")
-            }
-            ParseIdentifierError::Undefined(name) => {
-                write!(f, "found undefined variable `{name}`.")
-            }
-            ParseIdentifierError::TypeMismatch(ident, expected_type) => write!(
-                f,
-                "expected identifier {name} to have type {exp_tipe:?}, but found {real_type:?}",
-                name = ident.ident_ref(),
-                exp_tipe = expected_type,
-                real_type = ident.get_type().unwrap()
-            ),
-        }
-    }
 }
 
 pub fn handle_code(
@@ -692,12 +712,12 @@ pub fn handle_code(
                 Rule::abort => Statement::Abort(source_span),
                 Rule::sample => {
                     let mut inner = stmt.into_inner();
-                    let name = inner.next().unwrap().as_str();
+                    let name_ast = inner.next().unwrap();
+                    let name = name_ast.as_str();
                     let tipe = handle_type(inner.next().unwrap());
                     let ident = handle_identifier_in_code_lhs(
-                        name,
-                        &mut ctx.scope,
-                        ctx.pkg_name,
+                        ctx,
+                        name_ast,
                         oracle_name,
                         tipe.clone(),
                     )
@@ -707,7 +727,8 @@ pub fn handle_code(
 
                 Rule::assign => {
                     let mut inner = stmt.into_inner();
-                    let name = inner.next().unwrap().as_str();
+                    let name_ast = inner.next().unwrap();
+                    let name = name_ast.as_str();
                     // it's fine to use a None expected_type here, because we later check that the
                     // resulting type matches the identifier
                     // maybe we could produce better errors (or have better type inference?) if we
@@ -718,9 +739,8 @@ pub fn handle_code(
 
                     let expected_type = expr.get_type();
                     let ident = handle_identifier_in_code_lhs(
-                        name,
-                        &mut ctx.scope,
-                        ctx.pkg_name,
+                        ctx,
+                        name_ast,
                         oracle_name,
                         expected_type,
                     )
@@ -731,13 +751,13 @@ pub fn handle_code(
 
                 Rule::table_sample => {
                     let mut inner = stmt.into_inner();
-                    let name = inner.next().unwrap().as_str();
+                    let name_ast = inner.next().unwrap();
+                    let name = name_ast.as_str();
                     let index = handle_expression(ctx, inner.next().unwrap(), None)?;
                     let tipe = handle_type(inner.next().unwrap());
                     let ident = handle_identifier_in_code_lhs(
-                        name,
-                        &mut ctx.scope,
-                        ctx.pkg_name,
+                        ctx,
+                        name_ast,
                         oracle_name,
                         Type::Table(Box::new(index.get_type()),  Box::new(tipe.clone())),
                     )
@@ -749,15 +769,33 @@ pub fn handle_code(
                     let mut inner = stmt.into_inner();
                     println!("DFGERT {inner:#?}");
 
-                    let name = inner.next().unwrap().as_str();
-                    // it's fine to use a None expected_type here, because we later check that the
-                    // resulting type matches the identifier
-                    // maybe we could produce better errors (or have better type inference?) if we
-                    // first checked whether the identifier exists, and if yes use that as the
-                    // expected type here?
-                    let index = handle_expression(ctx, inner.next().unwrap(), None)?;
-                    let expr = handle_expression(ctx, inner.next().unwrap(), None)
-                        .map_err(ParseCodeError::ParseExpression)?;
+                    let name_ast = inner.next().unwrap();
+                    let Some(Declaration::Identifier(ident)) = ctx.scope.lookup(name_ast.as_str()) else {
+                        let span = name_ast.as_span();
+                        return Err(UndefinedIdentifierError{
+                            source_code: ctx.named_source(),
+                            at: (span.start()..span.end()).into(),
+                            ident_name: name_ast.as_str().to_string(),
+                        }.into());
+                    };
+
+                    let ty_ident = ident.get_type().unwrap();
+                    let Type::Table(ty_key, ty_value_without_maybe) = &ty_ident else {
+                        let span = name_ast.as_span();
+                        return Err(TypeMismatchError{
+                            at: (span.start()..span.end()).into(),
+                            expected: Type::Table(Box::new(Type::Unknown), Box::new(Type::Unknown)),
+                            got: ty_ident,
+                            source_code: ctx.named_source(),
+                        }.into())
+                    };
+
+                    println!("{} -- {ident:?} -- ty_value: {ty_value_without_maybe:?}", ctx.file_name);
+
+                    let ty_value_with_maybe = Type::Maybe(ty_value_without_maybe.clone());
+
+                    let index = handle_expression(ctx, inner.next().unwrap(), Some(&**ty_key))?;
+                    let expr = handle_expression(ctx, inner.next().unwrap(), Some(&ty_value_with_maybe))?;
 
                     let expected_type = match expr.get_type() {
                         Type::Maybe(t) => Type::Table(Box::new(index.get_type()), t),
@@ -765,9 +803,8 @@ pub fn handle_code(
                     };
 
                     let ident = handle_identifier_in_code_lhs(
-                        name,
-                        &mut ctx.scope,
-                        ctx.pkg_name,
+                        ctx,
+                        name_ast,
                         oracle_name,
                         expected_type,
                     )
@@ -778,7 +815,8 @@ pub fn handle_code(
 
                 Rule::invocation => {
                     let mut inner = stmt.into_inner();
-                    let target_ident_name = inner.next().unwrap().as_str();
+                    let target_ident_name_ast = inner.next().unwrap();
+                    let target_ident_name = target_ident_name_ast.as_str();
                     let maybe_index = inner.next().unwrap();
                     // TODO: this should be used in type checking somehow
                     let (opt_idx, oracle_inv) = if maybe_index.as_rule() == Rule::table_index {
@@ -835,9 +873,8 @@ pub fn handle_code(
                     }?;
 
                     let target_ident = handle_identifier_in_code_lhs(
-                        target_ident_name,
-                        &mut ctx.scope,
-                        ctx.pkg_name,
+                        ctx,
+                        target_ident_name_ast,
                         oracle_name,
                         expected_type,
                     )
@@ -871,7 +908,7 @@ pub fn handle_code(
                         .into_inner()
                         .enumerate()
                         .map(|(i, ident_name)| {
-                            handle_identifier_in_code_lhs(ident_name.as_str(), &mut ctx.scope, ctx.pkg_name, oracle_name, tipes[i].clone())
+                            handle_identifier_in_code_lhs(ctx, ident_name,  oracle_name, tipes[i].clone())
                                 .map_err(ParseCodeError::ParseIdentifier)
                         })
                         .collect::<Result<_,_>>()?;

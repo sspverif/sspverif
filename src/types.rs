@@ -3,6 +3,7 @@ use crate::expressions::Expression;
 #[allow(dead_code)]
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub enum Type {
+    Unknown,
     Empty,
     Integer,
     String,
@@ -86,6 +87,7 @@ impl Type {
                 ts.iter().map(|t| t.rewrite(rules)).collect(),
                 Box::new(t.rewrite(rules)),
             ),
+            Type::Unknown => unreachable!(),
         }
     }
 }
