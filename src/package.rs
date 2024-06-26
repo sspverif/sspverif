@@ -1,3 +1,5 @@
+use miette::SourceSpan;
+
 use crate::expressions::Expression;
 use crate::identifier::pkg_ident::PackageConstIdentifier;
 use crate::identifier::Identifier;
@@ -28,18 +30,21 @@ pub struct OracleSig {
 pub struct OracleDef {
     pub sig: OracleSig,
     pub code: CodeBlock,
-    pub file_pos: FilePosition,
+    pub file_pos: SourceSpan,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Package {
     pub name: String,
     pub types: Vec<String>,
-    pub params: Vec<(String, Type, FilePosition)>,
-    pub state: Vec<(String, Type, FilePosition)>,
+    pub params: Vec<(String, Type, SourceSpan)>,
+    pub state: Vec<(String, Type, SourceSpan)>,
     pub oracles: Vec<OracleDef>,
     pub split_oracles: Vec<SplitOracleDef>,
-    pub imports: Vec<(OracleSig, FilePosition)>,
+    pub imports: Vec<(OracleSig, SourceSpan)>,
+
+    pub file_name: String,
+    pub file_contents: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

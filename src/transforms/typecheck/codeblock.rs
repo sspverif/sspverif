@@ -31,7 +31,7 @@ impl TypedCodeBlock {
                 Statement::Abort(file_pos) => {
                     if i < block.len() - 1 {
                         return Err(TypeCheckError::MisplacedStatement(
-                            ErrorLocation::FilePosition(file_pos.clone()),
+                            ErrorLocation::SourceSpan(file_pos.clone()),
                             "Abort found before end of code block!".to_string(),
                         ));
                     }
@@ -42,13 +42,13 @@ impl TypedCodeBlock {
                     let expr_type = expr.get_type();
                     if i < block.len() - 1 {
                         return Err(TypeCheckError::MisplacedStatement(
-                            ErrorLocation::FilePosition(file_pos.clone()),
+                            ErrorLocation::SourceSpan(file_pos.clone()),
                             "Return found before end of code block!".to_string(),
                         ));
                     }
                     if expr_type != *ret_type {
                         return Err(TypeCheckError::TypeMismatch(
-                            ErrorLocation::FilePosition(file_pos.clone()),
+                            ErrorLocation::SourceSpan(file_pos.clone()),
                             "return type does not match".to_owned(),
                             Some(expr.clone()),
                             expr_type,
@@ -60,7 +60,7 @@ impl TypedCodeBlock {
                 Statement::Return(None, file_pos) => {
                     if Type::Empty != *ret_type {
                         return Err(TypeCheckError::TypeMismatch(
-                            ErrorLocation::FilePosition(file_pos.clone()),
+                            ErrorLocation::SourceSpan(file_pos.clone()),
                             "empty return in function that returns something".to_string(),
                             None,
                             Type::Empty,
@@ -80,7 +80,7 @@ impl TypedCodeBlock {
                             if let Type::Table(k, v) = id_type {
                                 if *k != idx_type {
                                     return Err(TypeCheckError::TypeMismatch(
-                                        ErrorLocation::FilePosition(file_pos.clone()),
+                                        ErrorLocation::SourceSpan(file_pos.clone()),
                                         format!(
                                             "type used as index to table {:?} does not match",
                                             id
@@ -92,7 +92,7 @@ impl TypedCodeBlock {
                                 }
                                 if Type::Maybe(v.clone()) != expr_type {
                                     return Err(TypeCheckError::TypeMismatch(
-                                        ErrorLocation::FilePosition(file_pos.clone()),
+                                        ErrorLocation::SourceSpan(file_pos.clone()),
                                         "value type of the table does not match".to_string(),
                                         None,
                                         *v,
@@ -101,7 +101,7 @@ impl TypedCodeBlock {
                                 }
                             } else {
                                 return Err(TypeCheckError::TypeMismatch(
-                                    ErrorLocation::FilePosition(file_pos.clone()),
+                                    ErrorLocation::SourceSpan(file_pos.clone()),
                                     "table access on non-table".to_string(),
                                     None,
                                     id_type,
@@ -110,7 +110,7 @@ impl TypedCodeBlock {
                             }
                         } else if id_type != expr_type.clone() {
                             return Err(TypeCheckError::TypeMismatch(
-                                ErrorLocation::FilePosition(file_pos.clone()),
+                                ErrorLocation::SourceSpan(file_pos.clone()),
                                 format!("assigning to variable {:?} of different type", id),
                                 Some(expr.clone()),
                                 id_type,
@@ -145,7 +145,7 @@ impl TypedCodeBlock {
                     if let Type::Tuple(types) = &expr_type {
                         if idents.len() != types.len() {
                             return Err(TypeCheckError::TypeMismatch(
-                                ErrorLocation::FilePosition(file_pos.clone()),
+                                ErrorLocation::SourceSpan(file_pos.clone()),
                                 format!(
                                     "parsing tuple {:?} of length {} into {} identifiers",
                                     expr,
@@ -162,7 +162,7 @@ impl TypedCodeBlock {
                             if let Some(ScopeType::Type(t_ident)) = scope.lookup(ident) {
                                 if &t_ident != t {
                                     return Err(TypeCheckError::TypeMismatch(
-                                        ErrorLocation::FilePosition(file_pos.clone()),
+                                        ErrorLocation::SourceSpan(file_pos.clone()),
                                         format!(
                                             "identifier {:?} in tuple parse has type {:?}, value is of type {:?}",
                                             ident,
@@ -182,7 +182,7 @@ impl TypedCodeBlock {
                         }
                     } else {
                         return Err(TypeCheckError::TypeMismatch(
-                            ErrorLocation::FilePosition(file_pos.clone()),
+                            ErrorLocation::SourceSpan(file_pos.clone()),
                             format!(
                                 "calling parse on {:?} of type {:?} which is not a tuple",
                                 expr, expr_type
@@ -207,7 +207,7 @@ impl TypedCodeBlock {
                             if let Type::Table(k, v) = id_type {
                                 if *k != idx_type {
                                     return Err(TypeCheckError::TypeMismatch(
-                                        ErrorLocation::FilePosition(file_pos.clone()),
+                                        ErrorLocation::SourceSpan(file_pos.clone()),
                                         format!(
                                             "type used as index to table {:?} does not match",
                                             id
@@ -219,7 +219,7 @@ impl TypedCodeBlock {
                                 }
                                 if *v != *sample_type {
                                     return Err(TypeCheckError::TypeMismatch(
-                                        ErrorLocation::FilePosition(file_pos.clone()),
+                                        ErrorLocation::SourceSpan(file_pos.clone()),
                                         "value type of the table does not match".to_string(),
                                         None,
                                         *v,
@@ -228,7 +228,7 @@ impl TypedCodeBlock {
                                 }
                             } else {
                                 return Err(TypeCheckError::TypeMismatch(
-                                    ErrorLocation::FilePosition(file_pos.clone()),
+                                    ErrorLocation::SourceSpan(file_pos.clone()),
                                     "table access on non-table".to_string(),
                                     None,
                                     id_type,
@@ -237,7 +237,7 @@ impl TypedCodeBlock {
                             }
                         } else if id_type != sample_type.clone() {
                             return Err(TypeCheckError::TypeMismatch(
-                                ErrorLocation::FilePosition(file_pos.clone()),
+                                ErrorLocation::SourceSpan(file_pos.clone()),
                                 format!("sampling into variable {:?} of different type", id),
                                 None,
                                 id_type,
@@ -274,7 +274,7 @@ impl TypedCodeBlock {
                     let oracle_entry = scope.lookup(&Identifier::new_scalar(name));
                     if oracle_entry.is_none() {
                         return Err(TypeCheckError::Undefined(
-                            ErrorLocation::FilePosition(file_pos.clone()),
+                            ErrorLocation::SourceSpan(file_pos.clone()),
                             format!("no oracle with name {:} found", name),
                             Identifier::new_scalar(name),
                         ));
@@ -287,7 +287,7 @@ impl TypedCodeBlock {
                             (arg_types, ret_type)
                         } else {
                             return Err(TypeCheckError::TypeMismatchVague(
-                                ErrorLocation::FilePosition(file_pos.clone()),
+                                ErrorLocation::SourceSpan(file_pos.clone()),
                                 format!("name {:} resolved to non-oracle type", name),
                                 None,
                                 Type::Empty,
@@ -297,7 +297,7 @@ impl TypedCodeBlock {
                     // 1. check that arg types match args
                     if args.len() != arg_types.len() {
                         return Err(TypeCheckError::TypeMismatch(
-                                ErrorLocation::FilePosition(file_pos.clone()),
+                                ErrorLocation::SourceSpan(file_pos.clone()),
                             format!(
                                 "oracle {} invocation on {:?} argument count mismatch. get {}, expected {}",
                                 name,
@@ -315,7 +315,7 @@ impl TypedCodeBlock {
                         let t_arg = arg.get_type();
                         if t_arg != arg_types[i] {
                             return Err(TypeCheckError::TypeMismatch(
-                                ErrorLocation::FilePosition(file_pos.clone()),
+                                ErrorLocation::SourceSpan(file_pos.clone()),
                                 format!("argument type mismatch at position {} at invocation of oracle {:}", i, name),
                                 Some(arg.clone()),
                                 t_arg,
@@ -329,7 +329,7 @@ impl TypedCodeBlock {
                             if let Type::Table(k, v) = id_type {
                                 if *k != idx_type {
                                     return Err(TypeCheckError::TypeMismatch(
-                                        ErrorLocation::FilePosition(file_pos.clone()),
+                                        ErrorLocation::SourceSpan(file_pos.clone()),
                                         format!(
                                             "type used as index to table {:?} does not match",
                                             id
@@ -341,7 +341,7 @@ impl TypedCodeBlock {
                                 }
                                 if Type::Maybe(v.clone()) != ret_type {
                                     return Err(TypeCheckError::TypeMismatch(
-                                        ErrorLocation::FilePosition(file_pos.clone()),
+                                        ErrorLocation::SourceSpan(file_pos.clone()),
                                         "value type of the table does not match".to_string(),
                                         None,
                                         *v,
@@ -350,7 +350,7 @@ impl TypedCodeBlock {
                                 }
                             } else {
                                 return Err(TypeCheckError::TypeMismatch(
-                                    ErrorLocation::FilePosition(file_pos.clone()),
+                                    ErrorLocation::SourceSpan(file_pos.clone()),
                                     "table access on non-table".to_string(),
                                     None,
                                     id_type,
@@ -359,7 +359,7 @@ impl TypedCodeBlock {
                             }
                         } else if id_type != ret_type.clone() {
                             return Err(TypeCheckError::TypeMismatch(
-                                ErrorLocation::FilePosition(file_pos.clone()),
+                                ErrorLocation::SourceSpan(file_pos.clone()),
                                 format!("sampling into variable {:?} of different type", id),
                                 None,
                                 id_type,
@@ -388,7 +388,7 @@ impl TypedCodeBlock {
 
                     if expr_type != Type::Boolean {
                         return Err(TypeCheckError::TypeMismatch(
-                            ErrorLocation::FilePosition(file_pos.clone()),
+                            ErrorLocation::SourceSpan(file_pos.clone()),
                             "expression used as condition in if-then-else is not boolean"
                                 .to_string(),
                             Some(expr.clone()),
@@ -422,7 +422,7 @@ impl TypedCodeBlock {
 
                     if lower_bound_type != Type::Integer {
                         return Err(TypeCheckError::TypeMismatch(
-                            ErrorLocation::FilePosition(file_pos.clone()),
+                            ErrorLocation::SourceSpan(file_pos.clone()),
                             "lower bound of for loop is not an integer".to_string(),
                             Some(lower_bound.clone()),
                             lower_bound_type,
@@ -432,7 +432,7 @@ impl TypedCodeBlock {
 
                     if upper_bound_type != Type::Integer {
                         return Err(TypeCheckError::TypeMismatch(
-                            ErrorLocation::FilePosition(file_pos.clone()),
+                            ErrorLocation::SourceSpan(file_pos.clone()),
                             "upper bound of for loop is not an integer".to_string(),
                             Some(upper_bound.clone()),
                             upper_bound_type,
@@ -499,7 +499,7 @@ mod test {
         let mut scope = Scope::new();
         let code = TypedCodeBlock {
             block: block! {
-                Statement::Return(None, FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                Statement::Return(None, (0.. 1).into())
             },
             expected_return_type: Type::Integer,
         };
@@ -516,7 +516,7 @@ mod test {
         let mut scope = Scope::new();
         let code = TypedCodeBlock {
             block: block! {
-                Statement::Return(None, FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                Statement::Return(None, (0.. 1).into())
             },
             expected_return_type: Type::Empty,
         };
@@ -530,7 +530,7 @@ mod test {
         let mut scope = Scope::new();
         let code = TypedCodeBlock {
             block: block! {
-                Statement::Return(Some(Expression::StringLiteral("test".to_string())), FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                Statement::Return(Some(Expression::StringLiteral("test".to_string())), (0.. 1).into())
             },
             expected_return_type: Type::Integer,
         };
@@ -546,7 +546,7 @@ mod test {
         let mut scope = Scope::new();
         let code = TypedCodeBlock {
             block: block! {
-                Statement::Return(Some(Expression::IntegerLiteral(23)), FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                Statement::Return(Some(Expression::IntegerLiteral(23)), (0.. 1).into())
             },
             expected_return_type: Type::Integer,
         };
@@ -560,7 +560,7 @@ mod test {
         let mut scope = Scope::new();
         let code = TypedCodeBlock {
             block: block! {
-                Statement::Abort( FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                Statement::Abort( (0..1).into())
             },
             expected_return_type: Type::Integer,
         };
@@ -578,11 +578,11 @@ mod test {
                 Expression::new_equals(vec![&(Expression::StringLiteral("23".to_string())),
                                             &(Expression::StringLiteral("23".to_string()))]),
                 block!{
-                    Statement::Return(Some(Expression::StringLiteral("23".to_string())),FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                    Statement::Return(Some(Expression::StringLiteral("23".to_string())),(0..1).into())
                 },
                 block!{
-                    Statement::Return(Some(Expression::IntegerLiteral(23)),FilePosition::new("test_file.ssp".to_string(), 0, 1))
-                },FilePosition::new("test_file.ssp".to_string(), 0, 1) )
+                    Statement::Return(Some(Expression::IntegerLiteral(23)),(0..1).into())
+                },(0..1).into())
             },
             expected_return_type: Type::Integer,
         };
@@ -603,11 +603,11 @@ mod test {
                 Expression::new_equals(vec![&(Expression::StringLiteral("23".to_string())),
                                             &(Expression::StringLiteral("23".to_string()))]),
                 block!{
-                    Statement::Return(Some(Expression::IntegerLiteral(23)),FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                    Statement::Return(Some(Expression::IntegerLiteral(23)),(0..1).into())
                 },
                 block!{
-                    Statement::Return(Some(Expression::StringLiteral("23".to_string())),FilePosition::new("test_file.ssp".to_string(), 0, 1))
-                },FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                    Statement::Return(Some(Expression::StringLiteral("23".to_string())),(0..1).into())
+                },(0..1).into())
             },
             expected_return_type: Type::Integer,
         };
@@ -628,11 +628,11 @@ mod test {
                 Expression::new_equals(vec![&(Expression::StringLiteral("23".to_string())),
                                             &(Expression::StringLiteral("23".to_string()))]),
                 block!{
-                    Statement::Return(Some(Expression::IntegerLiteral(23)),FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                    Statement::Return(Some(Expression::IntegerLiteral(23)),(0..1).into())
                 },
                 block!{
-                    Statement::Return(Some(Expression::IntegerLiteral(23)),FilePosition::new("test_file.ssp".to_string(), 0, 1))
-                },FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                    Statement::Return(Some(Expression::IntegerLiteral(23)),(0..1).into())
+                },(0..1).into())
             },
             expected_return_type: Type::Integer,
         };
@@ -649,11 +649,11 @@ mod test {
                 Expression::new_equals(vec![&(Expression::StringLiteral("23".to_string())),
                                             &(Expression::StringLiteral("23".to_string()))]),
                 block!{
-                    Statement::Return(Some(Expression::IntegerLiteral(23)),FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                    Statement::Return(Some(Expression::IntegerLiteral(23)),(0..1).into())
                 },
                 block!{
-                    Statement::Abort(FilePosition::new("test_file.ssp".to_string(), 0, 1))
-                },FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                    Statement::Abort((0..1).into())
+                },(0..1).into())
             },
             expected_return_type: Type::Integer,
         };
@@ -676,7 +676,7 @@ mod test {
                                 Identifier::Local("test".to_string()),
                                 None,
                                 Expression::StringLiteral("42".to_string()),
-            FilePosition::new("test_file.ssp".to_string(), 0, 1))
+            (0..1).into())
                         },
             expected_return_type: Type::Empty,
         };
@@ -698,7 +698,7 @@ mod test {
         let code = TypedCodeBlock {
             block: block! {
                 Statement::Assign(Identifier::Local("test".to_string()), None, Expression::IntegerLiteral(42),
-            FilePosition::new("test_file.ssp".to_string(), 0, 1))
+            (0..1).into())
             },
             expected_return_type: Type::Empty,
         };
@@ -714,7 +714,7 @@ mod test {
         let code = TypedCodeBlock {
             block: block! {
                 Statement::Assign(Identifier::Local("test".to_string()), None, Expression::IntegerLiteral(42),
-            FilePosition::new("test_file.ssp".to_string(), 0, 1))
+            (0..1).into())
             },
             expected_return_type: Type::Empty,
         };
@@ -738,7 +738,7 @@ mod test {
                 Statement::Assign(Identifier::Local("test".to_string()),
                                        Some(Expression::IntegerLiteral(42)),
                                        Expression::Some(Box::new(Expression::StringLiteral("42".to_string()))),
-            FilePosition::new("test_file.ssp".to_string(), 0, 1))
+            (0..1).into())
             },
             expected_return_type: Type::Empty,
         };
@@ -766,7 +766,7 @@ mod test {
                 Statement::Assign(Identifier::Local("test".to_string()),
                                        Some(Expression::StringLiteral("42".to_string())),
                                        Expression::StringLiteral("42".to_string()),
-            FilePosition::new("test_file.ssp".to_string(), 0, 1))
+            (0..1).into())
             },
             expected_return_type: Type::Empty,
         };
@@ -792,7 +792,7 @@ mod test {
                 Statement::Assign(Identifier::Local("test".to_string()),
                                        Some(Expression::IntegerLiteral(42)),
                                        Expression::IntegerLiteral(42),
-            FilePosition::new("test_file.ssp".to_string(), 0, 1))
+            (0..1).into())
             },
             expected_return_type: Type::Empty,
         };
@@ -815,7 +815,7 @@ mod test {
                 Statement::Assign(Identifier::Local("test".to_string()),
                                        Some(Expression::IntegerLiteral(42)),
                                        Expression::IntegerLiteral(42),
-            FilePosition::new("test_file.ssp".to_string(), 0, 1))
+            (0..1).into())
             },
             expected_return_type: Type::Empty,
         };
@@ -836,7 +836,7 @@ mod test {
                     Identifier::Local("test".to_string()),
                                        Some(Expression::IntegerLiteral(42)),
                                        Expression::IntegerLiteral(42),
-                                    FilePosition::new("test_file.ssp".to_string(), 0, 1))
+                                    (0..1).into())
             },
             expected_return_type: Type::Empty,
         };

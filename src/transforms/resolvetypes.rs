@@ -1,3 +1,5 @@
+use miette::SourceSpan;
+
 use super::PackageInstanceTransform;
 use crate::expressions::Expression;
 use crate::package::{Composition, Edge, Export, OracleDef, OracleSig, PackageInstance};
@@ -138,7 +140,7 @@ impl ResolveTypesTypeTransform {
     pub fn transform_type(
         &self,
         tipe: &Type,
-        file_pos: &FilePosition,
+        file_pos: &SourceSpan,
     ) -> std::result::Result<Type, ResolutionError> {
         let mut tipe = tipe.clone();
 
@@ -332,7 +334,7 @@ fn codeblock_walker(
 fn expression_walker(
     type_mapping: &HashMap<Type, Type>,
     place: Place,
-    file_pos: &FilePosition,
+    file_pos: &SourceSpan,
     expr: &mut Expression,
 ) -> Result<()> {
     let mut result = Ok(());
@@ -361,7 +363,7 @@ fn expression_walker(
 fn type_walker(
     type_mapping: &HashMap<Type, Type>,
     place: Place,
-    file_pos: &FilePosition,
+    file_pos: &SourceSpan,
     tipe: &mut Type,
 ) -> Result<()> {
     match tipe {
@@ -372,11 +374,14 @@ fn type_walker(
                 // the resolved value may contain user-defined types itself
                 type_walker(type_mapping, place, file_pos, tipe)
             } else {
-                return Err(ResolutionError {
-                    tipe: tipe.clone(),
-                    place,
-                    file_pos: file_pos.clone(),
-                });
+                panic!(
+                    r#"
+                return Err(ResolutionError {{
+                    tipe     # {tipe:?}
+                    place,   # {place:?}
+                    file_pos # {file_pos:?}
+                }})"#,
+                );
             }
         }
         Type::Table(key_type, value_type) => {

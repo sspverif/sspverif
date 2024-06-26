@@ -351,7 +351,6 @@ pub fn handle_types_def_spec(
     file_name: &str,
 ) -> Result<(String, Type)> {
     let span = ast.as_span();
-    let file_pos = FilePosition::from_span(file_name, span);
     let mut iter = ast.into_inner();
 
     let fst = iter.next().unwrap();
@@ -368,7 +367,7 @@ pub fn handle_types_def_spec(
 
     let tf = crate::transforms::resolvetypes::ResolveTypesTypeTransform::new(place);
 
-    if let Err(err) = tf.transform_type(&snd_type, &file_pos) {
+    if let Err(err) = tf.transform_type(&snd_type, &(span.start()..span.end()).into()) {
         return Err(error::Error::from(err).with_span(snd_span));
     }
 

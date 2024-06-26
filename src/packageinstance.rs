@@ -526,11 +526,9 @@ impl PackageInstance {
         let pkg = Package {
             types: vec![],
             params: vec![],
-            name: pkg.name.clone(),
-            state: pkg.state.clone(),
-            imports: pkg.imports.clone(),
             oracles: new_oracles,
             split_oracles: new_split_oracles,
+            ..pkg.clone()
         };
 
         PackageInstance {

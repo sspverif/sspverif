@@ -67,6 +67,7 @@ pub struct IdentifierAlreadyDeclaredError {
     pub at: SourceSpan,
 
     // TODO: would be nice to be also have a span for the original definition
+    //       this requires keeping definition location info in the scope
     pub ident_name: String,
 
     #[source_code]

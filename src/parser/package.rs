@@ -28,7 +28,7 @@ use crate::{
     },
 };
 
-use miette::{Diagnostic, NamedSource};
+use miette::{Diagnostic, NamedSource, SourceSpan};
 use pest::iterators::Pair;
 use thiserror::Error;
 
@@ -43,6 +43,12 @@ pub struct PackageParseContext<'a> {
 
     pub pkg_name: &'a str,
     pub scope: Scope,
+
+    pub oracles: Vec<OracleDef>,
+    pub state: Vec<(String, Type, SourceSpan)>,
+    pub params: Vec<(String, Type, SourceSpan)>,
+    pub types: Vec<String>,
+    pub imported_oracles: HashMap<String, OracleSig>,
 }
 
 impl<'a> ParseContext<'a> {
@@ -55,6 +61,12 @@ impl<'a> ParseContext<'a> {
             file_content: self.file_content,
             pkg_name,
             scope,
+
+            oracles: vec![],
+            state: vec![],
+            params: vec![],
+            types: vec![],
+            imported_oracles: HashMap::new(),
         }
     }
 }
@@ -155,13 +167,16 @@ pub fn handle_pkg_spec(
         name: ctx.pkg_name.to_string(),
         oracles,
         types: types.unwrap_or_default(),
-        params: params.unwrap_or_default(),
+        params: ctx.params,
         imports: imported_oracles
             .iter()
             .map(|(_k, (v, loc))| (v.clone(), loc.clone()))
             .collect(),
-        state: state.unwrap_or_default(),
+        state: ctx.state,
         split_oracles: vec![],
+
+        file_name: ctx.file_name.to_string(),
+        file_contents: ctx.file_content.to_string(),
     })
 }
 
@@ -169,50 +184,54 @@ pub fn handle_decl_list(
     ctx: &mut PackageParseContext,
     decl_list: Pair<Rule>,
     ident_type: IdentType,
-) -> Result<Vec<(String, Type, FilePosition)>, IdentifierAlreadyDeclaredError> {
-    decl_list
-        .into_inner()
-        .map(|entry| {
-            let span = entry.as_span();
-            let file_pos = FilePosition::from_span(ctx.file_name, span);
-            let mut inner = entry.into_inner();
-            let name_ast = inner.next().unwrap();
-            let name_span = name_ast.as_span();
-            let name = name_ast.as_str();
-            let tipe = handle_type(inner.next().unwrap());
+) -> Result<(), IdentifierAlreadyDeclaredError> {
+    for entry in decl_list.into_inner() {
+        let span = entry.as_span();
+        let mut inner = entry.into_inner();
+        let name_ast = inner.next().unwrap();
+        let name_span = name_ast.as_span();
+        let name = name_ast.as_str();
+        let tipe = handle_type(inner.next().unwrap());
 
-            let ident: Identifier = match ident_type {
-                IdentType::State => PackageStateIdentifier::new(
+        let ident: Identifier = match ident_type {
+            IdentType::State => {
+                ctx.state.push((
+                    name.to_string(),
+                    tipe.clone(),
+                    (span.start()..span.end()).into(),
+                ));
+                PackageStateIdentifier::new(
                     name.to_string(),
                     ctx.pkg_name.to_string(),
                     tipe.clone(),
                 )
-                .into(),
-                IdentType::Const => PackageConstIdentifier::new(
-                    name.to_string(),
-                    ctx.pkg_name.to_string(),
-                    tipe.clone(),
-                )
-                .into(),
-            };
+                .into()
+            }
+            IdentType::Const => PackageConstIdentifier::new(
+                name.to_string(),
+                ctx.pkg_name.to_string(),
+                tipe.clone(),
+            )
+            .into(),
+        };
 
-            ctx.scope
-                .declare(name, Declaration::Identifier(ident))
-                .map_err(|e| {
-                    let scope::Error::AlreadyDefined(existing_name, _decl) = e;
-                    assert_eq!(name, existing_name);
+        ctx.scope
+            .declare(name, Declaration::Identifier(ident))
+            .map_err(|e| {
+                let scope::Error::AlreadyDefined(existing_name, _decl) = e;
+                assert_eq!(name, existing_name);
 
-                    let length = name_span.end() - name_span.start();
+                let length = name_span.end() - name_span.start();
 
-                    IdentifierAlreadyDeclaredError {
-                        at: (name_span.start(), length).into(),
-                        ident_name: name.to_string(),
-                        source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
-                    }
-                })?;
-            Ok((name.to_string(), tipe, file_pos))
-        })
-        .collect()
+                IdentifierAlreadyDeclaredError {
+                    at: (name_span.start(), length).into(),
+                    ident_name: name.to_string(),
+                    source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
+                }
+            })?;
+    }
+
+    Ok(())
 }
 
 // TODO: identifier is optional, type needs custom type info
@@ -564,7 +583,8 @@ pub fn handle_code(
     code.into_inner()
         .map(|stmt| {
             let span = stmt.as_span();
-            let file_pos = FilePosition::from_span(ctx.file_name, span);
+            let source_span = SourceSpan::from(span.start()..span.end());
+            //let file_pos = FilePosition::from_span(ctx.file_name, span);
 
             let stmt = match stmt.as_rule() {
                 // assign | return_stmt | abort | ite
@@ -582,7 +602,7 @@ pub fn handle_code(
                         Some(c) => handle_code(ctx, c, oracle_name)?,
                     };
 
-                    Statement::IfThenElse(cond_expr, ifcode, elsecode, file_pos)
+                    Statement::IfThenElse(cond_expr, ifcode, elsecode, source_span)
                 }
                 Rule::return_stmt => {
                     let mut inner = stmt.into_inner();
@@ -590,7 +610,7 @@ pub fn handle_code(
                     // TODO: figure out how to access the return type here
                     let expr = maybe_expr.map(|expr| handle_expression(ctx, expr, None));
                     let expr = transpose_option_result(expr)?;
-                    Statement::Return(expr, file_pos)
+                    Statement::Return(expr, source_span)
                 }
                 Rule::assert => {
                     let mut inner = stmt.into_inner();
@@ -598,11 +618,11 @@ pub fn handle_code(
                     Statement::IfThenElse(
                         expr,
                         CodeBlock(vec![]),
-                        CodeBlock(vec![Statement::Abort(file_pos.clone())]),
-                        file_pos,
+                        CodeBlock(vec![Statement::Abort(source_span.clone())]),
+                         source_span,
                     )
                 }
-                Rule::abort => Statement::Abort(file_pos),
+                Rule::abort => Statement::Abort(source_span),
                 Rule::sample => {
                     let mut inner = stmt.into_inner();
                     let name = inner.next().unwrap().as_str();
@@ -615,7 +635,7 @@ pub fn handle_code(
                         tipe.clone(),
                     )
                     .map_err(ParseCodeError::ParseIdentifier)?;
-                    Statement::Sample(ident, None, None, tipe, file_pos)
+                    Statement::Sample(ident, None, None, tipe, source_span)
                 }
 
                 Rule::assign => {
@@ -639,7 +659,7 @@ pub fn handle_code(
                     )
                     .map_err(ParseCodeError::ParseIdentifier)?;
 
-                    Statement::Assign(ident, None, expr, file_pos)
+                    Statement::Assign(ident, None, expr, source_span)
                 }
 
                 Rule::table_sample => {
@@ -655,7 +675,7 @@ pub fn handle_code(
                         Type::Table(Box::new(index.get_type()),  Box::new(tipe.clone())),
                     )
                     .map_err(ParseCodeError::ParseIdentifier)?;
-                    Statement::Sample(ident, Some(index), None, tipe, file_pos)
+                    Statement::Sample(ident, Some(index), None, tipe, source_span)
                 }
 
                 Rule::table_assign => {
@@ -686,7 +706,7 @@ pub fn handle_code(
                     )
                     .map_err(ParseCodeError::ParseIdentifier)?;
 
-                    Statement::Assign(ident, Some(index), expr, file_pos)
+                    Statement::Assign(ident, Some(index), expr, source_span)
                 }
 
                 Rule::invocation => {
@@ -764,7 +784,7 @@ pub fn handle_code(
                         args,
                         target_inst_name: None,
                         tipe: None,
-                        file_pos,
+                        file_pos: source_span,
                     }
                 }
                 Rule::parse => {
@@ -790,7 +810,7 @@ pub fn handle_code(
                         .collect::<Result<_,_>>()?;
 
 
-                    Statement::Parse(idents, expr, file_pos)
+                    Statement::Parse(idents, expr, source_span)
                 }
                 Rule::for_ => {
                     let mut parsed: Vec<Pair<Rule>> = stmt.into_inner().collect();
@@ -839,7 +859,7 @@ pub fn handle_code(
                         handle_code(ctx, parsed.remove(4),oracle_name)?;
                     ctx.scope.leave();
 
-                    Statement::For(loopvar, lower_bound, upper_bound, body, file_pos)
+                    Statement::For(loopvar, lower_bound, upper_bound, body, source_span)
                 }
                 _ => {
                     unreachable!("{:#?}", stmt)
@@ -865,6 +885,7 @@ pub fn handle_oracle_def(
     oracle_def: Pair<Rule>,
 ) -> Result<OracleDef, ParseOracleDefError> {
     let span = oracle_def.as_span();
+    let source_span = SourceSpan::from(span.start()..span.end());
     let file_pos = FilePosition::from_span(ctx.file_name, span);
     let mut inner = oracle_def.into_inner();
 
@@ -901,7 +922,7 @@ pub fn handle_oracle_def(
     let oracle_def = OracleDef {
         sig,
         code,
-        file_pos,
+        file_pos: source_span,
     };
 
     Ok(oracle_def)
@@ -1326,7 +1347,7 @@ impl std::error::Error for ParseImportOraclesError {
 pub fn handle_import_oracles_body(
     ctx: &mut PackageParseContext,
     ast: Pair<Rule>,
-    imported_oracles: &mut HashMap<String, (OracleSig, FilePosition)>,
+    imported_oracles: &mut HashMap<String, (OracleSig, SourceSpan)>,
     loopvar_scope: &mut Scope,
 ) -> Result<(), ParseImportOraclesError> {
     let pkg_name = ctx.pkg_name;
@@ -1335,12 +1356,14 @@ pub fn handle_import_oracles_body(
     for entry in ast.into_inner() {
         match entry.as_rule() {
             Rule::import_oracles_oracle_sig => {
+                let span = entry.as_span();
+                let source_span = SourceSpan::from(span.start()..span.end());
                 let file_pos = FilePosition::from_span(ctx.file_name, entry.as_span());
                 let sig =
                     handle_oracle_imports_oracle_sig(ctx, entry, loopvar_scope).map_err(|e| {
                         ParseImportOraclesError::ParseImportOracleSig(e, file_pos.clone())
                     })?;
-                imported_oracles.insert(sig.name.clone(), (sig.clone(), file_pos.clone()));
+                imported_oracles.insert(sig.name.clone(), (sig.clone(), source_span));
                 ctx.scope
                     .declare(
                         &sig.name,
