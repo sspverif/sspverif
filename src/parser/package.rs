@@ -48,7 +48,7 @@ pub struct PackageParseContext<'a> {
     pub state: Vec<(String, Type, SourceSpan)>,
     pub params: Vec<(String, Type, SourceSpan)>,
     pub types: Vec<String>,
-    pub imported_oracles: HashMap<String, OracleSig>,
+    pub imported_oracles: HashMap<String, (OracleSig, SourceSpan)>,
 }
 
 impl<'a> ParseContext<'a> {
@@ -116,17 +116,13 @@ pub fn handle_pkg_spec(
     mut ctx: PackageParseContext,
     pkg_spec: Pair<Rule>,
 ) -> Result<Package, ParsePackageError> {
-    let mut oracles = vec![];
-    let mut state = None;
-    let mut params = None;
-    let mut types = None;
-    let mut imported_oracles = HashMap::new();
-
     // TODO(2024-04-03): get rid of the unwraps in params, state, import_oracles
     for spec in pkg_spec.into_inner() {
         match spec.as_rule() {
             Rule::types => {
-                types = spec.into_inner().next().map(handle_types_list);
+                for types_list in spec.into_inner() {
+                    ctx.types.append(&mut handle_types_list(types_list))
+                }
             }
             Rule::params => {
                 ctx.scope.enter();
@@ -134,30 +130,25 @@ pub fn handle_pkg_spec(
                 let params_option_result: Option<Result<_, _>> =
                     ast.map(|params| handle_decl_list(&mut ctx, params, IdentType::Const));
 
-                params = transpose_option_result(params_option_result)?;
+                transpose_option_result(params_option_result)?;
             }
             Rule::state => {
                 ctx.scope.enter();
                 let ast = spec.into_inner().next();
                 let state_option_result: Option<Result<_, _>> =
                     ast.map(|state| handle_decl_list(&mut ctx, state, IdentType::State));
-                state = transpose_option_result(state_option_result)?;
+                transpose_option_result(state_option_result)?;
             }
             Rule::import_oracles => {
                 ctx.scope.enter();
                 let mut loopvar_scope = ctx.scope.clone();
 
                 let body_ast = spec.into_inner().next().unwrap();
-                handle_import_oracles_body(
-                    &mut ctx,
-                    body_ast,
-                    &mut imported_oracles,
-                    &mut loopvar_scope,
-                )
-                .map_err(ParsePackageError::ParseImportOracleSig)?
+                handle_import_oracles_body(&mut ctx, body_ast, &mut loopvar_scope)
+                    .map_err(ParsePackageError::ParseImportOracleSig)?
             }
             Rule::oracle_def => {
-                oracles.push(handle_oracle_def(&mut ctx, spec)?);
+                handle_oracle_def(&mut ctx, spec)?;
             }
             _ => unreachable!("unhandled ast node in package: {}", spec),
         }
@@ -165,10 +156,11 @@ pub fn handle_pkg_spec(
 
     Ok(Package {
         name: ctx.pkg_name.to_string(),
-        oracles,
-        types: types.unwrap_or_default(),
+        oracles: ctx.oracles,
+        types: ctx.types,
         params: ctx.params,
-        imports: imported_oracles
+        imports: ctx
+            .imported_oracles
             .iter()
             .map(|(_k, (v, loc))| (v.clone(), loc.clone()))
             .collect(),
@@ -890,10 +882,9 @@ pub enum ParseOracleDefError {
 pub fn handle_oracle_def(
     ctx: &mut PackageParseContext,
     oracle_def: Pair<Rule>,
-) -> Result<OracleDef, ParseOracleDefError> {
+) -> Result<(), ParseOracleDefError> {
     let span = oracle_def.as_span();
     let source_span = SourceSpan::from(span.start()..span.end());
-    let file_pos = FilePosition::from_span(ctx.file_name, span);
     let mut inner = oracle_def.into_inner();
 
     let sig =
@@ -932,7 +923,9 @@ pub fn handle_oracle_def(
         file_pos: source_span,
     };
 
-    Ok(oracle_def)
+    ctx.oracles.push(oracle_def);
+
+    Ok(())
 }
 
 pub fn handle_oracle_sig(oracle_sig: Pair<Rule>) -> Result<OracleSig, ParseOracleSigError> {
@@ -1354,7 +1347,6 @@ impl std::error::Error for ParseImportOraclesError {
 pub fn handle_import_oracles_body(
     ctx: &mut PackageParseContext,
     ast: Pair<Rule>,
-    imported_oracles: &mut HashMap<String, (OracleSig, SourceSpan)>,
     loopvar_scope: &mut Scope,
 ) -> Result<(), ParseImportOraclesError> {
     let pkg_name = ctx.pkg_name;
@@ -1370,7 +1362,8 @@ pub fn handle_import_oracles_body(
                     handle_oracle_imports_oracle_sig(ctx, entry, loopvar_scope).map_err(|e| {
                         ParseImportOraclesError::ParseImportOracleSig(e, file_pos.clone())
                     })?;
-                imported_oracles.insert(sig.name.clone(), (sig.clone(), source_span));
+                ctx.imported_oracles
+                    .insert(sig.name.clone(), (sig.clone(), source_span));
                 ctx.scope
                     .declare(
                         &sig.name,
@@ -1460,12 +1453,7 @@ pub fn handle_import_oracles_body(
                         )
                     })?;
 
-                handle_import_oracles_body(
-                    ctx,
-                    for_ast.next().unwrap(),
-                    imported_oracles,
-                    loopvar_scope,
-                )?;
+                handle_import_oracles_body(ctx, for_ast.next().unwrap(), loopvar_scope)?;
                 loopvar_scope.leave();
             }
 
