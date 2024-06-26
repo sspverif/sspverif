@@ -53,6 +53,9 @@ pub struct UndefinedTypeError {
 #[error("undefined identifier '{ident_name}'")]
 #[diagnostic(code(ssbee::syntax))]
 pub struct UndefinedIdentifierError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
     #[label("this identifier is not defined")]
     pub at: SourceSpan,
 
@@ -63,15 +66,15 @@ pub struct UndefinedIdentifierError {
 #[error("identifier '{ident_name}' has already been declared")]
 #[diagnostic(code(ssbee::syntax::ident_already_declared))]
 pub struct IdentifierAlreadyDeclaredError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
     #[label("this identifier here")]
     pub at: SourceSpan,
 
     // TODO: would be nice to be also have a span for the original definition
     //       this requires keeping definition location info in the scope
     pub ident_name: String,
-
-    #[source_code]
-    pub source_code: miette::NamedSource<String>,
 }
 
 #[derive(Error, Diagnostic, Debug)]

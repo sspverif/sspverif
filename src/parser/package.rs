@@ -403,6 +403,7 @@ pub fn handle_expression(
                     UndefinedIdentifierError {
                         at: (span.start()..span.end()).into(),
                         ident_name: ident.to_string(),
+                        source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
                     },
                 ))?;
             let ident = decl.into_identifier().unwrap();
@@ -419,6 +420,7 @@ pub fn handle_expression(
                     UndefinedIdentifierError {
                         at: (span.start()..span.end()).into(),
                         ident_name: name.clone(),
+                        source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
                     },
                 ))?;
 
@@ -1467,6 +1469,8 @@ pub fn handle_types_list(types: Pair<Rule>) -> Vec<(String, SourceSpan)> {
 
 #[cfg(test)]
 mod tests {
+    use miette::Error;
+
     use super::*;
     use crate::parser::{
         package::{handle_pkg, ParseExpressionError},
@@ -1496,6 +1500,12 @@ mod tests {
             }
         }"#;
 
+    const TINY_BAD_PKG_2_CODE: &str = r#"package TinyBadPkg2 {
+            oracle N() -> String {
+              return n;
+            }
+        }"#;
+
     #[test]
     fn wrong_return_type_fails() {
         let err = fail_parse_pkg(TINY_BAD_PKG_1_CODE, "tiny-bad-pkg-1");
@@ -1512,6 +1522,23 @@ mod tests {
                 ))
             ))
         ))
+    }
+
+    #[test]
+    fn missing_identifier_fails() {
+        let err = fail_parse_pkg(TINY_BAD_PKG_2_CODE, "tiny-bad-pkg-2");
+
+        assert!(matches!(
+            err,
+            ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
+                ParseCodeError::ParseExpression(ParseExpressionError::UndefinedIdentifier(
+                    UndefinedIdentifierError { ref ident_name, .. }
+                ))
+            )) if ident_name.as_str() == "n"
+
+        ));
+
+        println!("{:?}", miette::Report::new(err));
     }
 }
 
