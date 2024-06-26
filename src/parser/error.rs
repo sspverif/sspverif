@@ -84,6 +84,9 @@ pub struct TypeMismatchError {
     pub expected: Type,
 
     pub got: Type,
+
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
 }
 
 pub struct SpanError {

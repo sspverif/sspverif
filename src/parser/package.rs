@@ -73,14 +73,16 @@ impl<'a> ParseContext<'a> {
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum ParsePackageError {
-    #[error(transparent)]
-    UndefinedIdentifier(#[from] UndefinedIdentifierError),
-    #[error(transparent)]
-    IdentifierAlreadyDeclared(#[from] IdentifierAlreadyDeclaredError),
     #[error("error parsing package's import oracle block: {0}")]
+    #[diagnostic(transparent)]
     ParseImportOracleSig(#[from] ParseImportOraclesError),
     #[error("error parsing oracle definition: {0}")]
+    #[diagnostic(transparent)]
     ParseOracleDef(#[from] ParseOracleDefError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    IdentifierAlreadyDeclared(#[from] IdentifierAlreadyDeclaredError),
 }
 
 #[derive(Error, Debug)]
@@ -249,8 +251,9 @@ pub fn handle_arglist(arglist: Pair<Rule>) -> Vec<(String, Type)> {
 
 #[derive(Error, Debug, Diagnostic)]
 pub enum ParseExpressionError {
-    #[error("undefined identifier {0} at {1:?}")]
-    UndefinedIdentifier(String, FilePosition),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    UndefinedIdentifier(UndefinedIdentifierError),
 
     #[error(transparent)]
     #[diagnostic(transparent)]
@@ -382,7 +385,6 @@ pub fn handle_expression(
         }
         Rule::fn_call => {
             let span = ast.as_span();
-            let file_pos = FilePosition::from_span(ctx.file_name, span);
             let mut inner = ast.into_inner();
             let ident = inner.next().unwrap().as_str();
             // TODO:look up the function signature and pass argument types into
@@ -398,22 +400,26 @@ pub fn handle_expression(
                 .scope
                 .lookup(ident)
                 .ok_or(ParseExpressionError::UndefinedIdentifier(
-                    ident.to_string(),
-                    file_pos,
+                    UndefinedIdentifierError {
+                        at: (span.start()..span.end()).into(),
+                        ident_name: ident.to_string(),
+                    },
                 ))?;
             let ident = decl.into_identifier().unwrap();
             Expression::FnCall(ident, args)
         }
         Rule::identifier => {
             let span = ast.as_span();
-            let file_pos = FilePosition::from_span(ctx.file_name, span);
+
             let name = ast.as_str().to_string();
             let decl = ctx
                 .scope
                 .lookup(&name)
                 .ok_or(ParseExpressionError::UndefinedIdentifier(
-                    name.clone(),
-                    file_pos,
+                    UndefinedIdentifierError {
+                        at: (span.start()..span.end()).into(),
+                        ident_name: name.clone(),
+                    },
                 ))?;
 
             let expect_context = ValidityContext::Package;
@@ -477,6 +483,7 @@ pub fn handle_expression(
                 at,
                 expected,
                 got,
+                source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
             }));
         }
     }
@@ -491,22 +498,17 @@ fn transpose_option_result<T, E>(value: Option<Result<T, E>>) -> Result<Option<T
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Diagnostic)]
 pub enum ParseCodeError {
     #[error("error parsing expression: {0}")]
-    ParseExpression(ParseExpressionError),
+    #[diagnostic(transparent)]
+    ParseExpression(#[from] ParseExpressionError),
     #[error("error parsing identifier: {0}")]
     ParseIdentifier(ParseIdentifierError),
     #[error("undefined oracle: {0}")]
     UndefinedOracle(String),
     #[error("invoking an identifier that is not an oracle: {0:?}")]
     InvokingNonOracle(Identifier),
-}
-
-impl From<ParseExpressionError> for ParseCodeError {
-    fn from(value: ParseExpressionError) -> Self {
-        ParseCodeError::ParseExpression(value)
-    }
 }
 
 pub fn handle_identifier_in_code_rhs(
@@ -898,11 +900,10 @@ pub fn handle_code(
         .map(CodeBlock)
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Diagnostic)]
 pub enum ParseOracleDefError {
     #[error(transparent)]
-    ParseOracleSig(#[from] ParseOracleSigError),
-    #[error(transparent)]
+    #[diagnostic(transparent)]
     ParseCode(#[from] ParseCodeError),
 }
 
@@ -914,8 +915,7 @@ pub fn handle_oracle_def(
     let source_span = SourceSpan::from(span.start()..span.end());
     let mut inner = oracle_def.into_inner();
 
-    let sig =
-        handle_oracle_sig(inner.next().unwrap()).map_err(ParseOracleDefError::ParseOracleSig)?;
+    let sig = handle_oracle_sig(inner.next().unwrap()).unwrap();
 
     ctx.scope.enter();
 
@@ -1315,60 +1315,22 @@ impl std::convert::TryFrom<&str> for ForComp {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error, Diagnostic)]
 pub enum ParseImportOraclesError {
+    #[error("for loop spec uses different identifiers: {0:?} != {1:?}")]
     IdentifierMismatch(String, String, FilePosition),
+    #[error("error parsing loop start expression: {0}")]
     ParseStartExpression(ParseExpressionError, FilePosition),
+    #[error("error parsing loop end expression: {0}")]
     ParseEndExpression(ParseExpressionError, FilePosition),
+    #[error("first loop comparison is invalid: {0}")]
     InvalidStartComparison(ForCompError, FilePosition),
+    #[error("second loop comparison is invalid: {0}")]
     InvalidEndComparison(ForCompError, FilePosition),
+    #[error("error parsing import oracle signature: {0}")]
     ParseImportOracleSig(ParseImportsOracleSigError, FilePosition),
+    #[error("erroring declaring identifier: {0}")]
     DeclareError(crate::util::scope::Error, FilePosition),
-}
-
-impl std::fmt::Display for ParseImportOraclesError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ParseImportOraclesError::IdentifierMismatch(fst, snd, _filepos) => {
-                write!(
-                    f,
-                    "for loop spec uses different identifiers: {fst:?} != {snd:?}"
-                )
-            }
-            ParseImportOraclesError::InvalidStartComparison(comp_err, _filepos) => {
-                write!(f, "first loop comparison is invalid: {comp_err}")
-            }
-            ParseImportOraclesError::InvalidEndComparison(comp_err, _filepos) => {
-                write!(f, "second loop comparison is invalid: {comp_err}")
-            }
-            ParseImportOraclesError::ParseImportOracleSig(err, _filepos) => {
-                write!(f, "error parsing import oracle signature: {err}")
-            }
-            ParseImportOraclesError::ParseStartExpression(err, _) => {
-                write!(f, "error parsing loop start expression: {err}")
-            }
-            ParseImportOraclesError::ParseEndExpression(err, _) => {
-                write!(f, "error parsing loop end expression: {err}")
-            }
-            ParseImportOraclesError::DeclareError(err, _) => {
-                write!(f, "erroring declaring identifier: {err}")
-            }
-        }
-    }
-}
-
-impl std::error::Error for ParseImportOraclesError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            ParseImportOraclesError::IdentifierMismatch(_, _, _) => None,
-            ParseImportOraclesError::ParseImportOracleSig(e, _) => Some(e),
-            ParseImportOraclesError::DeclareError(e, _) => Some(e),
-            ParseImportOraclesError::ParseStartExpression(e, _) => Some(e),
-            ParseImportOraclesError::ParseEndExpression(e, _) => Some(e),
-            ParseImportOraclesError::InvalidStartComparison(e, _)
-            | ParseImportOraclesError::InvalidEndComparison(e, _) => Some(e),
-        }
-    }
 }
 
 pub fn handle_import_oracles_body(
@@ -1506,7 +1468,10 @@ pub fn handle_types_list(types: Pair<Rule>) -> Vec<(String, SourceSpan)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::{package::handle_pkg, SspParser};
+    use crate::parser::{
+        package::{handle_pkg, ParseExpressionError},
+        SspParser,
+    };
 
     fn unwrap_parse_err<T>(res: Result<T, pest::error::Error<crate::parser::Rule>>) -> T {
         match res {
@@ -1534,6 +1499,19 @@ mod tests {
     #[test]
     fn wrong_return_type_fails() {
         let err = fail_parse_pkg(TINY_BAD_PKG_1_CODE, "tiny-bad-pkg-1");
+
+        assert!(matches!(
+            err,
+            ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
+                ParseCodeError::ParseExpression(ParseExpressionError::TypeMismatch(
+                    TypeMismatchError {
+                        expected: Type::String,
+                        got: Type::Integer,
+                        ..
+                    }
+                ))
+            ))
+        ))
     }
 }
 
