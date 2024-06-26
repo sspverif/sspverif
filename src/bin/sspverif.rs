@@ -190,18 +190,15 @@ fn wire_check(game_name: &str, dst_idx: usize) -> Result<()> {
     Ok(())
 }
 
-fn main() {
+fn main() -> miette::Result<()> {
     let cli = Cli::parse();
 
-    let result = match &cli.command {
+    match &cli.command {
         Commands::Prove(p) => prove(p),
         Commands::Latex => latex(),
         Commands::Explain(Explain { game_name, output }) => explain(game_name, output),
         Commands::WireCheck(args) => wire_check(&args.game_name, args.dst_idx),
-    };
+    }?;
 
-    match result {
-        Ok(_) => println!("success!"),
-        Err(err) => println!("error: {err}"),
-    }
+    Ok(())
 }

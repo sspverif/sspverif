@@ -1,8 +1,9 @@
 use crate::{parser, transforms::typecheck::TypeCheckError, util::prover_process::ProverResponse};
+use miette::Diagnostic;
 use std::{io::Error as IOError, path::PathBuf};
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Diagnostic)]
 pub enum Error {
     #[error("error showing equivalence: {0}")]
     EquivalenceError(#[from] crate::gamehops::equivalence::error::Error),
@@ -57,7 +58,8 @@ pub enum Error {
     UnexpectedProverResponseError(ProverResponse, ProverResponse),
     //#[error("got a formatting error")]
     //FmtError(#[from] std::fmt::Error),
-    #[error("error parsing package: {0}")]
+    #[diagnostic(transparent)]
+    #[error(transparent)]
     PackageParse(parser::package::ParsePackageError),
 }
 
