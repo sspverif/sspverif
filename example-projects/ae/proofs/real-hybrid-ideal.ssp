@@ -1,4 +1,5 @@
-proof AEProto {
+proof AEProto 
+{
     const n: Integer;
     const m: Integer;
     const prf: fn Bits(n),Bits(m) -> Bits(n);
@@ -40,19 +41,24 @@ proof AEProto {
     }
 
     assumptions {
-        Modprf: modprfideal ~ modprfideal
+        Modprf: modprfreal ~ modprfideal
     }
 
-        reduction Real Hybrid {
+    gamehops 
+    {
+        reduction real hybrid 
+        {
             assumption Modprf
 
-            map Real modprfreal {
+            map real modprfreal {
                 key    : key
                 mod_prf: mod_prf
             }
 
-            map Ideal modprfideal {
+            map ideal modprfideal {
                 key    : key
                 mod_prf: mod_prf
-            }
+            } 
+        }
+    }
 }
