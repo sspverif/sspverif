@@ -146,7 +146,21 @@ pub fn returnify(
             }
         }
         None => {
-            unreachable!()
+            if !none_ok {
+                panic!(
+                    r#"
+                Err(Error::MissingReturn {{
+                    file_pos: other.file_pos(), # 
+                    oracle_name,                # {oracle_name}
+                    pkg_inst_name,              # {pkg_inst_name}
+                }})
+                "#
+                )
+            } else {
+                let mut retval = cb.0.clone();
+                retval.push(Statement::Return(None, (0..1).into())); // TODO proper source span!
+                Ok(CodeBlock(retval))
+            }
         }
     }
 }
