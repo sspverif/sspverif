@@ -1,0 +1,58 @@
+proof AEProto {
+    const n: Integer;
+    const m: Integer;
+    const prf: fn Bits(n),Bits(m) -> Bits(n);
+    const enc: fn Bits(n),Bits(n),Bits(n) -> Bits(n);
+    const dec: fn Bits(n),Bits(n),Bits(n) -> Bits(n);
+  
+    instance real = Real {
+        params {
+            n: n,
+			m: m,
+	        prf: prf,
+            enc: enc,
+            dec: dec,
+        }
+    }
+
+    instance hybrid = Hybrid {
+        params {
+              n: n,
+			  m: m,
+   	        prf: prf,
+            enc: enc,
+            dec: dec,
+        }
+    }
+
+    instance modprfreal = Modprfreal {
+        params {
+            n: n,
+	        prf: prf,
+        }
+    }
+
+    instance modprfideal = Modprfideal {
+        params {
+            n: n,
+	        prf: prf,
+        }
+    }
+
+    assumptions {
+        Modprf: modprfideal ~ modprfideal
+    }
+
+        reduction Real Hybrid {
+            assumption Modprf
+
+            map Real modprfreal {
+                key    : key
+                mod_prf: mod_prf
+            }
+
+            map Ideal modprfideal {
+                key    : key
+                mod_prf: mod_prf
+            }
+}
