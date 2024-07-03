@@ -267,6 +267,23 @@ pub mod game_ident {
         LoopVar(GameLoopVarIdentifier),
     }
 
+    impl GameIdentifier {
+        pub fn game_name(&self) -> &str {
+            match self {
+                GameIdentifier::Const(c) => &c.game_name,
+                GameIdentifier::LoopVar(l) => &l.game_name,
+            }
+        }
+
+        pub fn game_inst_name(&self) -> Option<&str> {
+            match self {
+                GameIdentifier::Const(c) => c.game_inst_name.as_ref(),
+                GameIdentifier::LoopVar(l) => l.game_inst_name.as_ref(),
+            }
+            .map(|s| s.as_ref())
+        }
+    }
+
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct GameConstIdentifier {
         pub game_name: String,

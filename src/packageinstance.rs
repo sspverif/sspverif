@@ -15,6 +15,7 @@ use self::instantiate::rewrite_split_oracle_def;
 mod instantiate {
     use crate::{
         identifier::{
+            game_ident::GameIdentifier,
             pkg_ident::{
                 PackageImportsLoopVarIdentifier, PackageLocalIdentifier,
                 PackageOracleArgIdentifier, PackageOracleCodeLoopVarIdentifier,
@@ -385,12 +386,29 @@ mod instantiate {
                 .iter()
                 .find_map(|(search, replace)| {
                     if search == &pkg_const_ident {
-                        Some(Expression::Identifier(Identifier::PackageIdentifier(
-                            PackageIdentifier::Const(PackageConstIdentifier {
-                                game_assignment: Some(Box::new(replace.clone())),
-                                ..pkg_const_ident.clone()
-                            }),
-                        )))
+                        match &replace {
+                            Expression::Identifier(Identifier::GameIdentifier(game_ident)) => {
+                                Some(Expression::Identifier(Identifier::PackageIdentifier(
+                                    PackageIdentifier::Const(PackageConstIdentifier {
+                                        game_assignment: Some(Box::new(replace.clone())),
+                                        pkg_inst_name: Some(pkg_inst_name.to_string()),
+                                        game_name: Some(game_ident.game_name().to_string()),
+                                        game_inst_name: game_ident
+                                            .game_inst_name()
+                                            .map(|s| s.to_string()),
+                                        ..pkg_const_ident.clone()
+                                    }),
+                                )))
+                            }
+
+                            Expression::Identifier(Identifier::ProofIdentifier(proof_ident)) => {
+                                todo!()
+                            }
+
+                            other => unreachable!(
+                                "expected a game or proof identifier when rewriting, got {other:?}"
+                            ),
+                        }
                     } else {
                         None
                     }
