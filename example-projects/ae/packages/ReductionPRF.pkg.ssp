@@ -1,0 +1,25 @@
+package ReductionPRF {
+    params {
+        n:     Integer,
+    }
+    
+    state {
+        K: Table(Bits(n),Bits(n)),
+    }
+    
+    import oracles {
+        Eval(h: Bits(n)) -> Bits(n), 
+        Set(k: Bits(n), h: Bits(n)), 
+        Get(h: Bits(n)) -> Bits(n),
+    }
+    
+    oracle Eval(h: Bits(n)) {
+        y <- invoke Eval(h);
+        if (K[h] == None as Bits(n)) {
+            K[h] <- Some(y);}}
+    oracle Get(h: Bits(n)) -> Bits(n) {
+        return Unwrap(K[h]);
+    }
+
+
+}
