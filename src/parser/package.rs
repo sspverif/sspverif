@@ -399,7 +399,8 @@ pub fn handle_expression(
                 if let Type::Maybe(ty) = ty.clone() {
                     Some(*ty)
                 } else {
-                    panic!("unwrapping a value that is not a maybe");
+					// TODO this should probably not panic!
+                    panic!("unwrapping a value of type {:?} that is not a maybe in {} at {:?}", ty, ctx.file_name, ast);
                 }
             } else {
                 None
