@@ -411,20 +411,40 @@ pub fn handle_expression(
             Expression::EmptyTable(Type::Table(Box::new(idxtipe), Box::new(valtipe)))
         }
         Rule::table_access => {
+            let expr_span = ast.as_span();
             let mut inner = ast.into_inner();
-            let ident_name = inner.next().unwrap().as_str();
+
+            let ident_ast = inner.next().unwrap();
+            let ident_span = ident_ast.as_span();
+            let ident_name = ident_ast.as_str();
             let ident = handle_identifier_in_code_rhs(ident_name, &ctx.scope).unwrap();
 
             let Some(table_type) = ident.get_type() else {
                 unreachable!("this should have been a proper identifier")
             };
 
-            let crate::types::Type::Table(idx_type, _) = table_type else {
-                // TODO: return proper error
-                panic!("this should have been a table")
+            let Type::Table(idx_type, val_type) = table_type else {
+                return Err(ParseExpressionError::TypeMismatch(TypeMismatchError {
+                    at: (ident_span.start()..ident_span.end()).into(),
+                    expected: Type::Table(Box::new(Type::Unknown), Box::new(Type::Unknown)),
+                    got: table_type,
+                    source_code: ctx.named_source(),
+                }));
             };
 
             let idx_expr = handle_expression(ctx, inner.next().unwrap(), Some(&*idx_type))?;
+
+            if let Some(expected_type) = expected_type {
+                if expected_type != &Type::Maybe(val_type.clone()) {
+                    return Err(ParseExpressionError::TypeMismatch(TypeMismatchError {
+                        at: (expr_span.start()..expr_span.end()).into(),
+                        expected: expected_type.clone(),
+                        got: Type::Table(idx_type, val_type),
+                        source_code: ctx.named_source(),
+                    }));
+                }
+            }
+
             // TODO properly parse this identifier
             Expression::TableAccess(ident, Box::new(idx_expr))
         }
@@ -492,7 +512,9 @@ pub fn handle_expression(
             let litval = ast.as_str().trim().to_string();
 
             Expression::IntegerLiteral(litval.parse().unwrap_or_else(|_| {
-                panic!(
+                // The grammar only allows ASCII_DIGIT+ here, so we should be fine?
+                // Maybe if the number is too big?
+                unreachable!(
                     "error at position {:?}..{:?}: could not parse as int: {}",
                     ast.as_span().start_pos().line_col(),
                     ast.as_span().end_pos().line_col(),
