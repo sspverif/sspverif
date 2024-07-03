@@ -67,9 +67,13 @@ pub fn handle_proof<'a>(
                 game_hops.extend(more_game_hops);
             }
             Rule::instance_decl => {
-                instances.push(handle_instance_decl(
-                    ast, scope, &consts, pkgs, games, file_name,
-                )?);
+                let new_inst = handle_instance_decl(ast, scope, &consts, pkgs, games, file_name)?;
+                println!(
+                    "pushed new instance {inst_name} ({game_name})",
+                    inst_name = new_inst.name(),
+                    game_name = new_inst.game_name()
+                );
+                instances.push(new_inst);
             }
             otherwise => unreachable!("found {:?} in proof", otherwise),
         }
