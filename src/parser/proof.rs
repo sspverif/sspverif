@@ -121,7 +121,7 @@ fn handle_instance_decl(
     let game_inst = GameInstance::new(
         &inst_name,
         "proof name",
-        "game instance name".to_string(),
+        inst_name.to_string(),
         game.clone(),
         types,
         consts_as_ident,
