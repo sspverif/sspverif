@@ -9,8 +9,6 @@ package ReductionPRF {
     
     import oracles {
         Eval(h: Bits(n)) -> Bits(n), 
-        Set(k: Bits(n), h: Bits(n)), 
-        Get(h: Bits(n)) -> Bits(n),
     }
     
     oracle Eval(h: Bits(n)) {
