@@ -1,18 +1,20 @@
 package AEReal {
-params {
-    n: Integer,
-    m: Integer,
-    enc: fn Bits(n), Bits(n), Bits(n) -> Bits(m),
-    dec: fn Bits(n), Bits(m) -> Bits(n),
-}
- state{
-    K: Table(Bits(n),  Bits(n)),
-  }
-
+    params {
+        n: Integer,
+        m: Integer,
+        enc: fn Bits(n), Bits(n), Bits(n) -> Bits(m),
+        dec: fn Bits(n), Bits(m) -> Bits(n),
+    }
+    
+    state{
+        K: Table(Bits(n),  Bits(n)),
+    }
+    
     oracle Set(k: Bits(n), h: Bits(n))  {
         if (K[h] == None as Bits(n)) {
             K[h] <- Some(k);}
     }
+    
     oracle Enc(h_: Bits(n), msg: Bits(n)) -> Bits(m) {
         k <- Unwrap(K[h_]);   
         r <-$ Bits(n);

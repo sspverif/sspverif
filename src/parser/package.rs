@@ -395,16 +395,8 @@ pub fn handle_expression(
             Expression::Some(Box::new(expr))
         }
         Rule::expr_unwrap => {
-            let expected_type: Option<Type> = if let Some(ty) = expected_type {
-                if let Type::Maybe(ty) = ty.clone() {
-                    Some(*ty)
-                } else {
-					// TODO this should probably not panic!
-                    panic!("unwrapping a value of type {:?} that is not a maybe in {} at {:?}", ty, ctx.file_name, ast);
-                }
-            } else {
-                None
-            };
+            let expected_type: Option<Type> =
+                expected_type.map(|ty| Type::Maybe(Box::new(ty.clone())));
             let expr = handle_expression(
                 ctx,
                 ast.into_inner().next().unwrap(),
@@ -433,9 +425,9 @@ pub fn handle_expression(
                 panic!("this should have been a table")
             };
 
-            let expr = handle_expression(ctx, inner.next().unwrap(), Some(&*idx_type))?;
+            let idx_expr = handle_expression(ctx, inner.next().unwrap(), Some(&*idx_type))?;
             // TODO properly parse this identifier
-            Expression::TableAccess(ident, Box::new(expr))
+            Expression::TableAccess(ident, Box::new(idx_expr))
         }
 
         Rule::fn_call => {

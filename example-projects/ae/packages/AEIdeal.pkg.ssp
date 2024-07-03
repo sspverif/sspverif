@@ -24,6 +24,6 @@ package AEIdeal {
     }
 
     oracle Dec(h: Bits(n), c: Bits(m)) -> Bits(n) {
-        return h; /*TODO: should actually be Unwrap(T[(h,c)]);*/ 
+        return Unwrap(T[(h,c)]);
     }
 }

@@ -1,8 +1,8 @@
 package PRFReal {
-	params {
-     n: Integer,
-     prf: fn Bits(n), Bits(n) -> Bits(n),
-}
+    params {
+        n: Integer,
+        prf: fn Bits(n), Bits(n) -> Bits(n),
+    }
     
     state {
         ltk: Maybe(Bits(n)),
@@ -10,9 +10,10 @@ package PRFReal {
 
     oracle Eval(h: Bits(n)) -> Bits(n) {
         if (ltk == None as Bits(n)) {
-           ltk_ <-$ Bits(n);
-	   ltk <- Some(ltk_);
+            ltk_ <-$ Bits(n);
+	          ltk <- Some(ltk_);
         }       
+
         return prf(Unwrap(ltk), h);
     } 
 }

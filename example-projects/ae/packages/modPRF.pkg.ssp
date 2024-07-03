@@ -15,7 +15,7 @@ package modPRF {
     oracle Eval(h: Bits(n)) {
         if (ltk == None as Bits(n)) {
             ltk_ <-$ Bits(n);
-            ltk <- Some(ltk_);
+            ltk  <-  Some(ltk_);
         }
 
         ltk_ <- Unwrap(ltk);
