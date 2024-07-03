@@ -432,7 +432,8 @@ fn handle_mapspec<'a>(
     if !(is_left_assumption_game || is_right_assumption_game) {
         println!("{assumption:?}");
         return Err(Error::InvalidAssumptionMapping(format!(
-            "neither of them are the assumption game name"
+            "neither of {} and {} are the assumption game name {}",
+			assumption.left_name, assumption.right_name, assumption_game_inst_name
         ))
         .with_span(span));
     }
