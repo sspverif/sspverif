@@ -17,5 +17,4 @@ package KeyIdeal {
     oracle Get(h_: Bits(n)) -> Bits(n) {
         return  Unwrap(K[h_]);
     }
-
 }

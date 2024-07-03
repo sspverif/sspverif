@@ -4,7 +4,7 @@ package KeyReal {
     }
     
     state {
-       K: Table(Bits(n), Bits(n)),
+        K: Table(Bits(n), Bits(n)),
     }
 
     oracle Get(h: Bits(n)) -> Bits(n) {

@@ -1,9 +1,9 @@
 package modAEReal {
     params {
-     n: Integer,
-     m: Integer,
-     enc: fn Bits(n), Bits(n), Bits(n) -> Bits(m),
-     dec: fn Bits(n), Bits(m) -> Bits(n),
+        n: Integer,
+        m: Integer,
+        enc: fn Bits(n), Bits(n), Bits(n) -> Bits(m),
+        dec: fn Bits(n), Bits(m) -> Bits(n),
     }
 
     import oracles {
