@@ -32,10 +32,6 @@ impl<W: Write> Writer<W> {
                 self.write_string(name_in_pkg)?;
                 self.write_string(&format!(" /* param identifier */ "))?;
             }
-            Identifier::State(PackageState { name, .. }) => {
-                self.write_string(name)?;
-                self.write_string(&format!(" /* state identifier */ "))?;
-            }
             Identifier::ComposeLoopVar(_) => todo!(),
             Identifier::GameInstanceConst(_) => todo!(),
             Identifier::PackageIdentifier(_) => todo!(),

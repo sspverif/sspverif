@@ -45,12 +45,6 @@ impl<W: Write> FmtWriter<W> {
                     self.write_string(&format!(" /* param identifier */ "))?;
                 }
             }
-            Identifier::State(PackageState { name, .. }) => {
-                self.write_string(name)?;
-                if self.annotate {
-                    self.write_string(&format!(" /* state identifier */ "))?;
-                }
-            }
             _ => todo!(),
         }
 

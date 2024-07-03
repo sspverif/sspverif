@@ -19,7 +19,6 @@ pub enum Identifier {
 
     // get rid of the rest
     Scalar(String),
-    State(PackageState),
     Parameter(PackageConst),
     ComposeLoopVar(ComposeLoopVar),
     Local(String),
@@ -502,7 +501,6 @@ impl PartialEq for Identifier {
         match (self, other) {
             (Self::Scalar(x), Self::Scalar(y)) => x == y,
             (Self::Local(x), Self::Local(y)) => x == y,
-            (Self::State(l), Self::State(r)) => l == r,
             (Self::Parameter(l), Self::Parameter(r)) => l == r,
             (Self::ComposeLoopVar(l), Self::ComposeLoopVar(r)) => l == r,
             (Self::GameInstanceConst(l), Self::GameInstanceConst(r)) => l == r,
@@ -541,7 +539,6 @@ impl Identifier {
     pub fn ident_ref(&self) -> &str {
         match self {
             Identifier::Scalar(ident) => &ident,
-            Identifier::State(PackageState { name, .. }) => &name,
             Identifier::Parameter(PackageConst { name_in_pkg, .. }) => &name_in_pkg,
             Identifier::Local(name) => &name,
             Identifier::ComposeLoopVar(ComposeLoopVar { name_in_pkg, .. }) => &name_in_pkg,
@@ -556,7 +553,6 @@ impl Identifier {
         match self {
             Identifier::Scalar(ident) => ident.clone(),
             Identifier::Local(ident) => ident.clone(),
-            Identifier::State(PackageState { name, .. }) => name.clone(),
             Identifier::Parameter(PackageConst { name_in_pkg, .. }) => name_in_pkg.clone(),
             Identifier::ComposeLoopVar(ComposeLoopVar { name_in_pkg, .. }) => name_in_pkg.clone(),
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident(),

@@ -945,14 +945,17 @@ impl<'a> CompositionSmtWriter<'a> {
 
         // then build the table store smt expression, in case we have to
         let outexpr = if let Some(idx) = opt_idx {
-            let oldvalue = match &ident {
-                &Identifier::State(PackageState { name, .. }) => {
-                    //assert_eq!(pkgname, inst_name, "failed assertion: in an oracle in instance {inst_name} I found a state identifier with {pkgname}. I assumed these would always be equal.");
-                    oracle_ctx
-                        .pkg_inst_ctx()
-                        .smt_access_pkgstate(names::var_selfstate_name(), name)
-                        .unwrap()
-                }
+            let oldvalue: SmtExpr = match &ident {
+                // TODO: we got rid of this Identifier variant. Need to update to the new ones
+                //
+                // &Identifier::State(PackageState { name, .. }) => {
+                //     //assert_eq!(pkgname, inst_name, "failed assertion: in an oracle in instance {inst_name} I found a state identifier with {pkgname}. I assumed these would always be equal.");
+                //     oracle_ctx
+                //         .pkg_inst_ctx()
+                //         .smt_access_pkgstate(names::var_selfstate_name(), name)
+                //         .unwrap()
+                // }
+                //
                 Identifier::Local(_) => ident.to_expression().into(),
                 _ => {
                     unreachable!("")
@@ -966,21 +969,22 @@ impl<'a> CompositionSmtWriter<'a> {
 
         // build the actual smt assignment
         let smtout = match ident {
-            Identifier::State(PackageState { name, .. }) => {
-                //assert_eq!(pkgname, inst_name, "failed assertion: in an oracle in instance {inst_name} I found a state identifier with {pkgname}. I assumed these would always be equal.");
-                SmtLet {
-                    bindings: vec![(
-                        names::var_selfstate_name(),
-                        oracle_ctx
-                            .pkg_inst_ctx()
-                            .smt_update_pkgstate(names::var_selfstate_name(), name, outexpr)
-                            .unwrap()
-                            .into(),
-                    )],
-                    body: result,
-                }
-            }
-
+            // TODO: we got rid of this Identifier variant. Need to update to the new ones
+            //
+            // Identifier::State(PackageState { name, .. }) => {
+            //     //assert_eq!(pkgname, inst_name, "failed assertion: in an oracle in instance {inst_name} I found a state identifier with {pkgname}. I assumed these would always be equal.");
+            //     SmtLet {
+            //         bindings: vec![(
+            //             names::var_selfstate_name(),
+            //             oracle_ctx
+            //                 .pkg_inst_ctx()
+            //                 .smt_update_pkgstate(names::var_selfstate_name(), name, outexpr)
+            //                 .unwrap()
+            //                 .into(),
+            //         )],
+            //         body: result,
+            //     }
+            // }
             Identifier::Local(name) => SmtLet {
                 bindings: vec![(name.clone(), outexpr)]
                     .into_iter()

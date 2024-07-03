@@ -91,7 +91,6 @@ impl Expression {
 
                     // These are old and need to go
                     Identifier::Scalar(_)
-                    | Identifier::State(_)
                     | Identifier::Parameter(_)
                     | Identifier::ComposeLoopVar(_)
                     | Identifier::Local(_)

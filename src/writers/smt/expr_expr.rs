@@ -147,16 +147,19 @@ impl From<Expression> for SmtExpr {
             // pretty cumbersome, but maybe necessary for a clean structure.
             //
             // For now I'll leave it be.
-            Expression::Identifier(Identifier::State(PackageState {
-                name: ident_name,
-                ref game_inst_name,
-                ref pkg_inst_name,
-                ..
-            })) => (
-                format!("state-{game_inst_name}-{pkg_inst_name}-{ident_name}"),
-                &SelfStatePattern,
-            )
-                .into(),
+            //
+            // TODO: We got rid of this variant of Identifier! Need to update to the current one(s)
+            //
+            // Expression::Identifier(Identifier::State(PackageState {
+            //     name: ident_name,
+            //     ref game_inst_name,
+            //     ref pkg_inst_name,
+            //     ..
+            // })) => (
+            //     format!("state-{game_inst_name}-{pkg_inst_name}-{ident_name}"),
+            //     &SelfStatePattern,
+            // )
+            //     .into(),
             Expression::Identifier(Identifier::GameInstanceConst(GameInstanceConst {
                 game_inst_name,
                 name_in_comp,
