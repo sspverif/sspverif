@@ -244,7 +244,6 @@ pub fn handle_decl_list(
 
 // TODO: identifier is optional, type needs custom type info
 pub fn handle_arglist(arglist: Pair<Rule>) -> Vec<(String, Type)> {
-    println!("handle_arglist rule: {:?}", arglist.as_rule());
     arglist
         .into_inner()
         .map(|arg| {
@@ -760,7 +759,6 @@ pub fn handle_code(
 
                 Rule::table_assign => {
                     let mut inner = stmt.into_inner();
-                    println!("DFGERT {inner:#?}");
 
                     let name_ast = inner.next().unwrap();
                     let Some(Declaration::Identifier(ident)) = ctx.scope.lookup(name_ast.as_str()) else {
@@ -782,8 +780,6 @@ pub fn handle_code(
                             source_code: ctx.named_source(),
                         }.into())
                     };
-
-                    println!("{} -- {ident:?} -- ty_value: {ty_value_without_maybe:?}", ctx.file_name);
 
                     let ty_value_with_maybe = Type::Maybe(ty_value_without_maybe.clone());
 

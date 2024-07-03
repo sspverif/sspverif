@@ -70,13 +70,10 @@ impl Expression {
             Expression::IntegerLiteral(_) => Type::Integer,
             Expression::Identifier(ident) => ident.get_type().unwrap(),
             Expression::EmptyTable(t) => t.clone(),
-            Expression::TableAccess(ident, _) => {
-                println!("{ident:?}");
-                match ident.get_type().unwrap() {
-                    Type::Table(_, value_type) => Type::Maybe(Box::new(value_type.deref().clone())),
-                    _ => unreachable!(),
-                }
-            }
+            Expression::TableAccess(ident, _) => match ident.get_type().unwrap() {
+                Type::Table(_, value_type) => Type::Maybe(Box::new(value_type.deref().clone())),
+                _ => unreachable!(),
+            },
             Expression::Tuple(exprs) => {
                 Type::Tuple(exprs.iter().map(|expr| expr.get_type()).collect())
             }
