@@ -50,12 +50,12 @@ proof AEProto
         {
             assumption Modprf
 
-            map real modprfreal {
+            map modprfreal real {
                 key    : key
                 mod_prf: mod_prf
             }
 
-            map ideal modprfideal {
+            map modprfideal hybrid {
                 key    : key
                 mod_prf: mod_prf
             } 
