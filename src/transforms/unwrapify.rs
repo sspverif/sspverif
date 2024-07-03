@@ -1,5 +1,7 @@
 use std::convert::Infallible;
 
+use miette::SourceSpan;
+
 use crate::expressions::Expression;
 use crate::identifier::Identifier;
 use crate::package::Composition;
@@ -64,7 +66,7 @@ fn replace_unwrap(expr: &Expression, ctr: &mut usize) -> (Expression, Vec<(Expre
 
 fn create_unwrap_stmts(
     unwraps: Vec<(Expression, String)>,
-    file_pos: &FilePosition,
+    file_pos: &SourceSpan,
 ) -> Vec<Statement> {
     unwraps
         .iter()
@@ -213,6 +215,8 @@ pub fn unwrapify(cb: &CodeBlock, ctr: &mut usize) -> Result<CodeBlock, Error> {
 
 #[cfg(test)]
 mod test {
+    use miette::SourceSpan;
+
     use super::unwrapify;
     use crate::block;
     use crate::expressions::Expression;
@@ -222,7 +226,7 @@ mod test {
 
     #[test]
     fn unwrap_assign() {
-        let pos = FilePosition::new("test_file.ssp".to_string(), 0, 0);
+        let pos: SourceSpan = (0..0).into();
         let code = block! {
             Statement::Assign(Identifier::Local("d".to_string()), None,
                               Expression::Typed(Type::Integer,Box::new(
@@ -246,8 +250,8 @@ mod test {
 
     #[test]
     fn unwrap_two_statements() {
-        let pos0 = FilePosition::new("test_file.ssp".to_string(), 0, 0);
-        let pos1 = FilePosition::new("test_file.ssp".to_string(), 1, 1);
+        let pos0: SourceSpan = (0..0).into();
+        let pos1: SourceSpan = (1..1).into();
         let code = block! {
             Statement::Assign(Identifier::Local("d".to_string()), None,
                               Expression::Typed(Type::Integer,Box::new(
@@ -284,7 +288,7 @@ mod test {
 
     #[test]
     fn nested_statements() {
-        let pos = FilePosition::new("test_file.ssp".to_string(), 0, 0);
+        let pos: SourceSpan = (0..0).into();
         let code = block! {
             Statement::Assign(Identifier::Local("d".to_string()), None,
                               Expression::Typed(Type::Integer, Box::new(
@@ -315,7 +319,7 @@ mod test {
 
     #[test]
     fn unwrap_typed_assign() {
-        let pos = FilePosition::new("test_file.ssp".to_string(), 0, 0);
+        let pos: SourceSpan = (0..0).into();
         let code = block! {
             Statement::Assign(Identifier::Local("d".to_string()), None,
                               Expression::Typed(Type::Integer,

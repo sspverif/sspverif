@@ -1,3 +1,5 @@
+use std::ops::Deref as _;
+
 use crate::identifier::Identifier;
 use crate::types::Type;
 
@@ -11,7 +13,7 @@ pub enum Expression {
     IntegerLiteral(i64),
     BooleanLiteral(String),
     Identifier(Identifier),
-    EmptyTable,
+    EmptyTable(Type),
     TableAccess(Identifier, Box<Expression>),
     Tuple(Vec<Expression>),
     List(Vec<Expression>),
@@ -58,6 +60,96 @@ impl Expression {
     }
     */
 
+    pub fn get_type(&self) -> Type {
+        match self {
+            Expression::Typed(tipe, _) => tipe.clone(),
+            Expression::Bot => Type::Empty,
+            Expression::Sample(tipe) => tipe.clone(),
+            Expression::StringLiteral(_) => Type::String,
+            Expression::BooleanLiteral(_) => Type::Boolean,
+            Expression::IntegerLiteral(_) => Type::Integer,
+            Expression::Identifier(ident) => ident.get_type().unwrap(),
+            Expression::EmptyTable(t) => t.clone(),
+            Expression::TableAccess(ident, _) => {
+                println!("{ident:?}");
+                match ident.get_type().unwrap() {
+                    Type::Table(_, value_type) => Type::Maybe(Box::new(value_type.deref().clone())),
+                    _ => unreachable!(),
+                }
+            }
+            Expression::Tuple(exprs) => {
+                Type::Tuple(exprs.iter().map(|expr| expr.get_type()).collect())
+            }
+            Expression::List(exprs) if !exprs.is_empty() => {
+                Type::List(Box::new(exprs[0].get_type()))
+            }
+            Expression::List(exprs) => todo!(),
+            Expression::Set(exprs) if !exprs.is_empty() => Type::Set(Box::new(exprs[0].get_type())),
+            Expression::Set(_) => todo!(),
+            Expression::FnCall(ident, _) => {
+                let fn_type = match ident {
+                    Identifier::PackageIdentifier(pkg_ident) => pkg_ident.get_type(),
+                    Identifier::GameIdentifier(game_ident) => game_ident.get_type(),
+                    Identifier::ProofIdentifier(proof_ident) => proof_ident.get_type(),
+
+                    // These are old and need to go
+                    Identifier::Scalar(_)
+                    | Identifier::State(_)
+                    | Identifier::Parameter(_)
+                    | Identifier::ComposeLoopVar(_)
+                    | Identifier::Local(_)
+                    | Identifier::GameInstanceConst(_) => unreachable!(),
+                };
+
+                match &fn_type {
+                    Type::Fn(_args, ret_type) => *ret_type.clone(),
+                    other => unreachable!(&format!(
+                        "found non-function type {:?} when calling function `{}`",
+                        fn_type,
+                        ident.ident()
+                    )),
+                }
+            }
+            Expression::None(tipe) => Type::Maybe(Box::new(tipe.clone())),
+            Expression::Some(expr) => Type::Maybe(Box::new(expr.get_type())),
+            Expression::Unwrap(expr) => match expr.get_type() {
+                Type::Maybe(tipe) => *tipe,
+                _ => unreachable!(&format!("{expr:?}")),
+            },
+
+            Expression::Sum(expr)
+            | Expression::Prod(expr)
+            | Expression::Neg(expr)
+            | Expression::Inv(expr)
+            | Expression::Add(expr, _)
+            | Expression::Sub(expr, _)
+            | Expression::Mul(expr, _)
+            | Expression::Div(expr, _)
+            | Expression::Pow(expr, _)
+            | Expression::Mod(expr, _) => expr.get_type(),
+
+            Expression::Not(_)
+            | Expression::Any(_)
+            | Expression::All(_)
+            | Expression::Equals(_)
+            | Expression::And(_)
+            | Expression::Or(_)
+            | Expression::Xor(_) => Type::Boolean,
+
+            Expression::Concat(exprs) => match exprs[0].get_type() {
+                Type::List(t) => *t,
+                _ => unreachable!(),
+            },
+
+            Expression::Union(expr) | Expression::Cut(expr) | Expression::SetDiff(expr) => {
+                match expr.get_type() {
+                    Type::List(t) => *t,
+                    _ => unreachable!(),
+                }
+            }
+        }
+    }
+
     pub fn walk(&mut self, f: &mut impl FnMut(&mut Expression) -> bool) {
         if !f(self) {
             return;
@@ -65,7 +157,7 @@ impl Expression {
 
         match self {
             Expression::Bot
-            | Expression::EmptyTable
+            | Expression::EmptyTable(_)
             | Expression::None(_)
             | Expression::Sample(_)
             | Expression::StringLiteral(_)
@@ -112,7 +204,7 @@ impl Expression {
     {
         f(match &self {
             Expression::Bot
-            | Expression::EmptyTable
+            | Expression::EmptyTable(_)
             | Expression::None(_)
             | Expression::Sample(_)
             | Expression::StringLiteral(_)
@@ -174,7 +266,7 @@ impl Expression {
     {
         let (ac, ex) = match &self {
             Expression::Bot
-            | Expression::EmptyTable
+            | Expression::EmptyTable(_)
             | Expression::None(_)
             | Expression::Sample(_)
             | Expression::StringLiteral(_)
@@ -332,13 +424,6 @@ impl Expression {
 
     pub fn new_equals(exprs: Vec<&Expression>) -> Expression {
         Expression::Equals(exprs.into_iter().cloned().collect())
-    }
-
-    pub fn get_type(&self) -> Option<&Type> {
-        match self {
-            Expression::Typed(t, _expr) => Some(t),
-            _ => None,
-        }
     }
 }
 

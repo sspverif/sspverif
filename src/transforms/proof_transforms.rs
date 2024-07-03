@@ -4,8 +4,7 @@ use crate::{proof::GameInstance, types::Type};
 
 use super::{
     resolveoracles, resolvetypes, returnify, samplify, split_partial, tableinitialize, treeify,
-    type_extract, typecheck, unwrapify, varspecify::var_specify_game_inst, GameTransform,
-    Transformation,
+    type_extract, typecheck, unwrapify, GameTransform, Transformation,
 };
 
 pub struct EquivalenceTransform;
@@ -27,16 +26,7 @@ impl super::ProofTransform for EquivalenceTransform {
         &self,
         proof: &crate::proof::Proof,
     ) -> Result<(crate::proof::Proof, Self::Aux), Self::Err> {
-        let new_game_instances: Vec<_> = proof
-            .instances()
-            .iter()
-            .map(|game_inst| {
-                let new_game = var_specify_game_inst(game_inst).unwrap();
-                game_inst.with_other_game(new_game)
-            })
-            .collect();
-
-        let results = new_game_instances.iter().map(transform_game_inst);
+        let results = proof.instances().iter().map(transform_game_inst);
         let (instances, auxs) = itertools::process_results(results, |res| res.unzip())?;
         let proof = proof.with_new_instances(instances);
 

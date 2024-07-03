@@ -1,57 +1,248 @@
-use crate::expressions::Expression;
-use crate::identifier::ComposeLoopVar;
-use crate::identifier::Identifier;
-use crate::package::OracleDef;
-use crate::package::OracleSig;
-use crate::package::Package;
-use crate::statement::CodeBlock;
-use crate::statement::FilePosition;
-use crate::statement::Statement;
-use crate::types::Type;
-use crate::util::resolver::Named;
-use crate::util::resolver::Resolver;
-use crate::util::resolver::SliceResolver;
-use crate::writers::smt::declare::declare_const;
-use crate::writers::smt::exprs::SmtAnd;
-use crate::writers::smt::exprs::SmtAssert;
-use crate::writers::smt::exprs::SmtEq2;
-use crate::writers::smt::exprs::SmtExpr;
-use crate::writers::smt::exprs::SmtIte;
-use crate::writers::smt::exprs::SmtLt;
-use crate::writers::smt::exprs::SmtLte;
-use crate::writers::smt::exprs::SmtNot;
-use crate::writers::smt::sorts::SmtInt;
+use super::{
+    common::*,
+    error::{IdentifierAlreadyDeclaredError, TypeMismatchError, UndefinedIdentifierError},
+    ParseContext, Rule,
+};
+use crate::{
+    expressions::Expression,
+    identifier::{
+        self,
+        game_ident::GameIdentifier,
+        pkg_ident::{
+            PackageConstIdentifier, PackageIdentifier, PackageImportsLoopVarIdentifier,
+            PackageLocalIdentifier, PackageOracleArgIdentifier, PackageOracleCodeLoopVarIdentifier,
+            PackageStateIdentifier,
+        },
+        Identifier,
+    },
+    package::{Edge, OracleDef, OracleSig, Package},
+    statement::{CodeBlock, FilePosition, Statement},
+    types::Type,
+    util::{
+        resolver::Named,
+        scope::{self, Declaration, OracleContext, Scope, ValidityContext},
+    },
+    writers::smt::{
+        declare::declare_const,
+        exprs::{SmtAnd, SmtAssert, SmtEq2, SmtExpr, SmtIte, SmtLt, SmtLte, SmtNot},
+        sorts::SmtInt,
+    },
+};
 
-use super::common::*;
-use super::Rule;
-
+use miette::{Diagnostic, NamedSource, SourceSpan};
 use pest::iterators::Pair;
+use thiserror::Error;
 
-use std::collections::HashMap;
 use std::convert::TryInto;
+use std::hash::Hash;
+use std::{any::type_name, collections::HashMap};
 
-pub fn handle_decl_list(state: Pair<Rule>, file_name: &str) -> Vec<(String, Type, FilePosition)> {
-    state
-        .into_inner()
-        .map(|entry| {
-            let span = entry.as_span();
-            let file_pos = FilePosition::from_span(file_name, span);
-            let mut inner = entry.into_inner();
-            let identifier = inner.next().unwrap().as_str();
-            let tipe = handle_type(inner.next().unwrap());
-            (identifier.to_string(), tipe, file_pos)
-        })
-        .collect()
+#[derive(Clone, Debug)]
+pub struct PackageParseContext<'a> {
+    pub file_name: &'a str,
+    pub file_content: &'a str,
+
+    pub pkg_name: &'a str,
+    pub scope: Scope,
+
+    pub oracles: Vec<OracleDef>,
+    pub state: Vec<(String, Type, SourceSpan)>,
+    pub params: Vec<(String, Type, SourceSpan)>,
+    pub types: Vec<(String, SourceSpan)>,
+    pub imported_oracles: HashMap<String, (OracleSig, SourceSpan)>,
 }
 
-pub fn handle_types_list(types: Pair<Rule>) -> Vec<Type> {
-    types
-        .into_inner()
-        .map(|entry| Type::UserDefined(entry.as_str().to_string()))
-        .collect()
+impl<'a> ParseContext<'a> {
+    fn pkg_parse_context(self, pkg_name: &'a str) -> PackageParseContext {
+        let mut scope = Scope::new();
+        scope.enter();
+
+        PackageParseContext {
+            file_name: self.file_name,
+            file_content: self.file_content,
+            pkg_name,
+            scope,
+
+            oracles: vec![],
+            state: vec![],
+            params: vec![],
+            types: vec![],
+            imported_oracles: HashMap::new(),
+        }
+    }
 }
 
-// TODO: identifier is optional
+impl<'a> PackageParseContext<'a> {
+    fn named_source(&self) -> NamedSource<String> {
+        NamedSource::new(self.file_name, self.file_content.to_string())
+    }
+}
+
+#[derive(Debug, Error, Diagnostic)]
+pub enum ParsePackageError {
+    #[error("error parsing package's import oracle block: {0}")]
+    #[diagnostic(transparent)]
+    ParseImportOracleSig(#[from] ParseImportOraclesError),
+    #[error("error parsing oracle definition: {0}")]
+    #[diagnostic(transparent)]
+    ParseOracleDef(#[from] ParseOracleDefError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    IdentifierAlreadyDeclared(#[from] IdentifierAlreadyDeclaredError),
+}
+
+#[derive(Error, Debug)]
+pub enum ParseOracleSigError {}
+
+impl<'a> PackageParseContext<'a> {
+    fn with_scope(self, scope: Scope) -> Self {
+        Self { scope, ..self }
+    }
+}
+
+pub fn handle_pkg(
+    file_name: &str,
+    file_content: &str,
+    pkg: Pair<Rule>,
+) -> Result<(String, Package), ParsePackageError> {
+    let mut inner = pkg.into_inner();
+    let pkg_name = inner.next().unwrap().as_str();
+    let spec = inner.next().unwrap();
+
+    let ctx = ParseContext::new(file_name, file_content).pkg_parse_context(pkg_name);
+
+    let pkg = handle_pkg_spec(ctx, spec)?;
+    Ok((pkg_name.to_owned(), pkg))
+}
+
+pub enum IdentType {
+    State,
+    Const,
+}
+
+pub fn handle_pkg_spec(
+    mut ctx: PackageParseContext,
+    pkg_spec: Pair<Rule>,
+) -> Result<Package, ParsePackageError> {
+    // TODO(2024-04-03): get rid of the unwraps in params, state, import_oracles
+    for spec in pkg_spec.into_inner() {
+        match spec.as_rule() {
+            Rule::types => {
+                for types_list in spec.into_inner() {
+                    ctx.types.append(&mut handle_types_list(types_list))
+                }
+            }
+            Rule::params => {
+                ctx.scope.enter();
+                let ast = spec.into_inner().next();
+                let params_option_result: Option<Result<_, _>> =
+                    ast.map(|params| handle_decl_list(&mut ctx, params, IdentType::Const));
+
+                transpose_option_result(params_option_result)?;
+            }
+            Rule::state => {
+                ctx.scope.enter();
+                let ast = spec.into_inner().next();
+                let state_option_result: Option<Result<_, _>> =
+                    ast.map(|state| handle_decl_list(&mut ctx, state, IdentType::State));
+                transpose_option_result(state_option_result)?;
+            }
+            Rule::import_oracles => {
+                ctx.scope.enter();
+                let mut loopvar_scope = ctx.scope.clone();
+
+                let body_ast = spec.into_inner().next().unwrap();
+                handle_import_oracles_body(&mut ctx, body_ast, &mut loopvar_scope)
+                    .map_err(ParsePackageError::ParseImportOracleSig)?
+            }
+            Rule::oracle_def => {
+                handle_oracle_def(&mut ctx, spec)?;
+            }
+            _ => unreachable!("unhandled ast node in package: {}", spec),
+        }
+    }
+
+    Ok(Package {
+        name: ctx.pkg_name.to_string(),
+        oracles: ctx.oracles,
+        types: ctx.types,
+        params: ctx.params,
+        imports: ctx
+            .imported_oracles
+            .iter()
+            .map(|(_k, (v, loc))| (v.clone(), loc.clone()))
+            .collect(),
+        state: ctx.state,
+        split_oracles: vec![],
+
+        file_name: ctx.file_name.to_string(),
+        file_contents: ctx.file_content.to_string(),
+    })
+}
+
+pub fn handle_decl_list(
+    ctx: &mut PackageParseContext,
+    decl_list: Pair<Rule>,
+    ident_type: IdentType,
+) -> Result<(), IdentifierAlreadyDeclaredError> {
+    for entry in decl_list.into_inner() {
+        let span = entry.as_span();
+        let mut inner = entry.into_inner();
+        let name_ast = inner.next().unwrap();
+        let name_span = name_ast.as_span();
+        let name = name_ast.as_str();
+        let tipe = handle_type(inner.next().unwrap());
+
+        let ident: Identifier = match ident_type {
+            IdentType::State => {
+                ctx.state.push((
+                    name.to_string(),
+                    tipe.clone(),
+                    (span.start()..span.end()).into(),
+                ));
+                PackageStateIdentifier::new(
+                    name.to_string(),
+                    ctx.pkg_name.to_string(),
+                    tipe.clone(),
+                )
+                .into()
+            }
+            IdentType::Const => {
+                ctx.params.push((
+                    name.to_string(),
+                    tipe.clone(),
+                    (span.start()..span.end()).into(),
+                ));
+                PackageConstIdentifier::new(
+                    name.to_string(),
+                    ctx.pkg_name.to_string(),
+                    tipe.clone(),
+                )
+                .into()
+            }
+        };
+
+        ctx.scope
+            .declare(name, Declaration::Identifier(ident))
+            .map_err(|e| {
+                let scope::Error::AlreadyDefined(existing_name, _decl) = e;
+                assert_eq!(name, existing_name);
+
+                let length = name_span.end() - name_span.start();
+
+                IdentifierAlreadyDeclaredError {
+                    at: (name_span.start(), length).into(),
+                    ident_name: name.to_string(),
+                    source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
+                }
+            })?;
+    }
+
+    Ok(())
+}
+
+// TODO: identifier is optional, type needs custom type info
 pub fn handle_arglist(arglist: Pair<Rule>) -> Vec<(String, Type)> {
     println!("handle_arglist rule: {:?}", arglist.as_rule());
     arglist
@@ -65,345 +256,783 @@ pub fn handle_arglist(arglist: Pair<Rule>) -> Vec<(String, Type)> {
         .collect()
 }
 
-pub fn handle_expression(expr: Pair<Rule>) -> Expression {
-    match expr.as_rule() {
-        // expr_equals | expr_not_equals | fn_call | table_access | identifier
+#[derive(Error, Debug, Diagnostic)]
+pub enum ParseExpressionError {
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    UndefinedIdentifier(UndefinedIdentifierError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    TypeMismatch(#[from] TypeMismatchError),
+}
+
+pub fn handle_expression(
+    ctx: &mut PackageParseContext,
+    ast: Pair<Rule>,
+    expected_type: Option<&Type>,
+) -> Result<Expression, ParseExpressionError> {
+    let span = ast.as_span();
+    let expr = match ast.as_rule() {
         Rule::expr_add => {
-            let mut inner = expr.into_inner();
-            let lhs = handle_expression(inner.next().unwrap());
-            let rhs = handle_expression(inner.next().unwrap());
+            if let Some(ty_expect) = expected_type {
+                if ty_expect != &Type::Integer {
+                    return Err(TypeMismatchError {
+                        at: (span.start()..span.end()).into(),
+                        expected: ty_expect.clone(),
+                        got: Type::Integer,
+                        source_code: ctx.named_source(),
+                    }
+                    .into());
+                }
+            }
+
+            let mut inner = ast.into_inner();
+
+            let lhs_ast = inner.next().unwrap();
+            let rhs_ast = inner.next().unwrap();
+            let span = lhs_ast.as_span();
+
+            let lhs = handle_expression(ctx, lhs_ast, expected_type)?;
+
+            let ty_lhs = lhs.get_type();
+
+            if ty_lhs != Type::Integer {
+                return Err(TypeMismatchError {
+                    at: (span.start()..span.end()).into(),
+                    expected: Type::Integer,
+                    got: ty_lhs,
+                    source_code: ctx.named_source(),
+                }
+                .into());
+            }
+
+            let rhs = handle_expression(ctx, rhs_ast, Some(&ty_lhs))?;
+
             Expression::Add(Box::new(lhs), Box::new(rhs))
         }
         Rule::expr_sub => {
-            let mut inner = expr.into_inner();
-            let lhs = handle_expression(inner.next().unwrap());
-            let rhs = handle_expression(inner.next().unwrap());
+            let mut inner = ast.into_inner();
+            let lhs = handle_expression(ctx, inner.next().unwrap(), expected_type)?;
+            let rhs = handle_expression(ctx, inner.next().unwrap(), expected_type)?;
             Expression::Sub(Box::new(lhs), Box::new(rhs))
         }
         Rule::expr_mul => {
-            let mut inner = expr.into_inner();
-            let lhs = handle_expression(inner.next().unwrap());
-            let rhs = handle_expression(inner.next().unwrap());
+            let mut inner = ast.into_inner();
+            let lhs = handle_expression(ctx, inner.next().unwrap(), expected_type)?;
+            let rhs = handle_expression(ctx, inner.next().unwrap(), expected_type)?;
             Expression::Mul(Box::new(lhs), Box::new(rhs))
         }
         Rule::expr_div => {
-            let mut inner = expr.into_inner();
-            let lhs = handle_expression(inner.next().unwrap());
-            let rhs = handle_expression(inner.next().unwrap());
+            let mut inner = ast.into_inner();
+            let lhs = handle_expression(ctx, inner.next().unwrap(), expected_type)?;
+            let rhs = handle_expression(ctx, inner.next().unwrap(), expected_type)?;
             Expression::Div(Box::new(lhs), Box::new(rhs))
         }
-        Rule::expr_and => Expression::And(expr.into_inner().map(handle_expression).collect()),
-        Rule::expr_or => Expression::Or(expr.into_inner().map(handle_expression).collect()),
-        Rule::expr_xor => Expression::Xor(expr.into_inner().map(handle_expression).collect()),
+
+        Rule::expr_and => Expression::And(
+            ast.into_inner()
+                .map(|expr| handle_expression(ctx, expr, Some(&Type::Boolean)))
+                .collect::<Result<_, _>>()?,
+        ),
+        Rule::expr_or => Expression::Or(
+            ast.into_inner()
+                .map(|expr| handle_expression(ctx, expr, Some(&Type::Boolean)))
+                .collect::<Result<_, _>>()?,
+        ),
+        Rule::expr_xor => Expression::Xor(
+            ast.into_inner()
+                .map(|expr| handle_expression(ctx, expr, Some(&Type::Boolean)))
+                .collect::<Result<_, _>>()?,
+        ),
         Rule::expr_not => {
-            let mut inner = expr.into_inner();
-            let content = handle_expression(inner.next().unwrap());
+            let mut inner = ast.into_inner();
+            let content = handle_expression(ctx, inner.next().unwrap(), Some(&Type::Boolean))?;
             Expression::Not(Box::new(content))
         }
-        Rule::expr_equals => Expression::Equals(expr.into_inner().map(handle_expression).collect()),
+
+        Rule::expr_equals => Expression::Equals(
+            ast.into_inner()
+                .map(|expr| handle_expression(ctx, expr, None))
+                .collect::<Result<_, _>>()?,
+        ),
         Rule::expr_not_equals => Expression::Not(Box::new(Expression::Equals(
-            expr.into_inner().map(handle_expression).collect(),
+            ast.into_inner()
+                .map(|expr| handle_expression(ctx, expr, None))
+                .collect::<Result<_, _>>()?,
         ))),
+
         Rule::expr_none => {
-            let tipe = handle_type(expr.into_inner().next().unwrap());
+            let tipe = handle_type(ast.into_inner().next().unwrap());
             Expression::None(tipe)
         }
         Rule::expr_some => {
-            let expr = handle_expression(expr.into_inner().next().unwrap());
+            // make sure the expected type is a maybe.
+            // if yes, extract the expected type for the inner expression
+            // if not, abort with an error
+            let expected_type = if let Some(ty_expect) = expected_type {
+                let Type::Maybe(ty) = ty_expect else {
+                    return Err(TypeMismatchError {
+                        at: (span.start()..span.end()).into(),
+                        expected: ty_expect.clone(),
+                        // TODO: maybe actually keep parsing here to produce better diagnostic
+                        // output (whole type)
+                        got: Type::Maybe(Box::new(Type::Unknown)),
+                        source_code: ctx.named_source(),
+                    }
+                    .into());
+                };
+                Some(*ty.clone())
+            } else {
+                None
+            };
+
+            let expr = handle_expression(
+                ctx,
+                ast.into_inner().next().unwrap(),
+                expected_type.as_ref(),
+            )?;
             Expression::Some(Box::new(expr))
         }
         Rule::expr_unwrap => {
-            let expr = handle_expression(expr.into_inner().next().unwrap());
+            let expected_type: Option<Type> = if let Some(ty) = expected_type {
+                if let Type::Maybe(ty) = ty.clone() {
+                    Some(*ty)
+                } else {
+					// TODO this should probably not panic!
+                    panic!("unwrapping a value of type {:?} that is not a maybe in {} at {:?}", ty, ctx.file_name, ast);
+                }
+            } else {
+                None
+            };
+            let expr = handle_expression(
+                ctx,
+                ast.into_inner().next().unwrap(),
+                expected_type.as_ref(),
+            )?;
             Expression::Unwrap(Box::new(expr))
         }
+
         Rule::expr_newtable => {
-            let mut inner = expr.into_inner();
+            let mut inner = ast.into_inner();
             let idxtipe = handle_type(inner.next().unwrap());
             let valtipe = handle_type(inner.next().unwrap());
-            Expression::Typed(
-                Type::Table(Box::new(idxtipe), Box::new(valtipe)),
-                Box::new(Expression::EmptyTable),
-            )
+            Expression::EmptyTable(Type::Table(Box::new(idxtipe), Box::new(valtipe)))
         }
         Rule::table_access => {
-            let mut inner = expr.into_inner();
-            let ident = inner.next().unwrap().as_str();
-            let expr = handle_expression(inner.next().unwrap());
-            Expression::TableAccess(Identifier::new_scalar(ident), Box::new(expr))
+            let mut inner = ast.into_inner();
+            let ident_name = inner.next().unwrap().as_str();
+            let ident = handle_identifier_in_code_rhs(ident_name, &ctx.scope).unwrap();
+
+            let Some(table_type) = ident.get_type() else {
+                unreachable!("this should have been a proper identifier")
+            };
+
+            let crate::types::Type::Table(idx_type, _) = table_type else {
+                // TODO: return proper error
+                panic!("this should have been a table")
+            };
+
+            let expr = handle_expression(ctx, inner.next().unwrap(), Some(&*idx_type))?;
+            // TODO properly parse this identifier
+            Expression::TableAccess(ident, Box::new(expr))
         }
+
         Rule::fn_call => {
-            let mut inner = expr.into_inner();
+            let span = ast.as_span();
+            let mut inner = ast.into_inner();
             let ident = inner.next().unwrap().as_str();
+            // TODO:look up the function signature and pass argument types into
+            //       the expected_type arguemnts to handle_expression below
             let args = match inner.next() {
                 None => vec![],
-                Some(inner_args) => inner_args.into_inner().map(handle_expression).collect(),
+                Some(inner_args) => inner_args
+                    .into_inner()
+                    .map(|expr| handle_expression(ctx, expr, None))
+                    .collect::<Result<_, _>>()?,
             };
-            Expression::FnCall(Identifier::new_scalar(ident), args)
+            let decl = ctx
+                .scope
+                .lookup(ident)
+                .ok_or(ParseExpressionError::UndefinedIdentifier(
+                    UndefinedIdentifierError {
+                        at: (span.start()..span.end()).into(),
+                        ident_name: ident.to_string(),
+                        source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
+                    },
+                ))?;
+            let ident = decl.into_identifier().unwrap();
+            Expression::FnCall(ident, args)
         }
-        Rule::identifier => Identifier::new_scalar(expr.as_str()).to_expression(),
+
+        Rule::identifier => {
+            let span = ast.as_span();
+
+            let name = ast.as_str().to_string();
+            let decl = ctx
+                .scope
+                .lookup(&name)
+                .ok_or(ParseExpressionError::UndefinedIdentifier(
+                    UndefinedIdentifierError {
+                        at: (span.start()..span.end()).into(),
+                        ident_name: name.clone(),
+                        source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
+                    },
+                ))?;
+
+            let expect_context = ValidityContext::Package;
+            let got_context = decl.validity_context();
+            assert_eq!(decl.validity_context(), expect_context, "invariant does not hold! when looking up name `{name}` in scope, we got declaration {decl:?}, which is valid in context {got_context:?} but we are in context {expect_context:?}.");
+
+            let ident = match decl {
+                Declaration::Identifier(ident) => ident,
+                Declaration::Oracle(_, _) => {
+                    todo!("handle error, user tried assigning to an oracle")
+                }
+            };
+            Expression::Identifier(ident)
+        }
+
         Rule::literal_boolean => {
-            let litval = expr.as_str().to_string();
+            let litval = ast.as_str().to_string();
             Expression::BooleanLiteral(litval)
         }
         Rule::literal_integer => {
-            let litval = expr.as_str().trim().to_string();
+            let litval = ast.as_str().trim().to_string();
 
-            Expression::IntegerLiteral(litval.parse().expect(&format!(
-                "error at position {:?}..{:?}: could not parse as int: {}",
-                expr.as_span().start_pos().line_col(),
-                expr.as_span().end_pos().line_col(),
-                expr.as_str(),
-            )))
+            Expression::IntegerLiteral(litval.parse().unwrap_or_else(|_| {
+                panic!(
+                    "error at position {:?}..{:?}: could not parse as int: {}",
+                    ast.as_span().start_pos().line_col(),
+                    ast.as_span().end_pos().line_col(),
+                    ast.as_str(),
+                )
+            }))
         }
         Rule::literal_emptyset => {
-            let tipe = handle_type(expr.into_inner().next().unwrap());
+            let tipe = handle_type(ast.into_inner().next().unwrap());
             Expression::Typed(Type::Set(Box::new(tipe)), Box::new(Expression::Set(vec![])))
         }
-        Rule::expr_tuple => Expression::Tuple(expr.into_inner().map(handle_expression).collect()),
-        Rule::expr_list => Expression::List(expr.into_inner().map(handle_expression).collect()),
-        Rule::expr_set => Expression::Set(expr.into_inner().map(handle_expression).collect()),
-        _ => unreachable!("Unhandled expression {:#?}", expr),
-    }
-}
 
-pub fn handle_code(code: Pair<Rule>, file_name: &str) -> CodeBlock {
-    CodeBlock(
-        code.into_inner()
-            .map(|stmt| {
-                let span = stmt.as_span();
-                let file_pos = FilePosition::from_span(file_name, span);
+        Rule::expr_tuple => Expression::Tuple(
+            ast.into_inner()
+                .map(|expr| handle_expression(ctx, expr, None))
+                .collect::<Result<_, _>>()?,
+        ),
+        Rule::expr_list => Expression::List(
+            ast.into_inner()
+                .map(|expr| handle_expression(ctx, expr, None))
+                .collect::<Result<_, _>>()?,
+        ),
+        Rule::expr_set => Expression::Set(
+            ast.into_inner()
+                .map(|expr| handle_expression(ctx, expr, None))
+                .collect::<Result<_, _>>()?,
+        ),
+        _ => unreachable!("Unhandled expression {:#?}", ast),
+    };
 
-                match stmt.as_rule() {
-                    // assign | return_stmt | abort | ite
-                    Rule::ite => {
-                        let mut inner = stmt.into_inner();
-                        let expr = handle_expression(inner.next().unwrap());
-                        let ifcode = handle_code(inner.next().unwrap(), file_name);
-                        let maybe_elsecode = inner.next();
-                        let elsecode = match maybe_elsecode {
-                            None => CodeBlock(vec![]),
-                            Some(c) => handle_code(c, file_name),
-                        };
+    if let Some(expected) = expected_type {
+        let got = expr.get_type();
+        let at: SourceSpan = (span.start()..span.end()).into();
 
-                        Statement::IfThenElse(expr, ifcode, elsecode, file_pos)
-                    }
-                    Rule::return_stmt => {
-                        let mut inner = stmt.into_inner();
-                        let maybe_expr = inner.next();
-                        let expr = maybe_expr.map(handle_expression);
-                        Statement::Return(expr, file_pos)
-                    }
-                    Rule::assert => {
-                        let mut inner = stmt.into_inner();
-                        let expr = handle_expression(inner.next().unwrap());
-                        Statement::IfThenElse(
-                            expr,
-                            CodeBlock(vec![]),
-                            CodeBlock(vec![Statement::Abort(file_pos.clone())]),
-                            file_pos,
-                        )
-                    }
-                    Rule::abort => Statement::Abort(file_pos),
-                    Rule::sample => {
-                        let mut inner = stmt.into_inner();
-                        let ident = Identifier::new_scalar(inner.next().unwrap().as_str());
-                        let tipe = handle_type(inner.next().unwrap());
-                        Statement::Sample(ident, None, None, tipe, file_pos)
-                        //Statement::Assign(ident, Expression::Sample(tipe))
-                    }
-                    Rule::assign => {
-                        let mut inner = stmt.into_inner();
-                        let ident = Identifier::new_scalar(inner.next().unwrap().as_str());
-                        let expr = handle_expression(inner.next().unwrap());
-                        Statement::Assign(ident, None, expr, file_pos)
-                    }
-                    Rule::table_sample => {
-                        let mut inner = stmt.into_inner();
-                        let ident = Identifier::new_scalar(inner.next().unwrap().as_str());
-                        let index = handle_expression(inner.next().unwrap());
-                        let tipe = handle_type(inner.next().unwrap());
-                        Statement::Sample(ident, Some(index), None, tipe, file_pos)
-                    }
-                    Rule::table_assign => {
-                        let mut inner = stmt.into_inner();
-                        let ident = Identifier::new_scalar(inner.next().unwrap().as_str());
-                        let index = handle_expression(inner.next().unwrap());
-                        let expr = handle_expression(inner.next().unwrap());
-                        Statement::Assign(ident, Some(index), expr, file_pos)
-                    }
-                    Rule::invocation => {
-                        let mut inner = stmt.into_inner();
-                        let target_ident = Identifier::new_scalar(inner.next().unwrap().as_str());
-                        let maybe_index = inner.next().unwrap();
-                        let (opt_idx, oracle_inv) = if maybe_index.as_rule() == Rule::table_index {
-                            let mut inner_index = maybe_index.into_inner();
-                            let index = handle_expression(inner_index.next().unwrap());
-                            (Some(index), inner.next().unwrap())
-                        } else {
-                            (None, maybe_index)
-                        };
+        if expected != &got {
+            let expected = expected.clone();
 
-                        assert!(matches!(oracle_inv.as_rule(), Rule::oracle_call));
-
-                        let mut inner = oracle_inv.into_inner();
-                        let oracle_name = inner.next().unwrap().as_str();
-
-                        let mut args = vec![];
-                        let mut dst_inst_index = None;
-
-                        for ast in inner {
-                            match ast.as_rule() {
-                                Rule::oracle_call_index => {
-                                    let index_expr_ast = ast.into_inner().next().unwrap();
-                                    dst_inst_index = Some(handle_expression(index_expr_ast));
-                                }
-                                Rule::fn_call_arglist => {
-                                    args.extend(ast.into_inner().map(handle_expression))
-                                }
-                                _ => unreachable!(),
-                            }
-                        }
-
-                        Statement::InvokeOracle {
-                            id: target_ident,
-                            opt_idx,
-                            opt_dst_inst_idx: dst_inst_index,
-                            name: oracle_name.to_owned(),
-                            args,
-                            target_inst_name: None,
-                            tipe: None,
-                            file_pos,
-                        }
-                    }
-                    Rule::parse => {
-                        let mut inner = stmt.into_inner();
-                        let list = inner.next().unwrap();
-                        let expr = inner.next().unwrap();
-
-                        let idents = list
-                            .into_inner()
-                            .map(|ident_name| Identifier::new_scalar(ident_name.as_str()))
-                            .collect();
-
-                        let expr = handle_expression(expr);
-
-                        Statement::Parse(idents, expr, file_pos)
-                    }
-                    Rule::for_ => {
-                        let mut parsed: Vec<Pair<Rule>> = stmt.into_inner().collect();
-                        let decl_var_name = parsed[0].as_str();
-                        let lower_bound = handle_expression(parsed.remove(1));
-                        let lower_bound_type = parsed[1].as_str();
-                        let bound_var_name = parsed[2].as_str();
-                        let upper_bound_type = parsed[3].as_str();
-                        let upper_bound = handle_expression(parsed.remove(4));
-                        let body = handle_code(parsed.remove(4), file_name);
-
-                        if decl_var_name != bound_var_name {
-                            todo!("return proper error here")
-                        }
-
-                        let lower_bound = match lower_bound_type {
-                            "<" => Expression::Add(
-                                Box::new(lower_bound),
-                                Box::new(Expression::IntegerLiteral(1)),
-                            ),
-                            "<=" => lower_bound,
-                            _ => panic!(),
-                        };
-
-                        let upper_bound = match upper_bound_type {
-                            "<" => upper_bound,
-                            "<=" => Expression::Add(
-                                Box::new(upper_bound),
-                                Box::new(Expression::IntegerLiteral(1)),
-                            ),
-                            _ => panic!(),
-                        };
-
-                        let ident = Identifier::Scalar(decl_var_name.to_string());
-                        Statement::For(ident, lower_bound, upper_bound, body, file_pos)
-                    }
-                    _ => {
-                        unreachable!("{:#?}", stmt)
-                    }
-                }
-            })
-            .collect(),
-    )
-}
-
-pub fn handle_oracle_def(oracle_def: Pair<Rule>, file_name: &str) -> OracleDef {
-    let span = oracle_def.as_span();
-    let file_pos = FilePosition::from_span(file_name, span);
-    let mut inner = oracle_def.into_inner();
-    let sig = handle_oracle_sig(inner.next().unwrap());
-    let code = handle_code(inner.next().unwrap(), file_name);
-
-    OracleDef {
-        sig,
-        code,
-        file_pos,
-    }
-}
-
-pub fn handle_pkg_spec(pkg_spec: Pair<Rule>, pkg_name: &str, file_name: &str) -> Package {
-    let mut oracles = vec![];
-    let mut state = None;
-    let mut params = None;
-    let mut types = None;
-    let mut imported_oracles = HashMap::new();
-
-    for spec in pkg_spec.into_inner() {
-        match spec.as_rule() {
-            Rule::types => {
-                types = spec.into_inner().next().map(handle_types_list);
-            }
-            Rule::state => {
-                state = spec
-                    .into_inner()
-                    .next()
-                    .map(|state| handle_decl_list(state, file_name));
-            }
-            Rule::params => {
-                params = spec
-                    .into_inner()
-                    .next()
-                    .map(|params| handle_decl_list(params, file_name));
-            }
-            Rule::import_oracles => {
-                let body_ast = spec.into_inner().next().unwrap();
-                handle_import_oracles_body(
-                    body_ast,
-                    &mut imported_oracles,
-                    pkg_name,
-                    file_name,
-                    &vec![],
-                )
-                .unwrap();
-            }
-            Rule::oracle_def => {
-                oracles.push(handle_oracle_def(spec, file_name));
-            }
-            _ => unreachable!("unhandled ast node in package: {}", spec),
+            return Err(ParseExpressionError::TypeMismatch(TypeMismatchError {
+                at,
+                expected,
+                got,
+                source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
+            }));
         }
     }
 
-    Package {
-        name: pkg_name.to_string(),
-        oracles,
-        types: types.unwrap_or_default(),
-        params: params.unwrap_or_default(),
-        imports: imported_oracles
-            .iter()
-            .map(|(_k, (v, loc))| (v.clone(), loc.clone()))
-            .collect(),
-        state: state.unwrap_or_default(),
-        split_oracles: vec![],
+    Ok(expr)
+}
+
+fn transpose_option_result<T, E>(value: Option<Result<T, E>>) -> Result<Option<T>, E> {
+    match value {
+        Some(v) => v.map(Some),
+        None => Ok(None),
     }
 }
 
-pub fn handle_oracle_sig(oracle_sig: Pair<Rule>) -> OracleSig {
+#[derive(Error, Debug, Diagnostic)]
+pub enum ParseCodeError {
+    #[error("error parsing expression: {0}")]
+    #[diagnostic(transparent)]
+    ParseExpression(#[from] ParseExpressionError),
+    #[error("error parsing identifier: {0}")]
+    #[diagnostic(transparent)]
+    ParseIdentifier(#[from] ParseIdentifierError),
+    #[error("undefined oracle: {0}")]
+    UndefinedOracle(String),
+    #[error("invoking an identifier that is not an oracle: {0:?}")]
+    InvokingNonOracle(Identifier),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    UndefinedIdentifier(#[from] UndefinedIdentifierError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    TypeMismatch(#[from] TypeMismatchError),
+}
+
+pub fn handle_identifier_in_code_rhs(
+    name: &str,
+    scope: &Scope,
+) -> Result<Identifier, ParseIdentifierError> {
+    let ident = scope
+        .lookup(name)
+        .ok_or(ParseIdentifierError::Undefined(name.to_string()))?
+        .into_identifier()
+        .unwrap_or_else(|decl| {
+            panic!(
+                "expected an identifier, got a declaration {decl:?}",
+                decl = decl
+            )
+        });
+
+    Ok(ident)
+}
+
+pub fn handle_identifier_in_code_lhs(
+    ctx: &mut PackageParseContext,
+    name_ast: Pair<Rule>,
+    oracle_name: &str,
+    expected_type: Type,
+) -> Result<Identifier, ParseIdentifierError> {
+    let name = name_ast.as_str();
+    let span = name_ast.as_span();
+
+    let scope = &mut ctx.scope;
+
+    let ident = if let Some(decl) = scope.lookup(name) {
+        decl.into_identifier()
+            .map_err(|decl| ParseIdentifierError::InvalidLeftHandSide(name.to_string(), decl))?
+    } else {
+        let ident =
+            Identifier::PackageIdentifier(PackageIdentifier::Local(PackageLocalIdentifier {
+                pkg_name: ctx.pkg_name.to_string(),
+                oracle_name: oracle_name.to_string(),
+                name: name.to_string(),
+                tipe: expected_type.clone(),
+                pkg_inst_name: None,
+                game_name: None,
+                game_inst_name: None,
+                proof_name: None,
+            }));
+
+        scope
+            .declare(name, Declaration::Identifier(ident.clone()))
+            .map_err(ParseIdentifierError::ScopeDeclareError)?;
+
+        ident
+    };
+
+    let got = ident.get_type().unwrap();
+    if got != expected_type {
+        Err(ParseIdentifierError::TypeMismatch(TypeMismatchError {
+            at: (span.start()..span.end()).into(),
+            expected: expected_type,
+            got,
+            source_code: ctx.named_source(),
+        }))
+    } else {
+        Ok(ident)
+    }
+}
+
+#[derive(Debug, Error, Diagnostic)]
+pub enum ParseIdentifierError {
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ParseExpression(ParseExpressionError),
+    #[error(transparent)]
+    ScopeDeclareError(crate::util::scope::Error),
+    #[error("found undefined variable `{0}`.")]
+    Undefined(String),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    TypeMismatch(TypeMismatchError),
+    #[error("error parsing left-hand-side name `{0}`: expected an identifier, got {1:?}")]
+    InvalidLeftHandSide(String, Declaration),
+}
+
+pub fn handle_code(
+    ctx: &mut PackageParseContext,
+    code: Pair<Rule>,
+    oracle_sig: &OracleSig,
+) -> Result<CodeBlock, ParseCodeError> {
+    let oracle_name = &oracle_sig.name;
+    code.into_inner()
+        .map(|stmt| {
+            let span = stmt.as_span();
+            let source_span = SourceSpan::from(span.start()..span.end());
+            //let file_pos = FilePosition::from_span(ctx.file_name, span);
+
+            let stmt = match stmt.as_rule() {
+                // assign | return_stmt | abort | ite
+                Rule::ite => {
+                    let mut inner = stmt.into_inner();
+                    let cond_expr = handle_expression(ctx, inner.next().unwrap(), Some(&Type::Boolean))?;
+                    let ifcode = handle_code(
+                        ctx,
+                        inner.next().unwrap(),
+                        oracle_sig,
+                    )?;
+                    let maybe_elsecode = inner.next();
+                    let elsecode = match maybe_elsecode {
+                        None => CodeBlock(vec![]),
+                        Some(c) => handle_code(ctx, c, oracle_sig)?,
+                    };
+
+                    Statement::IfThenElse(cond_expr, ifcode, elsecode, source_span)
+                }
+                Rule::return_stmt => {
+                    let mut inner = stmt.into_inner();
+                    let maybe_expr = inner.next();
+
+
+                    let expr = maybe_expr.map(|expr| handle_expression(ctx, expr, Some(&oracle_sig.tipe)));
+                    let expr = transpose_option_result(expr)?;
+                    Statement::Return(expr, source_span)
+                }
+                Rule::assert => {
+                    let mut inner = stmt.into_inner();
+                    let expr = handle_expression(ctx, inner.next().unwrap(), Some(&Type::Boolean))?;
+                    Statement::IfThenElse(
+                        expr,
+                        CodeBlock(vec![]),
+                        CodeBlock(vec![Statement::Abort(source_span.clone())]),
+                         source_span,
+                    )
+                }
+                Rule::abort => Statement::Abort(source_span),
+                Rule::sample => {
+                    let mut inner = stmt.into_inner();
+                    let name_ast = inner.next().unwrap();
+                    let name = name_ast.as_str();
+                    let tipe = handle_type(inner.next().unwrap());
+                    let ident = handle_identifier_in_code_lhs(
+                        ctx,
+                        name_ast,
+                        oracle_name,
+                        tipe.clone(),
+                    )
+                    .map_err(ParseCodeError::ParseIdentifier)?;
+                    Statement::Sample(ident, None, None, tipe, source_span)
+                }
+
+                Rule::assign => {
+                    let mut inner = stmt.into_inner();
+                    let name_ast = inner.next().unwrap();
+                    let name = name_ast.as_str();
+                    // it's fine to use a None expected_type here, because we later check that the
+                    // resulting type matches the identifier
+                    // maybe we could produce better errors (or have better type inference?) if we
+                    // first checked whether the identifier exists, and if yes use that as the
+                    // expected type here?
+                    let expr = handle_expression(ctx, inner.next().unwrap(), None)
+                        .map_err(ParseCodeError::ParseExpression)?;
+
+                    let expected_type = expr.get_type();
+                    let ident = handle_identifier_in_code_lhs(
+                        ctx,
+                        name_ast,
+                        oracle_name,
+                        expected_type,
+                    )
+                    .map_err(ParseCodeError::ParseIdentifier)?;
+
+                    Statement::Assign(ident, None, expr, source_span)
+                }
+
+                Rule::table_sample => {
+                    let mut inner = stmt.into_inner();
+                    let name_ast = inner.next().unwrap();
+                    let name = name_ast.as_str();
+                    let index = handle_expression(ctx, inner.next().unwrap(), None)?;
+                    let tipe = handle_type(inner.next().unwrap());
+                    let ident = handle_identifier_in_code_lhs(
+                        ctx,
+                        name_ast,
+                        oracle_name,
+                        Type::Table(Box::new(index.get_type()),  Box::new(tipe.clone())),
+                    )
+                    .map_err(ParseCodeError::ParseIdentifier)?;
+                    Statement::Sample(ident, Some(index), None, tipe, source_span)
+                }
+
+                Rule::table_assign => {
+                    let mut inner = stmt.into_inner();
+                    println!("DFGERT {inner:#?}");
+
+                    let name_ast = inner.next().unwrap();
+                    let Some(Declaration::Identifier(ident)) = ctx.scope.lookup(name_ast.as_str()) else {
+                        let span = name_ast.as_span();
+                        return Err(UndefinedIdentifierError{
+                            source_code: ctx.named_source(),
+                            at: (span.start()..span.end()).into(),
+                            ident_name: name_ast.as_str().to_string(),
+                        }.into());
+                    };
+
+                    let ty_ident = ident.get_type().unwrap();
+                    let Type::Table(ty_key, ty_value_without_maybe) = &ty_ident else {
+                        let span = name_ast.as_span();
+                        return Err(TypeMismatchError{
+                            at: (span.start()..span.end()).into(),
+                            expected: Type::Table(Box::new(Type::Unknown), Box::new(Type::Unknown)),
+                            got: ty_ident,
+                            source_code: ctx.named_source(),
+                        }.into())
+                    };
+
+                    println!("{} -- {ident:?} -- ty_value: {ty_value_without_maybe:?}", ctx.file_name);
+
+                    let ty_value_with_maybe = Type::Maybe(ty_value_without_maybe.clone());
+
+                    let index = handle_expression(ctx, inner.next().unwrap(), Some(&**ty_key))?;
+                    let expr = handle_expression(ctx, inner.next().unwrap(), Some(&ty_value_with_maybe))?;
+
+                    let expected_type = match expr.get_type() {
+                        Type::Maybe(t) => Type::Table(Box::new(index.get_type()), t),
+                        _ => panic!("assigning non-maybe value to table {expr:?} in {oracle_name}, {pkg_name}", expr = expr, oracle_name=oracle_name, pkg_name=ctx.pkg_name),
+                    };
+
+                    let ident = handle_identifier_in_code_lhs(
+                        ctx,
+                        name_ast,
+                        oracle_name,
+                        expected_type,
+                    )
+                    .map_err(ParseCodeError::ParseIdentifier)?;
+
+                    Statement::Assign(ident, Some(index), expr, source_span)
+                }
+
+                Rule::invocation => {
+                    let mut inner = stmt.into_inner();
+                    let target_ident_name_ast = inner.next().unwrap();
+                    let target_ident_name = target_ident_name_ast.as_str();
+                    let maybe_index = inner.next().unwrap();
+                    // TODO: this should be used in type checking somehow
+                    let (opt_idx, oracle_inv) = if maybe_index.as_rule() == Rule::table_index {
+                        let mut inner_index = maybe_index.into_inner();
+                        let index =
+                            handle_expression(ctx, inner_index.next().unwrap(), None)?;
+                        (Some(index), inner.next().unwrap())
+                    } else {
+                        (None, maybe_index)
+                    };
+
+                    assert!(matches!(oracle_inv.as_rule(), Rule::oracle_call));
+
+                    let mut inner = oracle_inv.into_inner();
+                    let oracle_name = inner.next().unwrap().as_str();
+
+                    let mut args = vec![];
+                    let mut dst_inst_index = None;
+
+                    for ast in inner {
+                        match ast.as_rule() {
+                            Rule::oracle_call_index => {
+                                let index_expr_ast = ast.into_inner().next().unwrap();
+                                dst_inst_index =
+                                    Some(handle_expression(ctx, index_expr_ast, Some(&Type::Integer))?);
+                            }
+                            Rule::fn_call_arglist => {
+                                // TODO: figure out the types of the arguments and provide them to
+                                // the parser
+                                let arglist: Result<Vec<_>, _> = ast
+                                    .into_inner()
+                                    .map(|expr| handle_expression(ctx, expr, None))
+                                    .collect();
+                                let arglist = arglist?;
+                                args.extend(arglist.into_iter())
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
+
+                    let oracle_decl = ctx.scope
+                        .lookup(oracle_name)
+                        .ok_or(ParseCodeError::UndefinedOracle(oracle_name.to_string()))?;
+
+                    let expected_type = match (oracle_decl, opt_idx.clone()) {
+                        (Declaration::Oracle(_context, oracle_sig), None) => Ok(oracle_sig.tipe),
+                        (Declaration::Oracle(_context, oracle_sig), Some(idx)) => Ok(Type::Table(
+                            Box::new(idx.get_type()),
+                            Box::new(oracle_sig.tipe)
+                        )),
+                        (Declaration::Identifier(ident), _) => {
+                            Err(ParseCodeError::InvokingNonOracle(ident))
+                        }
+                    }?;
+
+                    let target_ident = handle_identifier_in_code_lhs(
+                        ctx,
+                        target_ident_name_ast,
+                        oracle_name,
+                        expected_type,
+                    )
+                    .map_err(ParseCodeError::ParseIdentifier)?;
+
+                    Statement::InvokeOracle {
+                        id: target_ident,
+                        opt_idx,
+                        opt_dst_inst_idx: dst_inst_index,
+                        name: oracle_name.to_owned(),
+                        args,
+                        target_inst_name: None,
+                        tipe: None,
+                        file_pos: source_span,
+                    }
+                }
+                Rule::parse => {
+                    let mut inner = stmt.into_inner();
+                    let list = inner.next().unwrap();
+                    let expr = inner.next().unwrap();
+
+                    let expr = handle_expression(ctx,expr, None)?;
+                    let tipe = expr.get_type();
+
+                    let tipes = match tipe {
+                        Type::Tuple(tipes) => tipes,
+                        other => panic!("expected tuple type in parse, but got {other:?} in {file_name}, {pkg_name}, {oracle_name}, {expr:?}", other=other, file_name=ctx.file_name, pkg_name=ctx.pkg_name, oracle_name=oracle_name, expr=expr)
+                    };
+
+                    let idents = list
+                        .into_inner()
+                        .enumerate()
+                        .map(|(i, ident_name)| {
+                            handle_identifier_in_code_lhs(ctx, ident_name,  oracle_name, tipes[i].clone())
+                                .map_err(ParseCodeError::ParseIdentifier)
+                        })
+                        .collect::<Result<_,_>>()?;
+
+
+                    Statement::Parse(idents, expr, source_span)
+                }
+                Rule::for_ => {
+                    let mut parsed: Vec<Pair<Rule>> = stmt.into_inner().collect();
+                    let decl_var_name = parsed[0].as_str();
+                    let lower_bound = handle_expression(ctx, parsed.remove(1), Some(&Type::Integer))?;
+                    let lower_bound_type = parsed[1].as_str();
+                    let bound_var_name = parsed[2].as_str();
+                    let upper_bound_type = parsed[3].as_str();
+                    let upper_bound = handle_expression(ctx, parsed.remove(4), Some(&Type::Integer))?;
+
+                    if decl_var_name != bound_var_name {
+                        todo!("return proper error here")
+                    }
+
+                    let lower_bound_type = match lower_bound_type {
+                        "<" => ForComp::Lt,
+                        "<=" => ForComp::Lte,
+                        _ => panic!(),
+                    };
+
+                    let upper_bound_type = match upper_bound_type {
+                        "<" => ForComp::Lt,
+                        "<=" => ForComp::Lte,
+                        _ => panic!(),
+                    };
+                    let loopvar = PackageOracleCodeLoopVarIdentifier {
+                        name: decl_var_name.to_string(),
+                        pkg_name: ctx.pkg_name.to_string(),
+                        start: Box::new(lower_bound.clone()),
+                        end: Box::new(upper_bound.clone()),
+                        start_comp: lower_bound_type,
+                        end_comp: upper_bound_type,
+                        pkg_inst_name: None,
+                        game_name: None,
+                        game_inst_name: None,
+                        proof_name: None,
+                    };
+                    let loopvar: Identifier = loopvar.into();
+
+                    ctx.scope.enter();
+                    ctx.scope
+                        .declare(decl_var_name, Declaration::Identifier(loopvar.clone()))
+                        .unwrap();
+
+                    let body =
+                        handle_code(ctx, parsed.remove(4),oracle_sig)?;
+                    ctx.scope.leave();
+
+                    Statement::For(loopvar, lower_bound, upper_bound, body, source_span)
+                }
+                _ => {
+                    unreachable!("{:#?}", stmt)
+                }
+            };
+
+            Ok(stmt)
+        })
+        .collect::<Result<_, _>>()
+        .map(CodeBlock)
+}
+
+#[derive(Error, Debug, Diagnostic)]
+pub enum ParseOracleDefError {
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ParseCode(#[from] ParseCodeError),
+}
+
+pub fn handle_oracle_def(
+    ctx: &mut PackageParseContext,
+    oracle_def: Pair<Rule>,
+) -> Result<(), ParseOracleDefError> {
+    let span = oracle_def.as_span();
+    let source_span = SourceSpan::from(span.start()..span.end());
+    let mut inner = oracle_def.into_inner();
+
+    let sig = handle_oracle_sig(inner.next().unwrap()).unwrap();
+
+    ctx.scope.enter();
+
+    for (name, tipe) in &sig.args {
+        ctx.scope
+            .declare(
+                name,
+                Declaration::Identifier(Identifier::PackageIdentifier(
+                    PackageIdentifier::OracleArg(PackageOracleArgIdentifier {
+                        pkg_name: ctx.pkg_name.to_string(),
+                        oracle_name: sig.name.clone(),
+                        name: name.clone(),
+                        tipe: tipe.clone(),
+                        pkg_inst_name: None,
+                        game_name: None,
+                        game_inst_name: None,
+                        proof_name: None,
+                    }),
+                )),
+            )
+            .unwrap();
+    }
+
+    let code =
+        handle_code(ctx, inner.next().unwrap(), &sig).map_err(ParseOracleDefError::ParseCode)?;
+
+    ctx.scope.leave();
+
+    let oracle_def = OracleDef {
+        sig,
+        code,
+        file_pos: source_span,
+    };
+
+    ctx.oracles.push(oracle_def);
+
+    Ok(())
+}
+
+pub fn handle_oracle_sig(oracle_sig: Pair<Rule>) -> Result<OracleSig, ParseOracleSigError> {
     let mut inner = oracle_sig.into_inner();
     let name = inner.next().unwrap().as_str();
     let maybe_arglist = inner.next().unwrap();
@@ -419,18 +1048,40 @@ pub fn handle_oracle_sig(oracle_sig: Pair<Rule>) -> OracleSig {
         Some(t) => handle_type(t),
     };
 
-    OracleSig {
+    Ok(OracleSig {
         name: name.to_string(),
         tipe,
         args,
-        multi_inst_idx: None,
+        multi_inst_idx: MultiInstanceIndices::new(vec![]),
+    })
+}
+
+#[derive(Debug)]
+pub enum ParseImportsOracleSigError {
+    IndexParseError(ParseExpressionError),
+}
+
+impl std::fmt::Display for ParseImportsOracleSigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseImportsOracleSigError::IndexParseError(e) => write!(f, "error parsing index: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for ParseImportsOracleSigError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ParseImportsOracleSigError::IndexParseError(e) => Some(e),
+        }
     }
 }
 
 pub fn handle_oracle_imports_oracle_sig(
+    ctx: &mut PackageParseContext,
     oracle_sig: Pair<Rule>,
-    for_stack: &Vec<ForSpec>,
-) -> OracleSig {
+    loopvar_scope: &Scope,
+) -> Result<OracleSig, ParseImportsOracleSigError> {
     println!("{:?}", oracle_sig.as_rule());
 
     let _span = oracle_sig.as_span();
@@ -439,14 +1090,19 @@ pub fn handle_oracle_imports_oracle_sig(
     let name = inner.next().unwrap().as_str();
 
     let (multi_inst_idx, args) = {
-        let mut multi_inst_idx = None;
+        let mut multi_inst_idx = vec![];
         let mut arglist = vec![];
 
         while let Some(next) = inner.peek() {
             match next.as_rule() {
                 Rule::indices_expr => {
-                    let indices = next.into_inner().map(handle_expression).collect();
-                    multi_inst_idx = Some(MultiInstanceIndices::new(indices, for_stack.to_owned()));
+                    let mut loopvar_ctx = ctx.clone().with_scope(loopvar_scope.clone());
+                    let indices: Vec<_> = next
+                        .into_inner()
+                        .map(|expr| handle_expression(&mut loopvar_ctx, expr, Some(&Type::Integer)))
+                        .collect::<Result<_, _>>()
+                        .map_err(ParseImportsOracleSigError::IndexParseError)?;
+                    multi_inst_idx.extend_from_slice(&indices);
                     inner.next();
                 }
                 Rule::fn_maybe_arglist => {
@@ -459,7 +1115,7 @@ pub fn handle_oracle_imports_oracle_sig(
             }
         }
 
-        (multi_inst_idx, arglist)
+        (MultiInstanceIndices::new(multi_inst_idx), arglist)
     };
 
     let maybe_tipe = inner.next();
@@ -468,15 +1124,15 @@ pub fn handle_oracle_imports_oracle_sig(
         Some(t) => handle_type(t),
     };
 
-    OracleSig {
+    Ok(OracleSig {
         name: name.to_string(),
         tipe,
         args,
         multi_inst_idx,
-    }
+    })
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ForComp {
     Lt,
     Lte,
@@ -498,103 +1154,30 @@ impl std::fmt::Display for ForCompError {
 impl std::error::Error for ForCompError {}
 
 impl crate::error::LocationError for ParseImportOraclesError {
-    fn file_pos<'a>(&'a self) -> &'a FilePosition {
+    fn file_pos(&self) -> &FilePosition {
         match self {
             ParseImportOraclesError::IdentifierMismatch(_, _, file_pos)
+            | ParseImportOraclesError::ParseImportOracleSig(_, file_pos)
+            | ParseImportOraclesError::ParseStartExpression(_, file_pos)
+            | ParseImportOraclesError::ParseEndExpression(_, file_pos)
             | ParseImportOraclesError::InvalidStartComparison(_, file_pos)
             | ParseImportOraclesError::InvalidEndComparison(_, file_pos) => file_pos,
+            ParseImportOraclesError::DeclareError(_, file_pos) => file_pos,
         }
     }
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MultiInstanceIndices {
     pub(crate) indices: Vec<Expression>,
-    pub(crate) forspecs: Vec<ForSpec>,
 }
-
 impl MultiInstanceIndices {
-    pub(crate) fn new(indices: Vec<Expression>, forspecs: Vec<ForSpec>) -> Self {
-        Self { indices, forspecs }
+    pub(crate) fn new(indices: Vec<Expression>) -> Self {
+        Self { indices }
     }
 
-    pub(crate) fn from_strings(indices: &[String], forspecs: Vec<ForSpec>) -> Self {
-        MultiInstanceIndices {
-            indices: indices
-                .iter()
-                .cloned()
-                .map(Identifier::Scalar)
-                .map(Expression::Identifier)
-                .collect(),
-            forspecs,
-        }
-    }
-    pub(crate) fn from_strs(indices: &[&str], forspecs: Vec<ForSpec>) -> Self {
-        MultiInstanceIndices {
-            indices: indices
-                .iter()
-                .cloned()
-                .map(str::to_string)
-                .map(Identifier::Scalar)
-                .map(Expression::Identifier)
-                .collect(),
-            forspecs,
-        }
-    }
-}
-
-impl PartialEq for MultiInstanceIndices {
-    fn eq(&self, other: &Self) -> bool {
-        if self.indices.len() != other.indices.len() {
-            return false;
-        }
-
-        let left_resolver = SliceResolver(&self.forspecs);
-        let right_resolver = SliceResolver(&other.forspecs);
-
-        let left = self.indices.iter();
-        let right = other.indices.iter();
-
-        for (i, (left, right)) in left.zip(right).enumerate() {
-            match (left, right) {
-                (Expression::IntegerLiteral(left), Expression::IntegerLiteral(right)) => {
-                    if left != right {
-                        return false;
-                    }
-                }
-                (Expression::Identifier(left), Expression::Identifier(right)) => {
-                    let left = left_resolver
-                        .resolve_value(left.ident_ref())
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "invalid input: index #{i} is not specified in {indices:?}",
-                                i = i,
-                                indices = self
-                            )
-                        });
-
-                    let right = right_resolver
-                        .resolve_value(right.ident_ref())
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "invalid input: index #{i} is not specified in {indices:?}",
-                                i = i,
-                                indices = other
-                            )
-                        });
-                    if left.start != right.start
-                        || left.end != right.end
-                        || left.start_comp != right.end_comp
-                        || left.end_comp != right.end_comp
-                    {
-                        return false;
-                    }
-                }
-                _ => return false,
-            }
-        }
-
-        true
+    pub(crate) fn empty() -> Self {
+        Self { indices: vec![] }
     }
 }
 
@@ -627,10 +1210,7 @@ impl MultiInstanceIndicesGroup {
         })
         .into();
 
-        let and_terms = assumptions
-            .into_iter()
-            .chain(vec![neg_claim].into_iter())
-            .collect();
+        let and_terms = assumptions.into_iter().chain(vec![neg_claim]).collect();
 
         let assert = SmtAssert(SmtAnd(and_terms));
 
@@ -672,148 +1252,62 @@ impl MultiInstanceIndices {
     /// returns smt code that checks whether a variable with name `varname` is in the range.
     /// currently only works for one-dimensional indices and panics for higher dimensions.
     pub(crate) fn smt_range_predicate(&self, varname: &str) -> SmtExpr {
-        let resolver = SliceResolver(&self.forspecs);
         //assert!(self.indices.len() == 1);
-        for index in &self.indices {
-            let does_match: SmtExpr = match index {
-                Expression::IntegerLiteral(index) => SmtEq2 {
-                    lhs: *index,
-                    rhs: varname,
-                }
-                .into(),
-                Expression::Identifier(Identifier::Scalar(var))
-                | Expression::Identifier(Identifier::ComposeLoopVar(ComposeLoopVar {
-                    name_in_comp: var,
-                    ..
-                })) => {
-                    let forspec = resolver.resolve_value(var).unwrap();
-                    SmtAnd(vec![
-                        SmtLte(forspec.start.clone(), varname).into(),
-                        SmtLt(varname, forspec.end.clone()).into(),
-                    ])
-                    .into()
-                }
-                Expression::Identifier(Identifier::Parameter(pkg_const)) => SmtEq2 {
-                    lhs: pkg_const.name_in_comp.clone(),
-                    rhs: varname,
-                }
-                .into(),
-                _ => unreachable!(),
-            };
+        match &self.indices[0] {
+            Expression::IntegerLiteral(index) => SmtEq2 {
+                lhs: *index,
+                rhs: varname,
+            }
+            .into(),
+            // I don't think we need to check totality for imports inside the package's import
+            // block, so we don't need to handle ImportsLoopVar.
+            // Expression::Identifier(Identifier::PackageIdentifier(
+            // PackageIdentifier::ImportsLoopVar(loopvar),
+            // )) => {
+            // let start_comp: SmtExpr = match loopvar.start_comp {
+            // ForComp::Lt => SmtLt((*loopvar.start).clone(), varname).into(),
+            // ForComp::Lte => SmtLte((*loopvar.start).clone(), varname).into(),
+            // };
+            //
+            // let end_comp: SmtExpr = match loopvar.end_comp {
+            // ForComp::Lt => SmtLt(varname, (*loopvar.end).clone()).into(),
+            // ForComp::Lte => SmtLte(varname, (*loopvar.end).clone()).into(),
+            // };
+            //
+            // SmtAnd(vec![start_comp, end_comp]).into()
+            // }
+            Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(
+                game_const_ident,
+            ))) => SmtEq2 {
+                lhs: &game_const_ident.name,
+                rhs: varname,
+            }
+            .into(),
+            Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::LoopVar(
+                game_loop_var,
+            ))) => {
+                let lower_comp: SmtExpr = match game_loop_var.start_comp {
+                    ForComp::Lt => SmtLt((*game_loop_var.start).clone(), varname).into(),
+                    ForComp::Lte => SmtLte((*game_loop_var.start).clone(), varname).into(),
+                };
 
-            return does_match;
+                let upper_comp: SmtExpr = match game_loop_var.end_comp {
+                    ForComp::Lt => SmtLt((*game_loop_var.end).clone(), varname).into(),
+                    ForComp::Lte => SmtLte((*game_loop_var.end).clone(), varname).into(),
+                };
+
+                SmtAnd(vec![lower_comp, upper_comp]).into()
+            }
+            Expression::Identifier(Identifier::Parameter(pkg_const)) => SmtEq2 {
+                lhs: pkg_const.name_in_comp.clone(),
+                rhs: varname,
+            }
+            .into(),
+            other => unreachable!(
+                "in smt_range_predicate, found unhandled expression variant {expr:?}",
+                expr = other
+            ),
         }
-
-        unreachable!()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        expressions::Expression,
-        identifier::{GameInstanceConst, Identifier, PackageConst},
-    };
-
-    use super::{ForComp, ForSpec, MultiInstanceIndices};
-
-    #[test]
-    fn multi_instance_indices_equality() {
-        let ident_loop_left = Identifier::Local("left_idx".to_string());
-        let ident_loop_right = Identifier::Local("right_idx".to_string());
-        let ident_end = Identifier::GameInstanceConst(GameInstanceConst {
-            game_inst_name: "the_game_inst".to_string(),
-            name_in_comp: "n".to_string(),
-            name_in_proof: "n".to_string(),
-        });
-
-        let lit_0 = Expression::IntegerLiteral(0);
-        let lit_1 = Expression::IntegerLiteral(1);
-
-        let left = MultiInstanceIndices::new(
-            vec![Expression::Identifier(ident_loop_left.clone())],
-            vec![ForSpec {
-                ident: ident_loop_left.clone(),
-                start: lit_0.clone(),
-                end: Expression::Identifier(ident_end.clone()),
-                start_comp: ForComp::Lte,
-                end_comp: ForComp::Lte,
-            }],
-        );
-
-        let right = MultiInstanceIndices::new(
-            vec![Expression::Identifier(ident_loop_right.clone())],
-            vec![ForSpec {
-                ident: ident_loop_right.clone(),
-                start: lit_0.clone(),
-                end: Expression::Identifier(ident_end.clone()),
-                start_comp: ForComp::Lte,
-                end_comp: ForComp::Lte,
-            }],
-        );
-
-        assert_eq!(left, right);
-
-        let left = MultiInstanceIndices::new(
-            vec![Expression::Identifier(ident_loop_left.clone())],
-            vec![ForSpec {
-                ident: ident_loop_left.clone(),
-                start: lit_0.clone(),
-                end: Expression::Identifier(ident_end.clone()),
-                start_comp: ForComp::Lte,
-                end_comp: ForComp::Lte,
-            }],
-        );
-
-        let right = MultiInstanceIndices::new(
-            vec![Expression::Identifier(ident_loop_right.clone())],
-            vec![ForSpec {
-                ident: ident_loop_right.clone(),
-                start: lit_1.clone(),
-                end: Expression::Identifier(ident_end.clone()),
-                start_comp: ForComp::Lte,
-                end_comp: ForComp::Lte,
-            }],
-        );
-
-        assert!(left != right);
-
-        let ident_end_left = Identifier::GameInstanceConst(GameInstanceConst {
-            game_inst_name: "the_game_inst".to_string(),
-            name_in_comp: "n".to_string(),
-            name_in_proof: "n".to_string(),
-        });
-        let ident_end_right = Identifier::Parameter(PackageConst {
-            game_inst_name: "the_game_inst".to_string(),
-            name_in_comp: "n".to_string(),
-            name_in_proof: "n".to_string(),
-            name_in_pkg: "anything".to_string(),
-            pkgname: "anything".to_string(),
-        });
-
-        let left = MultiInstanceIndices::new(
-            vec![Expression::Identifier(ident_loop_left.clone())],
-            vec![ForSpec {
-                ident: ident_loop_left.clone(),
-                start: lit_0.clone(),
-                end: Expression::Identifier(ident_end_left.clone()),
-                start_comp: ForComp::Lte,
-                end_comp: ForComp::Lte,
-            }],
-        );
-
-        let right = MultiInstanceIndices::new(
-            vec![Expression::Identifier(ident_loop_right.clone())],
-            vec![ForSpec {
-                ident: ident_loop_right.clone(),
-                start: lit_0.clone(),
-                end: Expression::Identifier(ident_end_right.clone()),
-                start_comp: ForComp::Lte,
-                end_comp: ForComp::Lte,
-            }],
-        );
-
-        assert_eq!(left, right);
     }
 }
 
@@ -898,70 +1392,75 @@ impl std::convert::TryFrom<&str> for ForComp {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error, Diagnostic)]
 pub enum ParseImportOraclesError {
+    #[error("for loop spec uses different identifiers: {0:?} != {1:?}")]
     IdentifierMismatch(String, String, FilePosition),
+    #[error("error parsing loop start expression: {0}")]
+    ParseStartExpression(ParseExpressionError, FilePosition),
+    #[error("error parsing loop end expression: {0}")]
+    ParseEndExpression(ParseExpressionError, FilePosition),
+    #[error("first loop comparison is invalid: {0}")]
     InvalidStartComparison(ForCompError, FilePosition),
+    #[error("second loop comparison is invalid: {0}")]
     InvalidEndComparison(ForCompError, FilePosition),
-}
-
-impl std::fmt::Display for ParseImportOraclesError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ParseImportOraclesError::IdentifierMismatch(fst, snd, _filepos) => {
-                write!(
-                    f,
-                    "for loop spec uses different identifiers: {fst:?} != {snd:?}"
-                )
-            }
-            ParseImportOraclesError::InvalidStartComparison(comp_err, _filepos) => {
-                write!(f, "first loop comparison is invalid: {comp_err}")
-            }
-            ParseImportOraclesError::InvalidEndComparison(comp_err, _filepos) => {
-                write!(f, "second loop comparison is invalid: {comp_err}")
-            }
-        }
-    }
-}
-
-impl std::error::Error for ParseImportOraclesError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            ParseImportOraclesError::IdentifierMismatch(_, _, _) => None,
-            ParseImportOraclesError::InvalidStartComparison(e, _)
-            | ParseImportOraclesError::InvalidEndComparison(e, _) => Some(e),
-        }
-    }
+    #[error("error parsing import oracle signature: {0}")]
+    ParseImportOracleSig(ParseImportsOracleSigError, FilePosition),
+    #[error("erroring declaring identifier: {0}")]
+    DeclareError(crate::util::scope::Error, FilePosition),
 }
 
 pub fn handle_import_oracles_body(
+    ctx: &mut PackageParseContext,
     ast: Pair<Rule>,
-    imported_oracles: &mut HashMap<String, (OracleSig, FilePosition)>,
-    pkg_name: &str,
-    file_name: &str,
-    for_stack: &Vec<ForSpec>,
+    loopvar_scope: &mut Scope,
 ) -> Result<(), ParseImportOraclesError> {
+    let pkg_name = ctx.pkg_name;
     assert_eq!(ast.as_rule(), Rule::import_oracles_body);
 
     for entry in ast.into_inner() {
         match entry.as_rule() {
             Rule::import_oracles_oracle_sig => {
-                let file_pos = FilePosition::from_span(file_name, entry.as_span());
-                let sig = handle_oracle_imports_oracle_sig(entry, for_stack);
-                imported_oracles.insert(sig.name.clone(), (sig, file_pos));
+                let span = entry.as_span();
+                let source_span = SourceSpan::from(span.start()..span.end());
+                let file_pos = FilePosition::from_span(ctx.file_name, entry.as_span());
+                let sig =
+                    handle_oracle_imports_oracle_sig(ctx, entry, loopvar_scope).map_err(|e| {
+                        ParseImportOraclesError::ParseImportOracleSig(e, file_pos.clone())
+                    })?;
+                ctx.imported_oracles
+                    .insert(sig.name.clone(), (sig.clone(), source_span));
+                ctx.scope
+                    .declare(
+                        &sig.name,
+                        Declaration::Oracle(
+                            OracleContext::Package {
+                                pkg_name: pkg_name.to_string(),
+                            },
+                            sig.clone(),
+                        ),
+                    )
+                    .map_err(|err| ParseImportOraclesError::DeclareError(err, file_pos))?;
             }
 
             Rule::import_oracles_for => {
+                let for_span = entry.as_span();
                 let mut for_ast = entry.into_inner();
 
                 let ident_ast = for_ast.next().unwrap();
                 let ident = ident_ast.as_str().to_string();
 
-                let for_start = handle_expression(for_ast.next().unwrap());
+                let for_start_ast = for_ast.next().unwrap();
+                let for_start_file_pos =
+                    FilePosition::from_span(ctx.file_name, for_start_ast.as_span());
+                let for_start = handle_expression(ctx, for_start_ast, Some(&Type::Integer))
+                    .map_err(|e| {
+                        ParseImportOraclesError::ParseStartExpression(e, for_start_file_pos)
+                    })?;
 
                 let start_comp_ast = for_ast.next().unwrap();
                 let start_comp_filepos =
-                    FilePosition::from_span(file_name, start_comp_ast.as_span());
+                    FilePosition::from_span(ctx.file_name, start_comp_ast.as_span());
                 let start_comp: ForComp = start_comp_ast.as_str().try_into().map_err(|e| {
                     ParseImportOraclesError::InvalidStartComparison(e, start_comp_filepos)
                 })?;
@@ -971,55 +1470,284 @@ pub fn handle_import_oracles_body(
                 let ident2 = ident2_ast.as_str().to_string();
 
                 let end_comp_ast = for_ast.next().unwrap();
-                let end_comp_filepos = FilePosition::from_span(file_name, end_comp_ast.as_span());
+                let end_comp_filepos =
+                    FilePosition::from_span(ctx.file_name, end_comp_ast.as_span());
                 let end_comp: ForComp = end_comp_ast.as_str().try_into().map_err(|e| {
                     ParseImportOraclesError::InvalidEndComparison(e, end_comp_filepos)
                 })?;
 
-                let end = handle_expression(for_ast.next().unwrap());
+                let for_end_ast = for_ast.next().unwrap();
+                let for_end_file_pos =
+                    FilePosition::from_span(ctx.file_name, for_end_ast.as_span());
+                let for_end =
+                    handle_expression(ctx, for_end_ast, Some(&Type::Integer)).map_err(|e| {
+                        ParseImportOraclesError::ParseEndExpression(e, for_end_file_pos)
+                    })?;
 
                 if ident != ident2 {
                     return Err(ParseImportOraclesError::IdentifierMismatch(
                         ident,
                         ident2,
-                        FilePosition::from_span(file_name, ident2_span),
+                        FilePosition::from_span(ctx.file_name, ident2_span),
                     ));
                 }
 
-                let for_spec = ForSpec {
-                    ident: Identifier::Scalar(ident),
-                    start: for_start,
-                    end,
+                let ident_data = PackageImportsLoopVarIdentifier {
+                    pkg_name: pkg_name.to_string(),
+                    name: ident.clone(),
+                    start: Box::new(for_start.clone()),
+                    end: Box::new(for_end.clone()),
                     start_comp,
                     end_comp,
+                    pkg_inst_name: None,
+                    game_name: None,
+                    game_inst_name: None,
+                    proof_name: None,
                 };
 
-                let mut new_for_stack = for_stack.clone();
-                new_for_stack.push(for_spec);
+                let identifier =
+                    Identifier::PackageIdentifier(PackageIdentifier::ImportsLoopVar(ident_data));
 
-                handle_import_oracles_body(
-                    for_ast.next().unwrap(),
-                    imported_oracles,
-                    pkg_name,
-                    file_name,
-                    &new_for_stack,
-                )?;
+                loopvar_scope.enter();
+
+                loopvar_scope
+                    .declare(&ident, Declaration::Identifier(identifier))
+                    .map_err(|e| {
+                        ParseImportOraclesError::DeclareError(
+                            e,
+                            FilePosition::from_span(ctx.file_name, for_span),
+                        )
+                    })?;
+
+                handle_import_oracles_body(ctx, for_ast.next().unwrap(), loopvar_scope)?;
+                loopvar_scope.leave();
             }
 
             _ => unreachable!(),
         }
     }
-
     Ok(())
 }
 
-pub fn handle_pkg(pkg: Pair<Rule>, file_name: &str) -> (String, Package) {
-    let mut inner = pkg.into_inner();
-    let pkg_name = inner.next().unwrap().as_str();
-    let spec = inner.next().unwrap();
-    let pkg = handle_pkg_spec(spec, pkg_name, file_name);
+pub fn handle_types_list(types: Pair<Rule>) -> Vec<(String, SourceSpan)> {
+    types
+        .into_inner()
+        .map(|entry| {
+            let span = entry.as_span();
+            (
+                entry.as_str().to_string(),
+                (span.start()..span.end()).into(),
+            )
+        })
+        .collect()
+}
 
-    (pkg_name.to_owned(), pkg)
+#[cfg(test)]
+mod tests {
+    use miette::Error;
+
+    use super::*;
+    use crate::parser::{
+        package::{handle_pkg, ParseExpressionError},
+        SspParser,
+    };
+
+    fn unwrap_parse_err<T>(res: Result<T, pest::error::Error<crate::parser::Rule>>) -> T {
+        match res {
+            Ok(v) => v,
+            Err(err) => panic!("parse error: {err}", err = err),
+        }
+    }
+
+    fn fail_parse_pkg(code: &str, name: &str) -> ParsePackageError {
+        let mut pkg_pairs = unwrap_parse_err(SspParser::parse_package(code));
+        handle_pkg(name, code, pkg_pairs.next().unwrap())
+            .expect_err("expected to fail parsing the package")
+    }
+
+    const TINY_BAD_PKG_1_CODE: &str = r#"package TinyBadPkg1 {
+            params {
+              n: Integer,
+            }
+
+            oracle N() -> String {
+              return n;
+            }
+        }"#;
+
+    const TINY_BAD_PKG_2_CODE: &str = r#"package TinyBadPkg2 {
+            oracle N() -> String {
+              return n;
+            }
+        }"#;
+
+    const TINY_BAD_PKG_3_CODE: &str = r#"package TinyBadPkg3 {
+            oracle N() -> Integer {
+              return (true + false);
+            }
+        }"#;
+
+    const TINY_BAD_PKG_4_CODE: &str = r#"package TinyBadPkg4 {
+            oracle N() -> Integer {
+              return (true + 3);
+            }
+        }"#;
+
+    const TINY_BAD_PKG_5_CODE: &str = r#"package TinyBadPkg5 {
+            oracle N() -> Integer {
+              return (3 + true);
+            }
+        }"#;
+
+    const TINY_BAD_PKG_6_CODE: &str = r#"package TinyBadPkg6 {
+            oracle N() -> Bool {
+              return (3 + 2);
+            }
+        }"#;
+
+    #[test]
+    fn wrong_return_type_fails() {
+        let err = fail_parse_pkg(TINY_BAD_PKG_1_CODE, "tiny-bad-pkg-1");
+
+        assert!(matches!(
+            err,
+            ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
+                ParseCodeError::ParseExpression(ParseExpressionError::TypeMismatch(
+                    TypeMismatchError {
+                        expected: Type::String,
+                        got: Type::Integer,
+                        ..
+                    }
+                ))
+            ))
+        ))
+    }
+
+    #[test]
+    fn missing_identifier_fails() {
+        let err = fail_parse_pkg(TINY_BAD_PKG_2_CODE, "tiny-bad-pkg-2");
+
+        assert!(matches!(
+            err,
+            ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
+                ParseCodeError::ParseExpression(ParseExpressionError::UndefinedIdentifier(
+                    UndefinedIdentifierError { ref ident_name, .. }
+                ))
+            )) if ident_name.as_str() == "n"
+
+        ));
+
+        println!("{:?}", miette::Report::new(err));
+    }
+
+    #[test]
+    fn bad_add_fails_1() {
+        let err = fail_parse_pkg(TINY_BAD_PKG_3_CODE, "tiny-bad-pkg-3");
+
+        assert!(
+            matches!(
+                err,
+                ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
+                    ParseCodeError::ParseExpression(ParseExpressionError::TypeMismatch(
+                        TypeMismatchError {
+                            expected: Type::Integer,
+                            got: Type::Boolean,
+                            ref at,
+                            ref source_code,
+                        }
+                    ))
+                )) if slice_source_span(source_code, at) == "true"
+            ),
+            "got: {:#?}",
+            err
+        );
+
+        println!("{:?}", miette::Report::new(err));
+    }
+
+    #[test]
+    fn bad_add_fails_2() {
+        let err = fail_parse_pkg(TINY_BAD_PKG_4_CODE, "tiny-bad-pkg-4");
+
+        assert!(
+            matches!(
+                err,
+                ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
+                    ParseCodeError::ParseExpression(ParseExpressionError::TypeMismatch(
+                        TypeMismatchError {
+                            expected: Type::Integer,
+                            got: Type::Boolean,
+                            ref at,
+                            ref source_code,
+                        }
+                    ))
+                )) if slice_source_span(source_code, at) == "true"
+            ),
+            "got: {:#?}",
+            err
+        );
+
+        println!("{:?}", miette::Report::new(err));
+    }
+
+    #[test]
+    fn bad_add_fails_3() {
+        let err = fail_parse_pkg(TINY_BAD_PKG_5_CODE, "tiny-bad-pkg-5");
+
+        assert!(
+            matches!(
+                err,
+                ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
+                    ParseCodeError::ParseExpression(ParseExpressionError::TypeMismatch(
+                        TypeMismatchError {
+                            expected: Type::Integer,
+                            got: Type::Boolean,
+                            ref at,
+                            ref source_code,
+                        }
+                    ))
+                ))
+                    if slice_source_span(source_code, at) == "true"
+            ),
+            "got: {:#?}",
+            err
+        );
+
+        println!("{:?}", miette::Report::new(err));
+    }
+    #[test]
+    fn bad_add_fails_4() {
+        let err = fail_parse_pkg(TINY_BAD_PKG_6_CODE, "tiny-bad-pkg-6");
+
+        assert!(
+            matches!(
+                err,
+                ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
+                    ParseCodeError::ParseExpression(ParseExpressionError::TypeMismatch(
+                        TypeMismatchError {
+                            expected: Type::Boolean,
+                            got: Type::Integer,
+                            ref at,
+                            ref source_code,
+                        },
+                    )),
+                ))
+                    if slice_source_span(source_code, at) == "(3 + 2)"
+            ),
+            "got: {:#?}",
+            err
+        );
+
+        println!("{:?}", miette::Report::new(err));
+    }
+
+    fn slice_source_span<'a>(source: &'a NamedSource<String>, span: &'a SourceSpan) -> &'a str {
+        let out = &source.inner().as_str()[span.offset()..(span.offset() + span.len())];
+
+        println!("slice result: `{out}`");
+
+        out
+    }
 }
 
 #[cfg(test)]
@@ -1028,26 +1756,50 @@ mod tests2 {
 
     use crate::{
         expressions::Expression,
-        identifier::Identifier,
-        parser::{
-            common::handle_expression,
-            package::{ForComp, ForSpec},
-            Rule, SspParser,
-        },
+        identifier::{pkg_ident::PackageIdentifier, Identifier},
+        parser::{common::handle_expression, package::ForComp, Rule, SspParser},
+        types::Type,
+        util::scope::Scope,
         writers::smt::exprs::{SmtLt, SmtLte},
     };
 
     use super::{MultiInstanceIndices, MultiInstanceIndicesGroup};
 
     #[test]
+    #[ignore]
     fn example_smt_stuff() {
-        let parse_expr = |text: &str| {
+        let pkg_name = || "Foo".to_string();
+        let mut scope = Scope::new();
+        scope.enter();
+        scope
+            .declare(
+                "n",
+                crate::util::scope::Declaration::Identifier(Identifier::PackageIdentifier(
+                    crate::identifier::pkg_ident::PackageIdentifier::Const(
+                        crate::identifier::pkg_ident::PackageConstIdentifier {
+                            pkg_name: pkg_name(),
+                            name: "n".to_string(),
+                            tipe: Type::Integer,
+                            game_assignment: None,
+                            pkg_inst_name: None,
+                            game_name: None,
+                            game_inst_name: None,
+                            proof_name: None,
+                        },
+                    ),
+                )),
+            )
+            .unwrap();
+
+        let mut parse_expr = |text: &str| {
             handle_expression(
                 SspParser::parse(Rule::expression, text)
                     .unwrap()
                     .next()
                     .unwrap(),
+                &mut scope,
             )
+            .unwrap()
         };
 
         let end = parse_expr("(n - 1)").map(|expr| match expr {
@@ -1057,16 +1809,24 @@ mod tests2 {
             x => x,
         });
 
-        let indices_group = MultiInstanceIndicesGroup(vec![MultiInstanceIndices::from_strs(
-            &["i"],
-            vec![ForSpec {
-                ident: Identifier::Scalar("i".to_string()),
-                start: parse_expr("0"),
-                end,
-                start_comp: ForComp::Lte,
-                end_comp: ForComp::Lt,
-            }],
-        )]);
+        let indices_group = MultiInstanceIndicesGroup(vec![MultiInstanceIndices::new(vec![
+            Expression::Identifier(Identifier::PackageIdentifier(
+                PackageIdentifier::ImportsLoopVar(
+                    crate::identifier::pkg_ident::PackageImportsLoopVarIdentifier {
+                        pkg_name: pkg_name(),
+                        name: "i".to_string(),
+                        start: Box::new(parse_expr("0")),
+                        end: Box::new(end),
+                        start_comp: ForComp::Lte,
+                        end_comp: ForComp::Lt,
+                        pkg_inst_name: todo!(),
+                        game_name: todo!(),
+                        game_inst_name: None,
+                        proof_name: None,
+                    },
+                ),
+            )),
+        ])]);
 
         let smt = indices_group.smt_check_total(
             vec![SmtLte(0, "x").into(), SmtLt("x", "n").into()],

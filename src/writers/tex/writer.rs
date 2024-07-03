@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::expressions::Expression;
 use crate::identifier::Identifier;
-use crate::package::{Composition, Edge, OracleDef, PackageInstance, Export};
+use crate::package::{Composition, Edge, Export, OracleDef, PackageInstance};
 use crate::statement::{CodeBlock, Statement};
 
 /// TODO: Move to struct so we can have verbose versions (e.g. writing types to expressions)
@@ -341,16 +341,13 @@ pub fn tex_write_composition(
     writeln!(
         file,
         "\\node[package] (nodea) at ({}, {}) {{$A$}};",
-        tikzx,
-        tikzy
+        tikzx, tikzy
     );
     for Export(to, oracle) in &composition.exports {
         writeln!(file, "\\draw[-latex,rounded corners] (nodea) -- ($(nodea.east) + (1,0)$) |- node[onarrow] {{\\O{{{}}}}} (node{});", oracle.name, to)?;
-
     }
     writeln!(file, "\\end{{tikzpicture}}")?;
 
-    
     for pkg in &composition.pkgs {
         let pkgfname = tex_write_package(pkg, target)?;
         writeln!(file, "\\input{{{}}}", pkgfname)?;

@@ -129,11 +129,16 @@ pub fn returnify(
         Some(Statement::Return(_, _)) | Some(Statement::Abort(_)) => Ok(cb.clone()),
         Some(other) => {
             if !none_ok {
-                Err(Error::MissingReturn {
-                    file_pos: other.file_pos().clone(),
-                    oracle_name: oracle_name.to_string(),
-                    pkg_inst_name: pkg_inst_name.to_string(),
-                })
+                panic!(
+                    r#"
+                Err(Error::MissingReturn {{
+                    file_pos: other.file_pos(), # {:?}
+                    oracle_name,                # {oracle_name}
+                    pkg_inst_name,              # {pkg_inst_name}
+                }})
+                "#,
+                    other.file_pos()
+                )
             } else {
                 let mut retval = cb.0.clone();
                 retval.push(Statement::Return(None, other.file_pos().clone()));
@@ -155,6 +160,8 @@ pub fn returnify(
 ///     adds_if_return_with_branches, adds_else_return_with_branches
 #[cfg(test)]
 mod test {
+    use miette::SourceSpan;
+
     use super::returnify;
     use crate::block;
     use crate::expressions::Expression;
@@ -164,7 +171,7 @@ mod test {
 
     #[test]
     fn preserves_return_none() {
-        let file_pos = FilePosition::new("test_file.ssp".to_string(), 0, 1);
+        let file_pos: SourceSpan = (0..1).into();
         let code = block! {
             Statement::Sample(Identifier::new_scalar("d"), None, None, Type::Integer, file_pos.clone()),
             Statement::Return(None, file_pos)
@@ -177,7 +184,7 @@ mod test {
 
     #[test]
     fn preserves_return_some() {
-        let file_pos = FilePosition::new("test_file.ssp".to_string(), 0, 1);
+        let file_pos: SourceSpan = (0..1).into();
         let code = block! {
             Statement::Sample(Identifier::new_scalar("d"), None, None, Type::Integer, file_pos.clone()),
             Statement::Return(Some(Expression::IntegerLiteral(5)), file_pos.clone())
@@ -190,7 +197,7 @@ mod test {
 
     #[test]
     fn preserves_abort() {
-        let file_pos = FilePosition::new("test_file.ssp".to_string(), 0, 1);
+        let file_pos: SourceSpan = (0..1).into();
         let code = block! {
             Statement::Sample(Identifier::new_scalar("d"), None, None, Type::Integer, file_pos.clone()),
             Statement::Abort(file_pos)
@@ -203,7 +210,7 @@ mod test {
 
     #[test]
     fn adds_return() {
-        let file_pos = FilePosition::new("test_file.ssp".to_string(), 0, 1);
+        let file_pos: SourceSpan = (0..1).into();
         let before = block! {
             Statement::Sample(Identifier::new_scalar("d"), None, None, Type::Integer, file_pos.clone())
         };
@@ -223,7 +230,7 @@ mod test {
 
     #[test]
     fn adds_if_return_with_branches() {
-        let file_pos = FilePosition::new("test_file.ssp".to_string(), 0, 1);
+        let file_pos: SourceSpan = (0..1).into();
         let before = block! {
             Statement::IfThenElse(
                 Expression::new_equals(vec![&(Identifier::new_scalar("a").to_expression()),
@@ -261,7 +268,7 @@ mod test {
 
     #[test]
     fn adds_else_return_with_branches() {
-        let file_pos = FilePosition::new("test_file.ssp".to_string(), 0, 1);
+        let file_pos: SourceSpan = (0..1).into();
         let before = block! {
             Statement::IfThenElse(
                 Expression::new_equals(vec![&(Identifier::new_scalar("a").to_expression()),

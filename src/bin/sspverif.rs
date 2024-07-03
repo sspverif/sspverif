@@ -186,11 +186,11 @@ fn latex() -> Result<()> {
 }
 
 fn wire_check(game_name: &str, dst_idx: usize) -> Result<()> {
-    project::Project::load()?.print_wire_check_smt(&game_name, dst_idx);
+    project::Project::load()?.print_wire_check_smt(game_name, dst_idx);
     Ok(())
 }
 
-fn main() {
+fn main() -> miette::Result<()> {
     let cli = Cli::parse();
 
     let result = match &cli.command {
@@ -200,8 +200,9 @@ fn main() {
         Commands::WireCheck(args) => wire_check(&args.game_name, args.dst_idx),
     };
 
-    match result {
-        Ok(_) => println!("success!"),
-        Err(err) => println!("error: {err}"),
-    }
+    println!("{result:#?}");
+
+    result?;
+
+    Ok(())
 }

@@ -1,6 +1,8 @@
 use std::fmt::{self, Display};
 use std::io::ErrorKind;
 
+use miette::SourceSpan;
+
 use crate::expressions::Expression;
 use crate::identifier::Identifier;
 use crate::statement::FilePosition;
@@ -9,6 +11,7 @@ use crate::types::Type;
 #[derive(Debug, Clone)]
 pub enum ErrorLocation {
     FilePosition(FilePosition),
+    SourceSpan(SourceSpan),
     Unknown,
 }
 
@@ -49,8 +52,8 @@ pub enum TypeCheckError {
 }
 
 impl TypeCheckError {
-    pub fn new_scope_error(err: ScopeError, file_pos: &FilePosition) -> Self {
-        Self::Scope(ErrorLocation::FilePosition(file_pos.clone()), err)
+    pub fn new_scope_error(err: ScopeError, file_pos: &SourceSpan) -> Self {
+        Self::Scope(ErrorLocation::SourceSpan(file_pos.clone()), err)
     }
 }
 

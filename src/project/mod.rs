@@ -11,13 +11,13 @@ use std::{collections::HashMap, path::PathBuf};
 
 use error::Result;
 
-use crate::transforms::typecheck::wire_proofs;
+//use crate::transforms::typecheck::wire_proofs;
 use crate::{
     gamehops::{equivalence, reduction},
     package::{Composition, Package},
     proof::{GameHop, Proof},
     transforms::{
-        typecheck::{typecheck_pkg, Scope},
+        typecheck::{typecheck_pkg, Scope as TypeCheckScope},
         Transformation,
     },
     util::prover_process::ProverBackend,
@@ -58,7 +58,7 @@ impl Project {
 
         for pkg_name in pkg_names.into_iter() {
             let pkg = &packages[pkg_name];
-            let mut scope = Scope::new();
+            let mut scope = TypeCheckScope::new();
             typecheck_pkg(pkg, &mut scope)?;
         }
 
@@ -279,9 +279,9 @@ impl Project {
 
     pub fn print_wire_check_smt(&self, game_name: &str, dst_idx: usize) {
         let game = self.get_game(game_name).unwrap();
-        for command in wire_proofs::build_smt(&game, dst_idx) {
-            println!("{}", command);
-        }
+        // for command in wire_proofs::build_smt(&game, dst_idx) {
+        //     println!("{}", command);
+        // }
     }
 }
 

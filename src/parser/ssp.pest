@@ -65,11 +65,11 @@ game_for_spec_list = { game_for* ~ ( instance_decl+ | compose_decl_multi_inst )?
 
 const_decl = { kw_const ~ identifier ~ ":" ~ tipe ~ ";" }
 
-instance_decl_multi_inst = { kw_instance ~ identifier ~ "[" ~ index_id_list ~ "]" ~ "=" ~ identifier ~ "{" ~ instance_assign_list? ~ "}"}
+instance_decl_multi_inst = { kw_instance ~ identifier ~ indices_expr ~ "=" ~ identifier ~ "{" ~ instance_assign_list? ~ "}"}
 index_id_list = _{ identifier ~ ("," ~ identifier)* }
 index_expr_list = _{ expression ~ ("," ~ expression)* }
 
-instance_decl = { kw_instance ~ identifier ~ ("[" ~ index_id_list ~ "]")? ~ "=" ~ identifier ~ "{" ~ instance_assign_list? ~ "}"}
+instance_decl            = { kw_instance ~ identifier ~ (indices_expr)? ~ "=" ~ identifier ~ "{" ~ instance_assign_list? ~ "}"}
 instance_assign_list = { ( instance_assign )* }
 instance_assign = _{ params_def | types_def }
 

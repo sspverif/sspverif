@@ -202,7 +202,7 @@ impl<W: Write> FmtWriter<W> {
                 self.write_expression(idx)?;
                 self.write_string("]")?;
             }
-            Expression::EmptyTable => {
+            Expression::EmptyTable(_) => {
                 self.write_string("new Table()")?;
             }
 

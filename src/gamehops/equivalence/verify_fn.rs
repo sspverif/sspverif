@@ -5,12 +5,17 @@ use crate::{
     gamehops::equivalence::error::{self, Error, Result},
     proof::{Equivalence, Proof},
     transforms::{proof_transforms::EquivalenceTransform, ProofTransform},
-    util::prover_process::{Communicator, ProverResponse, ProverBackend},
+    util::prover_process::{Communicator, ProverBackend, ProverResponse},
 };
 
 use super::EquivalenceContext;
 
-pub fn verify(eq: &Equivalence, proof: &Proof, backend: ProverBackend, transcript_file: Option<File>) -> Result<()> {
+pub fn verify(
+    eq: &Equivalence,
+    proof: &Proof,
+    backend: ProverBackend,
+    transcript_file: Option<File>,
+) -> Result<()> {
     let (proof, auxs) = EquivalenceTransform
         .transform_proof(proof)
         .map_err(error::new_proof_transform_error)?;

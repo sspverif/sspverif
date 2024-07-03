@@ -1,3 +1,4 @@
+use miette::SourceSpan;
 use pest::Span;
 
 use crate::expressions::Expression;
@@ -9,17 +10,17 @@ pub struct CodeBlock(pub Vec<Statement>);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Statement {
-    Abort(FilePosition),
-    Return(Option<Expression>, FilePosition),
-    Assign(Identifier, Option<Expression>, Expression, FilePosition),
-    Parse(Vec<Identifier>, Expression, FilePosition),
-    IfThenElse(Expression, CodeBlock, CodeBlock, FilePosition),
+    Abort(SourceSpan),
+    Return(Option<Expression>, SourceSpan),
+    Assign(Identifier, Option<Expression>, Expression, SourceSpan),
+    Parse(Vec<Identifier>, Expression, SourceSpan),
+    IfThenElse(Expression, CodeBlock, CodeBlock, SourceSpan),
     Sample(
         Identifier,
         Option<Expression>,
         Option<usize>,
         Type,
-        FilePosition,
+        SourceSpan,
     ),
     InvokeOracle {
         id: Identifier,
@@ -29,13 +30,13 @@ pub enum Statement {
         args: Vec<Expression>,
         target_inst_name: Option<String>,
         tipe: Option<Type>,
-        file_pos: FilePosition,
+        file_pos: SourceSpan,
     },
-    For(Identifier, Expression, Expression, CodeBlock, FilePosition),
+    For(Identifier, Expression, Expression, CodeBlock, SourceSpan),
 }
 
 impl Statement {
-    pub fn file_pos(&self) -> &FilePosition {
+    pub fn file_pos(&self) -> &SourceSpan {
         match self {
             Statement::Abort(file_pos)
             | Statement::Return(_, file_pos)

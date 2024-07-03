@@ -33,7 +33,7 @@ impl std::hash::Hash for IgnoreArgNameOracleSig {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.name.hash(state);
         self.0.tipe.hash(state);
-        self.0.multi_inst_idx.hash(state);
+        //self.0.multi_inst_idx.hash(state);
         state.write_usize(self.0.args.len());
 
         for (_, arg_type) in &self.0.args {
@@ -141,15 +141,17 @@ pub fn typecheck_comp(
         .iter()
         .map(|mi_edge| {
             (
-                (mi_edge.dest_pkgidx, mi_edge.oracle_sig.name.as_str()),
-                mi_edge,
+                (mi_edge.dest_pkgidx, mi_edge.oracle_sig.name.as_str()), // key
+                mi_edge,                                                 // edge
             )
         })
         .fold(
             HashMap::<(usize, &str), Vec<_>>::new(),
             |mut map, (key, mi_edge)| {
-                if let Some(indices) = mi_edge.oracle_sig.multi_inst_idx.clone() {
-                    map.entry(key).or_insert(vec![]).push(indices.clone());
+                if !mi_edge.oracle_sig.multi_inst_idx.indices.is_empty() {
+                    map.entry(key)
+                        .or_insert(vec![])
+                        .push(mi_edge.oracle_sig.multi_inst_idx.clone());
                 }
                 map
             },
@@ -172,7 +174,7 @@ pub fn typecheck_comp(
     for (k, indices) in multi_inst_edges_map.into_iter() {
         let varname = "___foooo___-__-__nla";
         let pkg_inst = &pkgs[k.0];
-        let multi_instance_indices = pkg_inst.multi_instance_indices.clone().unwrap();
+        let multi_instance_indices = &pkg_inst.multi_instance_indices;
         let assumptions = multi_instance_indices.smt_range_predicate(varname);
 
         let group = MultiInstanceIndicesGroup::new(indices);
@@ -340,8 +342,10 @@ pub fn typecheck_comp(
         .fold(
             HashMap::<(usize, &str), Vec<_>>::new(),
             |mut map, (key, mi_edge)| {
-                if let Some(indices) = mi_edge.oracle_sig.multi_inst_idx.clone() {
-                    map.entry(key).or_insert(vec![]).push(indices.clone());
+                if !mi_edge.oracle_sig.multi_inst_idx.indices.is_empty() {
+                    map.entry(key)
+                        .or_insert(vec![])
+                        .push(mi_edge.oracle_sig.multi_inst_idx.clone());
                 }
                 map
             },
@@ -364,7 +368,7 @@ pub fn typecheck_comp(
     for (k, indices) in multi_inst_edges_map.into_iter() {
         let varname = "___foooo___-__-__nla";
         let pkg_inst = &pkgs[k.0];
-        let multi_instance_indices = pkg_inst.multi_instance_indices.clone().unwrap();
+        let multi_instance_indices = &pkg_inst.multi_instance_indices;
         let assumptions = multi_instance_indices.smt_range_predicate(varname);
 
         let group = MultiInstanceIndicesGroup::new(indices);

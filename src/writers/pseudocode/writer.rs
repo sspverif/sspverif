@@ -38,6 +38,9 @@ impl<W: Write> Writer<W> {
             }
             Identifier::ComposeLoopVar(_) => todo!(),
             Identifier::GameInstanceConst(_) => todo!(),
+            Identifier::PackageIdentifier(_) => todo!(),
+            Identifier::GameIdentifier(_) => todo!(),
+            Identifier::ProofIdentifier(_) => todo!(),
         }
 
         Ok(())
@@ -81,27 +84,25 @@ impl<W: Write> Writer<W> {
 
     pub fn write_expression(&mut self, expr: &Expression) -> Result {
         match expr {
-            Expression::Typed(t, bexp) => {
-                let expr = &**bexp;
-                match expr {
-                    Expression::EmptyTable => {
-                        let (t_k, t_v) = if let Type::Table(t_k, t_v) = t {
-                            (*t_k.clone(), *t_v.clone())
-                        } else {
-                            panic!("found table with non-table type {:?}", t);
-                        };
-                        self.write_string("new Table(")?;
-                        self.write_type(&t_k)?;
-                        self.write_string(", ")?;
-                        self.write_type(&t_v)?;
-                        self.write_string(")")?;
-                    }
-                    _ => self.write_expression(&expr)?,
-                }
+            Expression::Typed(t, _) => {
                 self.write_string(" /* of type ")?;
                 self.write_type(t)?;
                 self.write_string(" */ ")?;
             }
+            Expression::EmptyTable(t @ Type::Table(t_k, t_v)) => {
+                self.write_string("new Table(")?;
+                self.write_type(&t_k)?;
+                self.write_string(", ")?;
+                self.write_type(&t_v)?;
+                self.write_string(")")?;
+                self.write_string(" /* of type ")?;
+                self.write_type(t)?;
+                self.write_string(" */ ")?;
+            }
+            Expression::EmptyTable(invalid_type) => {
+                panic!("invalid type in EmptyTable expression: {invalid_type}");
+            }
+
             Expression::BooleanLiteral(x) => {
                 self.write_string(x)?;
             }

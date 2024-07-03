@@ -59,13 +59,13 @@ pub fn tableinitialize(cb: &CodeBlock, initialized: &Vec<String>) -> Result<Code
                 let indextype = match idxexpr {
                     Expression::Typed(t, _) => t,
                     _ => unreachable!(
-                        "all expressions are expected to be typed at this point! ({})",
+                        "all expressions are expected to be typed at this point! ({:?})",
                         file_pos
                     ),
                 };
                 let valuetype = match expr {
                     Expression::Typed(Type::Maybe(t), _) => &**t,
-                    _ => unreachable!("all expressions are expected to be typed at this point, and the value needs to be a maybe type! ({})", file_pos),
+                    _ => unreachable!("all expressions are expected to be typed at this point, and the value needs to be a maybe type! ({:?})", file_pos),
                 };
                 let tabletype =
                     Type::Table(Box::new(indextype.clone()), Box::new(valuetype.clone()));
@@ -75,7 +75,7 @@ pub fn tableinitialize(cb: &CodeBlock, initialized: &Vec<String>) -> Result<Code
                     newcode.push(Statement::Assign(
                         Identifier::Local(id.clone()),
                         None,
-                        Expression::Typed(tabletype, Box::new(Expression::EmptyTable)),
+                        Expression::EmptyTable(tabletype),
                         file_pos.clone(),
                     ))
                 }
@@ -92,7 +92,7 @@ pub fn tableinitialize(cb: &CodeBlock, initialized: &Vec<String>) -> Result<Code
                     Expression::Typed(t, _) => t,
                     _ => {
                         unreachable!(
-                            "all expressions are expected to be typed at this point! ({})",
+                            "all expressions are expected to be typed at this point! ({:?})",
                             file_pos
                         )
                     }
@@ -104,7 +104,7 @@ pub fn tableinitialize(cb: &CodeBlock, initialized: &Vec<String>) -> Result<Code
                     newcode.push(Statement::Assign(
                         Identifier::Local(id.clone()),
                         None,
-                        Expression::Typed(tabletype, Box::new(Expression::EmptyTable)),
+                        Expression::EmptyTable(tabletype),
                         file_pos.clone(),
                     ))
                 }
@@ -119,11 +119,11 @@ pub fn tableinitialize(cb: &CodeBlock, initialized: &Vec<String>) -> Result<Code
             } => {
                 let indextype = match idxexpr {
                     Expression::Typed(t, _) => t,
-                    _ => unreachable!("all expressions are typed at this point! ({})", file_pos),
+                    _ => unreachable!("all expressions are typed at this point! ({:?})", file_pos),
                 };
                 let valuetype = match opt_tipe {
                     Some(t) => t,
-                    _ => unreachable!("all expressions are typed at this point! ({})", file_pos),
+                    _ => unreachable!("all expressions are typed at this point! ({:?})", file_pos),
                 };
                 let tabletype =
                     Type::Table(Box::new(indextype.clone()), Box::new(valuetype.clone()));
@@ -133,7 +133,7 @@ pub fn tableinitialize(cb: &CodeBlock, initialized: &Vec<String>) -> Result<Code
                     newcode.push(Statement::Assign(
                         Identifier::Local(id.clone()),
                         None,
-                        Expression::Typed(tabletype, Box::new(Expression::EmptyTable)),
+                        Expression::EmptyTable(tabletype),
                         file_pos.clone(),
                     ))
                 }

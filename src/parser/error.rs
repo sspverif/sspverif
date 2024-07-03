@@ -1,13 +1,97 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
-use pest::Span;
+use miette::{Diagnostic, SourceSpan};
+use pest::{error::ErrorVariant, Span};
 use thiserror::Error;
 
 use crate::{expressions::Expression, transforms::resolvetypes, types::Type};
 
 use super::composition::ParseGameError;
 
-#[derive(Clone)]
+pub enum NewError {}
+
+#[derive(Error, Diagnostic, Debug)]
+#[error("syntax error: {variant}")]
+#[diagnostic(code(ssbee::syntax))]
+pub struct PestParseError {
+    #[label("here")]
+    pub at: SourceSpan,
+
+    variant: PestErrorVariantPrinter,
+}
+
+#[derive(Debug)]
+pub struct PestErrorVariantPrinter(ErrorVariant<super::Rule>);
+
+impl Display for PestErrorVariantPrinter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.0 {
+            ErrorVariant::ParsingError {
+                positives,
+                negatives,
+            } => {
+                writeln!(f, "(pos {positives:?}) (neg {negatives:?}) ")?;
+            }
+            ErrorVariant::CustomError { message } => write!(f, "{message}")?,
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Error, Diagnostic, Debug)]
+#[error("undefined type '{text}'")]
+#[diagnostic(code(ssbee::code::undefined_type))]
+pub struct UndefinedTypeError {
+    #[label("this type is not defined")]
+    pub at: SourceSpan,
+
+    pub text: String,
+}
+
+#[derive(Error, Diagnostic, Debug)]
+#[error("undefined identifier '{ident_name}'")]
+#[diagnostic(code(ssbee::code::undefined_identifier))]
+pub struct UndefinedIdentifierError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this identifier is not defined")]
+    pub at: SourceSpan,
+
+    pub ident_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("identifier '{ident_name}' has already been declared")]
+#[diagnostic(code(ssbee::code::identifier_already_declared))]
+pub struct IdentifierAlreadyDeclaredError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this identifier here")]
+    pub at: SourceSpan,
+
+    // TODO: would be nice to be also have a span for the original definition
+    //       this requires keeping definition location info in the scope
+    pub ident_name: String,
+}
+
+#[derive(Error, Diagnostic, Debug)]
+#[error("type mismatch: got {got:?}, expected {expected:?}")]
+#[diagnostic(code(ssbee::code::type_mismatch))]
+pub struct TypeMismatchError {
+    #[label("this expression has the wrong type")]
+    pub at: SourceSpan,
+
+    pub expected: Type,
+
+    pub got: Type,
+
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+}
+
 pub struct SpanError {
     err: Error,
     start_bytes: usize,
@@ -17,6 +101,42 @@ pub struct SpanError {
     end_line: usize,
     end_col: usize,
     source: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct OwnedSpan {
+    start_bytes: usize,
+    start_line: usize,
+    start_col: usize,
+    end_bytes: usize,
+    end_line: usize,
+    end_col: usize,
+    source: Option<String>,
+}
+
+impl OwnedSpan {
+    pub fn new_with_span(span: pest::Span) -> OwnedSpan {
+        let start_bytes = span.start();
+        let (start_line, start_col) = span.start_pos().line_col();
+        let end_bytes = span.end();
+        let (end_line, end_col) = span.end_pos().line_col();
+        Self {
+            start_bytes,
+            start_line,
+            start_col,
+            end_bytes,
+            end_line,
+            end_col,
+            source: None,
+        }
+    }
+
+    pub fn with_source(self, source: String) -> OwnedSpan {
+        OwnedSpan {
+            source: Some(source),
+            ..self
+        }
+    }
 }
 
 impl SpanError {
@@ -41,6 +161,29 @@ impl SpanError {
         SpanError {
             source: Some(source),
             ..self
+        }
+    }
+
+    pub fn new_with_owned_span(err: Error, span: OwnedSpan) -> SpanError {
+        let OwnedSpan {
+            start_bytes,
+            start_line,
+            start_col,
+            end_bytes,
+            end_line,
+            end_col,
+            source,
+        } = span;
+
+        SpanError {
+            err,
+            start_bytes,
+            start_line,
+            start_col,
+            end_bytes,
+            end_line,
+            end_col,
+            source,
         }
     }
 }
@@ -86,7 +229,7 @@ impl std::error::Error for SpanError {
     }
 }
 
-#[derive(Clone, Debug, Error)]
+#[derive(Debug, Error)]
 pub enum Error {
     #[error("looks like composition {game_name} doesn't have a compose block")]
     MissingComposeBlock { game_name: String },
@@ -138,11 +281,16 @@ pub enum Error {
     UndefinedGameInstance(String),
     #[error("error parsing game: {0}")]
     ParseGameError(#[from] ParseGameError),
+    #[error("scope error: {0}")]
+    ScopeError(#[from] crate::util::scope::Error),
 }
 
 impl Error {
     pub fn with_span<'span>(self, span: Span<'span>) -> SpanError {
         SpanError::new_with_span(self, span)
+    }
+    pub fn with_owned_span<'span>(self, span: OwnedSpan) -> SpanError {
+        SpanError::new_with_owned_span(self, span)
     }
 }
 

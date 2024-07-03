@@ -1,7 +1,10 @@
 [package]
 name = "sspverif"
 version = "0.1.0"
-authors = ["Jan Winkelmann (keks) <git@keks.cool>", "Christoph Egger <christoph.egger@alumni.fau.de>"]
+authors = [
+  "Jan Winkelmann (keks) <git@keks.cool>",
+  "Christoph Egger <christoph.egger@alumni.fau.de>",
+]
 edition = "2018"
 
 [profile.release]
@@ -10,19 +13,19 @@ debug = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1.0.30"
+thiserror = "1.0.61"
 pest = "2.1"
 pest_derive = "2.1"
 clap = { version = "4.0", features = ["derive"] }
 serde = "1.0.137"
 serde_derive = "1.0.137"
 toml = "0.5.9"
-subprocess = "0.2.9"
-toml_edit = {version = "0.14.4", features = [ "easy"] }
+subprocess = "0.2"
+toml_edit = { version = "0.14.4", features = ["easy"] }
 expectrl = "0.5.2"
 itertools = "0.10"
+miette = { version = "7.2.0", features = ["fancy"] }
 
 [lib]
 name = "sspverif"
 path = "src/lib.rs"
-

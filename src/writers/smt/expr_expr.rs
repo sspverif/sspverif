@@ -1,6 +1,12 @@
 use super::exprs::SmtExpr;
-use super::patterns::{GlobalStatePattern, SelfStatePattern};
+use super::patterns::{
+    DatastructurePattern, GlobalStatePattern, PackageStatePattern, PackageStateSelector,
+    SelfStatePattern,
+};
 use crate::expressions::Expression;
+use crate::identifier::game_ident::{GameConstIdentifier, GameIdentifier};
+use crate::identifier::pkg_ident::PackageIdentifier;
+use crate::identifier::pkg_inst_ident::{self, PackageInstanceIdentifier};
 use crate::identifier::{GameInstanceConst, Identifier, PackageConst, PackageState};
 use crate::types::Type;
 
@@ -8,7 +14,7 @@ impl From<Expression> for SmtExpr {
     fn from(expr: Expression) -> SmtExpr {
         //eprintln!("DEBUG expr->smt: {expr:?}");
         match expr {
-            Expression::Typed(t, inner) if *inner == Expression::EmptyTable => {
+            Expression::EmptyTable(t) => {
                 if let Type::Table(idxtipe, valtipe) = t {
                     (
                         (
@@ -91,6 +97,38 @@ impl From<Expression> for SmtExpr {
                 }
                 list
             }),
+            Expression::Identifier(Identifier::PackageIdentifier(PackageIdentifier::State(
+                pkg_state_ident,
+            ))) => {
+                let pattern = PackageStatePattern {
+                    game_inst_name: &pkg_state_ident.game_inst_name.unwrap(),
+                    pkg_inst_name: &pkg_state_ident.pkg_inst_name.unwrap(),
+                };
+                let selector = PackageStateSelector {
+                    name: &pkg_state_ident.name,
+                    tipe: &pkg_state_ident.tipe,
+                };
+
+                // can't use `access` because that would require the Package.
+                pattern.access_unchecked(&selector, &SelfStatePattern)
+            }
+            Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(
+                GameConstIdentifier {
+                    name,
+                    game_inst_name,
+                    ..
+                },
+            ))) => {
+                let game_inst_name = game_inst_name.unwrap();
+                (
+                    format!("composition-param-{game_inst_name}-{name}"),
+                    &GlobalStatePattern,
+                )
+                    .into()
+            }
+            Expression::Identifier(Identifier::PackageIdentifier(pkg_ident)) => {
+                pkg_ident.ident_ref().into()
+            }
             Expression::Identifier(Identifier::Scalar(identname)) => {
                 panic! {"Found a scalar {:} which should have been removed by varspecify at this point", identname}
             }
