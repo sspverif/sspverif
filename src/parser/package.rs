@@ -139,14 +139,14 @@ pub fn handle_pkg_spec(
                 let params_option_result: Option<Result<_, _>> =
                     ast.map(|params| handle_decl_list(&mut ctx, params, IdentType::Const));
 
-                transpose_option_result(params_option_result)?;
+                params_option_result.transpose()?;
             }
             Rule::state => {
                 ctx.scope.enter();
                 let ast = spec.into_inner().next();
                 let state_option_result: Option<Result<_, _>> =
                     ast.map(|state| handle_decl_list(&mut ctx, state, IdentType::State));
-                transpose_option_result(state_option_result)?;
+                state_option_result.transpose()?;
             }
             Rule::import_oracles => {
                 ctx.scope.enter();
@@ -542,13 +542,6 @@ pub fn handle_expression(
     Ok(expr)
 }
 
-fn transpose_option_result<T, E>(value: Option<Result<T, E>>) -> Result<Option<T>, E> {
-    match value {
-        Some(v) => v.map(Some),
-        None => Ok(None),
-    }
-}
-
 #[derive(Error, Debug, Diagnostic)]
 pub enum ParseCodeError {
     #[error("error parsing expression: {0}")]
@@ -687,8 +680,7 @@ pub fn handle_code(
                     let maybe_expr = inner.next();
 
 
-                    let expr = maybe_expr.map(|expr| handle_expression(ctx, expr, Some(&oracle_sig.tipe)));
-                    let expr = transpose_option_result(expr)?;
+                    let expr = maybe_expr.map(|expr| handle_expression(ctx, expr, Some(&oracle_sig.tipe))).transpose()?;
                     Statement::Return(expr, source_span)
                 }
                 Rule::assert => {
