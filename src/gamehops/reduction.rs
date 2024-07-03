@@ -137,9 +137,8 @@ pub fn verify(red: &Reduction, proof: &Proof) -> Result<()> {
         .map(|res| {
             res.map(|(from, to)| {
                 format!(
-                    "{} and {} have different types",
-                    from.as_name(),
-                    to.as_name()
+                    "{:#?} and {:#?} have different types",
+                    from.params, to.params
                 )
             })
         })
