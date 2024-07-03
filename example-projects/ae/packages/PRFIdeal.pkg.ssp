@@ -12,8 +12,8 @@ package PRFIdeal {
            y    <-$ Bits(n);
            K[h] <- Some(y);
         }
-		/* unwrapping a value of type Bits("n") that is not a maybe */
-        return h; /* should be Unwrap(K[h]); */
+
+        return Unwrap(K[h]);
     } 
 }
 

@@ -8,7 +8,7 @@ package KeyReal {
     }
 
     oracle Get(h: Bits(n)) -> Bits(n) {
-        return h; /* should be Unwrap(K[h]); */
+        return Unwrap(K[h]);
     }
     
     oracle Set(k: Bits(n), h: Bits(n))  {
