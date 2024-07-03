@@ -1,6 +1,7 @@
 use crate::{
     expressions::Expression,
     identifier::{
+        game_ident::GameConstIdentifier,
         proof_ident::{ProofConstIdentifier, ProofIdentifier::Const},
         Identifier,
     },
@@ -50,9 +51,10 @@ pub fn handle_proof<'a>(
                         proof_name: proof_name.to_string(),
                         name: const_name.clone(),
                         tipe: tipe.clone(),
+                        inst_info: None,
                     },
                 )));
-                scope.declare(&const_name, declaration);
+                scope.declare(&const_name, declaration).unwrap();
                 consts.push((const_name, tipe));
             }
             Rule::assumptions => {
@@ -111,7 +113,19 @@ fn handle_instance_decl(
         None => return Err(Error::UndefinedGame(game_name.to_string()).with_span(game_span)),
     };
 
-    let game_inst = GameInstance::new(inst_name, game.clone(), types, consts);
+    let consts_as_ident = consts
+        .iter()
+        .map(|(ident, expr)| (ident.clone().into(), expr.clone()))
+        .collect();
+
+    let game_inst = GameInstance::new(
+        &inst_name,
+        "proof name",
+        "game instance name".to_string(),
+        game.clone(),
+        types,
+        consts_as_ident,
+    );
 
     check_consts(&game_inst, span, games)?;
 
@@ -155,7 +169,7 @@ fn check_consts(game_inst: &GameInstance, span: Span, games: &[Composition]) -> 
     let mut inst_const_names: Vec<_> = game_inst
         .consts()
         .iter()
-        .map(|(name, _)| name.to_string())
+        .map(|(ident, _)| ident.ident())
         .collect();
     inst_const_names.sort();
 
@@ -175,7 +189,11 @@ fn check_consts(game_inst: &GameInstance, span: Span, games: &[Composition]) -> 
         return Err(Error::GameConstParameterMismatch {
             game_name: game.name.clone(),
             inst_name: game_inst.name().to_string(),
-            bound_params: game_inst.consts().to_vec(),
+            bound_params: game_inst
+                .consts()
+                .iter()
+                .map(|(ident, expr)| (ident.ident(), expr.clone()))
+                .collect(),
             game_params: game.consts.clone(),
         }
         .with_span(span));
@@ -190,7 +208,7 @@ fn handle_instance_assign_list(
     file_name: &str,
     proof_consts: &[(String, Type)],
     ast: Pair<Rule>,
-) -> Result<(Vec<(String, Type)>, Vec<(String, Expression)>)> {
+) -> Result<(Vec<(String, Type)>, Vec<(GameConstIdentifier, Expression)>)> {
     let ast = ast.into_inner();
 
     let mut types = vec![];
@@ -204,11 +222,19 @@ fn handle_instance_assign_list(
             }
             Rule::params_def => {
                 let ast = ast.into_inner().next().unwrap();
-                consts.extend(common::handle_proof_params_def_list(
-                    ast,
-                    proof_consts,
-                    scope,
-                )?);
+                let defs = common::handle_proof_params_def_list(ast, proof_consts, scope)?;
+
+                consts.extend(defs.into_iter().map(|(name, value)| {
+                    (
+                        GameConstIdentifier {
+                            game_name: "game name".to_string(),
+                            name,
+                            tipe: value.get_type(),
+                            inst_info: None,
+                        },
+                        value,
+                    )
+                }));
             }
             otherwise => {
                 unreachable!("unexpected {:?} at {:?}", otherwise, ast.as_span())
@@ -433,7 +459,7 @@ fn handle_mapspec<'a>(
         println!("{assumption:?}");
         return Err(Error::InvalidAssumptionMapping(format!(
             "neither of {} and {} are the assumption game name {}",
-			assumption.left_name, assumption.right_name, assumption_game_inst_name
+            assumption.left_name, assumption.right_name, assumption_game_inst_name
         ))
         .with_span(span));
     }

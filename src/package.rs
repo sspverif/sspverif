@@ -1,11 +1,10 @@
 use miette::SourceSpan;
 
-use crate::expressions::Expression;
-use crate::identifier::pkg_ident::PackageConstIdentifier;
 use crate::identifier::Identifier;
+pub use crate::packageinstance::PackageInstance;
 use crate::parser::package::MultiInstanceIndices;
 use crate::split::{SplitOracleDef, SplitOracleSig};
-use crate::statement::{CodeBlock, FilePosition};
+use crate::statement::CodeBlock;
 use crate::types::Type;
 
 use std::convert::TryFrom;
@@ -45,26 +44,6 @@ pub struct Package {
 
     pub file_name: String,
     pub file_contents: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PackageInstance {
-    pub params: Vec<(PackageConstIdentifier, Expression)>,
-    pub types: Vec<(String, Type)>,
-    pub pkg: Package,
-    pub name: String,
-    pub multi_instance_indices: MultiInstanceIndices,
-}
-
-impl PackageInstance {
-    pub fn get_oracle_sigs(&self) -> Vec<OracleSig> {
-        self.pkg
-            .oracles
-            .clone()
-            .into_iter()
-            .map(|d| d.sig)
-            .collect()
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

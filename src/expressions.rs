@@ -68,7 +68,9 @@ impl Expression {
             Expression::StringLiteral(_) => Type::String,
             Expression::BooleanLiteral(_) => Type::Boolean,
             Expression::IntegerLiteral(_) => Type::Integer,
-            Expression::Identifier(ident) => ident.get_type().unwrap(),
+            Expression::Identifier(ident) => ident.get_type().unwrap_or_else(|| {
+                panic!("we found a bad identifier!\n  {ident:#?}", ident = ident)
+            }),
             Expression::EmptyTable(t) => t.clone(),
             Expression::TableAccess(ident, _) => match ident.get_type().unwrap() {
                 Type::Table(_, value_type) => Type::Maybe(Box::new(value_type.deref().clone())),
@@ -195,7 +197,14 @@ impl Expression {
 
     pub fn map<F>(&self, f: F) -> Expression
     where
-        F: Fn(Expression) -> Expression + Copy,
+        F: Fn(Expression) -> Expression,
+    {
+        self.borrow_map(&f)
+    }
+
+    pub fn borrow_map<F>(&self, f: &F) -> Expression
+    where
+        F: Fn(Expression) -> Expression,
     {
         f(match &self {
             Expression::Bot
@@ -207,46 +216,51 @@ impl Expression {
             | Expression::BooleanLiteral(_)
             | Expression::Identifier(_) => self.clone(),
 
-            Expression::Not(expr) => Expression::Not(Box::new(expr.map(f))),
-            Expression::Some(expr) => Expression::Some(Box::new(expr.map(f))),
-            Expression::Unwrap(expr) => Expression::Unwrap(Box::new(expr.map(f))),
+            Expression::Not(expr) => Expression::Not(Box::new(expr.borrow_map(f))),
+            Expression::Some(expr) => Expression::Some(Box::new(expr.borrow_map(f))),
+            Expression::Unwrap(expr) => Expression::Unwrap(Box::new(expr.borrow_map(f))),
             Expression::TableAccess(id, expr) => {
-                Expression::TableAccess(id.clone(), Box::new(expr.map(f)))
+                Expression::TableAccess(id.clone(), Box::new(expr.borrow_map(f)))
             }
             Expression::Tuple(exprs) => {
-                Expression::Tuple(exprs.iter().map(|expr| expr.map(f)).collect())
+                Expression::Tuple(exprs.iter().map(|expr| expr.borrow_map(f)).collect())
             }
             Expression::Equals(exprs) => {
-                Expression::Equals(exprs.iter().map(|expr| expr.map(f)).collect())
+                Expression::Equals(exprs.iter().map(|expr| expr.borrow_map(f)).collect())
             }
             Expression::Xor(exprs) => {
-                Expression::Xor(exprs.iter().map(|expr| expr.map(f)).collect())
+                Expression::Xor(exprs.iter().map(|expr| expr.borrow_map(f)).collect())
             }
             Expression::And(exprs) => {
-                Expression::And(exprs.iter().map(|expr| expr.map(f)).collect())
+                Expression::And(exprs.iter().map(|expr| expr.borrow_map(f)).collect())
             }
-            Expression::Or(exprs) => Expression::Or(exprs.iter().map(|expr| expr.map(f)).collect()),
+            Expression::Or(exprs) => {
+                Expression::Or(exprs.iter().map(|expr| expr.borrow_map(f)).collect())
+            }
             Expression::Add(lhs, rhs) => {
-                Expression::Add(Box::new(lhs.map(f)), Box::new(rhs.map(f)))
+                Expression::Add(Box::new(lhs.borrow_map(f)), Box::new(rhs.borrow_map(f)))
             }
             Expression::Sub(lhs, rhs) => {
-                Expression::Sub(Box::new(lhs.map(f)), Box::new(rhs.map(f)))
+                Expression::Sub(Box::new(lhs.borrow_map(f)), Box::new(rhs.borrow_map(f)))
             }
             Expression::Mul(lhs, rhs) => {
-                Expression::Mul(Box::new(lhs.map(f)), Box::new(rhs.map(f)))
+                Expression::Mul(Box::new(lhs.borrow_map(f)), Box::new(rhs.borrow_map(f)))
             }
             Expression::Div(lhs, rhs) => {
-                Expression::Div(Box::new(lhs.map(f)), Box::new(rhs.map(f)))
+                Expression::Div(Box::new(lhs.borrow_map(f)), Box::new(rhs.borrow_map(f)))
             }
-            Expression::FnCall(name, exprs) => {
-                Expression::FnCall(name.clone(), exprs.iter().map(|expr| expr.map(f)).collect())
+            Expression::FnCall(name, exprs) => Expression::FnCall(
+                name.clone(),
+                exprs.iter().map(|expr| expr.borrow_map(f)).collect(),
+            ),
+            Expression::Typed(t, inner) => {
+                Expression::Typed(t.clone(), Box::new(inner.borrow_map(f)))
             }
-            Expression::Typed(t, inner) => Expression::Typed(t.clone(), Box::new(inner.map(f))),
             Expression::List(exprs) => {
-                Expression::List(exprs.iter().map(|expr| expr.map(f)).collect())
+                Expression::List(exprs.iter().map(|expr| expr.borrow_map(f)).collect())
             }
             Expression::Set(exprs) => {
-                Expression::Set(exprs.iter().map(|expr| expr.map(f)).collect())
+                Expression::Set(exprs.iter().map(|expr| expr.borrow_map(f)).collect())
             }
             _ => {
                 panic!("Expression: not implemented: {:#?}", self)

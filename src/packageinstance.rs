@@ -4,24 +4,110 @@ use crate::{
         pkg_ident::{PackageConstIdentifier, PackageIdentifier},
         Identifier,
     },
-    package::{OracleDef, OracleSig, Package, PackageInstance},
+    package::{OracleDef, OracleSig, Package},
     parser::package::MultiInstanceIndices,
     statement::Statement,
     types::Type,
 };
 
-use self::instantiate::rewrite_split_oracle_def;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PackageInstance {
+    pub name: String,
 
-mod instantiate {
+    // we need these two to compare whether two isntances of a same package have the same
+    // parameters (both constants and types)
+    // TODO: this should probably just be (String, Expression)
+    pub params: Vec<(PackageConstIdentifier, Expression)>,
+    pub types: Vec<(String, Type)>,
+
+    // this is the package - it has been rewritten, though!
+    pub pkg: Package,
+
+    // These are probably deprecated?
+    pub multi_instance_indices: MultiInstanceIndices,
+}
+
+impl PackageInstance {
+    pub fn get_oracle_sigs(&self) -> Vec<OracleSig> {
+        self.pkg
+            .oracles
+            .clone()
+            .into_iter()
+            .map(|d| d.sig)
+            .collect()
+    }
+}
+
+impl PackageInstance {
+    pub(crate) fn new(
+        pkg_inst_name: &str,
+        game_name: &str,
+        pkg: &Package,
+        multi_instance_indices: MultiInstanceIndices,
+        params: Vec<(PackageConstIdentifier, Expression)>,
+        types: Vec<(String, Type)>,
+    ) -> PackageInstance {
+        let params_as_ident: Vec<(Identifier, Expression)> = params
+            .iter()
+            .map(|(ident, expr)| (ident.clone().into(), expr.clone()))
+            .collect();
+
+        let new_oracles = pkg
+            .oracles
+            .iter()
+            .map(|oracle_def| {
+                instantiate::rewrite_oracle_def(
+                    pkg_inst_name,
+                    game_name,
+                    oracle_def,
+                    &params_as_ident,
+                    &types,
+                )
+            })
+            .collect();
+
+        let new_split_oracles = pkg
+            .split_oracles
+            .iter()
+            .map(|split_oracle_def| {
+                instantiate::rewrite_split_oracle_def(
+                    pkg_inst_name,
+                    game_name,
+                    split_oracle_def,
+                    &params_as_ident,
+                    &types,
+                )
+            })
+            .collect();
+
+        let pkg = Package {
+            types: vec![],
+            params: vec![],
+            oracles: new_oracles,
+            split_oracles: new_split_oracles,
+            ..pkg.clone()
+        };
+
+        PackageInstance {
+            params,
+            types,
+            pkg,
+            name: pkg_inst_name.to_string(),
+            multi_instance_indices,
+        }
+    }
+}
+
+pub(crate) mod instantiate {
     use crate::{
         identifier::{
-            game_ident::GameIdentifier,
+            game_ident::{GameIdentInstanciationInfo, GameIdentifier},
             pkg_ident::{
                 PackageImportsLoopVarIdentifier, PackageLocalIdentifier,
                 PackageOracleArgIdentifier, PackageOracleCodeLoopVarIdentifier,
                 PackageStateIdentifier,
             },
-            pkg_inst_ident::PackageInstanceImportsLoopVarIdentifier,
+            proof_ident::ProofIdentInstanciationInfo,
         },
         split::{SplitOracleDef, SplitOracleSig, SplitPath, SplitType},
         statement::CodeBlock,
@@ -29,11 +115,11 @@ mod instantiate {
 
     use super::*;
 
-    pub(super) fn rewrite_oracle_def(
+    pub(crate) fn rewrite_oracle_def(
         pkg_inst_name: &str,
         game_name: &str,
         oracle_def: &OracleDef,
-        const_assignments: &[(PackageConstIdentifier, Expression)],
+        const_assignments: &[(Identifier, Expression)],
         type_assignments: &[(String, Type)],
     ) -> OracleDef {
         OracleDef {
@@ -49,11 +135,11 @@ mod instantiate {
         }
     }
 
-    pub(super) fn rewrite_split_oracle_def(
+    pub(crate) fn rewrite_split_oracle_def(
         pkg_inst_name: &str,
         game_name: &str,
         split_oracle_def: &SplitOracleDef,
-        const_assignments: &[(PackageConstIdentifier, Expression)],
+        const_assignments: &[(Identifier, Expression)],
         type_assignments: &[(String, Type)],
     ) -> SplitOracleDef {
         SplitOracleDef {
@@ -74,7 +160,7 @@ mod instantiate {
         }
     }
 
-    pub(super) fn rewrite_oracle_sig(
+    pub(crate) fn rewrite_oracle_sig(
         oracle_sig: &OracleSig,
         type_assignments: &[(String, Type)],
     ) -> OracleSig {
@@ -95,11 +181,11 @@ mod instantiate {
         }
     }
 
-    pub(super) fn rewrite_split_oracle_sig(
+    pub(crate) fn rewrite_split_oracle_sig(
         pkg_inst_name: &str,
         game_name: &str,
         split_oracle_sig: &SplitOracleSig,
-        const_assignments: &[(PackageConstIdentifier, Expression)],
+        const_assignments: &[(Identifier, Expression)],
         type_assignments: &[(String, Type)],
     ) -> SplitOracleSig {
         let type_rewrite_rules: Vec<_> = type_assignments
@@ -167,11 +253,11 @@ mod instantiate {
         }
     }
 
-    pub(super) fn rewrite_oracle_code(
+    pub(crate) fn rewrite_oracle_code(
         pkg_inst_name: &str,
         game_name: &str,
         code: &CodeBlock,
-        const_assignments: &[(PackageConstIdentifier, Expression)],
+        const_assignments: &[(Identifier, Expression)],
         type_assignments: &[(String, Type)],
     ) -> CodeBlock {
         let type_rewrite_rules: Vec<_> = type_assignments
@@ -195,11 +281,11 @@ mod instantiate {
         )
     }
 
-    pub(super) fn rewrite_statement(
+    pub(crate) fn rewrite_statement(
         pkg_inst_name: &str,
         game_name: &str,
         stmt: &Statement,
-        const_assignments: &[(PackageConstIdentifier, Expression)],
+        const_assignments: &[(Identifier, Expression)],
         type_assignments: &[(String, Type)],
     ) -> Statement {
         let type_rewrite_rules: Vec<_> = type_assignments
@@ -372,11 +458,11 @@ mod instantiate {
         }
     }
 
-    pub(super) fn rewrite_expression(
-        pkg_inst_name: &str,
+    pub(crate) fn rewrite_expression(
+        inst_name: &str,
         game_name: &str,
         expr: &Expression,
-        const_assignments: &[(PackageConstIdentifier, Expression)],
+        const_assignments: &[(Identifier, Expression)],
         type_assignments: &[(String, Type)],
     ) -> Expression {
         expr.map(|expr| match expr {
@@ -384,38 +470,70 @@ mod instantiate {
                 pkg_const_ident,
             ))) => const_assignments
                 .iter()
-                .find_map(|(search, replace)| {
-                    if search == &pkg_const_ident {
-                        match &replace {
-                            Expression::Identifier(Identifier::GameIdentifier(game_ident)) => {
-                                Some(Expression::Identifier(Identifier::PackageIdentifier(
-                                    PackageIdentifier::Const(PackageConstIdentifier {
-                                        game_assignment: Some(Box::new(replace.clone())),
-                                        pkg_inst_name: Some(pkg_inst_name.to_string()),
-                                        game_name: Some(game_ident.game_name().to_string()),
-                                        game_inst_name: game_ident
-                                            .game_inst_name()
-                                            .map(|s| s.to_string()),
-                                        ..pkg_const_ident.clone()
-                                    }),
-                                )))
-                            }
+                .find_map(|(search, replace)| match (search, replace) {
+                    (Identifier::PackageIdentifier(PackageIdentifier::Const(search)), new_expr) => {
+                        if search == &pkg_const_ident {
+                            let new_expr = new_expr.map(|expr| match expr {
+                                Expression::Identifier(Identifier::GameIdentifier(game_ident)) => {
+                                    let inst_info = GameIdentInstanciationInfo {
+                                        lower: pkg_const_ident.clone(),
+                                        pkg_inst_name: inst_name.to_string(),
+                                    };
 
-                            Expression::Identifier(Identifier::ProofIdentifier(proof_ident)) => {
-                                todo!()
-                            }
-
-                            other => unreachable!(
-                                "expected a game or proof identifier when rewriting, got {other:?}"
-                            ),
+                                    Expression::Identifier(Identifier::GameIdentifier(
+                                        game_ident.with_instance_info(inst_info),
+                                    ))
+                                }
+                                other => other,
+                            });
+                            Some(new_expr)
+                        } else {
+                            None
                         }
-                    } else {
-                        None
+                    }
+
+                    other => {
+                        unreachable!("expected a game identifier when rewriting, got {other:?}")
                     }
                 })
                 .unwrap(),
+
+            Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(
+                game_const_ident,
+            ))) => const_assignments
+                .iter()
+                .find_map(|(search, replace)| match (search, replace) {
+                    (Identifier::GameIdentifier(GameIdentifier::Const(search)), new_expr) => {
+                        if search == &game_const_ident {
+                            let new_expr = new_expr.map(|expr| match expr {
+                                Expression::Identifier(Identifier::ProofIdentifier(
+                                    proof_ident,
+                                )) => {
+                                    let inst_info = ProofIdentInstanciationInfo {
+                                        lower: game_const_ident.clone(),
+                                        game_inst_name: inst_name.to_string(),
+                                    };
+
+                                    Expression::Identifier(Identifier::ProofIdentifier(
+                                        proof_ident.with_instance_info(inst_info),
+                                    ))
+                                }
+                                other => other,
+                            });
+                            Some(new_expr)
+                        } else {
+                            None
+                        }
+                    }
+
+                    other => {
+                        unreachable!("expected a proof identifier when rewriting, got {other:?}")
+                    }
+                })
+                .unwrap(),
+
             Expression::Identifier(other_ident) => Expression::Identifier(rewrite_identifier(
-                pkg_inst_name,
+                inst_name,
                 game_name,
                 &other_ident,
                 type_assignments,
@@ -424,7 +542,7 @@ mod instantiate {
         })
     }
 
-    pub(super) fn rewrite_identifier(
+    pub(crate) fn rewrite_identifier(
         pkg_inst_name: &str,
         game_name: &str,
         ident: &Identifier,
@@ -500,61 +618,6 @@ mod instantiate {
             ),
 
             other => unreachable!("won't rewrite deprecated identifier {:?}", other),
-        }
-    }
-}
-
-impl PackageInstance {
-    pub(crate) fn new(
-        pkg_inst_name: &str,
-        game_name: &str,
-        pkg: &Package,
-        multi_instance_indices: MultiInstanceIndices,
-        params: Vec<(PackageConstIdentifier, Expression)>,
-        types: Vec<(String, Type)>,
-    ) -> PackageInstance {
-        let new_oracles = pkg
-            .oracles
-            .iter()
-            .map(|oracle_def| {
-                instantiate::rewrite_oracle_def(
-                    pkg_inst_name,
-                    game_name,
-                    oracle_def,
-                    &params,
-                    &types,
-                )
-            })
-            .collect();
-
-        let new_split_oracles = pkg
-            .split_oracles
-            .iter()
-            .map(|split_oracle_def| {
-                rewrite_split_oracle_def(
-                    pkg_inst_name,
-                    game_name,
-                    split_oracle_def,
-                    &params,
-                    &types,
-                )
-            })
-            .collect();
-
-        let pkg = Package {
-            types: vec![],
-            params: vec![],
-            oracles: new_oracles,
-            split_oracles: new_split_oracles,
-            ..pkg.clone()
-        };
-
-        PackageInstance {
-            params,
-            types,
-            pkg,
-            name: pkg_inst_name.to_string(),
-            multi_instance_indices,
         }
     }
 }

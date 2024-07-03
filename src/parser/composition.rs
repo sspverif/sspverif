@@ -184,8 +184,7 @@ pub fn handle_comp_spec_list(
                             game_name: ctx.game_name.to_string(),
                             name: name.clone(),
                             tipe,
-                            game_inst_name: None,
-                            proof_name: None,
+                            inst_info: None,
                         }
                         .into(),
                     ),
@@ -622,6 +621,7 @@ pub fn handle_for_loop<'a>(ctx: &mut ParseGameContext<'a>, ast: Pair<Rule>) -> e
         end_comp,
         game_inst_name: None,
         proof_name: None,
+        inst_info: None,
     };
     let loopvar = GameIdentifier::LoopVar(loopvar);
     let loopvar = Identifier::GameIdentifier(loopvar);
@@ -1068,8 +1068,7 @@ mod tests {
                     name: "n".to_string(),
                     tipe: Type::Integer,
                     game_name: "SmallGame".to_string(),
-                    game_inst_name: None,
-                    proof_name: None
+                    inst_info: None,
                 }
             )))
         );

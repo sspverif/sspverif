@@ -236,8 +236,26 @@ pub mod pkg_ident {
     }
 }
 
+/*
+*
+* - im code soll der identifier stehen, der beschreibt wo der wert deklariert wird
+*
+* - pkg instanziieren:
+*   - pkg const ident   -> aufloesen
+*   - pkg loopvar ident -> anreichern
+*
+* - game instanziieren:
+*   - game const ident   -> aufloesen
+*   - game loopvar ident -> anreichern
+*
+*
+*
+* */
+
 pub mod game_ident {
     use crate::types::Type;
+
+    use self::pkg_ident::PackageConstIdentifier;
 
     use super::*;
 
@@ -275,13 +293,24 @@ pub mod game_ident {
             }
         }
 
-        pub fn game_inst_name(&self) -> Option<&str> {
+        pub fn with_instance_info(self, inst_info: GameIdentInstanciationInfo) -> Self {
             match self {
-                GameIdentifier::Const(c) => c.game_inst_name.as_ref(),
-                GameIdentifier::LoopVar(l) => l.game_inst_name.as_ref(),
+                GameIdentifier::Const(c) => Self::Const(GameConstIdentifier {
+                    inst_info: Some(inst_info),
+                    ..c
+                }),
+                GameIdentifier::LoopVar(l) => Self::LoopVar(GameLoopVarIdentifier {
+                    inst_info: Some(inst_info),
+                    ..l
+                }),
             }
-            .map(|s| s.as_ref())
         }
+    }
+
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct GameIdentInstanciationInfo {
+        pub lower: PackageConstIdentifier,
+        pub pkg_inst_name: String,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
@@ -289,8 +318,7 @@ pub mod game_ident {
         pub game_name: String,
         pub name: String,
         pub tipe: crate::types::Type,
-        pub game_inst_name: Option<String>,
-        pub proof_name: Option<String>,
+        pub inst_info: Option<GameIdentInstanciationInfo>,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
@@ -304,6 +332,7 @@ pub mod game_ident {
         pub end_comp: ForComp,
         pub game_inst_name: Option<String>,
         pub proof_name: Option<String>,
+        pub inst_info: Option<GameIdentInstanciationInfo>,
     }
 }
 
@@ -338,11 +367,40 @@ pub mod proof_ident {
         LoopVar(ProofLoopVarIdentifier),
     }
 
+    impl ProofIdentifier {
+        pub fn with_instance_info(self, inst_info: ProofIdentInstanciationInfo) -> Self {
+            match self {
+                ProofIdentifier::Const(c) => Self::Const(ProofConstIdentifier {
+                    inst_info: Some(inst_info),
+                    ..c
+                }),
+                ProofIdentifier::LoopVar(l) => Self::LoopVar(ProofLoopVarIdentifier {
+                    inst_info: Some(inst_info),
+                    ..l
+                }),
+            }
+        }
+
+        pub fn proof_name(&self) -> &str {
+            match self {
+                ProofIdentifier::Const(c) => &c.proof_name,
+                ProofIdentifier::LoopVar(l) => &l.proof_name,
+            }
+        }
+    }
+
+    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    pub struct ProofIdentInstanciationInfo {
+        pub lower: GameConstIdentifier,
+        pub game_inst_name: String,
+    }
+
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct ProofConstIdentifier {
         pub proof_name: String,
         pub name: String,
         pub tipe: crate::types::Type,
+        pub inst_info: Option<ProofIdentInstanciationInfo>,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
@@ -354,6 +412,7 @@ pub mod proof_ident {
         pub end: Box<Expression>,
         pub start_comp: ForComp,
         pub end_comp: ForComp,
+        pub inst_info: Option<ProofIdentInstanciationInfo>,
     }
 }
 
@@ -547,6 +606,7 @@ impl Identifier {
         match self {
             Identifier::PackageIdentifier(pkg_ident) => Some(pkg_ident.get_type()),
             Identifier::GameIdentifier(game_ident) => Some(game_ident.get_type()),
+            Identifier::ProofIdentifier(proof_ident) => Some(proof_ident.get_type()),
             _ => None,
         }
     }

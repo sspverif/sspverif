@@ -1,5 +1,6 @@
 use crate::{
     expressions::Expression,
+    identifier::Identifier,
     package::{Composition, Package},
     types::Type,
     util::resolver::{Resolver, SliceResolver},
@@ -15,26 +16,60 @@ pub struct GameInstance {
     game_name: String,
     game: Composition,
     types: Vec<(String, Type)>,
-    consts: Vec<(String, Expression)>,
+    consts: Vec<(Identifier, Expression)>,
 }
 
 impl_Named!(GameInstance);
 
+mod instantiate {
+    use crate::{
+        expressions::Expression, identifier::Identifier, package::PackageInstance, types::Type,
+    };
+
+    pub(crate) fn rewrite_pkg_inst(
+        game_inst_name: &str,
+        proof_name: &str,
+        pkg_inst: &PackageInstance,
+        params: &[(Identifier, Expression)],
+        types: &[(String, Type)],
+    ) -> PackageInstance {
+        PackageInstance { ..pkg_inst.clone() }
+    }
+}
+
 impl GameInstance {
     pub fn new(
+        game_inst_name: &str,
+        proof_name: &str,
         name: String,
         game: Composition,
         types: Vec<(String, Type)>,
-        consts: Vec<(String, Expression)>,
+        params: Vec<(Identifier, Expression)>,
     ) -> GameInstance {
         let game_name = game.name.clone();
+
+        let new_pkg_instances = game
+            .pkgs
+            .iter()
+            .map(|pkg_inst| {
+                instantiate::rewrite_pkg_inst(game_inst_name, proof_name, pkg_inst, &params, &types)
+            })
+            .collect();
+
+        let game = Composition {
+            name: name.clone(),
+            pkgs: new_pkg_instances,
+            consts: vec![],
+
+            ..game
+        };
 
         GameInstance {
             name,
             game_name,
             game,
             types,
-            consts,
+            consts: params,
         }
     }
 
@@ -49,7 +84,7 @@ impl GameInstance {
         &self.name
     }
 
-    pub fn consts(&self) -> &[(String, Expression)] {
+    pub fn consts(&self) -> &[(Identifier, Expression)] {
         &self.consts
     }
 

@@ -7,6 +7,7 @@ use crate::expressions::Expression;
 use crate::identifier::game_ident::{GameConstIdentifier, GameIdentifier};
 use crate::identifier::pkg_ident::PackageIdentifier;
 use crate::identifier::pkg_inst_ident::{self, PackageInstanceIdentifier};
+use crate::identifier::proof_ident::{ProofConstIdentifier, ProofIdentifier};
 use crate::identifier::{GameInstanceConst, Identifier, PackageConst, PackageState};
 use crate::types::Type;
 
@@ -112,14 +113,15 @@ impl From<Expression> for SmtExpr {
                 // can't use `access` because that would require the Package.
                 pattern.access_unchecked(&selector, &SelfStatePattern)
             }
-            Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(
-                GameConstIdentifier {
+            Expression::Identifier(Identifier::ProofIdentifier(ProofIdentifier::Const(
+                ProofConstIdentifier {
                     name,
-                    game_inst_name,
+                    proof_name,
+                    inst_info,
                     ..
                 },
             ))) => {
-                let game_inst_name = game_inst_name.unwrap();
+                let game_inst_name = inst_info.unwrap().game_inst_name;
                 (
                     format!("composition-param-{game_inst_name}-{name}"),
                     &GlobalStatePattern,

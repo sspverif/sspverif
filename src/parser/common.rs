@@ -1,4 +1,4 @@
-use crate::identifier::game_ident::GameIdentifier;
+use crate::identifier::game_ident::{GameConstIdentifier, GameIdentifier};
 use crate::identifier::proof_ident::ProofIdentifier;
 use crate::statement::FilePosition;
 use crate::util::scope::Scope;
