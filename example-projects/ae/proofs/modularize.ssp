@@ -1,5 +1,6 @@
 proof AEProto {
     const n: Integer;
+    const m: Integer;
     const prf: fn Bits(n),Bits(m) -> Bits(n);
     const enc: fn Bits(n),Bits(n),Bits(n) -> Bits(n);
     const dec: fn Bits(n),Bits(n),Bits(n) -> Bits(n);
@@ -7,6 +8,7 @@ proof AEProto {
     instance real = Real {
         params {
             n: n,
+			m: m,
 	    prf: prf,
             enc: enc,
             dec: dec,

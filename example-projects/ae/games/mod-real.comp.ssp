@@ -2,8 +2,8 @@ composition Real {
     const n: Integer;
     const m: Integer;
     const prf: fn Bits(n), Bits(n) -> Bits(n);
-    const dec: fn Bits(n), Bits(m) -> Bits(n);
     const enc: fn Bits(n), Bits(n), Bits(n) -> Bits(m);
+    const dec: fn Bits(n), Bits(m) -> Bits(n);
     
     instance mod_prf = modPRF {
         params {
@@ -33,7 +33,7 @@ composition Real {
             Enc:  ae,
             Dec: ae,
         },
-        prf: {
+        mod_prf: {
             Set: key,
         },
         ae: {

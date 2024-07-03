@@ -1,6 +1,6 @@
 package KeyReal {
     params {
-	n: Integer,
+        n: Integer,
     }
     
     state {
@@ -8,12 +8,12 @@ package KeyReal {
     }
 
     oracle Get(h: Bits(n)) -> Bits(n) {
-        return  Unwrap(K[h]);
+        return h; /* should be Unwrap(K[h]); */
     }
     
     oracle Set(k: Bits(n), h: Bits(n))  {
         if (K[h] == None as Bits(n)) {
             K[h] <- Some(k);
-	}
+        }
     }
 }
