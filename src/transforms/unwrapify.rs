@@ -42,20 +42,13 @@ impl<'a> super::Transformation for Transformation<'a> {
 fn replace_unwrap(expr: &Expression, ctr: &mut usize) -> (Expression, Vec<(Expression, String)>) {
     let ((local_ctr, result), newexpr) =
         expr.mapfold((*ctr, Vec::new()), |(map_ctr, mut ac), e| {
-            let tmpe = e.clone();
-            if let Expression::Typed(t, inner) = tmpe {
-                //eprintln!("DEBUG replace_unwrap unwrap-{map_ctr} {e:?} {t:?}");
-
-                if let Expression::Unwrap(_) = *inner {
-                    let varname: String = format!("unwrap-{}", map_ctr);
-                    ac.push((e, varname.clone()));
-                    (
-                        (map_ctr + 1, ac),
-                        Expression::Typed(t, Box::new(Identifier::Local(varname).to_expression())),
-                    )
-                } else {
-                    ((map_ctr, ac), e)
-                }
+            if let Expression::Unwrap(_) = e {
+                let varname: String = format!("unwrap-{}", map_ctr);
+                ac.push((e, varname.clone()));
+                (
+                    (map_ctr + 1, ac),
+                    Identifier::Local(varname).to_expression(),
+                )
             } else {
                 ((map_ctr, ac), e)
             }
