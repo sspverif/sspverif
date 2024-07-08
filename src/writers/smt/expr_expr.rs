@@ -222,13 +222,7 @@ impl From<Expression> for SmtExpr {
                 SmtExpr::List(call)
             }
             Expression::List(inner) => {
-                let t = if let Expression::Typed(t, _) = inner[0].clone() {
-                    Some(t)
-                } else {
-                    None
-                };
-
-                let t = t.unwrap();
+                let t = inner[0].get_type();
 
                 let nil = SmtExpr::List(vec![
                     SmtExpr::Atom("as".to_owned()),
@@ -246,13 +240,7 @@ impl From<Expression> for SmtExpr {
                 lst
             }
             Expression::Set(inner) => {
-                let t = if let Expression::Typed(t, _) = inner[0].clone() {
-                    Some(t)
-                } else {
-                    None
-                };
-
-                let t = t.unwrap();
+                let t = inner[0].get_type();
 
                 let empty_set = SmtExpr::List(vec![
                     SmtExpr::List(vec![

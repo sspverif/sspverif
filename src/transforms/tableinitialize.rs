@@ -22,7 +22,7 @@ impl<'a> super::Transformation for Transformation<'a> {
             .map(|inst| {
                 let mut newinst = inst.clone();
                 for (i, oracle) in newinst.pkg.oracles.clone().iter().enumerate() {
-                    newinst.pkg.oracles[i].code = tableinitialize(&oracle.code, &vec![])?;
+                    newinst.pkg.oracles[i].code = tableinitialize(&oracle.code, vec![])?;
                 }
                 Ok(newinst)
             })
@@ -37,16 +37,18 @@ impl<'a> super::Transformation for Transformation<'a> {
     }
 }
 
-pub fn tableinitialize(cb: &CodeBlock, initialized: &Vec<String>) -> Result<CodeBlock, Error> {
+pub fn tableinitialize(
+    cb: &CodeBlock,
+    mut new_initialized: Vec<String>,
+) -> Result<CodeBlock, Error> {
     let mut newcode = Vec::new();
-    let mut new_initialized = initialized.clone();
     for stmt in cb.0.clone() {
         match stmt {
             Statement::IfThenElse(expr, ifcode, elsecode, file_pos) => {
                 newcode.push(Statement::IfThenElse(
                     expr,
-                    tableinitialize(&ifcode, &new_initialized)?,
-                    tableinitialize(&elsecode, &new_initialized)?,
+                    tableinitialize(&ifcode, new_initialized.clone())?,
+                    tableinitialize(&elsecode, new_initialized.clone())?,
                     file_pos,
                 ));
             }
@@ -56,27 +58,22 @@ pub fn tableinitialize(cb: &CodeBlock, initialized: &Vec<String>) -> Result<Code
                 ref expr,
                 ref file_pos,
             ) => {
-                let indextype = match idxexpr {
-                    Expression::Typed(t, _) => t,
-                    _ => unreachable!(
-                        "all expressions are expected to be typed at this point! ({:?})",
-                        file_pos
-                    ),
+                let indextype = idxexpr.get_type();
+                let Type::Maybe(valuetype) = expr.get_type() else {
+                    unreachable!("all expressions are expected to be typed at this point, and the value needs to be a maybe type! ({:?})", file_pos);
                 };
-                let valuetype = match expr {
-                    Expression::Typed(Type::Maybe(t), _) => &**t,
-                    _ => unreachable!("all expressions are expected to be typed at this point, and the value needs to be a maybe type! ({:?})", file_pos),
-                };
-                let tabletype =
-                    Type::Table(Box::new(indextype.clone()), Box::new(valuetype.clone()));
+                let tabletype = Type::Table(
+                    Box::new(indextype.clone()),
+                    Box::new(valuetype.as_ref().clone()),
+                );
 
-                if !new_initialized.contains(&id) {
+                if !new_initialized.contains(id) {
                     new_initialized.push(id.clone());
                     newcode.push(Statement::Assign(
                         Identifier::Local(id.clone()),
                         None,
                         Expression::EmptyTable(tabletype),
-                        file_pos.clone(),
+                        *file_pos,
                     ))
                 }
                 newcode.push(stmt);
@@ -88,24 +85,16 @@ pub fn tableinitialize(cb: &CodeBlock, initialized: &Vec<String>) -> Result<Code
                 ref tipe,
                 ref file_pos,
             ) => {
-                let indextype = match idxexpr {
-                    Expression::Typed(t, _) => t,
-                    _ => {
-                        unreachable!(
-                            "all expressions are expected to be typed at this point! ({:?})",
-                            file_pos
-                        )
-                    }
-                };
+                let indextype = idxexpr.get_type();
                 let tabletype = Type::Table(Box::new(indextype.clone()), Box::new(tipe.clone()));
 
-                if !new_initialized.contains(&id) {
+                if !new_initialized.contains(id) {
                     new_initialized.push(id.clone());
                     newcode.push(Statement::Assign(
                         Identifier::Local(id.clone()),
                         None,
                         Expression::EmptyTable(tabletype),
-                        file_pos.clone(),
+                        *file_pos,
                     ))
                 }
                 newcode.push(stmt);
@@ -113,28 +102,25 @@ pub fn tableinitialize(cb: &CodeBlock, initialized: &Vec<String>) -> Result<Code
             Statement::InvokeOracle {
                 id: Identifier::Local(ref id),
                 opt_idx: Some(ref idxexpr),
-                tipe: ref opt_tipe,
+                tipe: ref opt_ret_tipe,
                 ref file_pos,
                 ..
             } => {
-                let indextype = match idxexpr {
-                    Expression::Typed(t, _) => t,
-                    _ => unreachable!("all expressions are typed at this point! ({:?})", file_pos),
-                };
-                let valuetype = match opt_tipe {
-                    Some(t) => t,
-                    _ => unreachable!("all expressions are typed at this point! ({:?})", file_pos),
+                let indextype = idxexpr.get_type();
+                let valuetype = match opt_ret_tipe {
+                    Some(t) => t.to_owned(),
+                    _ => Type::Empty,
                 };
                 let tabletype =
                     Type::Table(Box::new(indextype.clone()), Box::new(valuetype.clone()));
 
-                if !new_initialized.contains(&id) {
+                if !new_initialized.contains(id) {
                     new_initialized.push(id.clone());
                     newcode.push(Statement::Assign(
                         Identifier::Local(id.clone()),
                         None,
                         Expression::EmptyTable(tabletype),
-                        file_pos.clone(),
+                        *file_pos,
                     ))
                 }
                 newcode.push(stmt);

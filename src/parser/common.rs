@@ -197,16 +197,13 @@ pub fn handle_expression(
             let litval = expr.as_str().trim().to_string();
             Expression::IntegerLiteral(i64::from_str_radix(&litval, 10).unwrap())
         }
-        Rule::literal_emptyset => {
-            let tipe = handle_type(expr.into_inner().next().unwrap());
-            Expression::Typed(Type::Set(Box::new(tipe)), Box::new(Expression::Set(vec![])))
-        }
-        Rule::expr_tuple => Expression::Tuple(
+        Rule::literal_emptyset => Expression::Set(vec![]),
+        Rule::expr_list => Expression::List(
             expr.into_inner()
                 .map(|e| handle_expression(e, scope))
                 .collect::<StdResult<_, _>>()?,
         ),
-        Rule::expr_list => Expression::List(
+        Rule::expr_tuple => Expression::Tuple(
             expr.into_inner()
                 .map(|e| handle_expression(e, scope))
                 .collect::<StdResult<_, _>>()?,

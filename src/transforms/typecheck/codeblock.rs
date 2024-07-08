@@ -1,5 +1,4 @@
 use super::errors::{ErrorLocation, TypeCheckError};
-use super::expression::{get_type, typify};
 use super::scope::Scope;
 use super::Type as ScopeType;
 

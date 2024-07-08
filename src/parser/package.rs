@@ -522,17 +522,16 @@ pub fn handle_expression(
                 )
             }))
         }
-        Rule::literal_emptyset => {
-            let tipe = handle_type(ast.into_inner().next().unwrap());
-            Expression::Typed(Type::Set(Box::new(tipe)), Box::new(Expression::Set(vec![])))
-        }
-
-        Rule::expr_tuple => Expression::Tuple(
+        // TODO: we can't infer the type for empty sets and lists.
+        //       this means we either need separate expressions for empty ones (that have a type),
+        //       or they all need a type, like None
+        Rule::literal_emptyset => Expression::Set(vec![]),
+        Rule::expr_list => Expression::List(
             ast.into_inner()
                 .map(|expr| handle_expression(ctx, expr, None))
                 .collect::<Result<_, _>>()?,
         ),
-        Rule::expr_list => Expression::List(
+        Rule::expr_tuple => Expression::Tuple(
             ast.into_inner()
                 .map(|expr| handle_expression(ctx, expr, None))
                 .collect::<Result<_, _>>()?,

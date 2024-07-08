@@ -7,6 +7,7 @@ use crate::types::Type;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Expression {
     Typed(Type, Box<Expression>),
+
     Bot,
     Sample(Type),
     StringLiteral(String),

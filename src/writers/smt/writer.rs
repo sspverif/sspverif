@@ -928,16 +928,12 @@ impl<'a> CompositionSmtWriter<'a> {
         opt_idx: &Option<Expression>,
         expr: &Expression,
     ) -> SmtExpr {
-        let (t, inner) = if let Expression::Typed(t, i) = expr {
-            (t.clone(), *i.clone())
-        } else {
-            unreachable!("we expect that this is typed")
-        };
+        let t = expr.get_type();
 
         //eprintln!(r#"DEBUG code_smt_helper Assign {expr:?} to identifier {ident:?}")"#);
 
         // first build the unwrap expression, if we have to
-        let outexpr = if let Expression::Unwrap(inner) = &inner {
+        let outexpr = if let Expression::Unwrap(inner) = &expr {
             ("maybe-get", *inner.clone()).into()
         } else {
             expr.clone().into() // TODO maybe this should be inner??
@@ -1002,7 +998,7 @@ impl<'a> CompositionSmtWriter<'a> {
         // TODO: are we sure we don't want to deconstruct `inner` here?
         // it seems impossible to me that expr ever matches here,
         // because above we make sure it's an Expression::Typed.
-        if let Expression::Unwrap(inner) = inner {
+        if let Expression::Unwrap(inner) = expr {
             SmtIte {
                 cond: SmtEq2 {
                     lhs: *inner.clone(),
