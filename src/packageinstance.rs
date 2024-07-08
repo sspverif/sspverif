@@ -131,7 +131,7 @@ pub(crate) mod instantiate {
                 const_assignments,
                 type_assignments,
             ),
-            file_pos: oracle_def.file_pos.clone(),
+            file_pos: oracle_def.file_pos,
         }
     }
 
@@ -305,7 +305,7 @@ pub(crate) mod instantiate {
                         type_assignments,
                     )
                 }),
-                pos.clone(),
+                *pos,
             ),
 
             Statement::Assign(ident, index, value, pos) => Statement::Assign(
@@ -326,7 +326,7 @@ pub(crate) mod instantiate {
                     const_assignments,
                     type_assignments,
                 ),
-                pos.clone(),
+                *pos,
             ),
             Statement::Parse(idents, expr, pos) => Statement::Parse(
                 idents
@@ -342,7 +342,7 @@ pub(crate) mod instantiate {
                     const_assignments,
                     type_assignments,
                 ),
-                pos.clone(),
+                *pos,
             ),
             Statement::Sample(ident, index, sample_id, tipe, pos) => Statement::Sample(
                 rewrite_identifier(pkg_inst_name, game_name, ident, type_assignments),
@@ -357,7 +357,7 @@ pub(crate) mod instantiate {
                 }),
                 *sample_id,
                 tipe.rewrite(&type_rewrite_rules),
-                pos.clone(),
+                *pos,
             ),
             Statement::InvokeOracle {
                 id,
@@ -403,7 +403,7 @@ pub(crate) mod instantiate {
                     .collect(),
                 target_inst_name: target_inst_name.clone(),
                 tipe: tipe.clone().map(|tipe| tipe.rewrite(&type_rewrite_rules)),
-                file_pos: file_pos.clone(),
+                file_pos: *file_pos,
             },
 
             Statement::IfThenElse(cond, ifblock, elseblock, pos) => Statement::IfThenElse(
@@ -428,7 +428,7 @@ pub(crate) mod instantiate {
                     const_assignments,
                     type_assignments,
                 ),
-                pos.clone(),
+                *pos,
             ),
             Statement::For(ident, start, end, code, pos) => Statement::For(
                 ident.clone(),
@@ -453,7 +453,7 @@ pub(crate) mod instantiate {
                     const_assignments,
                     type_assignments,
                 ),
-                pos.clone(),
+                *pos,
             ),
         }
     }
@@ -493,7 +493,10 @@ pub(crate) mod instantiate {
                     }
 
                     other => {
-                        unreachable!("expected a game identifier when rewriting, got {other:?}")
+                        unreachable!(
+                            "expected a game identifier when rewriting, got {other:?}",
+                            other = other
+                        )
                     }
                 })
                 .unwrap(),
@@ -527,7 +530,10 @@ pub(crate) mod instantiate {
                     }
 
                     other => {
-                        unreachable!("expected a proof identifier when rewriting, got {other:?}")
+                        unreachable!(
+                            "expected a proof identifier when rewriting, got {other:?}",
+                            other = other
+                        )
                     }
                 })
                 .unwrap(),

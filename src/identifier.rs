@@ -287,7 +287,7 @@ pub mod game_ident {
         pub(crate) fn get_type(&self) -> Type {
             match self {
                 GameIdentifier::Const(const_ident) => const_ident.tipe.clone(),
-                GameIdentifier::LoopVar(local_ident) => Type::Integer,
+                GameIdentifier::LoopVar(_local_ident) => Type::Integer,
             }
         }
     }
@@ -369,7 +369,7 @@ pub mod proof_ident {
         pub(crate) fn get_type(&self) -> Type {
             match self {
                 ProofIdentifier::Const(const_ident) => const_ident.tipe.clone(),
-                ProofIdentifier::LoopVar(local_ident) => Type::Integer,
+                ProofIdentifier::LoopVar(_local_ident) => Type::Integer,
             }
         }
     }
@@ -470,8 +470,8 @@ pub mod pkg_inst_ident {
                     oracle_import.return_type.clone()
                 }
                 PackageInstanceIdentifier::GameConst(const_ident) => const_ident.tipe.clone(),
-                PackageInstanceIdentifier::ImportsLoopVar(loopvar) => Type::Integer,
-                PackageInstanceIdentifier::LoopVar(local_ident) => Type::Integer,
+                PackageInstanceIdentifier::ImportsLoopVar(_loopvar) => Type::Integer,
+                PackageInstanceIdentifier::LoopVar(_local_ident) => Type::Integer,
             }
         }
     }
@@ -626,9 +626,9 @@ impl Identifier {
 
     pub fn ident_ref(&self) -> &str {
         match self {
-            Identifier::Scalar(ident) => &ident,
-            Identifier::Parameter(PackageConst { name_in_pkg, .. }) => &name_in_pkg,
-            Identifier::Local(name) => &name,
+            Identifier::Scalar(ident) => ident,
+            Identifier::Parameter(PackageConst { name_in_pkg, .. }) => name_in_pkg,
+            Identifier::Local(name) => name,
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident_ref(),
             Identifier::GameInstanceConst(_) => todo!(),
             Identifier::GameIdentifier(game_ident) => game_ident.ident_ref(),

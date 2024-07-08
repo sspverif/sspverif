@@ -80,7 +80,7 @@ impl GameInstance {
         }
     }
 
-    pub fn name<'a>(&'a self) -> &'a str {
+    pub fn name(&self) -> &str {
         &self.name
     }
 
@@ -345,7 +345,7 @@ impl Proof {
         &self.game_hops
     }
 
-    pub fn instances<'a>(&'a self) -> &'a [GameInstance] {
+    pub fn instances(&self) -> &[GameInstance] {
         &self.instances
     }
 

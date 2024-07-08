@@ -207,7 +207,7 @@ impl Display for SmtExpr {
                         write!(f, " ")?;
                     }
                 }
-                write!(f, ")\n")
+                writeln!(f, ")")
             }
         }
     }
@@ -447,23 +447,23 @@ pub struct SmtForall<B: Into<SmtExpr>> {
     pub body: B,
 }
 
-impl<B: Into<SmtExpr>> Into<SmtExpr> for SmtForall<B> {
+impl<B: Into<SmtExpr>> From<SmtForall<B>> for SmtExpr {
     /*
      * SMT-LIB 2.6 manual p. 27:
      * <sorted_var> ::= ( symbol sort )
      * <term>       ::= ... | ( forall ( 〈sorted_var 〉+ ) 〈term〉 )
      *
      */
-    fn into(self) -> SmtExpr {
+    fn from(val: SmtForall<B>) -> Self {
         (
             "forall",
             SmtExpr::List(
-                self.bindings
+                val.bindings
                     .into_iter()
                     .map(|(name, sort)| (name, sort).into())
                     .collect(),
             ),
-            self.body,
+            val.body,
         )
             .into()
     }
@@ -471,32 +471,32 @@ impl<B: Into<SmtExpr>> Into<SmtExpr> for SmtForall<B> {
 
 pub struct SmtLt<L: Into<SmtExpr>, R: Into<SmtExpr>>(pub L, pub R);
 
-impl<L: Into<SmtExpr>, R: Into<SmtExpr>> Into<SmtExpr> for SmtLt<L, R> {
-    fn into(self) -> SmtExpr {
-        ("<", self.0, self.1).into()
+impl<L: Into<SmtExpr>, R: Into<SmtExpr>> From<SmtLt<L, R>> for SmtExpr {
+    fn from(val: SmtLt<L, R>) -> Self {
+        ("<", val.0, val.1).into()
     }
 }
 
 pub struct SmtGt<L: Into<SmtExpr>, R: Into<SmtExpr>>(pub L, pub R);
 
-impl<L: Into<SmtExpr>, R: Into<SmtExpr>> Into<SmtExpr> for SmtGt<L, R> {
-    fn into(self) -> SmtExpr {
-        (">", self.0, self.1).into()
+impl<L: Into<SmtExpr>, R: Into<SmtExpr>> From<SmtGt<L, R>> for SmtExpr {
+    fn from(val: SmtGt<L, R>) -> Self {
+        (">", val.0, val.1).into()
     }
 }
 
 pub struct SmtLte<L: Into<SmtExpr>, R: Into<SmtExpr>>(pub L, pub R);
 
-impl<L: Into<SmtExpr>, R: Into<SmtExpr>> Into<SmtExpr> for SmtLte<L, R> {
-    fn into(self) -> SmtExpr {
-        ("not", (">", self.0, self.1)).into()
+impl<L: Into<SmtExpr>, R: Into<SmtExpr>> From<SmtLte<L, R>> for SmtExpr {
+    fn from(val: SmtLte<L, R>) -> Self {
+        ("not", (">", val.0, val.1)).into()
     }
 }
 
 pub struct SmtGte<L: Into<SmtExpr>, R: Into<SmtExpr>>(pub L, pub R);
 
-impl<L: Into<SmtExpr>, R: Into<SmtExpr>> Into<SmtExpr> for SmtGte<L, R> {
-    fn into(self) -> SmtExpr {
-        ("not", ("<", self.0, self.1)).into()
+impl<L: Into<SmtExpr>, R: Into<SmtExpr>> From<SmtGte<L, R>> for SmtExpr {
+    fn from(val: SmtGte<L, R>) -> Self {
+        ("not", ("<", val.0, val.1)).into()
     }
 }

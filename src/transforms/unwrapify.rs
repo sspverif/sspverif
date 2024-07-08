@@ -5,7 +5,7 @@ use miette::SourceSpan;
 use crate::expressions::Expression;
 use crate::identifier::Identifier;
 use crate::package::Composition;
-use crate::statement::{CodeBlock, FilePosition, Statement};
+use crate::statement::{CodeBlock, Statement};
 
 pub type Error = Infallible;
 
@@ -68,7 +68,7 @@ fn create_unwrap_stmts(
                 Identifier::Local(varname.clone()),
                 None,
                 expr.clone(),
-                file_pos.clone(),
+                *file_pos,
             )
         })
         .collect()
@@ -98,7 +98,7 @@ pub fn unwrapify(cb: &CodeBlock, ctr: &mut usize) -> Result<CodeBlock, Error> {
                     newcode.push(stmt);
                 } else {
                     newcode.extend(create_unwrap_stmts(unwraps, file_pos));
-                    newcode.push(Statement::Return(Some(newexpr), file_pos.clone()));
+                    newcode.push(Statement::Return(Some(newexpr), *file_pos));
                 }
             }
             Statement::Assign(ref id, ref opt_idx, ref expr, ref file_pos) => {
@@ -119,7 +119,7 @@ pub fn unwrapify(cb: &CodeBlock, ctr: &mut usize) -> Result<CodeBlock, Error> {
                         id.clone(),
                         opt_idx.clone(),
                         newexpr,
-                        file_pos.clone(),
+                        *file_pos,
                     ));
                 }
             }
@@ -157,7 +157,7 @@ pub fn unwrapify(cb: &CodeBlock, ctr: &mut usize) -> Result<CodeBlock, Error> {
                         Some(newexpr),
                         *sample_id,
                         tipe.clone(),
-                        file_pos.clone(),
+                        *file_pos,
                     ));
                 }
             }
@@ -215,7 +215,6 @@ mod test {
     use crate::expressions::Expression;
     use crate::identifier::Identifier;
     use crate::statement::{CodeBlock, Statement};
-    use crate::types::Type;
 
     #[test]
     fn unwrap_assign() {

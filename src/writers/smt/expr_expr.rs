@@ -4,11 +4,9 @@ use super::patterns::{
     SelfStatePattern,
 };
 use crate::expressions::Expression;
-use crate::identifier::game_ident::{GameConstIdentifier, GameIdentifier};
 use crate::identifier::pkg_ident::PackageIdentifier;
-use crate::identifier::pkg_inst_ident::{self, PackageInstanceIdentifier};
 use crate::identifier::proof_ident::{ProofConstIdentifier, ProofIdentifier};
-use crate::identifier::{GameInstanceConst, Identifier, PackageConst, PackageState};
+use crate::identifier::{GameInstanceConst, Identifier, PackageConst};
 use crate::types::Type;
 
 impl From<Expression> for SmtExpr {
@@ -35,7 +33,7 @@ impl From<Expression> for SmtExpr {
                     "found an unwrap and don't knwo what to do with it -- {expr:?}",
                     expr = inner
                 );
-                panic!("unwrap expressions need to be on the right hand side of an assign!");
+                //panic!("unwrap expressions need to be on the right hand side of an assign!");
                 // TODO find a better way to present that error to the user.
             }
             Expression::Some(inner) => {
@@ -118,10 +116,7 @@ impl From<Expression> for SmtExpr {
             }
             Expression::Identifier(Identifier::ProofIdentifier(ProofIdentifier::Const(
                 ProofConstIdentifier {
-                    name,
-                    proof_name,
-                    inst_info,
-                    ..
+                    name, inst_info, ..
                 },
             ))) => {
                 let game_inst_name = inst_info.unwrap().game_inst_name;

@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use crate::expressions::Expression;
-use crate::identifier::{Identifier, PackageConst, PackageState};
+use crate::identifier::{Identifier, PackageConst};
 use crate::package::{OracleDef, OracleSig, Package};
 use crate::statement::{CodeBlock, Statement};
 use crate::types::Type;
@@ -30,7 +30,7 @@ impl<W: Write> Writer<W> {
             }
             Identifier::Parameter(PackageConst { name_in_pkg, .. }) => {
                 self.write_string(name_in_pkg)?;
-                self.write_string(&format!(" /* param identifier */ "))?;
+                self.write_string(" /* param identifier */ ")?;
             }
             Identifier::GameInstanceConst(_) => todo!(),
             Identifier::PackageIdentifier(_) => todo!(),
@@ -49,7 +49,7 @@ impl<W: Write> Writer<W> {
             Type::Bits(n) => self.write_string(&format!("Bits({n})")),
             Type::Maybe(t) => {
                 self.write_string("Maybe(")?;
-                self.write_type(&**t)?;
+                self.write_type(t)?;
                 self.write_string(")")
             }
             Type::Tuple(types) => {
@@ -81,16 +81,19 @@ impl<W: Write> Writer<W> {
         match expr {
             Expression::EmptyTable(t @ Type::Table(t_k, t_v)) => {
                 self.write_string("new Table(")?;
-                self.write_type(&t_k)?;
+                self.write_type(t_k)?;
                 self.write_string(", ")?;
-                self.write_type(&t_v)?;
+                self.write_type(t_v)?;
                 self.write_string(")")?;
                 self.write_string(" /* of type ")?;
                 self.write_type(t)?;
                 self.write_string(" */ ")?;
             }
             Expression::EmptyTable(invalid_type) => {
-                panic!("invalid type in EmptyTable expression: {invalid_type}");
+                panic!(
+                    "invalid type in EmptyTable expression: {ty:?}",
+                    ty = invalid_type
+                );
             }
 
             Expression::BooleanLiteral(x) => {
@@ -237,7 +240,7 @@ impl<W: Write> Writer<W> {
                 if let Some(sample_id) = sample_id {
                     self.write_string(&format!("; /* with sample_id {} */\n", sample_id))?;
                 } else {
-                    self.write_string(&format!("; /* sample_id not assigned */\n"))?;
+                    self.write_string("; /* sample_id not assigned */\n")?;
                 }
             }
             Statement::InvokeOracle {
@@ -268,14 +271,14 @@ impl<W: Write> Writer<W> {
                         target_inst_name
                     ))?;
                 } else {
-                    self.write_string(&format!("; /* target instance name not assigned */"))?;
+                    self.write_string("; /* target instance name not assigned */")?;
                 }
                 if let Some(tipe) = opt_tipe {
                     self.write_string(&format!(" /* return type {:?} */", tipe))?;
                 } else {
-                    self.write_string(&format!(" /* return type unknown */"))?;
+                    self.write_string(" /* return type unknown */")?;
                 }
-                self.write_string(&format!("\n"))?;
+                self.write_string("\n")?;
             }
             Statement::IfThenElse(cond, ifcode, elsecode, _) => {
                 // check if this an assert

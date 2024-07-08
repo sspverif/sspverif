@@ -15,7 +15,7 @@ fn intermediate_state_piece_selector_arg_match_name(arg_name: &str) -> String {
 }
 
 fn partial_function_arg_intermediate_state_name() -> String {
-    format!("__intermediate_state")
+    "__intermediate_state".to_string()
 }
 
 #[derive(Debug, Clone)]
@@ -105,13 +105,13 @@ struct SmtDefineFunction<B: Into<SmtExpr>> {
     body: B,
 }
 
-impl<B: Into<SmtExpr>> Into<SmtExpr> for SmtDefineFunction<B> {
-    fn into(self) -> SmtExpr {
+impl<B: Into<SmtExpr>> From<SmtDefineFunction<B>> for SmtExpr {
+    fn from(val: SmtDefineFunction<B>) -> Self {
         (
             "define-fun",
-            self.name,
+            val.name,
             {
-                let args: Vec<_> = self
+                let args: Vec<_> = val
                     .args
                     .into_iter()
                     .map(|arg_spec| arg_spec.into())
@@ -119,8 +119,8 @@ impl<B: Into<SmtExpr>> Into<SmtExpr> for SmtDefineFunction<B> {
 
                 SmtExpr::List(args)
             },
-            self.ret_sort,
-            self.body,
+            val.ret_sort,
+            val.body,
         )
             .into()
     }
@@ -138,10 +138,10 @@ impl<'a> PackageInstanceContext<'a> {
 
         SmtIte {
             cond: SmtAnd(
-                args.into_iter()
+                args.iter()
                     .map(|(arg_name, _)| {
                         let lhs = arg_name.clone(); // this is just a local variable
-                        let rhs = intermediate_state_piece_selector_arg_match_name(&arg_name);
+                        let rhs = intermediate_state_piece_selector_arg_match_name(arg_name);
                         SmtEq2 { lhs, rhs }.into()
                     })
                     .collect(),
@@ -259,7 +259,7 @@ where
             })
             .collect();
 
-        return ("match", value.expr, SmtExpr::List(cases)).into();
+        ("match", value.expr, SmtExpr::List(cases)).into()
     }
 }
 

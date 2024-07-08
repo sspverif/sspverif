@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use crate::expressions::Expression;
-use crate::identifier::{Identifier, PackageConst, PackageState};
+use crate::identifier::{Identifier, PackageConst};
 use crate::package::{OracleDef, OracleSig, Package};
 use crate::statement::{CodeBlock, Statement};
 use crate::types::Type;
@@ -42,7 +42,7 @@ impl<W: Write> FmtWriter<W> {
             }) => {
                 self.write_string(name)?;
                 if self.annotate {
-                    self.write_string(&format!(" /* param identifier */ "))?;
+                    self.write_string(" /* param identifier */ ")?;
                 }
             }
             _ => todo!(),
@@ -59,7 +59,7 @@ impl<W: Write> FmtWriter<W> {
             Type::Bits(n) => self.write_string(&format!("Bits({n})")),
             Type::Maybe(t) => {
                 self.write_string("Maybe(")?;
-                self.write_type(&**t)?;
+                self.write_type(t)?;
                 self.write_string(")")
             }
             Type::Tuple(types) => {
@@ -240,7 +240,7 @@ impl<W: Write> FmtWriter<W> {
                     if let Some(sample_id) = sample_id {
                         self.write_string(&format!("; /* with sample_id {} */\n", sample_id))?;
                     } else {
-                        self.write_string(&format!("; /* sample_id not assigned */\n"))?;
+                        self.write_string("; /* sample_id not assigned */\n")?;
                     }
                 }
             }
@@ -273,15 +273,15 @@ impl<W: Write> FmtWriter<W> {
                             target_inst_name
                         ))?;
                     } else {
-                        self.write_string(&format!("; /* target instance name not assigned */"))?;
+                        self.write_string("; /* target instance name not assigned */")?;
                     }
                     if let Some(tipe) = opt_tipe {
                         self.write_string(&format!(" /* return type {:?} */", tipe))?;
                     } else {
-                        self.write_string(&format!(" /* return type unknown */"))?;
+                        self.write_string(" /* return type unknown */")?;
                     }
                 }
-                self.write_string(&format!("\n"))?;
+                self.write_string("\n")?;
             }
             Statement::IfThenElse(cond, ifcode, elsecode, _) => {
                 // check if this an assert

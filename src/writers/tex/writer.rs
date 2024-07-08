@@ -19,32 +19,28 @@ fn genindentation(cnt: u8) -> String {
 
 struct BlockWriter<'a> {
     file: &'a mut File,
-    typeinfo: bool,
 }
 
 impl<'a> BlockWriter<'a> {
     fn new(file: &'a mut File) -> BlockWriter<'a> {
-        BlockWriter {
-            file: file,
-            typeinfo: false,
-        }
+        BlockWriter { file }
     }
 
     fn ident_to_tex(&self, ident: &Identifier) -> String {
-        format!("\\n{{{}}}", ident.ident().replace("_", "\\_"))
+        format!("\\n{{{}}}", ident.ident().replace('_', "\\_"))
     }
 
     fn expression_to_tex(&self, expr: &Expression) -> String {
         match expr {
-            Expression::Bot => format!("\\bot"),
-            Expression::Identifier(ident) => self.ident_to_tex(&ident),
-            Expression::Not(expr) => format!("\\neg {}", self.expression_to_tex(&expr)),
-            Expression::Unwrap(expr) => format!("\\O{{unwrap}}({})", self.expression_to_tex(&expr)),
-            Expression::Some(expr) => format!("\\O{{some}}({})", self.expression_to_tex(&expr)),
+            Expression::Bot => "\\bot".to_string(),
+            Expression::Identifier(ident) => self.ident_to_tex(ident),
+            Expression::Not(expr) => format!("\\neg {}", self.expression_to_tex(expr)),
+            Expression::Unwrap(expr) => format!("\\O{{unwrap}}({})", self.expression_to_tex(expr)),
+            Expression::Some(expr) => format!("\\O{{some}}({})", self.expression_to_tex(expr)),
             Expression::Add(lhs, rhs) => format!(
                 "({} + {})",
-                self.expression_to_tex(&*lhs),
-                self.expression_to_tex(&*rhs)
+                self.expression_to_tex(lhs),
+                self.expression_to_tex(rhs)
             ),
             Expression::TableAccess(ident, expr) => format!(
                 "{}[{}]",
@@ -95,7 +91,7 @@ impl<'a> BlockWriter<'a> {
                     self.file,
                     "{} \\pcreturn {}\\\\",
                     genindentation(indentation),
-                    self.expression_to_tex(&expr)
+                    self.expression_to_tex(expr)
                 )?;
             }
             Statement::Assign(ident, None, expr, _) => {
@@ -103,8 +99,8 @@ impl<'a> BlockWriter<'a> {
                     self.file,
                     "{} {} \\gets {}\\\\",
                     genindentation(indentation),
-                    self.ident_to_tex(&ident),
-                    self.expression_to_tex(&expr)
+                    self.ident_to_tex(ident),
+                    self.expression_to_tex(expr)
                 )?;
             }
             Statement::Assign(ident, Some(idxexpr), expr, _) => {
@@ -112,9 +108,9 @@ impl<'a> BlockWriter<'a> {
                     self.file,
                     "{} {}[{}] \\gets {}\\\\",
                     genindentation(indentation),
-                    self.ident_to_tex(&ident),
-                    self.expression_to_tex(&idxexpr),
-                    self.expression_to_tex(&expr)
+                    self.ident_to_tex(ident),
+                    self.expression_to_tex(idxexpr),
+                    self.expression_to_tex(expr)
                 )?;
             }
             Statement::Parse(ids, expr, _) => {
@@ -122,9 +118,9 @@ impl<'a> BlockWriter<'a> {
                     self.file,
                     "{}\\pcparse {} \\pcas {}\\\\",
                     genindentation(indentation),
-                    self.expression_to_tex(&expr),
+                    self.expression_to_tex(expr),
                     ids.iter()
-                        .map(|ident| self.ident_to_tex(&ident))
+                        .map(|ident| self.ident_to_tex(ident))
                         .collect::<Vec<_>>()
                         .join(", ")
                 )?;
@@ -134,12 +130,12 @@ impl<'a> BlockWriter<'a> {
                     self.file,
                     "{}\\pcif {} \\pcthen\\\\",
                     genindentation(indentation),
-                    self.expression_to_tex(&expr)
+                    self.expression_to_tex(expr)
                 )?;
-                self.write_codeblock(&ifcode, indentation + 1)?;
+                self.write_codeblock(ifcode, indentation + 1)?;
                 if !elsecode.0.is_empty() {
                     writeln!(self.file, "{}\\pcelse\\\\", genindentation(indentation))?;
-                    self.write_codeblock(&elsecode, indentation + 1)?;
+                    self.write_codeblock(elsecode, indentation + 1)?;
                 }
             }
             Statement::For(_, _, _, _, _) => todo!(),
@@ -150,7 +146,7 @@ impl<'a> BlockWriter<'a> {
                     self.file,
                     "{}{} \\stackrel{{{}}}{{\\sample}} {:?}\\\\",
                     genindentation(indentation),
-                    self.ident_to_tex(&ident),
+                    self.ident_to_tex(ident),
                     cnt,
                     tipe
                 )?;
@@ -162,8 +158,8 @@ impl<'a> BlockWriter<'a> {
                     self.file,
                     "{}{}[{}] \\stackrel{{{}}}{{\\samples}} {:?}\\\\",
                     genindentation(indentation),
-                    self.ident_to_tex(&ident),
-                    self.expression_to_tex(&idxexpr),
+                    self.ident_to_tex(ident),
+                    self.expression_to_tex(idxexpr),
                     cnt,
                     tipe
                 )?;
@@ -180,9 +176,9 @@ impl<'a> BlockWriter<'a> {
                 writeln!(self.file,
                          "{}{} \\stackrel{{\\gets}}{{\\mathsf{{\\tiny{{invoke}}}}}} {}({}) \\pccomment{{Pkg: {}}} \\\\",
                          genindentation(indentation),
-                         self.ident_to_tex(&ident), name,
+                         self.ident_to_tex(ident), name,
                          args.iter().map(|expr| self.expression_to_tex(expr)).collect::<Vec<_>>().join(", "),
-                         target_inst_name.replace("_","\\_")
+                         target_inst_name.replace('_',"\\_")
                 )?;
             }
             Statement::InvokeOracle {
@@ -197,11 +193,11 @@ impl<'a> BlockWriter<'a> {
                 writeln!(self.file,
                          "{}{}[{}] \\stackrel{{\\gets}}{{\\mathsf{{\\tiny invoke}}}} {}({}) \\pccomment{{Pkg: {}}} \\\\",
                          genindentation(indentation),
-                         self.ident_to_tex(&ident),
-                         self.expression_to_tex(&idxexpr),
+                         self.ident_to_tex(ident),
+                         self.expression_to_tex(idxexpr),
                          name,
                          args.iter().map(|expr| self.expression_to_tex(expr)).collect::<Vec<_>>().join(", "),
-                         target_inst_name.replace("_","\\_")
+                         target_inst_name.replace('_',"\\_")
                 )?;
             }
             Statement::InvokeOracle {
@@ -216,7 +212,7 @@ impl<'a> BlockWriter<'a> {
 
     fn write_codeblock(&mut self, codeblock: &CodeBlock, indentation: u8) -> std::io::Result<()> {
         for stmt in &codeblock.0 {
-            self.write_statement(&stmt, indentation)?
+            self.write_statement(stmt, indentation)?
         }
         Ok(())
     }
@@ -258,7 +254,7 @@ pub fn tex_write_package(package: &PackageInstance, target: &Path) -> std::io::R
     writeln!(
         file,
         "\\begin{{pcvstack}}\\underline{{\\underline{{\\M{{{}}}}}}}\\\\\\begin{{pchstack}}",
-        package.name.replace("_", "\\_")
+        package.name.replace('_', "\\_")
     )?;
 
     for oracle in &package.pkg.oracles {
@@ -321,7 +317,7 @@ pub fn tex_write_composition(
                     i,
                     tikzx,
                     tikzy,
-                    composition.pkgs[i].name.replace("_", "\\_")
+                    composition.pkgs[i].name.replace('_', "\\_")
                 )?;
                 newly.push(i);
                 tikzy -= 2;
@@ -341,7 +337,7 @@ pub fn tex_write_composition(
         file,
         "\\node[package] (nodea) at ({}, {}) {{$A$}};",
         tikzx, tikzy
-    );
+    )?;
     for Export(to, oracle) in &composition.exports {
         writeln!(file, "\\draw[-latex,rounded corners] (nodea) -- ($(nodea.east) + (1,0)$) |- node[onarrow] {{\\O{{{}}}}} (node{});", oracle.name, to)?;
     }

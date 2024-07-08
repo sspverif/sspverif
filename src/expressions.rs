@@ -80,9 +80,9 @@ impl Expression {
             Expression::List(exprs) if !exprs.is_empty() => {
                 Type::List(Box::new(exprs[0].get_type()))
             }
-            Expression::List(exprs) => todo!(),
+            Expression::List(_exprs) => todo!(),
             Expression::Set(exprs) if !exprs.is_empty() => Type::Set(Box::new(exprs[0].get_type())),
-            Expression::Set(_) => todo!(),
+            Expression::Set(_exprs) => todo!(),
             Expression::FnCall(ident, _) => {
                 let fn_type = match ident {
                     Identifier::PackageIdentifier(pkg_ident) => pkg_ident.get_type(),
@@ -98,18 +98,18 @@ impl Expression {
 
                 match &fn_type {
                     Type::Fn(_args, ret_type) => *ret_type.clone(),
-                    other => unreachable!(&format!(
+                    _ => unreachable!(
                         "found non-function type {:?} when calling function `{}`",
                         fn_type,
                         ident.ident()
-                    )),
+                    ),
                 }
             }
             Expression::None(tipe) => Type::Maybe(Box::new(tipe.clone())),
             Expression::Some(expr) => Type::Maybe(Box::new(expr.get_type())),
             Expression::Unwrap(expr) => match expr.get_type() {
                 Type::Maybe(tipe) => *tipe,
-                _ => unreachable!(&format!("{expr:?}")),
+                _ => unreachable!("{expr:?}", expr = expr),
             },
 
             Expression::Sum(expr)

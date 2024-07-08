@@ -30,8 +30,8 @@ impl Display for MaybeDeclaration {
     }
 }
 
-impl Into<Vec<SmtExpr>> for MaybeDeclaration {
-    fn into(self) -> Vec<SmtExpr> {
+impl From<MaybeDeclaration> for Vec<SmtExpr> {
+    fn from(_val: MaybeDeclaration) -> Self {
         vec![(
             "declare-datatypes",
             (("Maybe", 1),),
@@ -85,17 +85,12 @@ impl Display for TupleDeclaration {
     }
 }
 
-impl Into<Vec<SmtExpr>> for TupleDeclaration {
-    fn into(self) -> Vec<SmtExpr> {
-        let TupleDeclaration(n) = self;
+impl From<TupleDeclaration> for Vec<SmtExpr> {
+    fn from(val: TupleDeclaration) -> Self {
+        let TupleDeclaration(n) = val;
 
         if n == 0 {
-            return vec![(
-                "declare-datatypes",
-                ((format!("Tuple0"), n),),
-                ((("mk-typle0",),)),
-            )
-                .into()];
+            return vec![("declare-datatypes", (("Tuple0", n),), ((("mk-typle0",),))).into()];
         }
 
         let types: Vec<SmtExpr> = (1..n + 1)
@@ -107,7 +102,7 @@ impl Into<Vec<SmtExpr>> for TupleDeclaration {
             .collect::<Vec<_>>();
 
         let mut fns = vec![format!("mk-tuple{n}").into()];
-        fns.extend(ds.into_iter());
+        fns.extend(ds);
 
         vec![(
             "declare-datatypes",
@@ -123,7 +118,7 @@ pub struct TuplesDeclaration(pub std::ops::Range<usize>);
 impl Display for TuplesDeclaration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
         let TuplesDeclaration(range) = self;
-        let iter = range.clone().map(|i| TupleDeclaration(i));
+        let iter = range.clone().map(TupleDeclaration);
         for decl in iter {
             write!(f, "{decl}")?;
         }
@@ -132,11 +127,10 @@ impl Display for TuplesDeclaration {
     }
 }
 
-impl Into<Vec<SmtExpr>> for TuplesDeclaration {
-    fn into(self) -> Vec<SmtExpr> {
-        self.0
-            .map(|i| <TupleDeclaration as Into<Vec<SmtExpr>>>::into(TupleDeclaration(i)))
-            .flatten()
+impl From<TuplesDeclaration> for Vec<SmtExpr> {
+    fn from(val: TuplesDeclaration) -> Self {
+        val.0
+            .flat_map(|i| <TupleDeclaration as Into<Vec<SmtExpr>>>::into(TupleDeclaration(i)))
             .collect()
     }
 }
@@ -150,9 +144,9 @@ impl Display for BitsDeclaration {
     }
 }
 
-impl Into<Vec<SmtExpr>> for BitsDeclaration {
-    fn into(self) -> Vec<SmtExpr> {
-        let BitsDeclaration(id) = self;
+impl From<BitsDeclaration> for Vec<SmtExpr> {
+    fn from(val: BitsDeclaration) -> Self {
+        let BitsDeclaration(id) = val;
 
         vec![("declare-sort", format!("Bits_{id}"), 0).into()]
     }
@@ -166,8 +160,8 @@ impl Display for EmptyDeclaration {
     }
 }
 
-impl Into<Vec<SmtExpr>> for EmptyDeclaration {
-    fn into(self) -> Vec<SmtExpr> {
+impl From<EmptyDeclaration> for Vec<SmtExpr> {
+    fn from(_val: EmptyDeclaration) -> Self {
         vec![("declare-datatype", "Empty", (("mk-empty",),)).into()]
     }
 }

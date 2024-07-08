@@ -77,6 +77,10 @@ impl SplitPath {
         self.0.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn last(&self) -> Option<&SplitPathComponent> {
         self.0.last()
     }

@@ -29,6 +29,6 @@ pub mod error {
     use crate::statement::FilePosition;
 
     pub trait LocationError: std::error::Error {
-        fn file_pos<'a>(&'a self) -> &'a FilePosition;
+        fn file_pos(&self) -> &FilePosition;
     }
 }
