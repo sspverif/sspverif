@@ -6,8 +6,6 @@ use crate::types::Type;
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Expression {
-    Typed(Type, Box<Expression>),
-
     Bot,
     Sample(Type),
     StringLiteral(String),
@@ -63,7 +61,6 @@ impl Expression {
 
     pub fn get_type(&self) -> Type {
         match self {
-            Expression::Typed(tipe, _) => tipe.clone(),
             Expression::Bot => Type::Empty,
             Expression::Sample(tipe) => tipe.clone(),
             Expression::StringLiteral(_) => Type::String,
@@ -166,8 +163,7 @@ impl Expression {
             Expression::Not(expr)
             | Expression::Some(expr)
             | Expression::Unwrap(expr)
-            | Expression::TableAccess(_, expr)
-            | Expression::Typed(_, expr) => expr.as_mut().walk(f),
+            | Expression::TableAccess(_, expr) => expr.as_mut().walk(f),
 
             Expression::Tuple(exprs)
             | Expression::Equals(exprs)
@@ -254,9 +250,6 @@ impl Expression {
                 name.clone(),
                 exprs.iter().map(|expr| expr.borrow_map(f)).collect(),
             ),
-            Expression::Typed(t, inner) => {
-                Expression::Typed(t.clone(), Box::new(inner.borrow_map(f)))
-            }
             Expression::List(exprs) => {
                 Expression::List(exprs.iter().map(|expr| expr.borrow_map(f)).collect())
             }
@@ -396,10 +389,6 @@ impl Expression {
                     .collect();
 
                 (ac, Expression::FnCall(name.clone(), newexprs))
-            }
-            Expression::Typed(t, inner) => {
-                let (ac, e) = inner.mapfold(init, f);
-                (ac, Expression::Typed(t.clone(), Box::new(e)))
             }
             Expression::List(inner) => {
                 let mut ac = init;

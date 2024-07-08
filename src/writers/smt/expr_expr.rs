@@ -30,7 +30,6 @@ impl From<Expression> for SmtExpr {
                     panic!("Empty table of type {:?}", t)
                 }
             }
-            Expression::Typed(_t, inner) => SmtExpr::from(*inner),
             Expression::Unwrap(inner) => {
                 panic!(
                     "found an unwrap and don't knwo what to do with it -- {expr:?}",

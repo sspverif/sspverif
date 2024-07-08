@@ -90,15 +90,6 @@ impl<W: Write> FmtWriter<W> {
 
     pub fn write_expression(&mut self, expr: &Expression) -> Result {
         match expr {
-            Expression::Typed(t, bexp) => {
-                let expr = &**bexp;
-                self.write_expression(&expr)?;
-                if self.annotate {
-                    self.write_string(" /* of type ")?;
-                    self.write_type(t)?;
-                    self.write_string(" */ ")?;
-                }
-            }
             Expression::BooleanLiteral(x) => {
                 self.write_string(x)?;
             }

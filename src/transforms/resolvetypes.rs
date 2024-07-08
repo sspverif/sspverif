@@ -2,6 +2,13 @@ use miette::SourceSpan;
 
 use super::PackageInstanceTransform;
 use crate::expressions::Expression;
+use crate::identifier::game_ident::{GameConstIdentifier, GameIdentifier};
+use crate::identifier::pkg_ident::{
+    PackageConstIdentifier, PackageIdentifier, PackageLocalIdentifier, PackageOracleArgIdentifier,
+    PackageStateIdentifier,
+};
+use crate::identifier::proof_ident::{ProofConstIdentifier, ProofIdentifier};
+use crate::identifier::Identifier;
 use crate::package::{Composition, Edge, Export, OracleDef, OracleSig, PackageInstance};
 use crate::statement::{CodeBlock, FilePosition, Statement};
 use crate::types::Type;
@@ -345,19 +352,61 @@ fn expression_walker(
         }
 
         result = match expr {
-            Expression::Typed(tipe, _expr) => {
-                type_walker(type_mapping, place.clone(), file_pos, tipe)
+            Expression::Identifier(ident) => {
+                ident_walker(type_mapping, place.clone(), file_pos, ident)
             }
             Expression::None(tipe) => type_walker(type_mapping, place.clone(), file_pos, tipe),
             _ => Ok(()),
         };
 
-        return true;
+        true
     };
 
     expr.walk(&mut visitor);
 
     result
+}
+fn ident_walker(
+    type_mapping: &HashMap<Type, Type>,
+    place: Place,
+    file_pos: &SourceSpan,
+    ident: &mut Identifier,
+) -> Result<()> {
+    let tipe = match ident {
+        Identifier::PackageIdentifier(pkg_ident) => {
+            // these are always Integer, skip
+            if matches!(
+                pkg_ident,
+                PackageIdentifier::CodeLoopVar(_) | PackageIdentifier::ImportsLoopVar(_)
+            ) {
+                return Ok(());
+            }
+            pkg_ident.type_mut()
+        }
+        Identifier::GameIdentifier(GameIdentifier::Const(GameConstIdentifier { tipe, .. })) => tipe,
+        Identifier::GameIdentifier(GameIdentifier::LoopVar(_)) => {
+            // these are always Integer, skip
+            return Ok(());
+        }
+        Identifier::ProofIdentifier(ProofIdentifier::Const(ProofConstIdentifier {
+            tipe, ..
+        })) => tipe,
+        Identifier::ProofIdentifier(ProofIdentifier::LoopVar(_)) => {
+            // these are always Integer, skip
+            return Ok(());
+        }
+        Identifier::Local(_) => panic!("shouldn't use Identifier::Local, but found {:?}", ident),
+        Identifier::Scalar(_) => panic!("shouldn't use Identifier::Scalar, but found {:?}", ident),
+        Identifier::Parameter(_) => {
+            panic!("shouldn't use Identifier::Parameter, but found {:?}", ident)
+        }
+        Identifier::GameInstanceConst(_) => panic!(
+            "shouldn't use Identifier::GameInstanceConst, but found {:?}",
+            ident
+        ),
+    };
+
+    type_walker(type_mapping, place, file_pos, tipe)
 }
 
 fn type_walker(

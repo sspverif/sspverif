@@ -36,7 +36,6 @@ impl<'a> BlockWriter<'a> {
 
     fn expression_to_tex(&self, expr: &Expression) -> String {
         match expr {
-            Expression::Typed(_t, new_expr) => self.expression_to_tex(new_expr),
             Expression::Bot => format!("\\bot"),
             Expression::Identifier(ident) => self.ident_to_tex(&ident),
             Expression::Not(expr) => format!("\\neg {}", self.expression_to_tex(&expr)),

@@ -81,6 +81,19 @@ pub mod pkg_ident {
                 PackageIdentifier::CodeLoopVar(_loopvar) => Type::Integer,
             }
         }
+
+        pub(crate) fn type_mut(&mut self) -> &mut Type {
+            match self {
+                PackageIdentifier::Const(const_ident) => &mut const_ident.tipe,
+                PackageIdentifier::State(state_ident) => &mut state_ident.tipe,
+                PackageIdentifier::Local(local_ident) => &mut local_ident.tipe,
+                PackageIdentifier::OracleArg(arg_ident) => &mut arg_ident.tipe,
+                PackageIdentifier::OracleImport(oracle_import) => &mut oracle_import.return_type,
+                PackageIdentifier::ImportsLoopVar(_) | PackageIdentifier::CodeLoopVar(_) => {
+                    panic!("cannot provide a mutable reference to the type of a loopvar")
+                }
+            }
+        }
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]

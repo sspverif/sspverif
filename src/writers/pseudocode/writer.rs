@@ -79,11 +79,6 @@ impl<W: Write> Writer<W> {
 
     pub fn write_expression(&mut self, expr: &Expression) -> Result {
         match expr {
-            Expression::Typed(t, _) => {
-                self.write_string(" /* of type ")?;
-                self.write_type(t)?;
-                self.write_string(" */ ")?;
-            }
             Expression::EmptyTable(t @ Type::Table(t_k, t_v)) => {
                 self.write_string("new Table(")?;
                 self.write_type(&t_k)?;
