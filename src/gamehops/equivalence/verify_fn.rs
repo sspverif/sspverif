@@ -2,7 +2,7 @@ use std::fmt::Write;
 use std::fs::File;
 
 use crate::{
-    gamehops::equivalence::error::{self, Error, Result},
+    gamehops::equivalence::error::{Error, Result},
     proof::{Equivalence, Proof},
     transforms::{proof_transforms::EquivalenceTransform, ProofTransform},
     util::prover_process::{Communicator, ProverBackend, ProverResponse},
@@ -16,9 +16,7 @@ pub fn verify(
     backend: ProverBackend,
     transcript_file: Option<File>,
 ) -> Result<()> {
-    let (proof, auxs) = EquivalenceTransform
-        .transform_proof(proof)
-        .map_err(error::new_proof_transform_error)?;
+    let (proof, auxs) = EquivalenceTransform.transform_proof(proof).unwrap();
 
     let eqctx = EquivalenceContext {
         eq,

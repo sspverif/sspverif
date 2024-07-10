@@ -15,10 +15,7 @@ use crate::{
     gamehops::{equivalence, reduction},
     package::{Composition, Package},
     proof::{GameHop, Proof},
-    transforms::{
-        typecheck::{typecheck_pkg, Scope as TypeCheckScope},
-        Transformation,
-    },
+    transforms::Transformation,
     util::prover_process::ProverBackend,
 };
 
@@ -52,6 +49,10 @@ impl Project {
         let root_dir = find_project_root()?;
 
         let packages = load::packages(root_dir.clone())?;
+
+        /* we already typecheck during parsing, and the typecheck transform uses a bunch of deprecated
+           stuff, so we just comment it out.
+
         let mut pkg_names: Vec<_> = packages.keys().collect();
         pkg_names.sort();
 
@@ -60,6 +61,7 @@ impl Project {
             let mut scope = TypeCheckScope::new();
             typecheck_pkg(pkg, &mut scope)?;
         }
+         */
 
         let games = load::games(root_dir.clone(), &packages)?;
         // let mut game_names: Vec<_> = games.keys().collect();

@@ -7,7 +7,6 @@ pub enum Error {
         oracle_name: String,
     },
     ProverProcessError(crate::util::prover_process::Error),
-    ProofTransformError(crate::transforms::typecheck::TypeCheckError),
     InvariantFileReadError {
         oracle_name: String,
         invariant_file_name: String,
@@ -29,7 +28,6 @@ impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Error::ProverProcessError(err) => Some(err),
-            Error::ProofTransformError(err) => Some(err),
             Error::InvariantFileReadError { err, .. } => Some(err),
             _ => None,
         }
@@ -55,7 +53,6 @@ impl std::fmt::Display for Error {
                 )
             }
             Error::ProverProcessError(err) => write!(f, "error communicating with prover: {err}"),
-            Error::ProofTransformError(err) => write!(f,  "error transforming proof: {err}"),
             Error::InvariantFileReadError {
                 oracle_name,
                 invariant_file_name,
@@ -91,12 +88,6 @@ impl From<crate::util::prover_process::Error> for Error {
 
 pub(crate) fn new_prover_process_error(err: crate::util::prover_process::Error) -> Error {
     Error::ProverProcessError(err)
-}
-
-pub(crate) fn new_proof_transform_error(
-    err: crate::transforms::typecheck::TypeCheckError,
-) -> Error {
-    Error::ProofTransformError(err)
 }
 
 pub(crate) fn new_invariant_file_read_error(

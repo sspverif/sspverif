@@ -923,8 +923,8 @@ impl<'a> EquivalenceContext<'a> {
 
     fn types(&self) -> Vec<Type> {
         let aux_resolver = SliceResolver(&self.auxs);
-        let (_, (_, types_left, _, _)) = aux_resolver.resolve_value(self.eq.left_name()).unwrap();
-        let (_, (_, types_right, _, _)) = aux_resolver.resolve_value(self.eq.right_name()).unwrap();
+        let (_, (types_left, _, _)) = aux_resolver.resolve_value(self.eq.left_name()).unwrap();
+        let (_, (types_right, _, _)) = aux_resolver.resolve_value(self.eq.right_name()).unwrap();
         let mut types: Vec<_> = types_left.union(types_right).cloned().collect();
         types.sort();
         types
@@ -948,25 +948,25 @@ impl<'a> EquivalenceContext<'a> {
 
     fn sample_info_left(&self) -> &'a SampleInfo {
         let aux_resolver = SliceResolver(&self.auxs);
-        let (_, (_, _, sample_info, _)) = aux_resolver.resolve_value(self.eq.left_name()).unwrap();
+        let (_, (_, sample_info, _)) = aux_resolver.resolve_value(self.eq.left_name()).unwrap();
         sample_info
     }
 
     fn sample_info_right(&self) -> &'a SampleInfo {
         let aux_resolver = SliceResolver(&self.auxs);
-        let (_, (_, _, sample_info, _)) = aux_resolver.resolve_value(self.eq.right_name()).unwrap();
+        let (_, (_, sample_info, _)) = aux_resolver.resolve_value(self.eq.right_name()).unwrap();
         sample_info
     }
 
     fn split_info_left(&self) -> &'a Vec<SplitInfoEntry> {
         let aux_resolver = SliceResolver(&self.auxs);
-        let (_, (_, _, _, split_info)) = aux_resolver.resolve_value(self.eq.left_name()).unwrap();
+        let (_, (_, _, split_info)) = aux_resolver.resolve_value(self.eq.left_name()).unwrap();
         split_info
     }
 
     fn split_info_right(&self) -> &'a Vec<SplitInfoEntry> {
         let aux_resolver = SliceResolver(&self.auxs);
-        let (_, (_, _, _, split_info)) = aux_resolver.resolve_value(self.eq.right_name()).unwrap();
+        let (_, (_, _, split_info)) = aux_resolver.resolve_value(self.eq.right_name()).unwrap();
         split_info
     }
 

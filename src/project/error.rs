@@ -1,4 +1,4 @@
-use crate::{parser, transforms::typecheck::TypeCheckError, util::prover_process::ProverResponse};
+use crate::{parser, util::prover_process::ProverResponse};
 use miette::Diagnostic;
 use std::{io::Error as IOError, path::PathBuf};
 use thiserror::Error;
@@ -44,8 +44,6 @@ pub enum Error {
         right: String,
         invariant_path: PathBuf,
     },
-    #[error("type error: {0}")]
-    TypecheckError(#[from] TypeCheckError),
     #[error("error parsing utf-8: {0}")]
     FromUtf8Error(#[from] std::string::FromUtf8Error),
     #[error("error in interaction with child process: {0}")]

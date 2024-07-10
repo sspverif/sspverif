@@ -1,21 +1,20 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, convert::Infallible};
 
 use crate::{proof::GameInstance, types::Type};
 
 use super::{
     resolveoracles, resolvetypes, returnify, samplify, split_partial, tableinitialize, treeify,
-    type_extract, typecheck, unwrapify, GameTransform, Transformation,
+    type_extract, unwrapify, GameTransform, Transformation,
 };
 
 pub struct EquivalenceTransform;
 
 impl super::ProofTransform for EquivalenceTransform {
-    type Err = typecheck::TypeCheckError;
+    type Err = Infallible;
 
     type Aux = Vec<(
         String,
         (
-            typecheck::Scope,
             HashSet<Type>,
             samplify::SampleInfo,
             split_partial::SplitInfo,
@@ -42,21 +41,21 @@ fn transform_game_inst(
         (
             String,
             (
-                typecheck::Scope,
                 HashSet<Type>,
                 samplify::SampleInfo,
                 split_partial::SplitInfo,
             ),
         ),
     ),
-    typecheck::TypeCheckError,
+    //typecheck::TypeCheckError,
+    Infallible,
 > {
     let comp = game_inst.game();
 
     let (comp, _) = resolvetypes::Transformation(comp)
         .transform()
         .expect("resolving user-defined types failed");
-    let (comp, scope) = typecheck::Transformation::new_with_empty_scope(&comp).transform()?;
+    // let (comp, scope) = typecheck::Transformation::new_with_empty_scope(&comp).transform()?;
     let (comp, types) = type_extract::Transformation(&comp)
         .transform()
         .expect("type extraction transformation failed unexpectedly");
@@ -87,9 +86,6 @@ fn transform_game_inst(
 
     Ok((
         game_inst.with_other_game(comp),
-        (
-            game_inst.name().to_string(),
-            (scope, types, samplinginfo, splits),
-        ),
+        (game_inst.name().to_string(), (types, samplinginfo, splits)),
     ))
 }
