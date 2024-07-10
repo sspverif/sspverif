@@ -5,7 +5,7 @@ use std::iter::FromIterator;
 use crate::util::resolver::Named;
 use crate::{
     hacks,
-    package::{Composition, Export, OracleSig, SplitExport},
+    package::{Export, OracleSig, SplitExport},
     proof::{Claim, ClaimType, Equivalence, GameInstance, Proof},
     split::{SplitOracleSig, SplitPath},
     transforms::{

@@ -576,13 +576,6 @@ pub struct ComposeLoopVar {
     pub(crate) game_inst_name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, PartialOrd, Eq, Ord)]
-pub struct GameInstanceConst {
-    pub(crate) game_inst_name: String,
-    pub(crate) name_in_comp: String,
-    pub(crate) name_in_proof: String,
-}
-
 impl PartialEq for Identifier {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
