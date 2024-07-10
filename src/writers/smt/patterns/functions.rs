@@ -1,4 +1,3 @@
-use crate::expressions::Expression;
 use crate::types::Type;
 use crate::writers::smt::exprs::SmtExpr;
 use crate::writers::smt::patterns::ReturnPattern;
@@ -256,7 +255,7 @@ impl<'a> FunctionPattern for LemmaFunction<'a> {
     }
 
     fn function_args(&self) -> Vec<(String, SmtExpr)> {
-        let state_left_pattern = GameStatePattern {
+        let _state_left_pattern = GameStatePattern {
             game_inst_name: self.left_game_inst_name,
         };
         vec![]

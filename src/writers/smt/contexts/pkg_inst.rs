@@ -6,7 +6,6 @@ use crate::writers::smt::patterns::{declare_datatype, PackageStateSelector};
 use crate::writers::smt::{
     contexts::{GameInstanceContext, OracleContext, PackageInstanceContext, SplitOracleContext},
     exprs::SmtExpr,
-    names,
     patterns::{DatastructurePattern, PackageStatePattern},
 };
 

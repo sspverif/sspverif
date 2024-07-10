@@ -3,10 +3,7 @@ use miette::SourceSpan;
 use super::PackageInstanceTransform;
 use crate::expressions::Expression;
 use crate::identifier::game_ident::{GameConstIdentifier, GameIdentifier};
-use crate::identifier::pkg_ident::{
-    PackageConstIdentifier, PackageIdentifier, PackageLocalIdentifier, PackageOracleArgIdentifier,
-    PackageStateIdentifier,
-};
+use crate::identifier::pkg_ident::PackageIdentifier;
 use crate::identifier::proof_ident::{ProofConstIdentifier, ProofIdentifier};
 use crate::identifier::Identifier;
 use crate::package::{Composition, Edge, Export, OracleDef, OracleSig, PackageInstance};
@@ -430,6 +427,9 @@ fn type_walker(
                     place,   # {place:?}
                     file_pos # {file_pos:?}
                 }})"#,
+                    tipe = tipe,
+                    place = place,
+                    file_pos = file_pos
                 );
             }
         }

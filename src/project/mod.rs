@@ -5,7 +5,6 @@
  *  we also facilitate individual proof steps here, and provide an interface for doing the whole proof.
  *
  */
-use serde_derive::{Deserialize, Serialize};
 use std::io::ErrorKind;
 use std::{collections::HashMap, path::PathBuf};
 
@@ -277,8 +276,8 @@ impl Project {
         }
     }
 
-    pub fn print_wire_check_smt(&self, game_name: &str, dst_idx: usize) {
-        let game = self.get_game(game_name).unwrap();
+    pub fn print_wire_check_smt(&self, game_name: &str, _dst_idx: usize) {
+        let _game = self.get_game(game_name).unwrap();
         // for command in wire_proofs::build_smt(&game, dst_idx) {
         //     println!("{}", command);
         // }

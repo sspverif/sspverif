@@ -260,7 +260,7 @@ pub(crate) mod instantiate {
         const_assignments: &[(Identifier, Expression)],
         type_assignments: &[(String, Type)],
     ) -> CodeBlock {
-        let type_rewrite_rules: Vec<_> = type_assignments
+        let _type_rewrite_rules: Vec<_> = type_assignments
             .iter()
             .map(|(name, tipe)| (Type::UserDefined(name.to_string()), tipe.clone()))
             .collect();

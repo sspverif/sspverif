@@ -5,8 +5,6 @@ mod partial_return;
 mod pkg_state;
 mod return_value;
 
-use std::iter::FromIterator;
-
 pub use game_state::*;
 pub use intermediate_state::*;
 pub use normal_return::*;

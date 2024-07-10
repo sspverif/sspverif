@@ -489,7 +489,7 @@ mod test {
     use crate::block;
     use crate::expressions::Expression;
     use crate::identifier::Identifier;
-    use crate::statement::{CodeBlock, FilePosition, Statement};
+    use crate::statement::{CodeBlock, Statement};
     use crate::transforms::typecheck::{errors::TypeCheckError, scope::Scope};
     use crate::types::Type;
 

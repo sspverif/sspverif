@@ -150,11 +150,13 @@ pub fn returnify(
                 panic!(
                     r#"
                 Err(Error::MissingReturn {{
-                    file_pos: other.file_pos(), # 
+                    file_pos: other.file_pos(), #
                     oracle_name,                # {oracle_name}
                     pkg_inst_name,              # {pkg_inst_name}
                 }})
-                "#
+                "#,
+                    oracle_name = oracle_name,
+                    pkg_inst_name = pkg_inst_name
                 )
             } else {
                 let mut retval = cb.0.clone();
@@ -180,7 +182,7 @@ mod test {
     use crate::block;
     use crate::expressions::Expression;
     use crate::identifier::Identifier;
-    use crate::statement::{CodeBlock, FilePosition, Statement};
+    use crate::statement::{CodeBlock, Statement};
     use crate::types::Type;
 
     #[test]

@@ -49,17 +49,17 @@ impl<'a> DatastructurePattern<'a> for ReturnValue<'a> {
         .to_string()
     }
 
-    fn selector_name(&self, sel: &Self::Selector) -> String {
+    fn selector_name(&self, _sel: &Self::Selector) -> String {
         "return-value".to_string()
     }
 
-    fn selector_sort(&self, sel: &Self::Selector) -> crate::writers::smt::exprs::SmtExpr {
+    fn selector_sort(&self, _sel: &Self::Selector) -> crate::writers::smt::exprs::SmtExpr {
         self.inner_type.into()
     }
 
     fn datastructure_spec(
         &self,
-        info: &'a Self::DeclareInfo,
+        _info: &'a Self::DeclareInfo,
     ) -> super::DatastructureSpec<'a, Self> {
         DatastructureSpec(vec![
             (ReturnValueConstructor::Return, vec![ReturnValueSelector]),
@@ -67,7 +67,7 @@ impl<'a> DatastructurePattern<'a> for ReturnValue<'a> {
         ])
     }
 
-    fn matchfield_name(&self, sel: &Self::Selector) -> String {
+    fn matchfield_name(&self, _sel: &Self::Selector) -> String {
         "returnvalue".to_string()
     }
 }

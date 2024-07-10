@@ -1,4 +1,4 @@
-use crate::identifier::game_ident::{GameConstIdentifier, GameIdentifier};
+use crate::identifier::game_ident::GameIdentifier;
 use crate::identifier::proof_ident::ProofIdentifier;
 use crate::statement::FilePosition;
 use crate::util::scope::Scope;
@@ -27,7 +27,7 @@ pub fn handle_arglist(arglist: Pair<Rule>) -> Vec<(String, Type)> {
 impl From<ParseExpressionError> for Error {
     fn from(value: ParseExpressionError) -> Self {
         match value {
-            ParseExpressionError::UndefinedIdentifer(name, file_pos, owned_span) => {
+            ParseExpressionError::UndefinedIdentifer(name, file_pos, _owned_span) => {
                 println!("lost position at error conversion. The error occurred at {file_pos}");
                 Error::UndefinedIdentifer(name)
             }
@@ -39,7 +39,7 @@ impl From<ParseExpressionError> for SpanError {
     fn from(value: ParseExpressionError) -> Self {
         println!("lost position at error conversion. The full error is {value}");
         match value {
-            ParseExpressionError::UndefinedIdentifer(name, file_pos, owned_span) => {
+            ParseExpressionError::UndefinedIdentifer(name, _file_pos, owned_span) => {
                 Error::UndefinedIdentifer(name).with_owned_span(owned_span)
             }
         }
@@ -54,7 +54,7 @@ pub enum ParseExpressionError {
 impl core::fmt::Display for ParseExpressionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ParseExpressionError::UndefinedIdentifer(name, file_pos, owned_span) => {
+            ParseExpressionError::UndefinedIdentifer(name, file_pos, _owned_span) => {
                 write!(f, "undefined identifier `{name}` at {file_pos}")
             }
         }
@@ -290,7 +290,7 @@ pub fn handle_game_params_def_list(
 }
 pub fn handle_proof_params_def_list(
     ast: Pair<Rule>,
-    defined_consts: &[(String, Type)],
+    _defined_consts: &[(String, Type)],
     scope: &mut Scope,
 ) -> Result<Vec<(String, Expression)>> {
     ast.into_inner()
@@ -313,14 +313,14 @@ pub fn handle_proof_params_def_list(
                 | Expression::IntegerLiteral(_)
                 | Expression::Identifier(Identifier::ProofIdentifier(ProofIdentifier::LoopVar(_)))
                 | Expression::Identifier(Identifier::ProofIdentifier(ProofIdentifier::Const(_))) => {}
-                Expression::Identifier(Identifier::Scalar(ident)) => {
+                Expression::Identifier(Identifier::Scalar(_ident)) => {
                     panic!("scalar is deprecated");
-                    if !defined_consts
-                        .iter()
-                        .any(|(defd_name, _)| ident == defd_name)
-                    {
-                        return Err(Error::UndefinedIdentifer(ident.clone()).with_span(right_span));
-                    }
+                    // if !defined_consts
+                    //     .iter()
+                    //     .any(|(defd_name, _)| ident == defd_name)
+                    // {
+                    //     return Err(Error::UndefinedIdentifer(ident.clone()).with_span(right_span));
+                    // }
                 }
                 _ => {
                     return Err(Error::IllegalExpression(right.clone()).with_span(right_span));
@@ -345,7 +345,7 @@ pub fn handle_types_def_list(
 pub fn handle_types_def_spec(
     ast: Pair<Rule>,
     inst_name: &str,
-    file_name: &str,
+    _file_name: &str,
 ) -> Result<(String, Type)> {
     let span = ast.as_span();
     let mut iter = ast.into_inner();

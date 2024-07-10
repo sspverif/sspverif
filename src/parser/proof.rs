@@ -94,7 +94,7 @@ fn handle_instance_decl(
     ast: Pair<Rule>,
     scope: &mut Scope,
     proof_consts: &[(String, Type)],
-    pkgs: &[Package],
+    _pkgs: &[Package],
     games: &[Composition],
     file_name: &str,
 ) -> Result<GameInstance> {
@@ -277,7 +277,7 @@ fn handle_assumptions(ast: Pairs<Rule>, instances: &[GameInstance]) -> Result<Ve
 fn handle_game_hops(
     ast: Pairs<Rule>,
     assumptions: &[Assumption],
-    games: &[Composition],
+    _games: &[Composition],
     game_instances: &[GameInstance],
 ) -> Result<Vec<GameHop>> {
     let mut out = vec![];
@@ -391,7 +391,7 @@ fn handle_reduction_body(
     assumptions: &[Assumption],
     game_instances: &[GameInstance],
     left_name: &str,
-    right_name: &str,
+    _right_name: &str,
 ) -> Result<Reduction> {
     let mut ast = ast.into_inner();
     let assumptions_ast = ast.next().unwrap();
@@ -485,7 +485,7 @@ fn handle_mapspec<'a>(
         .collect();
 
     // TODO check mappings are valid
-    for (assumption_const, game_const) in &mappings {}
+    for (_assumption_const, _game_const) in &mappings {}
 
     if assumption.left_name != assumption_game_inst_name
         && assumption.right_name != assumption_game_inst_name

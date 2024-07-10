@@ -116,7 +116,7 @@ impl<'a> GameInstanceContext<'a> {
         // if the requested package state does not exists, return none
         self.pkg_inst_ctx_by_name(pkg_inst_name)?;
 
-        let game_inst_name = self.game_inst.name();
+        let _game_inst_name = self.game_inst.name();
 
         let selector = GameStateSelector::PackageInstance { pkg_inst_name };
 

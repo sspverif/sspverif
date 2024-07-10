@@ -6,15 +6,11 @@ use error::{Error, Result};
 
 use crate::package::{Composition, Package};
 use crate::parser::{
-    composition::handle_composition, package::handle_pkg, proof::handle_proof, ParseContext,
-    SspParser,
+    composition::handle_composition, package::handle_pkg, proof::handle_proof, SspParser,
 };
 use crate::proof::Proof;
 use crate::util::scope::Scope;
 extern crate toml_edit;
-
-// left is the name of the lemma, right is list of names of dependency lemmas
-pub type ProofTreeSpec = Vec<(String, Vec<String>)>;
 
 pub(crate) fn packages(root: PathBuf) -> Result<HashMap<String, Package>> {
     let mut dir = root;

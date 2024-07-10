@@ -6,7 +6,6 @@ use super::{
 use crate::{
     expressions::Expression,
     identifier::{
-        self,
         game_ident::GameIdentifier,
         pkg_ident::{
             PackageConstIdentifier, PackageIdentifier, PackageImportsLoopVarIdentifier,
@@ -15,7 +14,7 @@ use crate::{
         },
         Identifier,
     },
-    package::{Edge, OracleDef, OracleSig, Package},
+    package::{OracleDef, OracleSig, Package},
     statement::{CodeBlock, FilePosition, Statement},
     types::Type,
     util::{
@@ -33,9 +32,9 @@ use miette::{Diagnostic, NamedSource, SourceSpan};
 use pest::iterators::Pair;
 use thiserror::Error;
 
+use std::collections::HashMap;
 use std::convert::TryInto;
 use std::hash::Hash;
-use std::{any::type_name, collections::HashMap};
 
 #[derive(Clone, Debug)]
 pub struct PackageParseContext<'a> {
@@ -718,7 +717,6 @@ pub fn handle_code(
                 Rule::sample => {
                     let mut inner = stmt.into_inner();
                     let name_ast = inner.next().unwrap();
-                    let name = name_ast.as_str();
                     let tipe = handle_type(inner.next().unwrap());
                     let ident = handle_identifier_in_code_lhs(
                         ctx,
@@ -733,7 +731,6 @@ pub fn handle_code(
                 Rule::assign => {
                     let mut inner = stmt.into_inner();
                     let name_ast = inner.next().unwrap();
-                    let name = name_ast.as_str();
                     // it's fine to use a None expected_type here, because we later check that the
                     // resulting type matches the identifier
                     // maybe we could produce better errors (or have better type inference?) if we
@@ -757,7 +754,6 @@ pub fn handle_code(
                 Rule::table_sample => {
                     let mut inner = stmt.into_inner();
                     let name_ast = inner.next().unwrap();
-                    let name = name_ast.as_str();
                     let index = handle_expression(ctx, inner.next().unwrap(), None)?;
                     let tipe = handle_type(inner.next().unwrap());
                     let ident = handle_identifier_in_code_lhs(
@@ -818,7 +814,6 @@ pub fn handle_code(
                 Rule::invocation => {
                     let mut inner = stmt.into_inner();
                     let target_ident_name_ast = inner.next().unwrap();
-                    let target_ident_name = target_ident_name_ast.as_str();
                     let maybe_index = inner.next().unwrap();
                     // TODO: this should be used in type checking somehow
                     let (opt_idx, oracle_inv) = if maybe_index.as_rule() == Rule::table_index {
@@ -1545,7 +1540,6 @@ pub fn handle_types_list(types: Pair<Rule>) -> Vec<(String, SourceSpan)> {
 
 #[cfg(test)]
 mod tests {
-    use miette::Error;
 
     use super::*;
     use crate::parser::{

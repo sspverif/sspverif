@@ -27,11 +27,11 @@ mod instantiate {
     };
 
     pub(crate) fn rewrite_pkg_inst(
-        game_inst_name: &str,
-        proof_name: &str,
+        _game_inst_name: &str,
+        _proof_name: &str,
         pkg_inst: &PackageInstance,
-        params: &[(Identifier, Expression)],
-        types: &[(String, Type)],
+        _params: &[(Identifier, Expression)],
+        _types: &[(String, Type)],
     ) -> PackageInstance {
         PackageInstance { ..pkg_inst.clone() }
     }

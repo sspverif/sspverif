@@ -3,7 +3,6 @@ use std::fmt::Write;
 use std::iter::FromIterator;
 
 use crate::util::resolver::Named;
-use crate::writers::smt::patterns::FunctionPattern;
 use crate::{
     hacks,
     package::{Composition, Export, OracleSig, SplitExport},
@@ -252,8 +251,8 @@ impl<'a> EquivalenceContext<'a> {
         let left_game = gctx_left.game();
         let right_game = gctx_right.game();
 
-        let left_game_name = &gctx_left.game().name;
-        let right_game_name = &gctx_right.game().name;
+        let _left_game_name = &gctx_left.game().name;
+        let _right_game_name = &gctx_right.game().name;
 
         let mut out = Vec::new();
 
@@ -729,23 +728,25 @@ impl<'a> EquivalenceContext<'a> {
 
     fn emit_no_abort_claim_definition(
         &self,
-        comm: &mut Communicator,
+        _comm: &mut Communicator,
         oracle_name: &str,
     ) -> Result<()> {
-        let gctx_left = self.left_game_ctx();
-        let gctx_right = self.right_game_ctx();
+        let _gctx_left = self.left_game_ctx();
+        let _gctx_right = self.right_game_ctx();
 
-        let game_inst_name_left = self.eq.left_name();
-        let game_inst_name_right = self.eq.right_name();
+        let _game_inst_name_left = self.eq.left_name();
+        let _game_inst_name_right = self.eq.right_name();
 
-        let game_name_left = &gctx_left.game().name;
-        let game_name_right = &gctx_right.game().name;
+        let _game_name_left = &_gctx_left.game().name;
+        let _game_name_right = &_gctx_right.game().name;
 
-        let octx_left = gctx_left.exported_oracle_ctx_by_name(oracle_name).unwrap();
-        let octx_right = gctx_right.exported_oracle_ctx_by_name(oracle_name).unwrap();
+        let octx_left = _gctx_left.exported_oracle_ctx_by_name(oracle_name).unwrap();
+        let octx_right = _gctx_right
+            .exported_oracle_ctx_by_name(oracle_name)
+            .unwrap();
 
-        let pkg_inst_name_left = octx_left.pkg_inst_ctx().pkg_inst_name();
-        let pkg_inst_name_right = octx_right.pkg_inst_ctx().pkg_inst_name();
+        let _pkg_inst_name_left = octx_left.pkg_inst_ctx().pkg_inst_name();
+        let _pkg_inst_name_right = octx_right.pkg_inst_ctx().pkg_inst_name();
 
         todo!()
     }
@@ -1374,7 +1375,6 @@ fn build_rands(
             let sample_id = sample_item.sample_id;
             let tipe = &sample_item.tipe;
             let game_inst_name = game_inst.name();
-            let game_name = &game_inst.game().name;
 
             let state = patterns::GameState {
                 game_inst_name,

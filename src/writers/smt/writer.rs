@@ -1,5 +1,5 @@
 use crate::expressions::Expression;
-use crate::identifier::{Identifier, PackageState};
+use crate::identifier::Identifier;
 use crate::package::{OracleDef, PackageInstance};
 use crate::proof::GameInstance;
 use crate::split::{SplitPath, SplitType};
@@ -161,13 +161,13 @@ impl<'a> CompositionSmtWriter<'a> {
                 }
                 Statement::For(_, _, _, _, _) => {
                     let game_inst_name = game_inst.name();
-                    let game_name = game.name();
+                    let _game_name = game.name();
                     let pkg_inst_name = &oracle_ctx.pkg_inst_ctx().pkg_inst().name;
                     let pkg_name = &oracle_ctx.pkg_inst_ctx().pkg_inst().pkg.name;
                     let oracle_name = oracle_ctx.oracle_name();
                     unreachable!("found a for statement in the smt writer stage. \
                                  this should have been eliminated by now and can't be handled here. \
-                                 game:{game_inst_name}(game_name) pkg:{pkg_inst_name}({pkg_name}) oracle:{oracle_name}")
+                                 game:{game_inst_name}(game_name) pkg:{pkg_inst_name}({pkg_name}) oracle:{oracle_name}", game_inst_name = game_inst_name, pkg_inst_name = pkg_inst_name, pkg_name = pkg_name, oracle_name = oracle_name)
                 }
                 // TODO actually use the type that we sample to know how far to advance the randomness tape
                 Statement::Sample(ident, opt_idx, sample_id, tipe, _) => {
@@ -236,15 +236,15 @@ impl<'a> CompositionSmtWriter<'a> {
                 }
                 Statement::For(_, _, _, _, _) => {
                     let game_inst_name = game_inst.name();
-                    let game_name = game.name();
+                    let _game_name = game.name();
                     let pkg_inst_name = &oracle_ctx.pkg_inst_ctx().pkg_inst().name;
                     let pkg_name = &oracle_ctx.pkg_inst_ctx().pkg_inst().pkg.name;
                     let oracle_name = oracle_ctx.oracle_name();
                     unreachable!("found a for statement in the smt writer stage. \
                                  this should have been eliminated by now and can't be handled here. \
-                                 game:{game_inst_name}(game_name) pkg:{pkg_inst_name}({pkg_name}) oracle:{oracle_name}")
+                                 game:{game_inst_name}(game_name) pkg:{pkg_inst_name}({pkg_name}) oracle:{oracle_name}", game_inst_name = game_inst_name, pkg_inst_name = pkg_inst_name, pkg_name =pkg_name, oracle_name = oracle_name)
                 }
-                // TODO actually use the type that we sample to know how far to advance the randomness tape
+                // TODO actually use the type that we sample to know how far to advance the randomness tap
                 Statement::Sample(ident, opt_idx, sample_id, tipe, _) => {
                     self.smt_build_sample(oracle_ctx, result, ident, opt_idx, sample_id, tipe)
                 }
@@ -833,8 +833,8 @@ impl<'a> CompositionSmtWriter<'a> {
         let pkg_inst = oracle_ctx.pkg_inst_ctx().pkg_inst();
         let oracle_name = oracle_ctx.oracle_name();
 
-        let game_inst_name = game_inst_ctx.game_inst().name();
-        let pkg_inst_name = &pkg_inst.name;
+        let _game_inst_name = game_inst_ctx.game_inst().name();
+        let _pkg_inst_name = &pkg_inst.name;
 
         let called_oracle_context = self.get_oracle_context(target, name).unwrap();
         let this_oracle_context = self
@@ -1109,7 +1109,7 @@ impl<'a> CompositionSmtWriter<'a> {
 
     fn smt_define_nonsplit_oracle_fn(&self, inst: &PackageInstance, def: &OracleDef) -> SmtExpr {
         let game_inst_ctx = self.context();
-        let game_state_pattern = game_inst_ctx.game_state_pattern();
+        let _game_state_pattern = game_inst_ctx.game_state_pattern();
         let var_globalstate = &GlobalStatePattern;
         let var_selfstate = &SelfStatePattern;
 
@@ -1241,7 +1241,7 @@ impl<'a> CompositionSmtWriter<'a> {
             .consts
             .iter()
             .filter(|(_, tipe)| matches!(tipe, Type::Fn(_, _)));
-        let comp_name = game.name();
+        let _comp_name = game.name();
 
         let mut funcs = vec![];
 
@@ -1274,7 +1274,7 @@ impl<'a> CompositionSmtWriter<'a> {
 
     fn smt_composition_randomness(&mut self) -> Vec<SmtExpr> {
         let game_inst_ctx = self.context();
-        let game_inst = game_inst_ctx.game_inst();
+        let _game_inst = game_inst_ctx.game_inst();
         let game = game_inst_ctx.game();
         let mut result: Vec<_> = self
             .sample_info
@@ -1316,7 +1316,7 @@ impl<'a> CompositionSmtWriter<'a> {
         for dtype in &partial_dtpes {
             let pkg_inst_name = &dtype.pkg_inst_name;
             let oracle_name = &dtype.real_oracle_sig.name;
-            let game_name = &game.name;
+            let _game_name = &game.name;
             let pkg_inst_ctx = game_inst_ctx.pkg_inst_ctx_by_name(pkg_inst_name).unwrap();
 
             let intermediate_state_pattern = IntermediateStatePattern {
@@ -1362,7 +1362,7 @@ impl<'a> CompositionSmtWriter<'a> {
     pub(crate) fn smt_declare_partial_return_datatype(&self, dtype: &PartialsDatatype) -> SmtExpr {
         let game_inst_ctx = self.context();
         let game_inst = game_inst_ctx.game_inst();
-        let game = game_inst_ctx.game();
+        let _game = game_inst_ctx.game();
 
         let game_inst_name = game_inst.name();
         let pkg_inst_name = &dtype.pkg_inst_name;

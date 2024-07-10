@@ -89,8 +89,3 @@ impl From<TypeCheckError> for std::io::Error {
         std::io::Error::new(ErrorKind::InvalidData, e)
     }
 }
-
-pub type Result<T> = std::result::Result<T, TypeCheckError>;
-
-pub type TypeResult = Result<Type>;
-pub type ExpressionResult = Result<Expression>;
