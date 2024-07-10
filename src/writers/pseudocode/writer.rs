@@ -20,10 +20,6 @@ impl<W: Write> Writer<W> {
 
     pub fn write_identifier(&mut self, id: &Identifier) -> Result {
         match id {
-            Identifier::Scalar(x) => {
-                self.write_string(x)?;
-                self.write_string(" /* scalar identifier */ ")?;
-            }
             Identifier::Local(x) => {
                 self.write_string(x)?;
                 self.write_string(" /* local identifier */ ")?;
@@ -76,6 +72,20 @@ impl<W: Write> Writer<W> {
         write!(&mut self.w, "{}", string)
     }
 
+    pub fn write_call(&mut self, name: &str, args: &[Expression]) -> Result {
+        self.write_string(name)?;
+        self.write_string("(")?;
+        let mut maybe_comma = "";
+        for arg in args {
+            self.write_string(maybe_comma)?;
+            self.write_expression(arg)?;
+            maybe_comma = ", ";
+        }
+        self.write_string(")")?;
+
+        Ok(())
+    }
+
     pub fn write_expression(&mut self, expr: &Expression) -> Result {
         match expr {
             Expression::EmptyTable(t @ Type::Table(t_k, t_v)) => {
@@ -118,15 +128,7 @@ impl<W: Write> Writer<W> {
                 self.write_string(")")?;
             }
             Expression::FnCall(id, args) => {
-                self.write_string(&id.ident())?;
-                self.write_string("(")?;
-                let mut maybe_comma = "";
-                for arg in args {
-                    self.write_string(maybe_comma)?;
-                    self.write_expression(arg)?;
-                    maybe_comma = ", ";
-                }
-                self.write_string(")")?;
+                self.write_call(id.ident_ref(), args.as_slice())?;
             }
             Expression::Equals(exprs) => {
                 assert_eq!(exprs.len(), 2);
@@ -260,10 +262,7 @@ impl<W: Write> Writer<W> {
                 }
 
                 self.write_string(" <- invoke ")?;
-                self.write_expression(&Expression::FnCall(
-                    Identifier::Scalar(name.clone()),
-                    args.clone(),
-                ))?;
+                self.write_call(name, args.as_slice())?;
                 if let Some(target_inst_name) = target_inst_name {
                     self.write_string(&format!(
                         "; /* with target instance name {} */",

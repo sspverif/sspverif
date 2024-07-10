@@ -25,12 +25,6 @@ impl<W: Write> FmtWriter<W> {
 
     pub fn write_identifier(&mut self, id: &Identifier) -> Result {
         match id {
-            Identifier::Scalar(x) => {
-                self.write_string(x)?;
-                if self.annotate {
-                    self.write_string(" /* scalar identifier */ ")?;
-                }
-            }
             Identifier::Local(x) => {
                 self.write_string(x)?;
                 if self.annotate {
@@ -88,6 +82,20 @@ impl<W: Write> FmtWriter<W> {
         write!(&mut self.w, "{}", string)
     }
 
+    pub fn write_call(&mut self, name: &str, args: &[Expression]) -> Result {
+        self.write_string(name)?;
+        self.write_string("(")?;
+        let mut maybe_comma = "";
+        for arg in args {
+            self.write_string(maybe_comma)?;
+            self.write_expression(arg)?;
+            maybe_comma = ", ";
+        }
+        self.write_string(")")?;
+
+        Ok(())
+    }
+
     pub fn write_expression(&mut self, expr: &Expression) -> Result {
         match expr {
             Expression::BooleanLiteral(x) => {
@@ -113,15 +121,7 @@ impl<W: Write> FmtWriter<W> {
                 self.write_string(")")?;
             }
             Expression::FnCall(name, args) => {
-                self.write_string(&name.ident())?;
-                self.write_string("(")?;
-                let mut maybe_comma = "";
-                for arg in args {
-                    self.write_string(maybe_comma)?;
-                    self.write_expression(arg)?;
-                    maybe_comma = ", ";
-                }
-                self.write_string(")")?;
+                self.write_call(name.ident_ref(), args)?;
             }
             Expression::Equals(exprs) => {
                 assert_eq!(exprs.len(), 2);
@@ -262,10 +262,7 @@ impl<W: Write> FmtWriter<W> {
                 }
 
                 self.write_string(" <- invoke ")?;
-                self.write_expression(&Expression::FnCall(
-                    Identifier::Scalar(name.clone()),
-                    args.clone(),
-                ))?;
+                self.write_call(name, args)?;
                 if self.annotate {
                     if let Some(target_inst_name) = target_inst_name {
                         self.write_string(&format!(

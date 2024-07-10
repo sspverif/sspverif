@@ -106,10 +106,25 @@ mod treeify_fn_test {
     use miette::SourceSpan;
 
     use crate::expressions::Expression;
+    use crate::identifier::pkg_ident::{PackageIdentifier, PackageLocalIdentifier};
     use crate::identifier::Identifier;
     use crate::statement::{CodeBlock, Statement};
+    use crate::types::Type;
 
     use super::treeify;
+
+    fn pkg_local_test_ident(name: &str, tipe: Type) -> Identifier {
+        Identifier::PackageIdentifier(PackageIdentifier::Local(PackageLocalIdentifier {
+            pkg_name: "TestPkg".to_string(),
+            oracle_name: "TestOracle".to_string(),
+            name: name.to_string(),
+            tipe,
+            pkg_inst_name: Some("test-pkg".to_string()),
+            game_name: Some("TestGame".to_string()),
+            game_inst_name: Some("test-game".to_string()),
+            proof_name: Some("TestProof".to_string()),
+        }))
+    }
 
     #[test]
     fn nothing_happens_without_if() {
@@ -123,8 +138,8 @@ mod treeify_fn_test {
         let file_pos_0: SourceSpan = (0..1).into();
         let file_pos_1: SourceSpan = (1..1).into();
         let file_pos_2: SourceSpan = (2..2).into();
-        let x = Identifier::new_scalar("x");
-        let y = Identifier::new_scalar("y");
+        let x = pkg_local_test_ident("x", Type::Integer);
+        let y = pkg_local_test_ident("y", Type::Integer);
         let before = CodeBlock(vec![
             Statement::IfThenElse(
                 y.to_expression(),
@@ -193,9 +208,9 @@ mod treeify_fn_test {
         //
         //
 
-        let x = Identifier::new_scalar("x");
-        let y = Identifier::new_scalar("y");
-        let z = Identifier::new_scalar("z");
+        let x = pkg_local_test_ident("x", Type::Integer);
+        let y = pkg_local_test_ident("y", Type::Integer);
+        let z = pkg_local_test_ident("z", Type::Integer);
         let before = CodeBlock(vec![
             Statement::IfThenElse(
                 y.to_expression(),
@@ -297,9 +312,9 @@ mod treeify_fn_test {
         //     return x (8)
         // else:
 
-        let x = Identifier::new_scalar("x");
-        let y = Identifier::new_scalar("y");
-        let z = Identifier::new_scalar("z");
+        let x = pkg_local_test_ident("x", Type::Integer);
+        let y = pkg_local_test_ident("y", Type::Integer);
+        let z = pkg_local_test_ident("z", Type::Integer);
         let before = CodeBlock(vec![
             Statement::IfThenElse(
                 y.to_expression(),

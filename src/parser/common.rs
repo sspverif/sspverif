@@ -5,6 +5,7 @@ use crate::util::scope::Scope;
 use crate::{expressions::Expression, identifier::Identifier, types::Type};
 
 use super::error::{Error, OwnedSpan, Result, SpanError};
+use super::package::{handle_identifier_in_code_rhs, ParseIdentifierError};
 use super::{error, Rule};
 
 use pest::iterators::Pair;
@@ -31,6 +32,13 @@ impl From<ParseExpressionError> for Error {
                 println!("lost position at error conversion. The error occurred at {file_pos}");
                 Error::UndefinedIdentifer(name)
             }
+            ParseExpressionError::ParseIdentifier(parse_ident_err) => match parse_ident_err {
+                ParseIdentifierError::ParseExpression(_) => todo!(),
+                ParseIdentifierError::ScopeDeclareError(_) => todo!(),
+                ParseIdentifierError::Undefined(name) => Error::UndefinedIdentifer(name),
+                ParseIdentifierError::TypeMismatch(_) => todo!(),
+                ParseIdentifierError::InvalidLeftHandSide(_, _) => todo!(),
+            },
         }
     }
 }
@@ -42,6 +50,7 @@ impl From<ParseExpressionError> for SpanError {
             ParseExpressionError::UndefinedIdentifer(name, _file_pos, owned_span) => {
                 Error::UndefinedIdentifer(name).with_owned_span(owned_span)
             }
+            _ => todo!(),
         }
     }
 }
@@ -49,6 +58,7 @@ impl From<ParseExpressionError> for SpanError {
 #[derive(Debug)]
 pub enum ParseExpressionError {
     UndefinedIdentifer(String, FilePosition, OwnedSpan),
+    ParseIdentifier(ParseIdentifierError),
 }
 
 impl core::fmt::Display for ParseExpressionError {
@@ -57,6 +67,8 @@ impl core::fmt::Display for ParseExpressionError {
             ParseExpressionError::UndefinedIdentifer(name, file_pos, _owned_span) => {
                 write!(f, "undefined identifier `{name}` at {file_pos}")
             }
+
+            ParseExpressionError::ParseIdentifier(err) => err.fmt(f),
         }
     }
 }
@@ -66,6 +78,7 @@ impl crate::error::LocationError for ParseExpressionError {
     fn file_pos<'a>(&'a self) -> &'a FilePosition {
         match self {
             ParseExpressionError::UndefinedIdentifer(_, file_pos, _) => file_pos,
+            _ => todo!(),
         }
     }
 }
@@ -152,13 +165,17 @@ pub fn handle_expression(
         }
         Rule::table_access => {
             let mut inner = expr.into_inner();
-            let ident = inner.next().unwrap().as_str();
+            let name = inner.next().unwrap().as_str();
+            let ident = handle_identifier_in_code_rhs(name, scope)
+                .map_err(ParseExpressionError::ParseIdentifier)?;
             let expr = handle_expression(inner.next().unwrap(), scope)?;
-            Expression::TableAccess(Identifier::new_scalar(ident), Box::new(expr))
+            Expression::TableAccess(ident, Box::new(expr))
         }
         Rule::fn_call => {
             let mut inner = expr.into_inner();
-            let ident = inner.next().unwrap().as_str();
+            let name = inner.next().unwrap().as_str();
+            let ident = handle_identifier_in_code_rhs(name, scope)
+                .map_err(ParseExpressionError::ParseIdentifier)?;
             let args = match inner.next() {
                 None => vec![],
                 Some(inner_args) => inner_args
@@ -166,7 +183,7 @@ pub fn handle_expression(
                     .map(|e| handle_expression(e, scope))
                     .collect::<StdResult<_, _>>()?,
             };
-            Expression::FnCall(Identifier::new_scalar(ident), args)
+            Expression::FnCall(ident, args)
         }
         Rule::identifier => {
             let span = expr.as_span();
@@ -276,9 +293,7 @@ pub fn handle_game_params_def_list(
                 | Expression::IntegerLiteral(_)
                 | Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::LoopVar(_)))
                 | Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(_))) => {}
-                Expression::Identifier(Identifier::Scalar(_)) => {
-                    panic!("scalar is deprecated");
-                }
+
                 _ => {
                     return Err(Error::IllegalExpression(right.clone()).with_span(right_span));
                 }
@@ -313,15 +328,6 @@ pub fn handle_proof_params_def_list(
                 | Expression::IntegerLiteral(_)
                 | Expression::Identifier(Identifier::ProofIdentifier(ProofIdentifier::LoopVar(_)))
                 | Expression::Identifier(Identifier::ProofIdentifier(ProofIdentifier::Const(_))) => {}
-                Expression::Identifier(Identifier::Scalar(_ident)) => {
-                    panic!("scalar is deprecated");
-                    // if !defined_consts
-                    //     .iter()
-                    //     .any(|(defd_name, _)| ident == defd_name)
-                    // {
-                    //     return Err(Error::UndefinedIdentifer(ident.clone()).with_span(right_span));
-                    // }
-                }
                 _ => {
                     return Err(Error::IllegalExpression(right.clone()).with_span(right_span));
                 }

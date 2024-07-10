@@ -18,7 +18,6 @@ pub enum Identifier {
     // GameInstanceIdentifier(GameInstanceIdentifier),
 
     // get rid of the rest
-    Scalar(String),
     Parameter(PackageConst),
     Local(String),
     // TODO add parameter identifiers for each place of definition (package/game/proof)
@@ -579,7 +578,6 @@ pub struct ComposeLoopVar {
 impl PartialEq for Identifier {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Scalar(x), Self::Scalar(y)) => x == y,
             (Self::Local(x), Self::Local(y)) => x == y,
             (Self::Parameter(l), Self::Parameter(r)) => l == r,
 
@@ -592,10 +590,6 @@ impl PartialEq for Identifier {
 }
 
 impl Identifier {
-    pub fn new_scalar(name: &str) -> Identifier {
-        Identifier::Scalar(name.to_string())
-    }
-
     // TODO implement correct converter trait to identifier expression
     pub fn to_expression(&self) -> Expression {
         Expression::Identifier(self.clone())
@@ -612,7 +606,6 @@ impl Identifier {
 
     pub fn ident_ref(&self) -> &str {
         match self {
-            Identifier::Scalar(ident) => ident,
             Identifier::Parameter(PackageConst { name_in_pkg, .. }) => name_in_pkg,
             Identifier::Local(name) => name,
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident_ref(),
@@ -623,7 +616,6 @@ impl Identifier {
 
     pub fn ident(&self) -> String {
         match self {
-            Identifier::Scalar(ident) => ident.clone(),
             Identifier::Local(ident) => ident.clone(),
             Identifier::Parameter(PackageConst { name_in_pkg, .. }) => name_in_pkg.clone(),
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident(),

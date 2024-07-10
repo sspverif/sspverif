@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::convert::Infallible;
 
 use crate::expressions::Expression;
+use crate::identifier::pkg_ident::{PackageIdentifier, PackageLocalIdentifier};
 use crate::identifier::Identifier;
 use crate::package::{Composition, Edge, Export, OracleDef, OracleSig, SplitExport};
 use crate::statement::{CodeBlock, Statement};
@@ -508,7 +509,22 @@ fn transform_codeblock(
                             loopvars.clone(),
                             newpath,
                             CodeBlock(vec![Statement::InvokeOracle {
-                                id: Identifier::new_scalar("_"),
+                                // TODO: I am not sure if we maybe have to fill out the optional fields,
+                                //       but unfortunately this function does not ahve sufficent information.
+                                //       If it is needed, we can add it later, but have to pass more context
+                                //       into this function.
+                                id: Identifier::PackageIdentifier(PackageIdentifier::Local(
+                                    PackageLocalIdentifier {
+                                        pkg_name: todo!(),
+                                        oracle_name: oracle_name.clone(),
+                                        name: "_".to_string(),
+                                        tipe: Type::Empty,
+                                        pkg_inst_name: None,
+                                        game_name: None,
+                                        game_inst_name: None,
+                                        proof_name: None,
+                                    },
+                                )),
                                 name: name.to_string(),
                                 opt_idx: None,
                                 opt_dst_inst_idx: None,

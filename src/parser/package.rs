@@ -1747,93 +1747,100 @@ mod tests {
 
 #[cfg(test)]
 mod tests2 {
-    use pest::Parser;
+    /*
+    I am actually not sure what this was supposed to test, but
+     (a) it has never worked, as can be seen by the todo!s and
+     (b) it uses Identifier::Scalar,
+    so I will just comment this out for now
 
-    use crate::{
-        expressions::Expression,
-        identifier::{pkg_ident::PackageIdentifier, Identifier},
-        parser::{common::handle_expression, package::ForComp, Rule, SspParser},
-        types::Type,
-        util::scope::Scope,
-        writers::smt::exprs::{SmtLt, SmtLte},
-    };
+        use pest::Parser;
 
-    use super::{MultiInstanceIndices, MultiInstanceIndicesGroup};
-
-    #[test]
-    #[ignore]
-    fn example_smt_stuff() {
-        let pkg_name = || "Foo".to_string();
-        let mut scope = Scope::new();
-        scope.enter();
-        scope
-            .declare(
-                "n",
-                crate::util::scope::Declaration::Identifier(Identifier::PackageIdentifier(
-                    crate::identifier::pkg_ident::PackageIdentifier::Const(
-                        crate::identifier::pkg_ident::PackageConstIdentifier {
-                            pkg_name: pkg_name(),
-                            name: "n".to_string(),
-                            tipe: Type::Integer,
-                            game_assignment: None,
-                            pkg_inst_name: None,
-                            game_name: None,
-                            game_inst_name: None,
-                            proof_name: None,
-                        },
-                    ),
-                )),
-            )
-            .unwrap();
-
-        let mut parse_expr = |text: &str| {
-            handle_expression(
-                SspParser::parse(Rule::expression, text)
-                    .unwrap()
-                    .next()
-                    .unwrap(),
-                &mut scope,
-            )
-            .unwrap()
+        use crate::{
+            expressions::Expression,
+            identifier::{pkg_ident::PackageIdentifier, Identifier},
+            parser::{common::handle_expression, package::ForComp, Rule, SspParser},
+            types::Type,
+            util::scope::Scope,
+            writers::smt::exprs::{SmtLt, SmtLte},
         };
 
-        let end = parse_expr("(n - 1)").map(|expr| match expr {
-            Expression::Identifier(Identifier::Scalar(x)) => {
-                Expression::Identifier(Identifier::Local(x))
-            }
-            x => x,
-        });
+        use super::{MultiInstanceIndices, MultiInstanceIndicesGroup};
 
-        let indices_group = MultiInstanceIndicesGroup(vec![MultiInstanceIndices::new(vec![
-            Expression::Identifier(Identifier::PackageIdentifier(
-                PackageIdentifier::ImportsLoopVar(
-                    crate::identifier::pkg_ident::PackageImportsLoopVarIdentifier {
-                        pkg_name: pkg_name(),
-                        name: "i".to_string(),
-                        start: Box::new(parse_expr("0")),
-                        end: Box::new(end),
-                        start_comp: ForComp::Lte,
-                        end_comp: ForComp::Lt,
-                        pkg_inst_name: todo!(),
-                        game_name: todo!(),
-                        game_inst_name: None,
-                        proof_name: None,
-                    },
-                ),
-            )),
-        ])]);
+       #[test]
+       #[ignore]
+       fn example_smt_stuff() {
+           let pkg_name = || "Foo".to_string();
+           let mut scope = Scope::new();
+           scope.enter();
+           scope
+               .declare(
+                   "n",
+                   crate::util::scope::Declaration::Identifier(Identifier::PackageIdentifier(
+                       crate::identifier::pkg_ident::PackageIdentifier::Const(
+                           crate::identifier::pkg_ident::PackageConstIdentifier {
+                               pkg_name: pkg_name(),
+                               name: "n".to_string(),
+                               tipe: Type::Integer,
+                               game_assignment: None,
+                               pkg_inst_name: None,
+                               game_name: None,
+                               game_inst_name: None,
+                               proof_name: None,
+                           },
+                       ),
+                   )),
+               )
+               .unwrap();
 
-        let smt = indices_group.smt_check_total(
-            vec![SmtLte(0, "x").into(), SmtLt("x", "n").into()],
-            &["n"],
-            "x",
-        );
+           let mut parse_expr = |text: &str| {
+               handle_expression(
+                   SspParser::parse(Rule::expression, text)
+                       .unwrap()
+                       .next()
+                       .unwrap(),
+                   &mut scope,
+               )
+               .unwrap()
+           };
 
-        for expr in smt {
-            println!("{expr}")
-        }
+           let end = parse_expr("(n - 1)").map(|expr| match expr {
+               Expression::Identifier(Identifier::Scalar(x)) => {
+                   Expression::Identifier(Identifier::Local(x))
+               }
+               x => x,
+           });
 
-        println!("(check-sat)");
-        println!("(get-model)")
-    }
+           let indices_group = MultiInstanceIndicesGroup(vec![MultiInstanceIndices::new(vec![
+               Expression::Identifier(Identifier::PackageIdentifier(
+                   PackageIdentifier::ImportsLoopVar(
+                       crate::identifier::pkg_ident::PackageImportsLoopVarIdentifier {
+                           pkg_name: pkg_name(),
+                           name: "i".to_string(),
+                           start: Box::new(parse_expr("0")),
+                           end: Box::new(end),
+                           start_comp: ForComp::Lte,
+                           end_comp: ForComp::Lt,
+                           pkg_inst_name: todo!(),
+                           game_name: todo!(),
+                           game_inst_name: None,
+                           proof_name: None,
+                       },
+                   ),
+               )),
+           ])]);
+
+           let smt = indices_group.smt_check_total(
+               vec![SmtLte(0, "x").into(), SmtLt("x", "n").into()],
+               &["n"],
+               "x",
+           );
+
+           for expr in smt {
+               println!("{expr}")
+           }
+
+           println!("(check-sat)");
+           println!("(get-model)")
+       }
+    */
 }

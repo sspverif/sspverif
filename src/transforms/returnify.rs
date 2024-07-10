@@ -181,15 +181,30 @@ mod test {
     use super::returnify;
     use crate::block;
     use crate::expressions::Expression;
+    use crate::identifier::pkg_ident::{PackageIdentifier, PackageLocalIdentifier};
     use crate::identifier::Identifier;
     use crate::statement::{CodeBlock, Statement};
     use crate::types::Type;
 
+    fn pkg_local_test_ident(name: &str, tipe: Type) -> Identifier {
+        Identifier::PackageIdentifier(PackageIdentifier::Local(PackageLocalIdentifier {
+            pkg_name: "TestPkg".to_string(),
+            oracle_name: "TestOracle".to_string(),
+            name: name.to_string(),
+            tipe,
+            pkg_inst_name: Some("test-pkg".to_string()),
+            game_name: Some("TestGame".to_string()),
+            game_inst_name: Some("test-game".to_string()),
+            proof_name: Some("TestProof".to_string()),
+        }))
+    }
+
     #[test]
     fn preserves_return_none() {
+        let d = pkg_local_test_ident("d", Type::Integer);
         let file_pos: SourceSpan = (0..1).into();
         let code = block! {
-            Statement::Sample(Identifier::new_scalar("d"), None, None, Type::Integer, file_pos.clone()),
+            Statement::Sample(d, None, None, Type::Integer, file_pos.clone()),
             Statement::Return(None, file_pos)
         };
         assert_eq!(
@@ -201,8 +216,9 @@ mod test {
     #[test]
     fn preserves_return_some() {
         let file_pos: SourceSpan = (0..1).into();
+        let d = pkg_local_test_ident("d", Type::Integer);
         let code = block! {
-            Statement::Sample(Identifier::new_scalar("d"), None, None, Type::Integer, file_pos.clone()),
+            Statement::Sample(d, None, None, Type::Integer, file_pos.clone()),
             Statement::Return(Some(Expression::IntegerLiteral(5)), file_pos.clone())
         };
         assert_eq!(
@@ -214,8 +230,9 @@ mod test {
     #[test]
     fn preserves_abort() {
         let file_pos: SourceSpan = (0..1).into();
+        let d = pkg_local_test_ident("d", Type::Integer);
         let code = block! {
-            Statement::Sample(Identifier::new_scalar("d"), None, None, Type::Integer, file_pos.clone()),
+            Statement::Sample(d, None, None, Type::Integer, file_pos.clone()),
             Statement::Abort(file_pos)
         };
         assert_eq!(
@@ -227,11 +244,12 @@ mod test {
     #[test]
     fn adds_return() {
         let file_pos: SourceSpan = (0..1).into();
+        let d = pkg_local_test_ident("d", Type::Integer);
         let before = block! {
-            Statement::Sample(Identifier::new_scalar("d"), None, None, Type::Integer, file_pos.clone())
+            Statement::Sample(d.clone(), None, None, Type::Integer, file_pos.clone())
         };
         let after = block! {
-            Statement::Sample(Identifier::new_scalar("d"), None, None,  Type::Integer, file_pos.clone()),
+            Statement::Sample(d, None, None,  Type::Integer, file_pos.clone()),
             Statement::Return(None, file_pos.clone())
         };
         assert_eq!(
@@ -247,28 +265,31 @@ mod test {
     #[test]
     fn adds_if_return_with_branches() {
         let file_pos: SourceSpan = (0..1).into();
+        let a = pkg_local_test_ident("a", Type::Integer);
+        let d = pkg_local_test_ident("d", Type::Integer);
+        let e = pkg_local_test_ident("e", Type::Integer);
         let before = block! {
             Statement::IfThenElse(
-                Expression::new_equals(vec![&(Identifier::new_scalar("a").to_expression()),
-                                            &(Identifier::new_scalar("a").to_expression())]),
+                Expression::new_equals(vec![&(a.to_expression()),
+                                            &(a.to_expression())]),
                 block!{
-                    Statement::Sample(Identifier::new_scalar("d"), None, None, Type::Integer, file_pos.clone())
+                    Statement::Sample(d.clone(), None, None, Type::Integer, file_pos.clone())
                 },
                 block!{
-                    Statement::Sample(Identifier::new_scalar("e"), None, None, Type::Integer, file_pos.clone()),
+                    Statement::Sample(e.clone(), None, None, Type::Integer, file_pos.clone()),
                     Statement::Return(None, file_pos.clone())
                 }, file_pos.clone())
         };
         let after = block! {
             Statement::IfThenElse(
-                Expression::new_equals(vec![&(Identifier::new_scalar("a").to_expression()),
-                                            &(Identifier::new_scalar("a").to_expression())]),
+                Expression::new_equals(vec![&(a.to_expression()),
+                                            &(a.to_expression())]),
                 block!{
-                    Statement::Sample(Identifier::new_scalar("d"), None, None, Type::Integer, file_pos.clone()),
+                    Statement::Sample(d, None, None, Type::Integer, file_pos.clone()),
                     Statement::Return(None, file_pos.clone())
                 },
                 block!{
-                    Statement::Sample(Identifier::new_scalar("e"), None, None, Type::Integer, file_pos.clone()),
+                    Statement::Sample(e, None, None, Type::Integer, file_pos.clone()),
                     Statement::Return(None, file_pos.clone())
                 }, file_pos.clone())
         };
@@ -285,27 +306,30 @@ mod test {
     #[test]
     fn adds_else_return_with_branches() {
         let file_pos: SourceSpan = (0..1).into();
+        let a = pkg_local_test_ident("a", Type::Integer);
+        let d = pkg_local_test_ident("d", Type::Integer);
+        let e = pkg_local_test_ident("e", Type::Integer);
         let before = block! {
             Statement::IfThenElse(
-                Expression::new_equals(vec![&(Identifier::new_scalar("a").to_expression()),
-                                            &(Identifier::new_scalar("a").to_expression())]),
+                Expression::new_equals(vec![&(a.to_expression()),
+                                            &(a.to_expression())]),
                 block!{
-                    Statement::Sample(Identifier::new_scalar("d"), None, None, Type::Integer, file_pos.clone())
+                    Statement::Sample(d.clone(), None, None, Type::Integer, file_pos.clone())
                 },
                 block!{
-                    Statement::Sample(Identifier::new_scalar("e"), None, None, Type::Integer, file_pos.clone())
+                    Statement::Sample(e.clone(), None, None, Type::Integer, file_pos.clone())
                 }, file_pos.clone())
         };
         let after = block! {
             Statement::IfThenElse(
-                Expression::new_equals(vec![&(Identifier::new_scalar("a").to_expression()),
-                                            &(Identifier::new_scalar("a").to_expression())]),
+                Expression::new_equals(vec![&(a.to_expression()),
+                                            &(a.to_expression())]),
                 block!{
-                    Statement::Sample(Identifier::new_scalar("d"), None, None, Type::Integer, file_pos.clone()),
+                    Statement::Sample(d.clone(), None, None, Type::Integer, file_pos.clone()),
                     Statement::Return(None, file_pos.clone())
                 },
                 block!{
-                    Statement::Sample(Identifier::new_scalar("e"), None, None, Type::Integer, file_pos.clone()),
+                    Statement::Sample(e.clone(), None, None, Type::Integer, file_pos.clone()),
                     Statement::Return(None, file_pos.clone())
                 }, file_pos.clone())
         };

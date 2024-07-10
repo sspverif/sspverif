@@ -393,7 +393,6 @@ fn ident_walker(
             return Ok(());
         }
         Identifier::Local(_) => panic!("shouldn't use Identifier::Local, but found {:?}", ident),
-        Identifier::Scalar(_) => panic!("shouldn't use Identifier::Scalar, but found {:?}", ident),
         Identifier::Parameter(_) => {
             panic!("shouldn't use Identifier::Parameter, but found {:?}", ident)
         }
