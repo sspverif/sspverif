@@ -6,7 +6,7 @@ use super::patterns::{
 use crate::expressions::Expression;
 use crate::identifier::pkg_ident::PackageIdentifier;
 use crate::identifier::proof_ident::{ProofConstIdentifier, ProofIdentifier};
-use crate::identifier::{Identifier, PackageConst};
+use crate::identifier::Identifier;
 use crate::types::Type;
 
 impl From<Expression> for SmtExpr {
@@ -158,15 +158,6 @@ impl From<Expression> for SmtExpr {
             //     &SelfStatePattern,
             // )
             //     .into(),
-            Expression::Identifier(Identifier::Parameter(PackageConst {
-                name_in_comp,
-                game_inst_name,
-                ..
-            })) => (
-                format!("composition-param-{game_inst_name}-{name_in_comp}"),
-                &GlobalStatePattern,
-            )
-                .into(),
             Expression::Bot => SmtExpr::Atom("bot".to_string()),
             Expression::TableAccess(table, index) => SmtExpr::List(vec![
                 SmtExpr::Atom("select".into()),
@@ -182,6 +173,9 @@ impl From<Expression> for SmtExpr {
 
                 SmtExpr::List(l)
             }
+            /* I will leave this here for now, because it might turn out that
+               we need a special case for this. But if we do, this is not it
+               (because we got rid of the variant. It would be somethign else now)
             Expression::FnCall(
                 Identifier::Parameter(PackageConst {
                     name_in_comp: name,
@@ -199,6 +193,7 @@ impl From<Expression> for SmtExpr {
 
                 SmtExpr::List(call)
             }
+             */
             Expression::FnCall(id, exprs) => {
                 let mut call = vec![SmtExpr::Atom(id.ident())];
 

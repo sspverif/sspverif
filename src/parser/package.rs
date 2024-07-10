@@ -1294,11 +1294,6 @@ impl MultiInstanceIndices {
 
                 SmtAnd(vec![lower_comp, upper_comp]).into()
             }
-            Expression::Identifier(Identifier::Parameter(pkg_const)) => SmtEq2 {
-                lhs: pkg_const.name_in_comp.clone(),
-                rhs: varname,
-            }
-            .into(),
             other => unreachable!(
                 "in smt_range_predicate, found unhandled expression variant {expr:?}",
                 expr = other

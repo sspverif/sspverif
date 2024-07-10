@@ -393,9 +393,6 @@ fn ident_walker(
             return Ok(());
         }
         Identifier::Local(_) => panic!("shouldn't use Identifier::Local, but found {:?}", ident),
-        Identifier::Parameter(_) => {
-            panic!("shouldn't use Identifier::Parameter, but found {:?}", ident)
-        }
     };
 
     type_walker(type_mapping, place, file_pos, tipe)

@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use crate::expressions::Expression;
-use crate::identifier::{Identifier, PackageConst};
+use crate::identifier::Identifier;
 use crate::package::{OracleDef, OracleSig, Package};
 use crate::statement::{CodeBlock, Statement};
 use crate::types::Type;
@@ -23,10 +23,6 @@ impl<W: Write> Writer<W> {
             Identifier::Local(x) => {
                 self.write_string(x)?;
                 self.write_string(" /* local identifier */ ")?;
-            }
-            Identifier::Parameter(PackageConst { name_in_pkg, .. }) => {
-                self.write_string(name_in_pkg)?;
-                self.write_string(" /* param identifier */ ")?;
             }
             Identifier::PackageIdentifier(_) => todo!(),
             Identifier::GameIdentifier(_) => todo!(),

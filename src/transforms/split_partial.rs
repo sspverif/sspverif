@@ -273,6 +273,7 @@ fn transform_oracle(
     >,
 ) -> Result<()> {
     let pkg_inst = &mut game.pkgs[pkg_offs];
+    let pkg_name = &pkg_inst.pkg.name;
     let pkg_inst_name = &pkg_inst.name;
     let oracle_offs = pkg_inst
         .pkg
@@ -286,6 +287,7 @@ fn transform_oracle(
     let mut new_oracles = vec![];
     let mut transformed = transform_codeblock(
         pkg_inst_name,
+        pkg_name,
         oracle_name,
         &odef.code,
         SplitPath::empty(),
@@ -346,6 +348,7 @@ fn transform_oracle(
 
 fn transform_codeblock(
     pkg_inst_name: &str,
+    pkg_name: &str,
     oracle_name: &str,
     code: &CodeBlock,
     prefix: SplitPath,
@@ -438,6 +441,7 @@ fn transform_codeblock(
                 ));
                 result.extend(transform_codeblock(
                     pkg_inst_name,
+                    pkg_name,
                     oracle_name,
                     ifcode,
                     prefix.extended(mk_single_split_path_component(SplitType::IfBranch)),
@@ -447,6 +451,7 @@ fn transform_codeblock(
                 ));
                 result.extend(transform_codeblock(
                     pkg_inst_name,
+                    pkg_name,
                     oracle_name,
                     elsecode,
                     prefix.extended(mk_single_split_path_component(SplitType::ElseBranch)),
@@ -461,6 +466,7 @@ fn transform_codeblock(
 
                 result.extend(transform_codeblock(
                     pkg_inst_name,
+                    pkg_name,
                     oracle_name,
                     code,
                     prefix.extended(mk_single_split_path_component(SplitType::ForStep(
@@ -515,7 +521,7 @@ fn transform_codeblock(
                                 //       into this function.
                                 id: Identifier::PackageIdentifier(PackageIdentifier::Local(
                                     PackageLocalIdentifier {
-                                        pkg_name: todo!(),
+                                        pkg_name: pkg_name.to_string(),
                                         oracle_name: oracle_name.clone(),
                                         name: "_".to_string(),
                                         tipe: Type::Empty,

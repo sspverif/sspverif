@@ -18,7 +18,6 @@ pub enum Identifier {
     // GameInstanceIdentifier(GameInstanceIdentifier),
 
     // get rid of the rest
-    Parameter(PackageConst),
     Local(String),
     // TODO add parameter identifiers for each place of definition (package/game/proof)
 }
@@ -579,7 +578,6 @@ impl PartialEq for Identifier {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Local(x), Self::Local(y)) => x == y,
-            (Self::Parameter(l), Self::Parameter(r)) => l == r,
 
             // TODO: maybe do something clever based on instantiation info?
             (Self::GameIdentifier(x), Self::GameIdentifier(y)) => x == y,
@@ -606,7 +604,6 @@ impl Identifier {
 
     pub fn ident_ref(&self) -> &str {
         match self {
-            Identifier::Parameter(PackageConst { name_in_pkg, .. }) => name_in_pkg,
             Identifier::Local(name) => name,
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident_ref(),
             Identifier::GameIdentifier(game_ident) => game_ident.ident_ref(),
@@ -617,7 +614,6 @@ impl Identifier {
     pub fn ident(&self) -> String {
         match self {
             Identifier::Local(ident) => ident.clone(),
-            Identifier::Parameter(PackageConst { name_in_pkg, .. }) => name_in_pkg.clone(),
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident(),
             Identifier::GameIdentifier(game_ident) => game_ident.ident(),
             Identifier::ProofIdentifier(proof_ident) => proof_ident.ident(),
