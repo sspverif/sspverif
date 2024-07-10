@@ -90,10 +90,9 @@ impl Expression {
                     Identifier::ProofIdentifier(proof_ident) => proof_ident.get_type(),
 
                     // These are old and need to go
-                    Identifier::Scalar(_)
-                    | Identifier::Parameter(_)
-                    | Identifier::Local(_)
-                    | Identifier::GameInstanceConst(_) => unreachable!(),
+                    Identifier::Scalar(_) | Identifier::Parameter(_) | Identifier::Local(_) => {
+                        unreachable!()
+                    }
                 };
 
                 match &fn_type {

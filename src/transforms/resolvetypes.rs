@@ -397,10 +397,6 @@ fn ident_walker(
         Identifier::Parameter(_) => {
             panic!("shouldn't use Identifier::Parameter, but found {:?}", ident)
         }
-        Identifier::GameInstanceConst(_) => panic!(
-            "shouldn't use Identifier::GameInstanceConst, but found {:?}",
-            ident
-        ),
     };
 
     type_walker(type_mapping, place, file_pos, tipe)

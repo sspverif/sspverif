@@ -21,7 +21,6 @@ pub enum Identifier {
     Scalar(String),
     Parameter(PackageConst),
     Local(String),
-    GameInstanceConst(GameInstanceConst),
     // TODO add parameter identifiers for each place of definition (package/game/proof)
 }
 
@@ -590,14 +589,8 @@ impl PartialEq for Identifier {
             (Self::Scalar(x), Self::Scalar(y)) => x == y,
             (Self::Local(x), Self::Local(y)) => x == y,
             (Self::Parameter(l), Self::Parameter(r)) => l == r,
-            (Self::GameInstanceConst(l), Self::GameInstanceConst(r)) => l == r,
 
-            (Self::Parameter(pkg_param), Self::GameInstanceConst(game_inst_const))
-            | (Self::GameInstanceConst(game_inst_const), Self::Parameter(pkg_param)) => {
-                pkg_param.game_inst_name == game_inst_const.game_inst_name
-                    && pkg_param.name_in_comp == game_inst_const.name_in_comp
-                    && pkg_param.name_in_proof == game_inst_const.name_in_proof
-            }
+            // TODO: maybe do something clever based on instantiation info?
             (Self::GameIdentifier(x), Self::GameIdentifier(y)) => x == y,
             (Self::PackageIdentifier(x), Self::PackageIdentifier(y)) => x == y,
             _ => false,
@@ -630,7 +623,6 @@ impl Identifier {
             Identifier::Parameter(PackageConst { name_in_pkg, .. }) => name_in_pkg,
             Identifier::Local(name) => name,
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident_ref(),
-            Identifier::GameInstanceConst(_) => todo!(),
             Identifier::GameIdentifier(game_ident) => game_ident.ident_ref(),
             Identifier::ProofIdentifier(proof_ident) => proof_ident.ident_ref(),
         }
@@ -642,7 +634,6 @@ impl Identifier {
             Identifier::Local(ident) => ident.clone(),
             Identifier::Parameter(PackageConst { name_in_pkg, .. }) => name_in_pkg.clone(),
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident(),
-            Identifier::GameInstanceConst(_) => todo!(),
             Identifier::GameIdentifier(game_ident) => game_ident.ident(),
             Identifier::ProofIdentifier(proof_ident) => proof_ident.ident(),
         }
@@ -651,6 +642,7 @@ impl Identifier {
 
 #[cfg(test)]
 mod tests {
+    /* while we should test equality of identifiers, this one is not interesting because it tests variants that we want to get rid of
     use super::{GameInstanceConst, Identifier, PackageConst};
 
     #[test]
@@ -670,5 +662,6 @@ mod tests {
         });
 
         assert_eq!(left, right)
-    }
+        }
+    */
 }

@@ -5,7 +5,9 @@ use super::patterns::{
 };
 use crate::expressions::Expression;
 use crate::identifier::pkg_ident::PackageIdentifier;
-use crate::identifier::proof_ident::{ProofConstIdentifier, ProofIdentifier};
+use crate::identifier::proof_ident::{
+    ProofConstIdentifier, ProofIdentInstanciationInfo, ProofIdentifier,
+};
 use crate::identifier::{GameInstanceConst, Identifier, PackageConst};
 use crate::types::Type;
 
@@ -160,12 +162,7 @@ impl From<Expression> for SmtExpr {
             //     &SelfStatePattern,
             // )
             //     .into(),
-            Expression::Identifier(Identifier::GameInstanceConst(GameInstanceConst {
-                game_inst_name,
-                name_in_comp,
-                ..
-            }))
-            | Expression::Identifier(Identifier::Parameter(PackageConst {
+            Expression::Identifier(Identifier::Parameter(PackageConst {
                 name_in_comp,
                 game_inst_name,
                 ..

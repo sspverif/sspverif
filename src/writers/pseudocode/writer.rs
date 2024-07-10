@@ -32,7 +32,6 @@ impl<W: Write> Writer<W> {
                 self.write_string(name_in_pkg)?;
                 self.write_string(" /* param identifier */ ")?;
             }
-            Identifier::GameInstanceConst(_) => todo!(),
             Identifier::PackageIdentifier(_) => todo!(),
             Identifier::GameIdentifier(_) => todo!(),
             Identifier::ProofIdentifier(_) => todo!(),
