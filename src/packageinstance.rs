@@ -14,8 +14,12 @@ use crate::{
 pub struct PackageInstance {
     pub name: String,
 
-    // we need these two to compare whether two isntances of a same package have the same
-    // parameters (both constants and types)
+    // we need these two to compare whether two instances of a same package have the same
+    // parameters (both constants and types).
+    // We need to compare that when checking the mapping of game and an assumption:
+    // A mapping is only valid if the package instances in the game and the assumption
+    // are excatly the same, i.e. they are different instances of the same package with
+    // the same parameters.
     // TODO: this should probably just be (String, Expression)
     pub params: Vec<(PackageConstIdentifier, Expression)>,
     pub types: Vec<(String, Type)>,
