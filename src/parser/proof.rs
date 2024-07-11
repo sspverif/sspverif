@@ -105,14 +105,20 @@ fn handle_instance_decl(
     let inst_name = ast.next().unwrap().as_str().to_string();
     let game_ast = ast.next().unwrap();
     let game_span = game_ast.as_span();
-    let game_name = game_ast.as_str().to_string();
+    let game_name = game_ast.as_str();
     let body_ast = ast.next().unwrap();
 
-    let (types, consts) =
-        handle_instance_assign_list(scope, &inst_name, file_name, proof_consts, body_ast)?;
+    let (types, consts) = handle_instance_assign_list(
+        scope,
+        &inst_name,
+        game_name,
+        file_name,
+        proof_consts,
+        body_ast,
+    )?;
 
     let game_resolver = SliceResolver(games);
-    let game = match game_resolver.resolve_value(&game_name) {
+    let game = match game_resolver.resolve_value(game_name) {
         Some(game) => game,
         None => return Err(Error::UndefinedGame(game_name.to_string()).with_span(game_span)),
     };
@@ -122,14 +128,7 @@ fn handle_instance_decl(
         .map(|(ident, expr)| (ident.clone().into(), expr.clone()))
         .collect();
 
-    let game_inst = GameInstance::new(
-        &inst_name,
-        "proof name",
-        inst_name.to_string(),
-        game.clone(),
-        types,
-        consts_as_ident,
-    );
+    let game_inst = GameInstance::new(inst_name, game.clone(), types, consts_as_ident);
 
     check_consts(&game_inst, span, games)?;
 
@@ -209,6 +208,7 @@ fn check_consts(game_inst: &GameInstance, span: Span, games: &[Composition]) -> 
 fn handle_instance_assign_list(
     scope: &mut Scope,
     inst_name: &str,
+    game_name: &str,
     file_name: &str,
     proof_consts: &[(String, Type)],
     ast: Pair<Rule>,
@@ -231,7 +231,7 @@ fn handle_instance_assign_list(
                 consts.extend(defs.into_iter().map(|(name, value)| {
                     (
                         GameConstIdentifier {
-                            game_name: "game name".to_string(),
+                            game_name: game_name.to_string(),
                             name,
                             tipe: value.get_type(),
                             inst_info: None,

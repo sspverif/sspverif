@@ -13,7 +13,6 @@ use crate::impl_Named;
 #[derive(Debug, Clone)]
 pub struct GameInstance {
     name: String,
-    game_name: String,
     game: Composition,
     types: Vec<(String, Type)>,
     consts: Vec<(Identifier, Expression)>,
@@ -23,41 +22,114 @@ impl_Named!(GameInstance);
 
 mod instantiate {
     use crate::{
-        expressions::Expression, identifier::Identifier, package::PackageInstance, types::Type,
+        expressions::Expression,
+        identifier::{pkg_ident::PackageConstIdentifier, Identifier},
+        package::Package,
+        packageinstance::{
+            instantiate::{self, rewrite_expression},
+            PackageInstance,
+        },
+        parser::package::MultiInstanceIndices,
+        types::Type,
     };
 
     pub(crate) fn rewrite_pkg_inst(
-        _game_inst_name: &str,
-        _proof_name: &str,
-        pkg_inst: &PackageInstance,
-        _params: &[(Identifier, Expression)],
-        _types: &[(String, Type)],
+        pkg_inst_name: &str,
+        game_name: &str,
+        pkg: &Package,
+        mut multi_instance_indices: MultiInstanceIndices,
+        mut params: Vec<(PackageConstIdentifier, Expression)>,
+        types: Vec<(String, Type)>,
+        game_params: Vec<(Identifier, Expression)>,
+        game_inst_name: &str,
     ) -> PackageInstance {
-        PackageInstance { ..pkg_inst.clone() }
+        let new_oracles = pkg
+            .oracles
+            .iter()
+            .map(|oracle_def| {
+                instantiate::rewrite_oracle_def(
+                    pkg_inst_name,
+                    game_name,
+                    oracle_def,
+                    &game_params,
+                    &types,
+                )
+            })
+            .collect();
+
+        let new_split_oracles = pkg
+            .split_oracles
+            .iter()
+            .map(|split_oracle_def| {
+                instantiate::rewrite_split_oracle_def(
+                    pkg_inst_name,
+                    game_name,
+                    split_oracle_def,
+                    &game_params,
+                    &types,
+                )
+            })
+            .collect();
+
+        let pkg = Package {
+            types: vec![],
+            params: vec![],
+            oracles: new_oracles,
+            split_oracles: new_split_oracles,
+            ..pkg.clone()
+        };
+
+        for (_, expr) in &mut params {
+            *expr =
+                rewrite_expression(game_inst_name, game_name, expr, game_params.as_slice(), &[]);
+        }
+
+        for index in &mut multi_instance_indices.indices {
+            *index = rewrite_expression(
+                game_inst_name,
+                game_name,
+                index,
+                game_params.as_slice(),
+                &[],
+            );
+        }
+
+        PackageInstance {
+            params,
+            types,
+            pkg,
+            name: pkg_inst_name.to_string(),
+            multi_instance_indices,
+        }
     }
 }
 
 impl GameInstance {
     pub fn new(
-        game_inst_name: &str,
-        proof_name: &str,
-        name: String,
+        game_inst_name: String,
         game: Composition,
         types: Vec<(String, Type)>,
         params: Vec<(Identifier, Expression)>,
     ) -> GameInstance {
-        let game_name = game.name.clone();
-
         let new_pkg_instances = game
             .pkgs
             .iter()
-            .map(|pkg_inst| {
-                instantiate::rewrite_pkg_inst(game_inst_name, proof_name, pkg_inst, &params, &types)
+            .map(|pkg_inst| -> crate::package::PackageInstance {
+                instantiate::rewrite_pkg_inst(
+                    &pkg_inst.name,
+                    &game.name,
+                    &pkg_inst.pkg,
+                    pkg_inst.multi_instance_indices.clone(),
+                    pkg_inst.params.clone(),
+                    pkg_inst.types.clone(),
+                    params.clone(),
+                    &game_inst_name,
+                )
             })
             .collect();
 
         let game = Composition {
-            name: name.clone(),
+            name: game.name.clone(),
             pkgs: new_pkg_instances,
             consts: vec![],
 
@@ -65,8 +137,7 @@ impl GameInstance {
         };
 
         GameInstance {
-            name,
-            game_name,
+            name: game_inst_name,
             game,
             types,
             consts: params,
@@ -93,7 +164,7 @@ impl GameInstance {
     }
 
     pub fn game_name(&self) -> &str {
-        &self.game_name
+        &self.game.name
     }
 
     pub fn game(&self) -> &Composition {

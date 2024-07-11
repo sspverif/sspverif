@@ -540,7 +540,7 @@ pub(crate) mod instantiate {
                         )
                     }
                 })
-                .unwrap(),
+                .unwrap_or_else(||  panic!("tried finding a value for {game_const_ident:?}, but that was not in the list of declared values {const_assignments:?}", game_const_ident = game_const_ident, const_assignments = const_assignments)),
 
             Expression::Identifier(other_ident) => Expression::Identifier(rewrite_identifier(
                 inst_name,
