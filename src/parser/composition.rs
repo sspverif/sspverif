@@ -1010,6 +1010,16 @@ mod tests {
         }
     }"#;
 
+    const SMALL_MISTYPED_GAME_CODE: &str = r#"composition SmallMistypedGame {
+        const n: Bool;
+
+        instance tiny_instance  = TinyPkg {
+            params {
+                n: n,
+            }
+        }
+    }"#;
+
     const SMALL_MULTI_INST_GAME_CODE: &str = r#"composition SmallMultiInstGame {
         for i: 0 <= i < 200 {
             instance tiny_instance[i] = TinyPkg {
@@ -1099,5 +1109,13 @@ mod tests {
         println!("{game:#?}");
 
         assert_eq!(game.pkgs[0].multi_instance_indices.indices.len(), 1);
+    }
+
+    #[test]
+    fn type_mismatch_in_params() {
+        let (name, pkg) = parse_pkg(TINY_PKG_CODE, "tiny-pkg");
+        let pkg_map = HashMap::from_iter(vec![(name, pkg.clone())]);
+        let game = parse_game(SMALL_MISTYPED_GAME_CODE, "small-mistyped-game", &pkg_map);
+        println!("{game:#?}");
     }
 }
