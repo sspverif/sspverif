@@ -195,8 +195,7 @@ pub fn handle_comp_spec_list(
                 handle_for_loop(&mut ctx, comp_spec)?;
             }
             Rule::instance_decl => {
-                let pkg_inst = handle_instance_decl(&mut ctx, comp_spec)?;
-                ctx.add_pkg_instance(pkg_inst)
+                handle_instance_decl(&mut ctx, comp_spec)?;
             }
             Rule::compose_decl => {
                 let comp_spec_span = comp_spec.as_span();
@@ -797,10 +796,7 @@ pub fn handle_instance_decl_multi_inst(
     Ok(())
 }
 
-pub fn handle_instance_decl(
-    ctx: &mut ParseGameContext,
-    ast: Pair<Rule>,
-) -> error::Result<PackageInstance> {
+pub fn handle_instance_decl(ctx: &mut ParseGameContext, ast: Pair<Rule>) -> error::Result<()> {
     let span = ast.as_span();
 
     let mut inner = ast.into_inner();
@@ -904,7 +900,7 @@ pub fn handle_instance_decl(
         ));
     }
 
-    let inst = PackageInstance::new(
+    let pkg_inst = PackageInstance::new(
         pkg_inst_name,
         ctx.game_name,
         pkg,
@@ -913,8 +909,11 @@ pub fn handle_instance_decl(
         type_list,
     );
 
-    match ResolveTypesPackageInstanceTransform.transform_package_instance(&inst) {
-        Ok((inst, _)) => Ok(inst),
+    match ResolveTypesPackageInstanceTransform.transform_package_instance(&pkg_inst) {
+        Ok((pkg_inst, _)) => {
+            ctx.add_pkg_instance(pkg_inst);
+            Ok(())
+        }
         Err(err) => Err(error::Error::from(err).with_span(span)),
     }
 }
