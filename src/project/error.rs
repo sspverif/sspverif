@@ -58,7 +58,10 @@ pub enum Error {
     //FmtError(#[from] std::fmt::Error),
     #[diagnostic(transparent)]
     #[error(transparent)]
-    PackageParse(parser::package::ParsePackageError),
+    ParsePackage(#[from] parser::package::ParsePackageError),
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    ParseGame(#[from] parser::composition::ParseGameError),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

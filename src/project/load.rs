@@ -29,7 +29,7 @@ pub(crate) fn packages(root: PathBuf) -> Result<HashMap<String, Package>> {
 
                 let mut ast = SspParser::parse_package(file_content).map_err(|e| (file_name, e))?;
                 let (pkg_name, pkg) = handle_pkg(file_name, file_content, ast.next().unwrap())
-                    .map_err(Error::PackageParse)?;
+                    .map_err(Error::ParsePackage)?;
 
                 if let Some(other_filename) = pkgs_filenames.get(&pkg_name) {
                     return Err(Error::RedefinedPackage(
@@ -66,14 +66,7 @@ pub(crate) fn games(
                 let mut ast =
                     SspParser::parse_composition(&file_content).map_err(|err| (file_name, err))?;
 
-                let comp =
-                    match handle_composition(file_name, &file_content, ast.next().unwrap(), pkgs) {
-                        Ok(game) => game,
-                        Err(err) => {
-                            println!("printing error...");
-                            return Err(err.with_source(file_content).into());
-                        }
-                    };
+                let comp = handle_composition(file_name, &file_content, ast.next().unwrap(), pkgs)?;
                 let comp_name = comp.name.clone();
 
                 games.insert(comp_name, comp);

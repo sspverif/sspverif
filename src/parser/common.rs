@@ -1,15 +1,23 @@
 use crate::identifier::game_ident::GameIdentifier;
 use crate::identifier::proof_ident::ProofIdentifier;
+use crate::package::Package;
 use crate::statement::FilePosition;
 use crate::util::scope::Scope;
 use crate::{expressions::Expression, identifier::Identifier, types::Type};
 
-use super::error::{Error, OwnedSpan, Result, SpanError};
+use super::composition::{ParseGameContext, ParseGameError};
+use super::error::{
+    DuplicateParameterDefinitionError, Error, MissingParameterDefinitionError,
+    NoSuchParameterError, OwnedSpan, Result, SpanError,
+};
 use super::package::{handle_identifier_in_code_rhs, ParseIdentifierError};
 use super::{error, Rule};
 
+use itertools::Itertools;
+use miette::SourceSpan;
 use pest::iterators::Pair;
 
+use std::collections::{HashMap, HashSet};
 use std::result::Result as StdResult;
 
 // TODO: identifier is optional
@@ -270,39 +278,92 @@ pub fn handle_type(tipe: Pair<Rule>) -> Type {
 }
 
 pub fn handle_game_params_def_list(
+    ctx: &ParseGameContext,
+    pkg: &Package,
+    pkg_inst_name: &str,
     ast: Pair<Rule>,
-    scope: &mut Scope,
-) -> Result<Vec<(String, Expression)>> {
-    ast.into_inner()
+) -> std::result::Result<Vec<(String, Expression)>, super::composition::ParseGameError> {
+    let params = &pkg.params;
+    let mut defined_params = HashMap::<String, SourceSpan>::new();
+    let block_span = ast.as_span();
+    let result = ast
+        .into_inner()
+        // loop over the parameter definitions
         .map(|inner| {
-            //let inner = inner.into_inner().next().unwrap();
-
+            let pair_span = inner.as_span();
             let mut inner = inner.into_inner();
-            let left_ast = inner.next().unwrap();
-            let left = left_ast.as_str();
+            let name_ast = inner.next().unwrap();
+            let value_ast = inner.next().unwrap();
 
-            let right_ast = inner.next().unwrap();
-            let right_span = right_ast.as_span();
+            let name_span = name_ast.as_span();
+            let name = name_ast.as_str();
 
-            let right = handle_expression(right_ast, scope)?;
-
-            match &right {
-                // TODO: also allow proof constant identifiers, once we have them
-                Expression::BooleanLiteral(_)
-                | Expression::StringLiteral(_)
-                | Expression::IntegerLiteral(_)
-                | Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::LoopVar(_)))
-                | Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(_))) => {}
-
-                _ => {
-                    return Err(Error::IllegalExpression(right.clone()).with_span(right_span));
-                }
+            // check that the defined parameter hasn't been defined before
+            // (insert returns Some(x) if x has been written before)
+            if let Some(prev_span) = defined_params.insert(
+                name.to_string(),
+                (pair_span.start()..pair_span.end()).into(),
+            ) {
+                Err(DuplicateParameterDefinitionError {
+                    source_code: ctx.named_source(),
+                    at: (name_span.start()..name_span.end()).into(),
+                    other: prev_span,
+                    param_name: name.to_string(),
+                    pkg_inst_name: pkg_inst_name.to_string(),
+                })?;
             }
 
-            Ok((left.to_owned(), right.clone()))
+            // look up the parameter declaration from the package
+            let maybe_param_info = params.iter().find(|(name_, _, _)| name == name_);
+
+            // if it desn't exist, return an error
+            let (_, expected_type, _) = maybe_param_info.ok_or(NoSuchParameterError {
+                source_code: ctx.named_source(),
+                at: (name_span.start()..name_span.end()).into(),
+                param_name: name.to_string(),
+                pkg_name: pkg.name.clone(),
+            })?;
+
+            // parse the assigned value, and set the expected type to what the declaration
+            // prescribes.
+            let value = super::package::handle_expression(
+                &ctx.parse_ctx(),
+                value_ast,
+                Some(expected_type),
+            )?;
+
+            Ok((name.to_string(), value))
         })
-        .collect()
+        .collect::<std::result::Result<Vec<_>, super::composition::ParseGameError>>()
+        .and_then(|list| {
+            let definied_names: HashSet<String> = defined_params.keys().cloned().collect();
+            let declared_names: HashSet<String> =
+                params.iter().map(|(name, _, _)| name).cloned().collect();
+
+            let missing_params_vec: Vec<_> = declared_names
+                .difference(&definied_names)
+                .cloned()
+                .collect();
+            let missing_params = missing_params_vec.iter().join(", ");
+
+            if !missing_params_vec.is_empty() {
+                Err(MissingParameterDefinitionError {
+                    source_code: ctx.named_source(),
+                    at: (block_span.start()..block_span.end()).into(),
+                    pkg_name: pkg.name.clone(),
+                    pkg_inst_name: pkg_inst_name.to_string(),
+                    missing_params_vec,
+                    missing_params,
+                }
+                .into())
+            } else {
+                Ok(list)
+            }
+        });
+
+    result
 }
+
 pub fn handle_proof_params_def_list(
     ast: Pair<Rule>,
     _defined_consts: &[(String, Type)],
@@ -338,11 +399,12 @@ pub fn handle_proof_params_def_list(
         .collect()
 }
 
+/*
 pub fn handle_types_def_list(
     ast: Pair<Rule>,
     inst_name: &str,
     file_name: &str,
-) -> Result<Vec<(String, Type)>> {
+) -> std::result::Result<Vec<(String, Type)>, ParseGameError> {
     ast.into_inner()
         .map(|def_spec| handle_types_def_spec(def_spec, inst_name, file_name))
         .collect()
@@ -363,19 +425,20 @@ pub fn handle_types_def_spec(
     let snd_span = snd.as_span();
     let snd_type = handle_type(snd);
 
-    let place = crate::transforms::resolvetypes::Place::Types {
-        inst_name: inst_name.to_string(),
-        type_name: format!("{:?}", fst.as_str()),
-    };
+        let place = crate::transforms::resolvetypes::Place::Types {
+            inst_name: inst_name.to_string(),
+            type_name: format!("{:?}", fst.as_str()),
+        };
 
-    let tf = crate::transforms::resolvetypes::ResolveTypesTypeTransform::new(place);
+        let tf = crate::transforms::resolvetypes::ResolveTypesTypeTransform::new(place);
 
-    if let Err(err) = tf.transform_type(&snd_type, &(span.start()..span.end()).into()) {
-        return Err(error::Error::from(err).with_span(snd_span));
-    }
+        if let Err(err) = tf.transform_type(&snd_type, &(span.start()..span.end()).into()) {
+            return Err(error::Error::from(err).with_span(snd_span));
+        }
 
     Ok((fst.as_str().to_string(), snd_type))
 }
+    */
 
 pub fn handle_const_decl(ast: Pair<Rule>) -> (String, Type) {
     let mut inner = ast.into_inner();

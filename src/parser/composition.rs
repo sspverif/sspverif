@@ -1,7 +1,10 @@
 use super::{
     common::*,
-    error,
-    package::{ForComp, MultiInstanceIndices},
+    error::{
+        DuplicateParameterDefinitionError, MissingParameterDefinitionError, NoSuchParameterError,
+        UndefinedInstanceError, UndefinedPackageError,
+    },
+    package::{handle_expression, ForComp, MultiInstanceIndices, ParsePackageError},
     ParseContext, Rule,
 };
 use crate::{
@@ -17,13 +20,15 @@ use crate::{
         PackageInstance,
     },
     statement::FilePosition,
-    transforms::{resolvetypes::ResolveTypesPackageInstanceTransform, PackageInstanceTransform},
+    //transforms::{resolvetypes::ResolveTypesPackageInstanceTransform, PackageInstanceTransform},
     types::Type,
 };
+use miette::{Diagnostic, NamedSource};
 use pest::iterators::{Pair, Pairs};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::iter::FromIterator as _;
+use thiserror::Error;
 
 impl<'a> ParseContext<'a> {
     fn game_context(
@@ -81,6 +86,20 @@ pub struct ParseGameContext<'a> {
 }
 
 impl<'a> ParseGameContext<'a> {
+    pub fn named_source(&self) -> NamedSource<String> {
+        NamedSource::new(self.file_name, self.file_content.to_string())
+    }
+
+    pub fn parse_ctx(&self) -> ParseContext<'a> {
+        ParseContext {
+            file_name: self.file_name,
+            file_content: self.file_content,
+            scope: self.scope.clone(),
+        }
+    }
+}
+
+impl<'a> ParseGameContext<'a> {
     fn into_game(self) -> Composition {
         let mut consts = Vec::from_iter(self.consts);
         consts.sort();
@@ -106,8 +125,8 @@ impl<'a> ParseGameContext<'a> {
     ) -> Result<(), crate::util::scope::Error> {
         self.scope.declare(name, declaration)
     }
-
     // TODO: check dupes here?
+
     fn add_pkg_instance(&mut self, pkg_inst: PackageInstance) {
         let offset = self.instances.len();
         self.instances.push(pkg_inst.clone());
@@ -148,12 +167,43 @@ impl<'a> ParseGameContext<'a> {
     }
 }
 
+#[derive(Debug, Error, Diagnostic)]
+pub enum ParseGameError {
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ParsePackage(#[from] ParsePackageError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ParseExpression(#[from] super::package::ParseExpressionError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    UndefinedInstance(#[from] UndefinedInstanceError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    UndefinedPackage(#[from] UndefinedPackageError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    NoSuchParameter(#[from] NoSuchParameterError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    DuplicateParameterDefinition(#[from] DuplicateParameterDefinitionError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    MissingParameterDefinition(#[from] MissingParameterDefinitionError),
+}
+
 pub fn handle_composition(
     file_name: &str,
     file_content: &str,
     ast: Pair<Rule>,
     pkg_map: &HashMap<String, Package>,
-) -> error::Result<Composition> {
+) -> Result<Composition, ParseGameError> {
     let mut inner = ast.into_inner();
     let game_name = inner.next().unwrap().as_str();
 
@@ -171,7 +221,7 @@ pub fn handle_composition(
 pub fn handle_comp_spec_list(
     mut ctx: ParseGameContext,
     ast: Pair<Rule>,
-) -> error::Result<Composition> {
+) -> Result<Composition, ParseGameError> {
     for comp_spec in ast.into_inner() {
         match comp_spec.as_rule() {
             Rule::const_decl => {
@@ -197,11 +247,7 @@ pub fn handle_comp_spec_list(
             Rule::instance_decl => {
                 handle_instance_decl(&mut ctx, comp_spec)?;
             }
-            Rule::compose_decl => {
-                let comp_spec_span = comp_spec.as_span();
-                handle_compose_assign_body_list(&mut ctx, comp_spec)
-                    .map_err(|e| error::Error::ParseGameError(e).with_span(comp_spec_span))?;
-            }
+            Rule::compose_decl => handle_compose_assign_body_list(&mut ctx, comp_spec)?,
             _ => {
                 unreachable!();
             }
@@ -218,16 +264,18 @@ pub fn handle_compose_assign_list_multi_inst(
     ast.map(|assignment| -> Result<_, ParseGameError> {
         let mut line_builder = (None, None, vec![]);
         for piece in assignment.into_inner() {
+            let piece_span = piece.as_span();
             match piece.as_rule() {
                 Rule::identifier if line_builder.0.is_none() => {
                     line_builder.0 = Some(piece.as_str().to_string())
                 }
                 Rule::identifier if line_builder.1.is_none() => {
                     if !ctx.has_pkg_instance(piece.as_str()) {
-                        return Err(ParseGameError::UndeclaredInstance(
-                            piece.as_str().to_string(),
-                            FilePosition::from_span(ctx.file_name, piece.as_span()),
-                        ));
+                        return Err(ParseGameError::UndefinedInstance(UndefinedInstanceError {
+                            source_code: ctx.named_source(),
+                            at: todo!(),
+                            inst_name: todo!(),
+                        }));
                     }
 
                     line_builder.1 = Some(piece.as_str().to_string())
@@ -239,8 +287,8 @@ pub fn handle_compose_assign_list_multi_inst(
                         .unwrap()
                         .into_inner()
                         .map(|e| {
-                            handle_expression(e, &mut ctx.scope)
-                                .map_err(ParseGameError::ParseExpressionError)
+                            handle_expression(&ctx.parse_ctx(), e, Some(&Type::Integer))
+                                .map_err(ParseGameError::ParseExpression)
                         })
                         .collect::<Result<Vec<Expression>, ParseGameError>>()?,
                 ),
@@ -262,6 +310,7 @@ pub fn handle_compose_assign_list_multi_inst(
     .collect::<Result<Vec<_>, _>>()
 }
 
+/*
 #[derive(Debug)]
 pub enum ParseGameError {
     UndeclaredInstance(String, FilePosition),
@@ -298,11 +347,12 @@ impl crate::error::LocationError for ParseGameError {
         }
     }
 }
+*/
 
 pub fn handle_for_loop_body<'a>(
     ctx: &mut ParseGameContext<'a>,
     ast: Pair<Rule>,
-) -> error::Result<()> {
+) -> Result<(), ParseGameError> {
     for comp_spec in ast.into_inner() {
         match comp_spec.as_rule() {
             Rule::game_for => handle_for_loop(ctx, comp_spec)?,
@@ -310,9 +360,7 @@ pub fn handle_for_loop_body<'a>(
             Rule::instance_decl => handle_instance_decl_multi_inst(ctx, comp_spec)?,
 
             Rule::compose_decl_multi_inst => {
-                let comp_spec_span = comp_spec.as_span();
-                handle_compose_assign_body_list_multi_inst(ctx, comp_spec)
-                    .map_err(|e| error::Error::ParseGameError(e).with_span(comp_spec_span))?;
+                handle_compose_assign_body_list_multi_inst(ctx, comp_spec)?;
             }
             _ => unreachable!(),
         }
@@ -417,10 +465,13 @@ fn handle_export_compose_assign_list_multi_inst(
                 }
                 Rule::identifier if dst_inst_name.is_none() => {
                     if !ctx.has_pkg_instance(piece.as_str()) {
-                        return Err(ParseGameError::UndeclaredInstance(
-                            piece.as_str().to_string(),
-                            FilePosition::from_span(ctx.file_name, piece.as_span()),
-                        ));
+                        let span = piece.as_span();
+                        return Err(UndefinedInstanceError {
+                            source_code: ctx.named_source(),
+                            at: (span.start()..span.end()).into(),
+                            inst_name: piece.to_string(),
+                        }
+                        .into());
                     }
 
                     dst_inst_name = Some(piece.as_str());
@@ -431,10 +482,7 @@ fn handle_export_compose_assign_list_multi_inst(
                         .next()
                         .unwrap()
                         .into_inner()
-                        .map(|e| {
-                            handle_expression(e, &mut ctx.scope)
-                                .map_err(ParseGameError::ParseExpressionError)
-                        })
+                        .map(|e| handle_expression(&ctx.parse_ctx(), e, Some(&Type::Integer)))
                         .collect::<Result<_, _>>()?,
                 ),
                 _ => unreachable!(""),
@@ -510,10 +558,13 @@ fn handle_edges_compose_assign_list_multi_inst(
                 }
                 Rule::identifier if dst_inst_name.is_none() => {
                     if !ctx.has_pkg_instance(piece.as_str()) {
-                        return Err(ParseGameError::UndeclaredInstance(
-                            piece.as_str().to_string(),
-                            FilePosition::from_span(ctx.file_name, piece.as_span()),
-                        ));
+                        let span = piece.as_span();
+                        return Err(UndefinedInstanceError {
+                            source_code: ctx.named_source(),
+                            at: (span.start()..span.end()).into(),
+                            inst_name: piece.to_string(),
+                        }
+                        .into());
                     }
 
                     dst_inst_name = Some(piece.as_str());
@@ -524,10 +575,7 @@ fn handle_edges_compose_assign_list_multi_inst(
                         .next()
                         .unwrap()
                         .into_inner()
-                        .map(|e| {
-                            handle_expression(e, &mut ctx.scope)
-                                .map_err(ParseGameError::ParseExpressionError)
-                        })
+                        .map(|e| handle_expression(&ctx.parse_ctx(), e, Some(&Type::Integer)))
                         .collect::<Result<_, _>>()?,
                 ),
                 other_rule => unreachable!("found rule {rule:?}", rule = other_rule),
@@ -586,14 +634,17 @@ fn handle_edges_compose_assign_list_multi_inst(
     Ok(edges)
 }
 
-pub fn handle_for_loop<'a>(ctx: &mut ParseGameContext<'a>, ast: Pair<Rule>) -> error::Result<()> {
+pub fn handle_for_loop<'a>(
+    ctx: &mut ParseGameContext<'a>,
+    ast: Pair<Rule>,
+) -> Result<(), ParseGameError> {
     let mut parsed: Vec<Pair<Rule>> = ast.into_inner().collect();
     let decl_var_name = parsed[0].as_str();
-    let lower_bound = handle_expression(parsed.remove(1), &mut ctx.scope)?;
+    let lower_bound = handle_expression(&ctx.parse_ctx(), parsed.remove(1), Some(&Type::Integer))?;
     let lower_bound_type = parsed[1].as_str();
     let bound_var_name = parsed[2].as_str();
     let upper_bound_type = parsed[3].as_str();
-    let upper_bound = handle_expression(parsed.remove(4), &mut ctx.scope)?;
+    let upper_bound = handle_expression(&ctx.parse_ctx(), parsed.remove(4), Some(&Type::Integer))?;
     let body_ast = parsed.remove(4);
 
     if decl_var_name != bound_var_name {
@@ -641,24 +692,31 @@ use crate::util::scope::{Declaration, Scope};
 pub fn handle_instance_assign_list(
     ctx: &mut ParseGameContext,
     ast: Pair<Rule>,
-    inst_name: &str,
-    pkg_name: &str,
-) -> error::Result<(
-    Vec<(PackageConstIdentifier, Expression)>,
-    Vec<(String, Type)>,
-)> {
+    pkg_inst_name: &str,
+    pkg: &Package,
+) -> Result<
+    (
+        Vec<(PackageConstIdentifier, Expression)>,
+        Vec<(String, Type)>,
+    ),
+    super::composition::ParseGameError,
+> {
     let mut params = vec![];
-    let mut types = vec![];
+    let types = vec![];
 
     for elem in ast.into_inner() {
         match elem.as_rule() {
             Rule::params_def => {
-                let defs =
-                    handle_game_params_def_list(elem.into_inner().next().unwrap(), &mut ctx.scope)?;
+                let defs = handle_game_params_def_list(
+                    ctx,
+                    pkg,
+                    pkg_inst_name,
+                    elem.into_inner().next().unwrap(),
+                )?;
                 params.extend(defs.into_iter().map(|(name, value)| {
                     (
                         PackageConstIdentifier {
-                            pkg_name: pkg_name.to_string(),
+                            pkg_name: pkg.name.to_string(),
                             name,
                             tipe: value.get_type(),
                             // we don't resolve it here yet, so we can easily find it when
@@ -674,12 +732,15 @@ pub fn handle_instance_assign_list(
                 }))
             }
             Rule::types_def => {
-                let mut defs = handle_types_def_list(
-                    elem.into_inner().next().unwrap(),
-                    inst_name,
-                    ctx.file_name,
-                )?;
-                types.append(&mut defs);
+                todo!();
+                /*
+                    let mut defs = handle_types_def_list(
+                        elem.into_inner().next().unwrap(),
+                        inst_name,
+                        ctx.file_name,
+                    )?;
+                    types.append(&mut defs);
+                */
             }
             _ => unreachable!("{:#?}", elem),
         }
@@ -691,7 +752,7 @@ pub fn handle_instance_assign_list(
 pub fn handle_instance_decl_multi_inst(
     ctx: &mut ParseGameContext,
     ast: Pair<Rule>,
-) -> error::Result<()> {
+) -> Result<(), ParseGameError> {
     let span = ast.as_span();
 
     println!(">>>> {:#?}:{:?}", ast, ast.as_rule());
@@ -705,75 +766,67 @@ pub fn handle_instance_decl_multi_inst(
     println!("indices: {:?}", indices_ast);
     let indices = indices_ast
         .into_inner()
-        .map(|index_ast| handle_expression(index_ast, &mut ctx.scope))
+        .map(|index_ast| handle_expression(&ctx.parse_ctx(), index_ast, Some(&Type::Integer)))
         .collect::<Result<Vec<_>, _>>()?;
 
     println!("indices: {:?}", indices);
 
-    let pkg_name = inner.next().unwrap().as_str();
+    let pkg_name_ast = inner.next().unwrap();
+    let pkg_name_span = pkg_name_ast.as_span();
+    let pkg_name = pkg_name_ast.as_str();
     let data = inner.next().unwrap();
 
-    let pkg = match ctx.pkgs.get(pkg_name) {
-        None => {
-            panic!("package {} is unknown", pkg_name);
-        }
-        Some(pkg) => error::Result::Ok(pkg),
-    }?;
+    let pkg = ctx.pkgs.get(pkg_name).ok_or(UndefinedPackageError {
+        source_code: ctx.named_source(),
+        at: (pkg_name_span.start()..pkg_name_span.end()).into(),
+        pkg_name: pkg_name.to_string(),
+    })?;
 
-    let (mut param_list, type_list) = handle_instance_assign_list(ctx, data, inst_name, pkg_name)?;
+    let (mut param_list, type_list) = handle_instance_assign_list(ctx, data, inst_name, pkg)?;
 
     param_list.sort();
 
-    // check that const param lists match
-    let mut typed_params: Vec<_> = param_list
-        .iter()
-        .map(|(pkg_param, comp_param)| (pkg_param.name.clone(), comp_param.get_type()))
-        .collect();
-    typed_params.sort();
+    /* We don't type parameteres currently.
+        // check that const param lists match
+        let mut typed_params: Vec<_> = param_list
+            .iter()
+            .map(|(pkg_param, comp_param)| (pkg_param.name.clone(), comp_param.get_type()))
+            .collect();
+        typed_params.sort();
 
-    let mut pkg_params: Vec<_> = pkg
-        .params
-        .iter()
-        .cloned()
-        .map(|(name, tipe, _)| (name, tipe))
-        .collect();
-    pkg_params.sort();
+        let mut pkg_params: Vec<_> = pkg
+            .params
+            .iter()
+            .cloned()
+            .map(|(name, tipe, _)| (name, tipe))
+            .collect();
+        pkg_params.sort();
 
-    if typed_params != pkg_params {
-        // TODO: include the difference in here
-        return Err(error::Error::PackageConstParameterMismatch {
-            pkg_name: pkg_name.to_string(),
-            inst_name: inst_name.to_string(),
-            bound_params: typed_params,
-            pkg_params,
+        // check that type param lists match
+        let mut assigned_types: Vec<_> = type_list
+            .iter()
+            .map(|(pkg_type, _)| pkg_type)
+            .cloned()
+            .collect();
+        assigned_types.sort();
+
+        let mut pkg_types: Vec<_> = pkg.types.iter().map(|(ty, _span)| ty.clone()).collect();
+        pkg_types.sort();
+
+        if assigned_types != pkg_types {
+            println!("assigned: {assigned_types:?}");
+            println!("pkg:      {pkg_types:?}");
+            // TODO include the difference in here
+            return Err(error::SpanError::new_with_span(
+                error::Error::TypeParameterMismatch {
+                    game_name: ctx.game_name.to_string(),
+                    pkg_name: pkg_name.to_string(),
+                    pkg_inst_name: inst_name.to_string(),
+                },
+                span,
+            ));
         }
-        .with_span(span));
-    }
-
-    // check that type param lists match
-    let mut assigned_types: Vec<_> = type_list
-        .iter()
-        .map(|(pkg_type, _)| pkg_type)
-        .cloned()
-        .collect();
-    assigned_types.sort();
-
-    let mut pkg_types: Vec<_> = pkg.types.iter().map(|(ty, _span)| ty.clone()).collect();
-    pkg_types.sort();
-
-    if assigned_types != pkg_types {
-        println!("assigned: {assigned_types:?}");
-        println!("pkg:      {pkg_types:?}");
-        // TODO include the difference in here
-        return Err(error::SpanError::new_with_span(
-            error::Error::TypeParameterMismatch {
-                game_name: ctx.game_name.to_string(),
-                pkg_name: pkg_name.to_string(),
-                pkg_inst_name: inst_name.to_string(),
-            },
-            span,
-        ));
-    }
+    */
 
     let multi_instance_indices = MultiInstanceIndices::new(indices);
 
@@ -785,50 +838,64 @@ pub fn handle_instance_decl_multi_inst(
         multi_instance_indices,
     };
 
-    let resolved_inst = match ResolveTypesPackageInstanceTransform.transform_package_instance(&inst)
-    {
-        Ok((inst, _)) => Ok(inst),
-        Err(err) => Err(error::Error::from(err).with_span(span)),
-    }?;
+    ctx.add_pkg_instance(inst);
 
-    ctx.add_pkg_instance(resolved_inst);
+    /*
+        let resolved_inst = match ResolveTypesPackageInstanceTransform.transform_package_instance(&inst)
+        {
+            Ok((inst, _)) => Ok(inst),
+            Err(err) => Err(error::Error::from(err).with_span(span)),
+        }?;
+
+        ctx.add_pkg_instance(resolved_inst);
+    */
 
     Ok(())
 }
 
-pub fn handle_instance_decl(ctx: &mut ParseGameContext, ast: Pair<Rule>) -> error::Result<()> {
+pub fn handle_instance_decl(
+    ctx: &mut ParseGameContext,
+    ast: Pair<Rule>,
+) -> Result<(), ParseGameError> {
     let span = ast.as_span();
 
     let mut inner = ast.into_inner();
     let pkg_inst_name = inner.next().unwrap().as_str();
 
     let index_or_pkgname = inner.next().unwrap();
-    let (multi_instance_indices, pkg_name) = if index_or_pkgname.as_rule() == Rule::index_id_list {
-        let indices_ast = index_or_pkgname.into_inner();
-        let indices: Vec<_> = indices_ast
-            .map(|index| handle_expression(index, &mut ctx.scope))
-            .collect::<Result<_, _>>()?;
-        (
-            MultiInstanceIndices::new(indices),
-            inner.next().unwrap().as_str(),
-        )
-    } else {
-        (MultiInstanceIndices::empty(), index_or_pkgname.as_str())
-    };
+    let (multi_instance_indices, pkg_name, pkg_name_span) =
+        if index_or_pkgname.as_rule() == Rule::index_id_list {
+            let indices_ast = index_or_pkgname.into_inner();
+            let indices: Vec<_> = indices_ast
+                .map(|index| handle_expression(&ctx.parse_ctx(), index, Some(&Type::Integer)))
+                .collect::<Result<_, _>>()?;
 
-    let pkg = match ctx.pkgs.get(pkg_name) {
-        None => {
-            panic!(
-                "package {pkg_name} is unknown in composition {file_name}",
-                file_name = ctx.file_name
-            );
-        }
-        Some(pkg) => error::Result::Ok(pkg),
-    }?;
+            let pkg_name_ast = inner.next().unwrap();
+            (
+                MultiInstanceIndices::new(indices),
+                pkg_name_ast.as_str(),
+                pkg_name_ast.as_span(),
+            )
+        } else {
+            (
+                MultiInstanceIndices::empty(),
+                index_or_pkgname.as_str(),
+                index_or_pkgname.as_span(),
+            )
+        };
+
+    let pkg = ctx
+        .pkgs
+        .get(pkg_name)
+        .ok_or(ParseGameError::UndefinedPackage(UndefinedPackageError {
+            source_code: ctx.named_source(),
+            at: (pkg_name_span.start()..pkg_name_span.end()).into(),
+            pkg_name: pkg_name.to_string(),
+        }))?;
 
     let instance_assign_ast = inner.next().unwrap();
     let (mut param_list, type_list) =
-        handle_instance_assign_list(ctx, instance_assign_ast, pkg_inst_name, pkg_name)?;
+        handle_instance_assign_list(ctx, instance_assign_ast, pkg_inst_name, pkg)?;
 
     param_list.sort();
 
@@ -864,41 +931,32 @@ pub fn handle_instance_decl(ctx: &mut ParseGameContext, ast: Pair<Rule>) -> erro
         .collect();
     pkg_params.sort();
 
-    if typed_params != pkg_params {
-        // TODO: include the difference in here
-        return Err(error::Error::PackageConstParameterMismatch {
-            pkg_name: pkg_name.to_string(),
-            inst_name: pkg_inst_name.to_string(),
-            bound_params: typed_params,
-            pkg_params,
+    /* we currently don't handle type parameters
+        // check that type param lists match
+        let mut assigned_types: Vec<_> = type_list
+            .iter()
+            .map(|(pkg_type, _)| pkg_type)
+            .cloned()
+            .collect();
+        assigned_types.sort();
+
+        let mut pkg_types: Vec<_> = pkg.types.iter().map(|(ty, _span)| ty.clone()).collect();
+        pkg_types.sort();
+
+        if assigned_types != pkg_types {
+            println!("assigned: {assigned_types:?}");
+            println!("pkg:      {pkg_types:?}");
+            // TODO include the difference in here
+            return Err(error::SpanError::new_with_span(
+                error::Error::TypeParameterMismatch {
+                    game_name: ctx.game_name.to_string(),
+                    pkg_name: pkg_name.to_string(),
+                    pkg_inst_name: pkg_inst_name.to_string(),
+                },
+                span,
+            ));
         }
-        .with_span(span));
-    }
-
-    // check that type param lists match
-    let mut assigned_types: Vec<_> = type_list
-        .iter()
-        .map(|(pkg_type, _)| pkg_type)
-        .cloned()
-        .collect();
-    assigned_types.sort();
-
-    let mut pkg_types: Vec<_> = pkg.types.iter().map(|(ty, _span)| ty.clone()).collect();
-    pkg_types.sort();
-
-    if assigned_types != pkg_types {
-        println!("assigned: {assigned_types:?}");
-        println!("pkg:      {pkg_types:?}");
-        // TODO include the difference in here
-        return Err(error::SpanError::new_with_span(
-            error::Error::TypeParameterMismatch {
-                game_name: ctx.game_name.to_string(),
-                pkg_name: pkg_name.to_string(),
-                pkg_inst_name: pkg_inst_name.to_string(),
-            },
-            span,
-        ));
-    }
+    */
 
     let pkg_inst = PackageInstance::new(
         pkg_inst_name,
@@ -908,14 +966,18 @@ pub fn handle_instance_decl(ctx: &mut ParseGameContext, ast: Pair<Rule>) -> erro
         param_list,
         type_list,
     );
+    ctx.add_pkg_instance(pkg_inst);
 
-    match ResolveTypesPackageInstanceTransform.transform_package_instance(&pkg_inst) {
-        Ok((pkg_inst, _)) => {
-            ctx.add_pkg_instance(pkg_inst);
-            Ok(())
+    /*
+        match ResolveTypesPackageInstanceTransform.transform_package_instance(&pkg_inst) {
+            Ok((pkg_inst, _)) => {
+                ctx.add_pkg_instance(pkg_inst);
+                Ok(())
+            }
+            Err(err) => Err(error::Error::from(err).with_span(span)),
         }
-        Err(err) => Err(error::Error::from(err).with_span(span)),
-    }
+    */
+    Ok(())
 }
 
 pub fn handle_compose_assign_list(ast: Pairs<Rule>) -> Vec<(String, String)> {
@@ -939,10 +1001,12 @@ pub fn handle_index_id_list<'a>(ast: Pair<'a, Rule>) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
+    use miette::{Error, SourceCode};
+
     use super::*;
     use crate::{
         identifier::game_ident::{GameConstIdentifier, GameIdentifier},
-        parser::{package::handle_pkg, SspParser},
+        parser::{error::TypeMismatchError, package::handle_pkg, SspParser},
     };
 
     fn unwrap_parse_err<T>(res: Result<T, pest::error::Error<crate::parser::Rule>>) -> T {
@@ -1115,7 +1179,28 @@ mod tests {
     fn type_mismatch_in_params() {
         let (name, pkg) = parse_pkg(TINY_PKG_CODE, "tiny-pkg");
         let pkg_map = HashMap::from_iter(vec![(name, pkg.clone())]);
-        let game = parse_game(SMALL_MISTYPED_GAME_CODE, "small-mistyped-game", &pkg_map);
-        println!("{game:#?}");
+        let mut game_pairs =
+            unwrap_parse_err(SspParser::parse_composition(SMALL_MISTYPED_GAME_CODE));
+        let err = handle_composition(
+            "small-mistyped-game.ssp",
+            SMALL_MISTYPED_GAME_CODE,
+            game_pairs.next().unwrap(),
+            &pkg_map,
+        )
+        .expect_err("expecting an error");
+        assert!(matches!(
+            &err,
+            ParseGameError::ParseExpression(super::super::package::ParseExpressionError::TypeMismatch(
+                TypeMismatchError {
+                    at,
+                    expected: Type::Integer,
+                    got: Type::Boolean,
+                    source_code,
+                }
+            )) if &source_code.inner()[at.offset()..(at.offset()+at.len())] == "n"
+        ));
+
+        let report = miette::Report::new(err);
+        println!("{report:?}");
     }
 }

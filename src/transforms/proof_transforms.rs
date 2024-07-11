@@ -52,9 +52,9 @@ fn transform_game_inst(
 > {
     let comp = game_inst.game();
 
-    let (comp, _) = resolvetypes::Transformation(comp)
-        .transform()
-        .expect("resolving user-defined types failed");
+    //let (comp, _) = resolvetypes::Transformation(comp)
+    //    .transform()
+    //    .expect("resolving user-defined types failed");
     // let (comp, scope) = typecheck::Transformation::new_with_empty_scope(&comp).transform()?;
     let (comp, types) = type_extract::Transformation(&comp)
         .transform()

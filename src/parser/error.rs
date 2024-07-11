@@ -92,6 +92,80 @@ pub struct TypeMismatchError {
     pub source_code: miette::NamedSource<String>,
 }
 
+#[derive(Error, Diagnostic, Debug)]
+#[error("undefined package instance '{inst_name}'")]
+#[diagnostic(code(ssbee::code::undefined_instance))]
+pub struct UndefinedInstanceError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this package instance is not defined")]
+    pub at: SourceSpan,
+
+    pub inst_name: String,
+}
+
+#[derive(Error, Diagnostic, Debug)]
+#[error("undefined package '{pkg_name}'")]
+#[diagnostic(code(ssbee::code::undefined_package))]
+pub struct UndefinedPackageError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this package is not defined")]
+    pub at: SourceSpan,
+
+    pub pkg_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("parameter '{param_name}' does not exist on package {pkg_name}")]
+#[diagnostic(code(ssbee::code::no_such_parameter))]
+pub struct NoSuchParameterError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this identifier here")]
+    pub at: SourceSpan,
+
+    pub param_name: String,
+    pub pkg_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("parameter '{param_name}' has been defined twice in package instance {pkg_inst_name}")]
+#[diagnostic(code(ssbee::code::duplicate_parameter_definition))]
+pub struct DuplicateParameterDefinitionError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this identifier here")]
+    pub at: SourceSpan,
+
+    #[label("has previously been defined here")]
+    pub other: SourceSpan,
+
+    pub param_name: String,
+    pub pkg_inst_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("package {pkg_name} declares parameters that are not defined in package instance {pkg_inst_name}: {missing_params}")]
+#[diagnostic(code(ssbee::code::missing_parameter_definition))]
+pub struct MissingParameterDefinitionError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this identifier here")]
+    pub at: SourceSpan,
+
+    pub pkg_name: String,
+    pub pkg_inst_name: String,
+
+    pub missing_params_vec: Vec<String>,
+    pub missing_params: String,
+}
+
 pub struct SpanError {
     err: Error,
     start_bytes: usize,
@@ -267,8 +341,8 @@ pub enum Error {
     },
     #[error("mapping: the game names don't match there definition in the {place}")]
     ReductionMappingMismatch { place: String },
-    #[error("error resolving type: {0:?}")]
-    ResolveTypesError(#[from] resolvetypes::ResolutionError),
+    //#[error("error resolving type: {0:?}")]
+    //ResolveTypesError(#[from] resolvetypes::ResolutionError),
     #[error("game {0} is undefined")]
     UndefinedGame(String),
     #[error("use of undefined identifier {0}")]

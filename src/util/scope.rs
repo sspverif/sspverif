@@ -5,13 +5,6 @@ use crate::package::OracleSig;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum ValidityContext {
-    Package,
-    Game,
-    Proof,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum OracleContext {
     Package {
         pkg_name: String,
@@ -35,18 +28,6 @@ impl Declaration {
         match self {
             Declaration::Identifier(ident) => Ok(ident),
             Declaration::Oracle(_, _) => Err(self),
-        }
-    }
-    pub fn validity_context(&self) -> ValidityContext {
-        match self {
-            Declaration::Oracle(_, _) => ValidityContext::Package,
-            Declaration::Identifier(ident) => match ident {
-                Identifier::PackageIdentifier(_) => ValidityContext::Package,
-                Identifier::GameIdentifier(_) => ValidityContext::Game,
-                _ => {
-                    panic!("found old-style identifier, should not be used")
-                }
-            },
         }
     }
 }

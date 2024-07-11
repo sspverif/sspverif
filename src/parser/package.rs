@@ -19,7 +19,7 @@ use crate::{
     types::Type,
     util::{
         resolver::Named,
-        scope::{self, Declaration, OracleContext, Scope, ValidityContext},
+        scope::{self, Declaration, OracleContext, Scope},
     },
     writers::smt::{
         declare::declare_const,
@@ -40,10 +40,9 @@ use std::hash::Hash;
 pub struct PackageParseContext<'a> {
     pub file_name: &'a str,
     pub file_content: &'a str,
-
-    pub pkg_name: &'a str,
     pub scope: Scope,
 
+    pub pkg_name: &'a str,
     pub oracles: Vec<OracleDef>,
     pub state: Vec<(String, Type, SourceSpan)>,
     pub params: Vec<(String, Type, SourceSpan)>,
@@ -69,11 +68,33 @@ impl<'a> ParseContext<'a> {
             imported_oracles: HashMap::new(),
         }
     }
+
+    fn named_source(&self) -> NamedSource<String> {
+        NamedSource::new(self.file_name, self.file_content.to_string())
+    }
 }
 
 impl<'a> PackageParseContext<'a> {
     fn named_source(&self) -> NamedSource<String> {
         NamedSource::new(self.file_name, self.file_content.to_string())
+    }
+
+    fn parse_ctx(&self) -> ParseContext<'a> {
+        ParseContext {
+            file_name: self.file_name,
+            file_content: self.file_content,
+            scope: self.scope.clone(),
+        }
+    }
+}
+
+impl<'a> From<PackageParseContext<'a>> for ParseContext<'a> {
+    fn from(value: PackageParseContext<'a>) -> Self {
+        Self {
+            file_name: value.file_name,
+            file_content: value.file_content,
+            scope: value.scope,
+        }
     }
 }
 
@@ -266,7 +287,7 @@ pub enum ParseExpressionError {
 }
 
 pub fn handle_expression(
-    ctx: &mut PackageParseContext,
+    ctx: &ParseContext,
     ast: Pair<Rule>,
     expected_type: Option<&Type>,
 ) -> Result<Expression, ParseExpressionError> {
@@ -490,10 +511,6 @@ pub fn handle_expression(
                     },
                 ))?;
 
-            let expect_context = ValidityContext::Package;
-            let got_context = decl.validity_context();
-            assert_eq!(decl.validity_context(), expect_context, "invariant does not hold! when looking up name `{name}` in scope, we got declaration {decl:?}, which is valid in context {got_context:?} but we are in context {expect_context:?}.");
-
             let ident = match decl {
                 Declaration::Identifier(ident) => ident,
                 Declaration::Oracle(_, _) => {
@@ -564,7 +581,7 @@ pub fn handle_expression(
 
 #[derive(Error, Debug, Diagnostic)]
 pub enum ParseCodeError {
-    #[error("error parsing expression: {0}")]
+    #[error(transparent)]
     #[diagnostic(transparent)]
     ParseExpression(#[from] ParseExpressionError),
     #[error("error parsing identifier: {0}")]
@@ -681,7 +698,7 @@ pub fn handle_code(
                 // assign | return_stmt | abort | ite
                 Rule::ite => {
                     let mut inner = stmt.into_inner();
-                    let cond_expr = handle_expression(ctx, inner.next().unwrap(), Some(&Type::Boolean))?;
+                    let cond_expr = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), Some(&Type::Boolean))?;
                     let ifcode = handle_code(
                         ctx,
                         inner.next().unwrap(),
@@ -700,12 +717,12 @@ pub fn handle_code(
                     let maybe_expr = inner.next();
 
 
-                    let expr = maybe_expr.map(|expr| handle_expression(ctx, expr, Some(&oracle_sig.tipe))).transpose()?;
+                    let expr = maybe_expr.map(|expr| handle_expression(&ctx.parse_ctx(), expr, Some(&oracle_sig.tipe))).transpose()?;
                     Statement::Return(expr, source_span)
                 }
                 Rule::assert => {
                     let mut inner = stmt.into_inner();
-                    let expr = handle_expression(ctx, inner.next().unwrap(), Some(&Type::Boolean))?;
+                    let expr = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), Some(&Type::Boolean))?;
                     Statement::IfThenElse(
                         expr,
                         CodeBlock(vec![]),
@@ -736,7 +753,7 @@ pub fn handle_code(
                     // maybe we could produce better errors (or have better type inference?) if we
                     // first checked whether the identifier exists, and if yes use that as the
                     // expected type here?
-                    let expr = handle_expression(ctx, inner.next().unwrap(), None)
+                    let expr = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), None)
                         .map_err(ParseCodeError::ParseExpression)?;
 
                     let expected_type = expr.get_type();
@@ -754,7 +771,7 @@ pub fn handle_code(
                 Rule::table_sample => {
                     let mut inner = stmt.into_inner();
                     let name_ast = inner.next().unwrap();
-                    let index = handle_expression(ctx, inner.next().unwrap(), None)?;
+                    let index = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), None)?;
                     let tipe = handle_type(inner.next().unwrap());
                     let ident = handle_identifier_in_code_lhs(
                         ctx,
@@ -792,8 +809,8 @@ pub fn handle_code(
 
                     let ty_value_with_maybe = Type::Maybe(ty_value_without_maybe.clone());
 
-                    let index = handle_expression(ctx, inner.next().unwrap(), Some(&**ty_key))?;
-                    let expr = handle_expression(ctx, inner.next().unwrap(), Some(&ty_value_with_maybe))?;
+                    let index = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), Some(&**ty_key))?;
+                    let expr = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), Some(&ty_value_with_maybe))?;
 
                     let expected_type = match expr.get_type() {
                         Type::Maybe(t) => Type::Table(Box::new(index.get_type()), t),
@@ -819,7 +836,7 @@ pub fn handle_code(
                     let (opt_idx, oracle_inv) = if maybe_index.as_rule() == Rule::table_index {
                         let mut inner_index = maybe_index.into_inner();
                         let index =
-                            handle_expression(ctx, inner_index.next().unwrap(), None)?;
+                            handle_expression(&ctx.parse_ctx(), inner_index.next().unwrap(), None)?;
                         (Some(index), inner.next().unwrap())
                     } else {
                         (None, maybe_index)
@@ -838,14 +855,14 @@ pub fn handle_code(
                             Rule::oracle_call_index => {
                                 let index_expr_ast = ast.into_inner().next().unwrap();
                                 dst_inst_index =
-                                    Some(handle_expression(ctx, index_expr_ast, Some(&Type::Integer))?);
+                                    Some(handle_expression(&ctx.parse_ctx(), index_expr_ast, Some(&Type::Integer))?);
                             }
                             Rule::fn_call_arglist => {
                                 // TODO: figure out the types of the arguments and provide them to
                                 // the parser
                                 let arglist: Result<Vec<_>, _> = ast
                                     .into_inner()
-                                    .map(|expr| handle_expression(ctx, expr, None))
+                                    .map(|expr| handle_expression(&ctx.parse_ctx(), expr, None))
                                     .collect();
                                 let arglist = arglist?;
                                 args.extend(arglist.into_iter())
@@ -893,7 +910,7 @@ pub fn handle_code(
                     let list = inner.next().unwrap();
                     let expr = inner.next().unwrap();
 
-                    let expr = handle_expression(ctx,expr, None)?;
+                    let expr = handle_expression(&ctx.parse_ctx(),expr, None)?;
                     let tipe = expr.get_type();
 
                     let tipes = match tipe {
@@ -916,11 +933,11 @@ pub fn handle_code(
                 Rule::for_ => {
                     let mut parsed: Vec<Pair<Rule>> = stmt.into_inner().collect();
                     let decl_var_name = parsed[0].as_str();
-                    let lower_bound = handle_expression(ctx, parsed.remove(1), Some(&Type::Integer))?;
+                    let lower_bound = handle_expression(&ctx.parse_ctx(), parsed.remove(1), Some(&Type::Integer))?;
                     let lower_bound_type = parsed[1].as_str();
                     let bound_var_name = parsed[2].as_str();
                     let upper_bound_type = parsed[3].as_str();
-                    let upper_bound = handle_expression(ctx, parsed.remove(4), Some(&Type::Integer))?;
+                    let upper_bound = handle_expression(&ctx.parse_ctx(), parsed.remove(4), Some(&Type::Integer))?;
 
                     if decl_var_name != bound_var_name {
                         todo!("return proper error here")
@@ -1092,10 +1109,10 @@ pub fn handle_oracle_imports_oracle_sig(
         while let Some(next) = inner.peek() {
             match next.as_rule() {
                 Rule::indices_expr => {
-                    let mut loopvar_ctx = ctx.clone().with_scope(loopvar_scope.clone());
+                    let loopvar_ctx = ctx.clone().with_scope(loopvar_scope.clone()).parse_ctx();
                     let indices: Vec<_> = next
                         .into_inner()
-                        .map(|expr| handle_expression(&mut loopvar_ctx, expr, Some(&Type::Integer)))
+                        .map(|expr| handle_expression(&loopvar_ctx, expr, Some(&Type::Integer)))
                         .collect::<Result<_, _>>()
                         .map_err(ParseImportsOracleSigError::IndexParseError)?;
                     multi_inst_idx.extend_from_slice(&indices);
@@ -1444,10 +1461,11 @@ pub fn handle_import_oracles_body(
                 let for_start_ast = for_ast.next().unwrap();
                 let for_start_file_pos =
                     FilePosition::from_span(ctx.file_name, for_start_ast.as_span());
-                let for_start = handle_expression(ctx, for_start_ast, Some(&Type::Integer))
-                    .map_err(|e| {
-                        ParseImportOraclesError::ParseStartExpression(e, for_start_file_pos)
-                    })?;
+                let for_start =
+                    handle_expression(&ctx.parse_ctx(), for_start_ast, Some(&Type::Integer))
+                        .map_err(|e| {
+                            ParseImportOraclesError::ParseStartExpression(e, for_start_file_pos)
+                        })?;
 
                 let start_comp_ast = for_ast.next().unwrap();
                 let start_comp_filepos =
@@ -1471,9 +1489,10 @@ pub fn handle_import_oracles_body(
                 let for_end_file_pos =
                     FilePosition::from_span(ctx.file_name, for_end_ast.as_span());
                 let for_end =
-                    handle_expression(ctx, for_end_ast, Some(&Type::Integer)).map_err(|e| {
-                        ParseImportOraclesError::ParseEndExpression(e, for_end_file_pos)
-                    })?;
+                    handle_expression(&ctx.parse_ctx(), for_end_ast, Some(&Type::Integer))
+                        .map_err(|e| {
+                            ParseImportOraclesError::ParseEndExpression(e, for_end_file_pos)
+                        })?;
 
                 if ident != ident2 {
                     return Err(ParseImportOraclesError::IdentifierMismatch(

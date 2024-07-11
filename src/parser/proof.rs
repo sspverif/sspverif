@@ -221,8 +221,8 @@ fn handle_instance_assign_list(
     for ast in ast {
         match ast.as_rule() {
             Rule::types_def => {
-                let ast = ast.into_inner().next().unwrap();
-                types.extend(common::handle_types_def_list(ast, inst_name, file_name)?);
+                //let ast = ast.into_inner().next().unwrap();
+                //types.extend(common::handle_types_def_list(ast, inst_name, file_name)?);
             }
             Rule::params_def => {
                 let ast = ast.into_inner().next().unwrap();
