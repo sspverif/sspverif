@@ -24,7 +24,7 @@ use pest::{
 use super::common;
 use super::error::{Error, Result};
 
-pub fn handle_proof<'a>(
+pub fn handle_proof(
     ast: Pair<Rule>,
     scope: &mut Scope,
     pkgs: &[Package],

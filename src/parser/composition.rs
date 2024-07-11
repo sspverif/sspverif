@@ -211,8 +211,8 @@ pub fn handle_comp_spec_list(
     Ok(ctx.into_game())
 }
 
-pub fn handle_compose_assign_list_multi_inst<'a>(
-    ctx: &mut ParseGameContext<'a>,
+pub fn handle_compose_assign_list_multi_inst(
+    ctx: &mut ParseGameContext,
     ast: Pairs<Rule>,
 ) -> Result<Vec<(String, String, Vec<Expression>)>, ParseGameError> {
     ast.map(|assignment| -> Result<_, ParseGameError> {
