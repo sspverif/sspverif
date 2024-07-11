@@ -9,8 +9,8 @@ proof AEProto
     instance real = Real {
         params {
             n: n,
-			m: m,
-	        prf: prf,
+            m: m,
+            prf: prf,
             enc: enc,
             dec: dec,
         }
@@ -29,14 +29,14 @@ proof AEProto
     instance modprfreal = Modprfreal {
         params {
             n: n,
-	        prf: prf,
+            prf: prf,
         }
     }
 
     instance modprfideal = Modprfideal {
         params {
             n: n,
-	        prf: prf,
+            prf: prf,
         }
     }
 
