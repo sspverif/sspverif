@@ -10,6 +10,28 @@ use crate::{
 use std::{collections::HashMap, iter::FromIterator as _};
 
 #[test]
+fn empty_param_section_is_fine() {
+    let file_name = "test_file_name.ssp";
+    let file_content = r#"package testpkg {
+            params {}
+        }
+        "#;
+
+    parse_pkg(file_content, file_name);
+}
+
+#[test]
+fn empty_state_section_is_fine() {
+    let file_name = "test_file_name.ssp";
+    let file_content = r#"package testpkg {
+            state {}
+        }
+        "#;
+
+    parse_pkg(file_content, file_name);
+}
+
+#[test]
 fn tiny_game_without_packages() {
     let game = parse_game(TINY_GAME_CODE, "tiny-game", &HashMap::default());
 
