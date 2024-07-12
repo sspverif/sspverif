@@ -69,3 +69,43 @@ pub const SMALL_FOR_PKG_CODE: &str = r#"package SmallForPkg {
          return sum;
        }
     }"#;
+
+pub const TINY_BAD_PKG_1_CODE: &str = r#"package TinyBadPkg1 {
+            params {
+              n: Integer,
+            }
+
+            oracle N() -> String {
+              return n;
+            }
+        }"#;
+
+pub const TINY_BAD_PKG_2_CODE: &str = r#"package TinyBadPkg2 {
+            oracle N() -> String {
+              return n;
+            }
+        }"#;
+
+pub const TINY_BAD_PKG_3_CODE: &str = r#"package TinyBadPkg3 {
+            oracle N() -> Integer {
+              return (true + false);
+            }
+        }"#;
+
+pub const TINY_BAD_PKG_4_CODE: &str = r#"package TinyBadPkg4 {
+            oracle N() -> Integer {
+              return (true + 3);
+            }
+        }"#;
+
+pub const TINY_BAD_PKG_5_CODE: &str = r#"package TinyBadPkg5 {
+            oracle N() -> Integer {
+              return (3 + true);
+            }
+        }"#;
+
+pub const TINY_BAD_PKG_6_CODE: &str = r#"package TinyBadPkg6 {
+            oracle N() -> Bool {
+              return (3 + 2);
+            }
+        }"#;
