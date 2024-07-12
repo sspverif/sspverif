@@ -19,7 +19,7 @@ pub fn parse_pkg(code: &str, file_name: &str) -> (String, Package) {
 
 pub fn parse_pkg_fails(code: &str, name: &str) -> ParsePackageError {
     // any test game should adhere to the grammar
-    let mut pkg_pairs = SspParser::parse_composition(code).unwrap_or_else(|err| {
+    let mut pkg_pairs = SspParser::parse_package(code).unwrap_or_else(|err| {
         panic!(
             "error parsing package {name} (in call to pest): {err}",
             name = name,
