@@ -994,7 +994,7 @@ pub fn handle_compose_assign_list(ast: Pairs<Rule>) -> Vec<(String, String)> {
     .collect()
 }
 
-pub fn handle_index_id_list<'a>(ast: Pair<'a, Rule>) -> Vec<String> {
+pub fn handle_index_id_list(ast: Pair<Rule>) -> Vec<String> {
     assert_eq!(ast.as_rule(), Rule::index_id_list);
     ast.into_inner()
         .map(|ast| ast.as_str().to_string())

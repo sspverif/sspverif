@@ -1,3 +1,5 @@
+#![allow(clippy::result_large_err)]
+
 pub mod common;
 pub mod composition;
 pub mod package;
