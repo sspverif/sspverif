@@ -78,8 +78,7 @@ impl Scope {
      *  - No scope at all
      *  - Identifier exists somewhere in the scope tower already
      */
-    pub fn declare(&mut self, id: &str, t: Declaration) -> Result<(), Error> {
-        let scope_type: Declaration = t.into();
+    pub fn declare(&mut self, id: &str, scope_type: Declaration) -> Result<(), ()> {
         self.types.insert(scope_type.clone());
         if self.lookup(id) == None {
             if let Some(last) = self.entries.last_mut() {
@@ -89,7 +88,7 @@ impl Scope {
                 panic!("scope declare: scope stack is empty");
             }
         } else {
-            Err(Error::AlreadyDefined(id.to_string(), scope_type)) // already defined
+            Err(()) // already defined
         }
     }
 

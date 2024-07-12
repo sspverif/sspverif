@@ -9,11 +9,10 @@ use super::composition::{ParseGameContext, ParseGameError};
 use super::error::{
     DuplicateGameParameterDefinitionError, DuplicatePackageParameterDefinitionError, Error,
     MissingGameParameterDefinitionError, MissingPackageParameterDefinitionError,
-    NoSuchGameParameterError, NoSuchPackageParameterError, OwnedSpan, SpanError,
+    NoSuchGameParameterError, NoSuchPackageParameterError, NoSuchTypeError, OwnedSpan, SpanError,
 };
-use super::package::{handle_identifier_in_code_rhs, ParseIdentifierError};
 use super::proof::{ParseProofContext, ParseProofError};
-use super::Rule;
+use super::{ParseContext, Rule};
 
 use itertools::Itertools;
 use miette::SourceSpan;
@@ -21,19 +20,26 @@ use pest::iterators::Pair;
 
 use std::collections::{HashMap, HashSet};
 
-pub(crate) fn handle_type(tipe: Pair<Rule>) -> Type {
-    match tipe.as_rule() {
+pub(crate) fn handle_type(ctx: &ParseContext, tipe: Pair<Rule>) -> Result<Type, NoSuchTypeError> {
+    let out = match tipe.as_rule() {
         Rule::type_empty => Type::Empty,
-        Rule::type_integer => Type::Integer,
         Rule::type_bool => Type::Boolean,
+        Rule::type_integer => Type::Integer,
         Rule::type_string => Type::String,
-        Rule::type_maybe => Type::Maybe(Box::new(handle_type(tipe.into_inner().next().unwrap()))),
+        Rule::type_maybe => Type::Maybe(Box::new(handle_type(
+            ctx,
+            tipe.into_inner().next().unwrap(),
+        )?)),
         Rule::type_bits => Type::Bits(tipe.into_inner().next().unwrap().as_str().to_string()),
-        Rule::type_tuple => Type::Tuple(tipe.into_inner().map(handle_type).collect()),
+        Rule::type_tuple => Type::Tuple(
+            tipe.into_inner()
+                .map(|t| handle_type(ctx, t))
+                .collect::<Result<_, _>>()?,
+        ),
         Rule::type_table => {
             let mut inner = tipe.into_inner();
-            let indextype = handle_type(inner.next().unwrap());
-            let valuetype = handle_type(inner.next().unwrap());
+            let indextype = handle_type(ctx, inner.next().unwrap())?;
+            let valuetype = handle_type(ctx, inner.next().unwrap())?;
             Type::Table(Box::new(indextype), Box::new(valuetype))
         }
         Rule::type_fn => {
@@ -42,16 +48,34 @@ pub(crate) fn handle_type(tipe: Pair<Rule>) -> Type {
                 .next()
                 .unwrap()
                 .into_inner()
-                .map(|spec| handle_type(spec.into_inner().next().unwrap()))
-                .collect();
-            let tipe = handle_type(inner.next().unwrap());
+                .map(|spec| handle_type(ctx, spec.into_inner().next().unwrap()))
+                .collect::<Result<_, _>>()?;
+            let tipe = handle_type(ctx, inner.next().unwrap())?;
             Type::Fn(argtipes, Box::new(tipe))
         }
-        Rule::type_userdefined => Type::UserDefined(tipe.as_str().to_string()),
+        Rule::type_userdefined => {
+            let type_name = tipe.as_str();
+            if ctx
+                .types
+                .iter()
+                .any(|declared_type| declared_type == type_name)
+            {
+                Type::UserDefined(tipe.as_str().to_string())
+            } else {
+                let span = tipe.as_span();
+                return Err(NoSuchTypeError {
+                    source_code: ctx.named_source(),
+                    at: (span.start()..span.end()).into(),
+                    type_name: type_name.to_string(),
+                });
+            }
+        }
         _ => {
             unreachable!("{:#?}", tipe)
         }
-    }
+    };
+
+    Ok(out)
 }
 
 pub(crate) fn handle_game_params_def_list(
@@ -90,7 +114,7 @@ pub(crate) fn handle_game_params_def_list(
                 })?;
             }
 
-            // look up the parameter declaration from the package
+            // look up the parameter clone from the package
             let maybe_param_info = params.iter().find(|(name_, _, _)| name == name_);
 
             // if it desn't exist, return an error
@@ -101,7 +125,7 @@ pub(crate) fn handle_game_params_def_list(
                 pkg_name: pkg.name.clone(),
             })?;
 
-            // parse the assigned value, and set the expected type to what the declaration
+            // parse the assigned value, and set the expected type to what the clone
             // prescribes.
             let value = super::package::handle_expression(
                 &ctx.parse_ctx(),
@@ -176,7 +200,7 @@ pub(crate) fn handle_proof_params_def_list(
                 .into());
             }
 
-            // look up the parameter declaration from the game
+            // look up the parameter clone from the game
             let maybe_param_info = params.iter().find(|(name_, _)| name == name_);
 
             // if it desn't exist, return an error
@@ -264,10 +288,11 @@ pub fn handle_types_def_spec(
 }
     */
 
-pub fn handle_const_decl(ast: Pair<Rule>) -> (String, Type) {
+pub fn handle_const_decl(
+    ctx: &ParseContext,
+    ast: Pair<Rule>,
+) -> Result<(String, Type), NoSuchTypeError> {
     let mut inner = ast.into_inner();
     let name = inner.next().unwrap().as_str().to_owned();
-    let tipe = handle_type(inner.next().unwrap());
-
-    (name, tipe)
+    handle_type(ctx, inner.next().unwrap()).map(|t| (name, t))
 }

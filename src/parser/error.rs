@@ -77,6 +77,19 @@ pub struct IdentifierAlreadyDeclaredError {
     pub ident_name: String,
 }
 
+#[derive(Debug, Diagnostic, Error)]
+#[error("oracle '{oracle_name}' has already been declared")]
+#[diagnostic(code(ssbee::code::oracle_already_declared))]
+pub struct OracleAlreadyImportedError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this oracle here")]
+    pub at: SourceSpan,
+
+    pub oracle_name: String,
+}
+
 #[derive(Error, Diagnostic, Debug)]
 #[error("type mismatch: got {got:?}, expected {expected:?}")]
 #[diagnostic(code(ssbee::code::type_mismatch))]
@@ -170,6 +183,49 @@ pub struct NoSuchGameParameterError {
 
     pub param_name: String,
     pub game_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("type '{type_name}' does not exist ")]
+#[diagnostic(code(ssbee::code::no_such_type))]
+pub struct NoSuchTypeError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this type here")]
+    pub at: SourceSpan,
+
+    pub type_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("oracle '{oracle_name}' does not exist ")]
+#[diagnostic(code(ssbee::code::no_such_oracle))]
+pub struct NoSuchOracleError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this type here")]
+    pub at: SourceSpan,
+
+    pub oracle_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("identifiers in for loop spec don't match: {fst:?} != {snd:?}")]
+#[diagnostic(code(ssbee::code::no_such_oracle))]
+pub struct ForLoopIdentifersDontMatchError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this identifer...")]
+    pub at_fst: SourceSpan,
+
+    #[label("...should be the same as this")]
+    pub at_snd: SourceSpan,
+
+    pub fst: String,
+    pub snd: String,
 }
 
 #[derive(Debug, Diagnostic, Error)]

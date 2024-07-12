@@ -1,6 +1,9 @@
 use super::{
     common::*,
-    error::{IdentifierAlreadyDeclaredError, TypeMismatchError, UndefinedIdentifierError},
+    error::{
+        IdentifierAlreadyDeclaredError, NoSuchTypeError, TypeMismatchError,
+        UndefinedIdentifierError,
+    },
     ParseContext, Rule,
 };
 use crate::{
@@ -15,11 +18,12 @@ use crate::{
         Identifier,
     },
     package::{OracleDef, OracleSig, Package},
+    parser::error::{ForLoopIdentifersDontMatchError, NoSuchOracleError, OracleAlreadyImportedError},
     statement::{CodeBlock, FilePosition, Statement},
     types::Type,
     util::{
         resolver::Named,
-        scope::{self, Declaration, OracleContext, Scope},
+        scope::{ Declaration, OracleContext, Scope},
     },
     writers::smt::{
         declare::declare_const,
@@ -46,7 +50,7 @@ pub struct PackageParseContext<'a> {
     pub oracles: Vec<OracleDef>,
     pub state: Vec<(String, Type, SourceSpan)>,
     pub params: Vec<(String, Type, SourceSpan)>,
-    pub types: Vec<(String, SourceSpan)>,
+    pub types: Vec<String>,
     pub imported_oracles: HashMap<String, (OracleSig, SourceSpan)>,
 }
 
@@ -68,10 +72,6 @@ impl<'a> ParseContext<'a> {
             imported_oracles: HashMap::new(),
         }
     }
-
-    fn named_source(&self) -> NamedSource<String> {
-        NamedSource::new(self.file_name, self.file_content.to_string())
-    }
 }
 
 impl<'a> PackageParseContext<'a> {
@@ -84,6 +84,7 @@ impl<'a> PackageParseContext<'a> {
             file_name: self.file_name,
             file_content: self.file_content,
             scope: self.scope.clone(),
+            types: self.types.clone(),
         }
     }
 }
@@ -94,6 +95,7 @@ impl<'a> From<PackageParseContext<'a>> for ParseContext<'a> {
             file_name: value.file_name,
             file_content: value.file_content,
             scope: value.scope,
+            types: value.types,
         }
     }
 }
@@ -103,6 +105,7 @@ pub enum ParsePackageError {
     #[error("error parsing package's import oracle block: {0}")]
     #[diagnostic(transparent)]
     ParseImportOracleSig(#[from] ParseImportOraclesError),
+
     #[error("error parsing oracle definition: {0}")]
     #[diagnostic(transparent)]
     ParseOracleDef(#[from] ParseOracleDefError),
@@ -110,6 +113,39 @@ pub enum ParsePackageError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     IdentifierAlreadyDeclared(#[from] IdentifierAlreadyDeclaredError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    NoSuchType(#[from] NoSuchTypeError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    NoSuchOracle(#[from] NoSuchOracleError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ParseExpression(#[from] ParseExpressionError),
+
+    #[error("error parsing identifier: {0}")]
+    #[diagnostic(transparent)]
+    ParseIdentifier(#[from] ParseIdentifierError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    UndefinedIdentifier(#[from] UndefinedIdentifierError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    TypeMismatch(#[from] TypeMismatchError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    OracleAlreadyImported(#[from] OracleAlreadyImportedError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ForLoopIdentifersDontMatch(#[from]ForLoopIdentifersDontMatchError),
+
 }
 
 #[derive(Error, Debug)]
@@ -174,7 +210,7 @@ pub fn handle_pkg_spec(
 
                 let body_ast = spec.into_inner().next().unwrap();
                 handle_import_oracles_body(&mut ctx, body_ast, &mut loopvar_scope)
-                    .map_err(ParsePackageError::ParseImportOracleSig)?
+                ?;
             }
             Rule::oracle_def => {
                 handle_oracle_def(&mut ctx, spec)?;
@@ -205,14 +241,15 @@ pub fn handle_decl_list(
     ctx: &mut PackageParseContext,
     decl_list: Pair<Rule>,
     ident_type: IdentType,
-) -> Result<(), IdentifierAlreadyDeclaredError> {
+) -> Result<(), ParsePackageError> {
+    let parse_ctx = ctx.parse_ctx();
     for entry in decl_list.into_inner() {
         let span = entry.as_span();
         let mut inner = entry.into_inner();
         let name_ast = inner.next().unwrap();
         let name_span = name_ast.as_span();
         let name = name_ast.as_str();
-        let tipe = handle_type(inner.next().unwrap());
+        let tipe = handle_type(&parse_ctx, inner.next().unwrap())?;
 
         let ident: Identifier = match ident_type {
             IdentType::State => {
@@ -245,10 +282,7 @@ pub fn handle_decl_list(
 
         ctx.scope
             .declare(name, Declaration::Identifier(ident))
-            .map_err(|e| {
-                let scope::Error::AlreadyDefined(existing_name, _decl) = e;
-                assert_eq!(name, existing_name);
-
+            .map_err(|_| {
                 let length = name_span.end() - name_span.start();
 
                 IdentifierAlreadyDeclaredError {
@@ -263,16 +297,21 @@ pub fn handle_decl_list(
 }
 
 // TODO: identifier is optional, type needs custom type info
-pub fn handle_arglist(arglist: Pair<Rule>) -> Vec<(String, Type)> {
+pub fn handle_arglist(
+    ctx: &PackageParseContext,
+    arglist: Pair<Rule>,
+) -> Result<Vec<(String, Type)>, NoSuchTypeError> {
+    let parse_ctx = ctx.parse_ctx();
+
     arglist
         .into_inner()
         .map(|arg| {
             let mut inner = arg.into_inner();
             let id = inner.next().unwrap().as_str();
-            let tipe = handle_type(inner.next().unwrap());
-            (id.to_string(), tipe)
+            let tipe = handle_type(&parse_ctx, inner.next().unwrap())?;
+            Ok((id.to_string(), tipe))
         })
-        .collect()
+        .collect::<Result<_, _>>()
 }
 
 #[derive(Error, Debug, Diagnostic)]
@@ -284,6 +323,10 @@ pub enum ParseExpressionError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     TypeMismatch(#[from] TypeMismatchError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    NoSuchType(#[from] NoSuchTypeError),
 }
 
 pub fn handle_expression(
@@ -382,7 +425,7 @@ pub fn handle_expression(
         ))),
 
         Rule::expr_none => {
-            let tipe = handle_type(ast.into_inner().next().unwrap());
+            let tipe = handle_type(ctx, ast.into_inner().next().unwrap())?;
             Expression::None(tipe)
         }
         Rule::expr_some => {
@@ -426,8 +469,8 @@ pub fn handle_expression(
 
         Rule::expr_newtable => {
             let mut inner = ast.into_inner();
-            let idxtipe = handle_type(inner.next().unwrap());
-            let valtipe = handle_type(inner.next().unwrap());
+            let idxtipe = handle_type(ctx, inner.next().unwrap())?;
+            let valtipe = handle_type(ctx, inner.next().unwrap())?;
             Expression::EmptyTable(Type::Table(Box::new(idxtipe), Box::new(valtipe)))
         }
         Rule::table_access => {
@@ -580,26 +623,7 @@ pub fn handle_expression(
 }
 
 #[derive(Error, Debug, Diagnostic)]
-pub enum ParseCodeError {
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    ParseExpression(#[from] ParseExpressionError),
-    #[error("error parsing identifier: {0}")]
-    #[diagnostic(transparent)]
-    ParseIdentifier(#[from] ParseIdentifierError),
-    #[error("undefined oracle: {0}")]
-    UndefinedOracle(String),
-    #[error("invoking an identifier that is not an oracle: {0:?}")]
-    InvokingNonOracle(Identifier),
-
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    UndefinedIdentifier(#[from] UndefinedIdentifierError),
-
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    TypeMismatch(#[from] TypeMismatchError),
-}
+pub enum ParseCodeError {}
 
 pub fn handle_identifier_in_code_rhs(
     name: &str,
@@ -611,7 +635,7 @@ pub fn handle_identifier_in_code_rhs(
         .into_identifier()
         .unwrap_or_else(|decl| {
             panic!(
-                "expected an identifier, got a declaration {decl:?}",
+                "expected an identifier, got a clone {decl:?}",
                 decl = decl
             )
         });
@@ -648,7 +672,12 @@ pub fn handle_identifier_in_code_lhs(
 
         scope
             .declare(name, Declaration::Identifier(ident.clone()))
-            .map_err(ParseIdentifierError::ScopeDeclareError)?;
+            .map_err(|_|
+                IdentifierAlreadyDeclaredError {
+                    at: (span.start()..span.end()).into(),
+                    ident_name: name.to_string(),
+                    source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
+                })?;
 
         ident
     };
@@ -671,8 +700,11 @@ pub enum ParseIdentifierError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     ParseExpression(ParseExpressionError),
+
     #[error(transparent)]
-    ScopeDeclareError(crate::util::scope::Error),
+    #[diagnostic(transparent)]
+    IdentifierAlreadyDeclared(#[from] IdentifierAlreadyDeclaredError),
+
     #[error("found undefined variable `{0}`.")]
     Undefined(String),
     #[error(transparent)]
@@ -686,8 +718,9 @@ pub fn handle_code(
     ctx: &mut PackageParseContext,
     code: Pair<Rule>,
     oracle_sig: &OracleSig,
-) -> Result<CodeBlock, ParseCodeError> {
+) -> Result<CodeBlock, ParsePackageError> {
     let oracle_name = &oracle_sig.name;
+    let parse_ctx = ctx.parse_ctx();
     code.into_inner()
         .map(|stmt| {
             let span = stmt.as_span();
@@ -734,14 +767,14 @@ pub fn handle_code(
                 Rule::sample => {
                     let mut inner = stmt.into_inner();
                     let name_ast = inner.next().unwrap();
-                    let tipe = handle_type(inner.next().unwrap());
+                    let tipe = handle_type(&parse_ctx, inner.next().unwrap() )?;
                     let ident = handle_identifier_in_code_lhs(
                         ctx,
                         name_ast,
                         oracle_name,
                         tipe.clone(),
                     )
-                    .map_err(ParseCodeError::ParseIdentifier)?;
+                    ?;
                     Statement::Sample(ident, None, None, tipe, source_span)
                 }
 
@@ -753,8 +786,7 @@ pub fn handle_code(
                     // maybe we could produce better errors (or have better type inference?) if we
                     // first checked whether the identifier exists, and if yes use that as the
                     // expected type here?
-                    let expr = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), None)
-                        .map_err(ParseCodeError::ParseExpression)?;
+                    let expr = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), None) ?;
 
                     let expected_type = expr.get_type();
                     let ident = handle_identifier_in_code_lhs(
@@ -763,7 +795,7 @@ pub fn handle_code(
                         oracle_name,
                         expected_type,
                     )
-                    .map_err(ParseCodeError::ParseIdentifier)?;
+                        ?;
 
                     Statement::Assign(ident, None, expr, source_span)
                 }
@@ -771,15 +803,15 @@ pub fn handle_code(
                 Rule::table_sample => {
                     let mut inner = stmt.into_inner();
                     let name_ast = inner.next().unwrap();
-                    let index = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), None)?;
-                    let tipe = handle_type(inner.next().unwrap());
+                    let index = handle_expression(&parse_ctx, inner.next().unwrap(), None)?;
+                    let tipe = handle_type(&parse_ctx, inner.next().unwrap())?;
                     let ident = handle_identifier_in_code_lhs(
                         ctx,
                         name_ast,
                         oracle_name,
                         Type::Table(Box::new(index.get_type()),  Box::new(tipe.clone())),
                     )
-                    .map_err(ParseCodeError::ParseIdentifier)?;
+                        ?;
                     Statement::Sample(ident, Some(index), None, tipe, source_span)
                 }
 
@@ -823,7 +855,7 @@ pub fn handle_code(
                         oracle_name,
                         expected_type,
                     )
-                    .map_err(ParseCodeError::ParseIdentifier)?;
+                        ?;
 
                     Statement::Assign(ident, Some(index), expr, source_span)
                 }
@@ -845,7 +877,9 @@ pub fn handle_code(
                     assert!(matches!(oracle_inv.as_rule(), Rule::oracle_call));
 
                     let mut inner = oracle_inv.into_inner();
-                    let oracle_name = inner.next().unwrap().as_str();
+                    let oracle_name_ast = inner.next().unwrap();
+                    let oracle_name_span = oracle_name_ast.as_span();
+                    let oracle_name = oracle_name_ast.as_str();
 
                     let mut args = vec![];
                     let mut dst_inst_index = None;
@@ -873,7 +907,13 @@ pub fn handle_code(
 
                     let oracle_decl = ctx.scope
                         .lookup(oracle_name)
-                        .ok_or(ParseCodeError::UndefinedOracle(oracle_name.to_string()))?;
+                        .ok_or(
+                            NoSuchOracleError{
+                                source_code: ctx.named_source(),
+                                at: (oracle_name_span.start()..oracle_name_span.end()).into(),
+                                oracle_name: oracle_name.to_string(),
+                            }
+                            )?;
 
                     let expected_type = match (oracle_decl, opt_idx.clone()) {
                         (Declaration::Oracle(_context, oracle_sig), None) => Ok(oracle_sig.tipe),
@@ -882,7 +922,18 @@ pub fn handle_code(
                             Box::new(oracle_sig.tipe)
                         )),
                         (Declaration::Identifier(ident), _) => {
-                            Err(ParseCodeError::InvokingNonOracle(ident))
+                            // XXX: we could also give notice that there exists an identifier of
+                            // that name; but saying "there is no oracle of that name" isn't wrong
+                            // either
+                            // actually -- why do we put oracles in the scope again??
+                            Err(
+                            NoSuchOracleError{
+                                source_code: ctx.named_source(),
+                                at: (oracle_name_span.start()..oracle_name_span.end()).into(),
+                                oracle_name: oracle_name.to_string(),
+                            }
+
+                            )
                         }
                     }?;
 
@@ -892,7 +943,7 @@ pub fn handle_code(
                         oracle_name,
                         expected_type,
                     )
-                    .map_err(ParseCodeError::ParseIdentifier)?;
+                    ?;
 
                     Statement::InvokeOracle {
                         id: target_ident,
@@ -923,7 +974,7 @@ pub fn handle_code(
                         .enumerate()
                         .map(|(i, ident_name)| {
                             handle_identifier_in_code_lhs(ctx, ident_name,  oracle_name, tipes[i].clone())
-                                .map_err(ParseCodeError::ParseIdentifier)
+                                
                         })
                         .collect::<Result<_,_>>()?;
 
@@ -1000,12 +1051,12 @@ pub enum ParseOracleDefError {
 pub fn handle_oracle_def(
     ctx: &mut PackageParseContext,
     oracle_def: Pair<Rule>,
-) -> Result<(), ParseOracleDefError> {
+) -> Result<(), ParsePackageError> {
     let span = oracle_def.as_span();
     let source_span = SourceSpan::from(span.start()..span.end());
     let mut inner = oracle_def.into_inner();
 
-    let sig = handle_oracle_sig(inner.next().unwrap()).unwrap();
+    let sig = handle_oracle_sig(ctx, inner.next().unwrap())?;
 
     ctx.scope.enter();
 
@@ -1030,7 +1081,7 @@ pub fn handle_oracle_def(
     }
 
     let code =
-        handle_code(ctx, inner.next().unwrap(), &sig).map_err(ParseOracleDefError::ParseCode)?;
+        handle_code(ctx, inner.next().unwrap(), &sig)?;
 
     ctx.scope.leave();
 
@@ -1045,20 +1096,23 @@ pub fn handle_oracle_def(
     Ok(())
 }
 
-pub fn handle_oracle_sig(oracle_sig: Pair<Rule>) -> Result<OracleSig, ParseOracleSigError> {
+pub fn handle_oracle_sig(
+    ctx: &PackageParseContext,
+    oracle_sig: Pair<Rule>,
+) -> Result<OracleSig, ParsePackageError> {
     let mut inner = oracle_sig.into_inner();
     let name = inner.next().unwrap().as_str();
     let maybe_arglist = inner.next().unwrap();
     let args = if maybe_arglist.as_str() == "" {
         vec![]
     } else {
-        handle_arglist(maybe_arglist.into_inner().next().unwrap())
+        handle_arglist(ctx, maybe_arglist.into_inner().next().unwrap())?
     };
 
     let maybe_tipe = inner.next();
     let tipe = match maybe_tipe {
         None => Type::Empty,
-        Some(t) => handle_type(t),
+        Some(t) => handle_type(&ctx.parse_ctx(), t)?,
     };
 
     Ok(OracleSig {
@@ -1069,32 +1123,13 @@ pub fn handle_oracle_sig(oracle_sig: Pair<Rule>) -> Result<OracleSig, ParseOracl
     })
 }
 
-#[derive(Debug)]
-pub enum ParseImportsOracleSigError {
-    IndexParseError(ParseExpressionError),
-}
 
-impl std::fmt::Display for ParseImportsOracleSigError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ParseImportsOracleSigError::IndexParseError(e) => write!(f, "error parsing index: {e}"),
-        }
-    }
-}
-
-impl std::error::Error for ParseImportsOracleSigError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            ParseImportsOracleSigError::IndexParseError(e) => Some(e),
-        }
-    }
-}
 
 pub fn handle_oracle_imports_oracle_sig(
     ctx: &mut PackageParseContext,
     oracle_sig: Pair<Rule>,
     loopvar_scope: &Scope,
-) -> Result<OracleSig, ParseImportsOracleSigError> {
+) -> Result<OracleSig, ParsePackageError> {
     println!("{:?}", oracle_sig.as_rule());
 
     let _span = oracle_sig.as_span();
@@ -1113,14 +1148,13 @@ pub fn handle_oracle_imports_oracle_sig(
                     let indices: Vec<_> = next
                         .into_inner()
                         .map(|expr| handle_expression(&loopvar_ctx, expr, Some(&Type::Integer)))
-                        .collect::<Result<_, _>>()
-                        .map_err(ParseImportsOracleSigError::IndexParseError)?;
+                        .collect::<Result<_, _>>() ?;
                     multi_inst_idx.extend_from_slice(&indices);
                     inner.next();
                 }
                 Rule::fn_maybe_arglist => {
                     if !next.as_str().is_empty() {
-                        arglist = handle_arglist(next.into_inner().next().unwrap());
+                        arglist = handle_arglist(ctx, next.into_inner().next().unwrap())?;
                     }
                     inner.next();
                 }
@@ -1131,10 +1165,11 @@ pub fn handle_oracle_imports_oracle_sig(
         (MultiInstanceIndices::new(multi_inst_idx), arglist)
     };
 
+    let parse_ctx = ctx.parse_ctx();
     let maybe_tipe = inner.next();
     let tipe = match maybe_tipe {
         None => Type::Empty,
-        Some(t) => handle_type(t),
+        Some(t) => handle_type(&parse_ctx, t)?,
     };
 
     Ok(OracleSig {
@@ -1166,19 +1201,6 @@ impl std::fmt::Display for ForCompError {
 
 impl std::error::Error for ForCompError {}
 
-impl crate::error::LocationError for ParseImportOraclesError {
-    fn file_pos(&self) -> &FilePosition {
-        match self {
-            ParseImportOraclesError::IdentifierMismatch(_, _, file_pos)
-            | ParseImportOraclesError::ParseImportOracleSig(_, file_pos)
-            | ParseImportOraclesError::ParseStartExpression(_, file_pos)
-            | ParseImportOraclesError::ParseEndExpression(_, file_pos)
-            | ParseImportOraclesError::InvalidStartComparison(_, file_pos)
-            | ParseImportOraclesError::InvalidEndComparison(_, file_pos) => file_pos,
-            ParseImportOraclesError::DeclareError(_, file_pos) => file_pos,
-        }
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MultiInstanceIndices {
@@ -1402,8 +1424,6 @@ impl std::convert::TryFrom<&str> for ForComp {
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum ParseImportOraclesError {
-    #[error("for loop spec uses different identifiers: {0:?} != {1:?}")]
-    IdentifierMismatch(String, String, FilePosition),
     #[error("error parsing loop start expression: {0}")]
     ParseStartExpression(ParseExpressionError, FilePosition),
     #[error("error parsing loop end expression: {0}")]
@@ -1412,8 +1432,6 @@ pub enum ParseImportOraclesError {
     InvalidStartComparison(ForCompError, FilePosition),
     #[error("second loop comparison is invalid: {0}")]
     InvalidEndComparison(ForCompError, FilePosition),
-    #[error("error parsing import oracle signature: {0}")]
-    ParseImportOracleSig(ParseImportsOracleSigError, FilePosition),
     #[error("erroring declaring identifier: {0}")]
     DeclareError(crate::util::scope::Error, FilePosition),
 }
@@ -1422,7 +1440,7 @@ pub fn handle_import_oracles_body(
     ctx: &mut PackageParseContext,
     ast: Pair<Rule>,
     loopvar_scope: &mut Scope,
-) -> Result<(), ParseImportOraclesError> {
+) -> Result<(), ParsePackageError> {
     let pkg_name = ctx.pkg_name;
     assert_eq!(ast.as_rule(), Rule::import_oracles_body);
 
@@ -1433,11 +1451,17 @@ pub fn handle_import_oracles_body(
                 let source_span = SourceSpan::from(span.start()..span.end());
                 let file_pos = FilePosition::from_span(ctx.file_name, entry.as_span());
                 let sig =
-                    handle_oracle_imports_oracle_sig(ctx, entry, loopvar_scope).map_err(|e| {
-                        ParseImportOraclesError::ParseImportOracleSig(e, file_pos.clone())
-                    })?;
-                ctx.imported_oracles
-                    .insert(sig.name.clone(), (sig.clone(), source_span));
+                    handle_oracle_imports_oracle_sig(ctx, entry, loopvar_scope)?;
+                if ctx.imported_oracles
+                    .insert(sig.name.clone(), (sig.clone(), source_span)).is_some() {
+                    return Err(
+                        OracleAlreadyImportedError {
+                            source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
+                            at: source_span,
+                            oracle_name: sig.name.clone(),
+                        }.into())
+                }
+
                 ctx.scope
                     .declare(
                         &sig.name,
@@ -1447,8 +1471,9 @@ pub fn handle_import_oracles_body(
                             },
                             sig.clone(),
                         ),
-                    )
-                    .map_err(|err| ParseImportOraclesError::DeclareError(err, file_pos))?;
+                        // we already checked that the oracle has not yet been imported, so this
+                        // shouldn't fail?
+                    ).unwrap();
             }
 
             Rule::import_oracles_for => {
@@ -1456,6 +1481,7 @@ pub fn handle_import_oracles_body(
                 let mut for_ast = entry.into_inner();
 
                 let ident_ast = for_ast.next().unwrap();
+                let ident_span = ident_ast.as_span();
                 let ident = ident_ast.as_str().to_string();
 
                 let for_start_ast = for_ast.next().unwrap();
@@ -1495,11 +1521,13 @@ pub fn handle_import_oracles_body(
                         })?;
 
                 if ident != ident2 {
-                    return Err(ParseImportOraclesError::IdentifierMismatch(
-                        ident,
-                        ident2,
-                        FilePosition::from_span(ctx.file_name, ident2_span),
-                    ));
+                    return Err(ForLoopIdentifersDontMatchError{
+                        source_code: ctx.named_source(),
+                        at_fst: (ident_span.start()..ident_span.end()).into(),
+                        at_snd: (ident2_span.start()..ident2_span.end()).into(),
+                        fst: ident,
+                        snd: ident2,
+                    }.into());
                 }
 
                 let ident_data = PackageImportsLoopVarIdentifier {
@@ -1522,11 +1550,12 @@ pub fn handle_import_oracles_body(
 
                 loopvar_scope
                     .declare(&ident, Declaration::Identifier(identifier))
-                    .map_err(|e| {
-                        ParseImportOraclesError::DeclareError(
-                            e,
-                            FilePosition::from_span(ctx.file_name, for_span),
-                        )
+                    .map_err(|_| {
+                        IdentifierAlreadyDeclaredError {
+                            source_code: ctx.named_source(),
+                            at: (ident_span.start()..ident_span.end()).into(),
+                            ident_name: ident,
+                        }
                     })?;
 
                 handle_import_oracles_body(ctx, for_ast.next().unwrap(), loopvar_scope)?;
@@ -1539,16 +1568,10 @@ pub fn handle_import_oracles_body(
     Ok(())
 }
 
-pub fn handle_types_list(types: Pair<Rule>) -> Vec<(String, SourceSpan)> {
+pub fn handle_types_list(types: Pair<Rule>) -> Vec<String> {
     types
         .into_inner()
-        .map(|entry| {
-            let span = entry.as_span();
-            (
-                entry.as_str().to_string(),
-                (span.start()..span.end()).into(),
-            )
-        })
+        .map(|entry| entry.as_str().to_string())
         .collect()
 }
 
@@ -1620,16 +1643,16 @@ mod tests {
 
         assert!(matches!(
             err,
-            ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
-                ParseCodeError::ParseExpression(ParseExpressionError::TypeMismatch(
-                    TypeMismatchError {
-                        expected: Type::String,
-                        got: Type::Integer,
-                        ..
-                    }
-                ))
-            ))
-        ))
+            ParsePackageError::ParseExpression(ParseExpressionError::TypeMismatch(
+                TypeMismatchError {
+                    expected: Type::String,
+                    got: Type::Integer,
+                    ..
+                })
+            )
+        ),
+        "expected a different error, got {:#?}", err
+        )
     }
 
     #[test]
@@ -1638,10 +1661,8 @@ mod tests {
 
         assert!(matches!(
             err,
-            ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
-                ParseCodeError::ParseExpression(ParseExpressionError::UndefinedIdentifier(
+            ParsePackageError::ParseExpression(ParseExpressionError::UndefinedIdentifier(
                     UndefinedIdentifierError { ref ident_name, .. }
-                ))
             )) if ident_name.as_str() == "n"
 
         ));
@@ -1656,16 +1677,14 @@ mod tests {
         assert!(
             matches!(
                 err,
-                ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
-                    ParseCodeError::ParseExpression(ParseExpressionError::TypeMismatch(
+                ParsePackageError::ParseExpression(ParseExpressionError::TypeMismatch(
                         TypeMismatchError {
                             expected: Type::Integer,
                             got: Type::Boolean,
                             ref at,
                             ref source_code,
                         }
-                    ))
-                )) if slice_source_span(source_code, at) == "true"
+                    )) if slice_source_span(source_code, at) == "true"
             ),
             "got: {:#?}",
             err
@@ -1681,15 +1700,13 @@ mod tests {
         assert!(
             matches!(
                 err,
-                ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
-                    ParseCodeError::ParseExpression(ParseExpressionError::TypeMismatch(
+                ParsePackageError::ParseExpression(ParseExpressionError::TypeMismatch(
                         TypeMismatchError {
                             expected: Type::Integer,
                             got: Type::Boolean,
                             ref at,
                             ref source_code,
                         }
-                    ))
                 )) if slice_source_span(source_code, at) == "true"
             ),
             "got: {:#?}",
@@ -1706,17 +1723,14 @@ mod tests {
         assert!(
             matches!(
                 err,
-                ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
-                    ParseCodeError::ParseExpression(ParseExpressionError::TypeMismatch(
+                ParsePackageError::ParseExpression(ParseExpressionError::TypeMismatch(
                         TypeMismatchError {
                             expected: Type::Integer,
                             got: Type::Boolean,
                             ref at,
                             ref source_code,
                         }
-                    ))
-                ))
-                    if slice_source_span(source_code, at) == "true"
+                )) if slice_source_span(source_code, at) == "true"
             ),
             "got: {:#?}",
             err
@@ -1731,17 +1745,14 @@ mod tests {
         assert!(
             matches!(
                 err,
-                ParsePackageError::ParseOracleDef(ParseOracleDefError::ParseCode(
-                    ParseCodeError::ParseExpression(ParseExpressionError::TypeMismatch(
+                ParsePackageError::ParseExpression(ParseExpressionError::TypeMismatch(
                         TypeMismatchError {
                             expected: Type::Boolean,
                             got: Type::Integer,
                             ref at,
                             ref source_code,
                         },
-                    )),
-                ))
-                    if slice_source_span(source_code, at) == "(3 + 2)"
+                )) if slice_source_span(source_code, at) == "(3 + 2)"
             ),
             "got: {:#?}",
             err

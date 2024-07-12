@@ -23,19 +23,27 @@ pub struct SspParser;
 pub struct ParseContext<'a> {
     pub file_name: &'a str,
     pub file_content: &'a str,
+
     pub scope: Scope,
+    pub types: Vec<String>,
 }
 
 impl<'a> ParseContext<'a> {
     pub fn new(file_name: &'a str, file_content: &'a str) -> Self {
         let mut scope = Scope::new();
         scope.enter();
+        let types = vec![];
 
         Self {
             file_name,
             file_content,
             scope,
+            types,
         }
+    }
+
+    pub fn named_source(&self) -> miette::NamedSource<String> {
+        miette::NamedSource::new(self.file_name, self.file_content.to_string())
     }
 }
 

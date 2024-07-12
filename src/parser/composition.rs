@@ -2,7 +2,8 @@ use super::{
     common::*,
     error::{
         DuplicatePackageParameterDefinitionError, MissingPackageParameterDefinitionError,
-        NoSuchPackageParameterError, UndefinedPackageError, UndefinedPackageInstanceError,
+        NoSuchPackageParameterError, NoSuchTypeError, UndefinedPackageError,
+        UndefinedPackageInstanceError,
     },
     package::{handle_expression, ForComp, MultiInstanceIndices, ParsePackageError},
     ParseContext, Rule,
@@ -40,6 +41,7 @@ pub struct ParseGameContext<'a> {
     pub scope: Scope,
 
     pub consts: HashMap<String, Type>,
+    pub types: Vec<String>,
 
     pub instances: Vec<PackageInstance>,
     pub instances_table: HashMap<String, (usize, PackageInstance)>,
@@ -61,6 +63,7 @@ impl<'a> ParseContext<'a> {
             file_name,
             file_content,
             scope,
+            types,
         } = self;
 
         ParseGameContext {
@@ -71,6 +74,7 @@ impl<'a> ParseContext<'a> {
 
             scope,
 
+            types,
             consts: HashMap::new(),
 
             instances: vec![],
@@ -95,6 +99,7 @@ impl<'a> ParseGameContext<'a> {
             file_name: self.file_name,
             file_content: self.file_content,
             scope: self.scope.clone(),
+            types: self.types.clone(),
         }
     }
 }
@@ -118,12 +123,8 @@ impl<'a> ParseGameContext<'a> {
         }
     }
 
-    fn declare(
-        &mut self,
-        name: &str,
-        declaration: Declaration,
-    ) -> Result<(), crate::util::scope::Error> {
-        self.scope.declare(name, declaration)
+    fn declare(&mut self, name: &str, clone: Declaration) -> Result<(), ()> {
+        self.scope.declare(name, clone)
     }
     // TODO: check dupes here?
 
@@ -196,6 +197,10 @@ pub enum ParseGameError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     MissingPackageParameterDefinition(#[from] MissingPackageParameterDefinitionError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    NoSuchType(#[from] NoSuchTypeError),
 }
 
 pub fn handle_composition(
@@ -225,7 +230,7 @@ pub fn handle_comp_spec_list(
     for comp_spec in ast.into_inner() {
         match comp_spec.as_rule() {
             Rule::const_decl => {
-                let (name, tipe) = handle_const_decl(comp_spec);
+                let (name, tipe) = handle_const_decl(&ctx.parse_ctx(), comp_spec)?;
                 ctx.add_const(name.clone(), tipe.clone());
                 ctx.declare(
                     &name,

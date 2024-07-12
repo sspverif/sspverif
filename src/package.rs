@@ -35,7 +35,7 @@ pub struct OracleDef {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Package {
     pub name: String,
-    pub types: Vec<(String, SourceSpan)>,
+    pub types: Vec<String>,
     pub params: Vec<(String, Type, SourceSpan)>,
     pub state: Vec<(String, Type, SourceSpan)>,
     pub oracles: Vec<OracleDef>,

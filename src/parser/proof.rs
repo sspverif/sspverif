@@ -27,7 +27,7 @@ use thiserror::Error;
 
 use super::{
     common,
-    error::{MissingGameParameterDefinitionError, UndefinedGameError},
+    error::{MissingGameParameterDefinitionError, NoSuchTypeError, UndefinedGameError},
     ParseContext,
 };
 use super::{
@@ -43,6 +43,8 @@ pub struct ParseProofContext<'a> {
     pub file_name: &'a str,
     pub file_content: &'a str,
     pub scope: Scope,
+
+    pub types: Vec<String>,
 
     pub proof_name: &'a str,
     pub packages: &'a HashMap<String, Package>,
@@ -66,6 +68,7 @@ impl<'a> ParseContext<'a> {
             file_name,
             file_content,
             scope,
+            types,
         } = self;
 
         ParseProofContext {
@@ -78,6 +81,7 @@ impl<'a> ParseContext<'a> {
             scope,
 
             consts: HashMap::new(),
+            types,
 
             instances: vec![],
             instances_table: HashMap::new(),
@@ -97,6 +101,7 @@ impl<'a> ParseProofContext<'a> {
             file_name: self.file_name,
             file_content: self.file_content,
             scope: self.scope.clone(),
+            types: self.types.clone(),
         }
     }
 }
@@ -122,12 +127,8 @@ impl<'a> ParseProofContext<'a> {
             pkgs: packages.values().cloned().collect(),
         }
     }
-    fn declare(
-        &mut self,
-        name: &str,
-        declaration: Declaration,
-    ) -> Result<(), crate::util::scope::Error> {
-        self.scope.declare(name, declaration)
+    fn declare(&mut self, name: &str, clone: Declaration) -> Result<(), ()> {
+        self.scope.declare(name, clone)
     }
     // TODO: check dupes here?
 
@@ -198,6 +199,10 @@ pub enum ParseProofError {
     #[diagnostic(transparent)]
     #[error(transparent)]
     NoSuchGameParameter(#[from] NoSuchGameParameterError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    NoSuchType(#[from] NoSuchTypeError),
 }
 
 pub fn handle_proof(
@@ -218,8 +223,8 @@ pub fn handle_proof(
     for ast in proof_ast.into_inner() {
         match ast.as_rule() {
             Rule::const_decl => {
-                let (const_name, tipe) = common::handle_const_decl(ast);
-                let declaration = Declaration::Identifier(Identifier::ProofIdentifier(Const(
+                let (const_name, tipe) = common::handle_const_decl(&ctx.parse_ctx(), ast)?;
+                let clone = Declaration::Identifier(Identifier::ProofIdentifier(Const(
                     ProofConstIdentifier {
                         proof_name: proof_name.to_string(),
                         name: const_name.clone(),
@@ -227,7 +232,7 @@ pub fn handle_proof(
                         inst_info: None,
                     },
                 )));
-                ctx.declare(&const_name, declaration).unwrap();
+                ctx.declare(&const_name, clone).unwrap();
                 ctx.add_const(const_name, tipe);
             }
             Rule::assumptions => {
