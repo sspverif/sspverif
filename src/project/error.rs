@@ -62,6 +62,9 @@ pub enum Error {
     #[diagnostic(transparent)]
     #[error(transparent)]
     ParseGame(#[from] parser::composition::ParseGameError),
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    ParseProof(#[from] parser::proof::ParseProofError),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

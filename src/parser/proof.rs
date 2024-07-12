@@ -1,3 +1,5 @@
+use std::{collections::HashMap, iter::FromIterator};
+
 use crate::{
     expressions::Expression,
     identifier::{
@@ -6,7 +8,7 @@ use crate::{
         Identifier,
     },
     package::{Composition, Package},
-    parser::Rule,
+    parser::{error::AssumptionMappingLeftGameInstanceIsNotFromAssumption, Rule},
     proof::{Assumption, Claim, Equivalence, GameHop, GameInstance, Mapping, Proof, Reduction},
     types::Type,
     util::{
@@ -16,31 +18,202 @@ use crate::{
 };
 
 use itertools::Itertools;
+use miette::{Diagnostic, NamedSource};
 use pest::{
     iterators::{Pair, Pairs},
     Span,
 };
+use thiserror::Error;
 
-use super::common;
-use super::error::{Error, Result};
+use super::{
+    common,
+    error::{MissingGameParameterDefinitionError, UndefinedGameError},
+    ParseContext,
+};
+use super::{
+    error::{
+        AssumptionMappingRightGameInstanceIsFromAssumption, DuplicateGameParameterDefinitionError,
+        Error, NoSuchGameParameterError, UndefinedAssumptionError, UndefinedGameInstanceError,
+    },
+    package::ParseExpressionError,
+};
+
+#[derive(Debug)]
+pub struct ParseProofContext<'a> {
+    pub file_name: &'a str,
+    pub file_content: &'a str,
+    pub scope: Scope,
+
+    pub proof_name: &'a str,
+    pub packages: &'a HashMap<String, Package>,
+    pub games: &'a HashMap<String, Composition>,
+
+    pub consts: HashMap<String, Type>,
+    pub instances: Vec<GameInstance>,
+    pub instances_table: HashMap<String, (usize, GameInstance)>,
+    pub assumptions: Vec<Assumption>,
+    pub game_hops: Vec<GameHop>,
+}
+
+impl<'a> ParseContext<'a> {
+    fn proof_context(
+        self,
+        proof_name: &'a str,
+        packages: &'a HashMap<String, Package>,
+        games: &'a HashMap<String, Composition>,
+    ) -> ParseProofContext<'a> {
+        let Self {
+            file_name,
+            file_content,
+            scope,
+        } = self;
+
+        ParseProofContext {
+            file_name,
+            file_content,
+            proof_name,
+            packages,
+            games,
+
+            scope,
+
+            consts: HashMap::new(),
+
+            instances: vec![],
+            instances_table: HashMap::new(),
+            assumptions: vec![],
+            game_hops: vec![],
+        }
+    }
+}
+
+impl<'a> ParseProofContext<'a> {
+    pub fn named_source(&self) -> NamedSource<String> {
+        NamedSource::new(self.file_name, self.file_content.to_string())
+    }
+
+    pub fn parse_ctx(&self) -> ParseContext<'a> {
+        ParseContext {
+            file_name: self.file_name,
+            file_content: self.file_content,
+            scope: self.scope.clone(),
+        }
+    }
+}
+
+impl<'a> ParseProofContext<'a> {
+    fn into_proof(self) -> Proof {
+        let Self {
+            proof_name,
+            packages,
+            consts,
+            instances,
+            assumptions,
+            game_hops,
+            ..
+        } = self;
+
+        Proof {
+            name: proof_name.to_string(),
+            consts: consts.into_iter().collect(),
+            instances,
+            assumptions,
+            game_hops,
+            pkgs: packages.values().cloned().collect(),
+        }
+    }
+    fn declare(
+        &mut self,
+        name: &str,
+        declaration: Declaration,
+    ) -> Result<(), crate::util::scope::Error> {
+        self.scope.declare(name, declaration)
+    }
+    // TODO: check dupes here?
+
+    fn add_game_instance(&mut self, game_inst: GameInstance) {
+        let offset = self.instances.len();
+        self.instances.push(game_inst.clone());
+        self.instances_table
+            .insert(game_inst.name().to_string(), (offset, game_inst));
+    }
+
+    fn has_game_instance(&self, name: &str) -> bool {
+        self.instances_table.contains_key(name)
+    }
+    fn get_game_instance(&self, name: &str) -> Option<(usize, &GameInstance)> {
+        self.instances_table
+            .get(name)
+            .map(|(offset, game_inst)| (*offset, game_inst))
+    }
+
+    // TODO: check dupes here?
+    fn add_const(&mut self, name: String, ty: Type) {
+        self.consts.insert(name, ty);
+    }
+
+    fn get_const(&self, name: &str) -> Option<&Type> {
+        self.consts.get(name)
+    }
+}
+
+#[derive(Debug, Error, Diagnostic)]
+pub enum ParseProofError {
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    ParseExpression(#[from] ParseExpressionError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    UndefinedGame(#[from] UndefinedGameError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    UndefinedGameInstance(#[from] UndefinedGameInstanceError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    UndefinedAssumption(#[from] UndefinedAssumptionError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    AssumptionMappingLeftGameInstanceIsNotFromAssumption(
+        #[from] AssumptionMappingLeftGameInstanceIsNotFromAssumption,
+    ),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    AssumptionMappingRightGameInstanceIsFromAssumption(
+        #[from] AssumptionMappingRightGameInstanceIsFromAssumption,
+    ),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    DuplicateGameParameterDefinition(#[from] DuplicateGameParameterDefinitionError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    MissingGameParameterDefinition(#[from] MissingGameParameterDefinitionError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    NoSuchGameParameter(#[from] NoSuchGameParameterError),
+}
 
 pub fn handle_proof(
-    ast: Pair<Rule>,
-    scope: &mut Scope,
-    pkgs: &[Package],
-    games: &[Composition],
     file_name: &str,
-) -> Result<Proof> {
+    file_content: &str,
+    ast: Pair<Rule>,
+    pkgs: &HashMap<String, Package>,
+    games: &HashMap<String, Composition>,
+) -> Result<Proof, ParseProofError> {
     let mut iter = ast.into_inner();
     let proof_name = iter.next().unwrap().as_str();
     let proof_ast = iter.next().unwrap();
 
-    let mut assumptions = vec![];
-    let mut game_hops = vec![];
-    let mut instances = vec![];
-    let mut consts = vec![];
-
-    scope.enter();
+    let ctx = ParseContext::new(file_name, file_content);
+    let mut ctx = ctx.proof_context(proof_name, &pkgs, &games);
+    ctx.scope.enter();
 
     for ast in proof_ast.into_inner() {
         match ast.as_rule() {
@@ -54,74 +227,44 @@ pub fn handle_proof(
                         inst_info: None,
                     },
                 )));
-                scope.declare(&const_name, declaration).unwrap();
-                consts.push((const_name, tipe));
+                ctx.declare(&const_name, declaration).unwrap();
+                ctx.add_const(const_name, tipe);
             }
             Rule::assumptions => {
-                let more_assumptions = handle_assumptions(ast.into_inner(), &instances)?;
-                assumptions.extend(more_assumptions);
+                handle_assumptions(&mut ctx, ast.into_inner())?;
             }
             Rule::game_hops => {
-                let more_game_hops =
-                    handle_game_hops(ast.into_inner(), &assumptions, games, &instances)?;
-                game_hops.extend(more_game_hops);
+                handle_game_hops(&mut ctx, ast.into_inner())?;
             }
             Rule::instance_decl => {
-                let new_inst = handle_instance_decl(ast, scope, &consts, pkgs, games, file_name)?;
-                println!(
-                    "pushed new instance {inst_name} ({game_name})",
-                    inst_name = new_inst.name(),
-                    game_name = new_inst.game_name()
-                );
-                instances.push(new_inst);
+                handle_instance_decl(&mut ctx, ast)?;
             }
             otherwise => unreachable!("found {:?} in proof", otherwise),
         }
     }
 
-    Ok(Proof::new(
-        proof_name.to_string(),
-        consts,
-        instances,
-        assumptions,
-        game_hops,
-        //games.to_vec(),
-        pkgs.to_vec(),
-    ))
+    Ok(ctx.into_proof())
 }
 
 fn handle_instance_decl(
+    ctx: &mut ParseProofContext,
     ast: Pair<Rule>,
-    scope: &mut Scope,
-    proof_consts: &[(String, Type)],
-    _pkgs: &[Package],
-    games: &[Composition],
-    file_name: &str,
-) -> Result<GameInstance> {
-    let span = ast.as_span();
-
+) -> Result<(), ParseProofError> {
     let mut ast = ast.into_inner();
 
     let inst_name = ast.next().unwrap().as_str().to_string();
-    let game_ast = ast.next().unwrap();
-    let game_span = game_ast.as_span();
-    let game_name = game_ast.as_str();
+    let game_name_ast = ast.next().unwrap();
+    let game_name_span = game_name_ast.as_span();
+    let game_name = game_name_ast.as_str();
     let body_ast = ast.next().unwrap();
 
-    let (types, consts) = handle_instance_assign_list(
-        scope,
-        &inst_name,
-        game_name,
-        file_name,
-        proof_consts,
-        body_ast,
-    )?;
+    let game = ctx.games.get(game_name).ok_or(UndefinedGameError {
+        source_code: ctx.named_source(),
+        at: (game_name_span.start()..game_name_span.end()).into(),
+        game_name: game_name.to_string(),
+    })?;
 
-    let game_resolver = SliceResolver(games);
-    let game = match game_resolver.resolve_value(game_name) {
-        Some(game) => game,
-        None => return Err(Error::UndefinedGame(game_name.to_string()).with_span(game_span)),
-    };
+    let (types, consts) = handle_instance_assign_list(ctx, &inst_name, game, body_ast)?;
 
     let consts_as_ident = consts
         .iter()
@@ -129,90 +272,17 @@ fn handle_instance_decl(
         .collect();
 
     let game_inst = GameInstance::new(inst_name, game.clone(), types, consts_as_ident);
-
-    check_consts(&game_inst, span, games)?;
-
-    Ok(game_inst)
-}
-
-pub fn handle_params_def_list(
-    ast: Pair<Rule>,
-    scope: &mut Scope,
-    inst_name: &str,
-    game: &Composition,
-) -> Result<Vec<(String, Expression)>> {
-    ast.into_inner()
-        .map(|inner| {
-            //let inner = inner.into_inner().next().unwrap();
-
-            let mut inner = inner.into_inner();
-            let name_ast = inner.next().unwrap();
-            let name_span = name_ast.as_span();
-            let name = name_ast.as_str();
-
-            if !game.consts.iter().any(|(const_name, _)| const_name == name) {
-                return Err(Error::GameConstParameterUndeclared {
-                    game_name: game.name.clone(),
-                    inst_name: inst_name.to_string(),
-                    param_name: name.to_string(),
-                }
-                .with_span(name_span));
-            }
-
-            let left = inner.next().unwrap().as_str();
-            let right = inner.next().unwrap();
-            let right = common::handle_expression(right, scope)?;
-
-            Ok((left.to_owned(), right))
-        })
-        .collect()
-}
-
-fn check_consts(game_inst: &GameInstance, span: Span, games: &[Composition]) -> Result<()> {
-    let mut inst_const_names: Vec<_> = game_inst
-        .consts()
-        .iter()
-        .map(|(ident, _)| ident.ident())
-        .collect();
-    inst_const_names.sort();
-
-    let game_resolver = SliceResolver(games);
-    let game = game_resolver
-        .resolve_value(game_inst.game_name())
-        .ok_or(Error::UndefinedGame(game_inst.game_name().to_string()).with_span(span.clone()))?;
-
-    let mut game_const_names: Vec<_> = game
-        .consts
-        .iter()
-        .map(|(name, _)| name.to_string())
-        .collect();
-    game_const_names.sort();
-
-    if inst_const_names != game_const_names {
-        return Err(Error::GameConstParameterMismatch {
-            game_name: game.name.clone(),
-            inst_name: game_inst.name().to_string(),
-            bound_params: game_inst
-                .consts()
-                .iter()
-                .map(|(ident, expr)| (ident.ident(), expr.clone()))
-                .collect(),
-            game_params: game.consts.clone(),
-        }
-        .with_span(span));
-    }
+    ctx.instances.push(game_inst);
 
     Ok(())
 }
 
 fn handle_instance_assign_list(
-    scope: &mut Scope,
-    inst_name: &str,
-    game_name: &str,
-    file_name: &str,
-    proof_consts: &[(String, Type)],
+    ctx: &ParseProofContext,
+    game_inst_name: &str,
+    game: &Composition,
     ast: Pair<Rule>,
-) -> Result<(Vec<(String, Type)>, Vec<(GameConstIdentifier, Expression)>)> {
+) -> Result<(Vec<(String, Type)>, Vec<(GameConstIdentifier, Expression)>), ParseProofError> {
     let ast = ast.into_inner();
 
     let mut types = vec![];
@@ -226,12 +296,12 @@ fn handle_instance_assign_list(
             }
             Rule::params_def => {
                 let ast = ast.into_inner().next().unwrap();
-                let defs = common::handle_proof_params_def_list(ast, proof_consts, scope)?;
+                let defs = common::handle_proof_params_def_list(ctx, game, game_inst_name, ast)?;
 
                 consts.extend(defs.into_iter().map(|(name, value)| {
                     (
                         GameConstIdentifier {
-                            game_name: game_name.to_string(),
+                            game_name: game.name.to_string(),
                             name,
                             tipe: value.get_type(),
                             inst_info: None,
@@ -249,58 +319,63 @@ fn handle_instance_assign_list(
     Ok((types, consts))
 }
 
-fn handle_assumptions(ast: Pairs<Rule>, instances: &[GameInstance]) -> Result<Vec<Assumption>> {
-    let mut out = vec![];
-
+fn handle_assumptions(
+    ctx: &mut ParseProofContext,
+    ast: Pairs<Rule>,
+) -> Result<(), ParseProofError> {
     for pair in ast {
-        let span = pair.as_span();
-        let (name, left_name, right_name) = handle_string_triplet(&mut pair.into_inner());
+        let ((name, _), (left_name, left_name_span), (right_name, right_name_span)) =
+            handle_string_triplet(&mut pair.into_inner());
 
-        let inst_resolver = SliceResolver(instances);
+        let inst_resolver = SliceResolver(&ctx.instances);
+
         if inst_resolver.resolve_value(&left_name).is_none() {
-            return Err(Error::UndefinedGameInstance(left_name).with_span(span.clone()));
-        }
-        if inst_resolver.resolve_value(&right_name).is_none() {
-            return Err(Error::UndefinedGameInstance(right_name).with_span(span.clone()));
+            return Err(UndefinedGameInstanceError {
+                source_code: ctx.named_source(),
+                at: (left_name_span.start()..left_name_span.end()).into(),
+                game_inst_name: left_name,
+            }
+            .into());
         }
 
-        out.push(Assumption {
+        if inst_resolver.resolve_value(&right_name).is_none() {
+            return Err(UndefinedGameInstanceError {
+                source_code: ctx.named_source(),
+                at: (right_name_span.start()..right_name_span.end()).into(),
+                game_inst_name: right_name,
+            }
+            .into());
+        }
+
+        ctx.assumptions.push(Assumption {
             name,
             left_name,
             right_name,
-        });
+        })
     }
 
-    Ok(out)
+    Ok(())
 }
 
-fn handle_game_hops(
-    ast: Pairs<Rule>,
-    assumptions: &[Assumption],
-    _games: &[Composition],
-    game_instances: &[GameInstance],
-) -> Result<Vec<GameHop>> {
-    let mut out = vec![];
-
+fn handle_game_hops(ctx: &mut ParseProofContext, ast: Pairs<Rule>) -> Result<(), ParseProofError> {
     for hop_ast in ast {
         let game_hop = match hop_ast.as_rule() {
-            Rule::equivalence => handle_equivalence(hop_ast, game_instances)?,
-            Rule::reduction => handle_reduction(hop_ast, assumptions, game_instances)?,
+            Rule::equivalence => handle_equivalence(ctx, hop_ast)?,
+            Rule::reduction => handle_reduction(ctx, hop_ast)?,
             otherwise => unreachable!("found {:?} in game_hops", otherwise),
         };
-        out.extend(game_hop);
+        ctx.game_hops.extend(game_hop)
     }
 
-    Ok(out)
+    Ok(())
 }
 
 fn handle_equivalence<'a>(
+    ctx: &mut ParseProofContext,
     ast: Pair<Rule>,
-    game_instances: &[GameInstance],
-) -> Result<Vec<GameHop>> {
-    let span = ast.as_span();
+) -> Result<Vec<GameHop>, ParseProofError> {
     let mut ast = ast.into_inner();
-    let (left_name, right_name) = handle_string_pair(&mut ast);
+    let ((left_name, left_name_span), (right_name, right_name_span)) = handle_string_pair(&mut ast);
 
     let mut equivalences = vec![];
 
@@ -323,17 +398,27 @@ fn handle_equivalence<'a>(
         .map(|(oracle_name, inv_paths, _)| (oracle_name, inv_paths))
         .collect();
 
-    if SliceResolver(game_instances)
+    if SliceResolver(&ctx.instances)
         .resolve_value(&left_name)
         .is_none()
     {
-        return Err(Error::UndefinedGameInstance(left_name).with_span(span));
+        return Err(UndefinedGameInstanceError {
+            source_code: ctx.named_source(),
+            at: (left_name_span.start()..left_name_span.end()).into(),
+            game_inst_name: left_name,
+        }
+        .into());
     }
-    if SliceResolver(game_instances)
+    if SliceResolver(&ctx.instances)
         .resolve_value(&right_name)
         .is_none()
     {
-        return Err(Error::UndefinedGameInstance(right_name).with_span(span));
+        return Err(UndefinedGameInstanceError {
+            source_code: ctx.named_source(),
+            at: (right_name_span.start()..right_name_span.end()).into(),
+            game_inst_name: right_name,
+        }
+        .into());
     }
 
     let eq = GameHop::Equivalence(Equivalence::new(left_name, right_name, invariants, trees));
@@ -369,31 +454,27 @@ fn handle_lemma_line(ast: Pair<Rule>) -> (String, Vec<String>) {
 }
 
 fn handle_reduction(
+    ctx: &mut ParseProofContext,
     ast: Pair<Rule>,
-    assumptions: &[Assumption],
-    game_instances: &[GameInstance],
-) -> Result<Vec<GameHop>> {
+) -> Result<Vec<GameHop>, ParseProofError> {
     let mut ast = ast.into_inner();
-    let (left_name, right_name) = handle_string_pair(&mut ast);
-    let reduction = handle_reduction_body(
-        next_pair(&mut ast),
-        assumptions,
-        game_instances,
-        &left_name,
-        &right_name,
-    )?;
+
+    let left_name_ast = ast.next().unwrap();
+    let right_name_ast = ast.next().unwrap();
+    let body_ast = ast.next().unwrap();
+
+    let reduction = handle_reduction_body(ctx, left_name_ast, right_name_ast, body_ast)?;
 
     Ok(vec![GameHop::Reduction(reduction)])
 }
 
 fn handle_reduction_body(
-    ast: Pair<Rule>,
-    assumptions: &[Assumption],
-    game_instances: &[GameInstance],
-    left_name: &str,
-    _right_name: &str,
-) -> Result<Reduction> {
-    let mut ast = ast.into_inner();
+    ctx: &mut ParseProofContext,
+    left_name: Pair<Rule>,
+    right_name: Pair<Rule>,
+    body: Pair<Rule>,
+) -> Result<Reduction, ParseProofError> {
+    let mut ast = body.into_inner();
     let assumptions_ast = ast.next().unwrap();
     let assumptions_span = assumptions_ast.as_span();
     let mut assumptions_ast = assumptions_ast.into_inner();
@@ -401,19 +482,21 @@ fn handle_reduction_body(
 
     // check that assumption_name turns up in the assumptions list
     // and fetch the assumption definition
-    let assumption_resolver = SliceResolver(assumptions);
-    let assumption = assumption_resolver.resolve_value(assumption_name).ok_or(
-        Error::ReductionMappingMismatch {
-            place: "assumptions definition".to_string(),
-        }
-        .with_span(assumptions_span),
-    )?;
+    let assumption_resolver = SliceResolver(&ctx.assumptions);
+    let assumption = assumption_resolver
+        .resolve_value(assumption_name)
+        .ok_or(UndefinedAssumptionError {
+            source_code: ctx.named_source(),
+            at: (assumptions_span.start()..assumptions_span.end()).into(),
+            assumption_name: assumption_name.to_string(),
+        })?
+        .clone();
 
     let map1_ast = ast.next().unwrap();
     let map2_ast = ast.next().unwrap();
 
-    let mapping1 = handle_mapspec(map1_ast, &assumption, game_instances)?;
-    let mapping2 = handle_mapspec(map2_ast, &assumption, game_instances)?;
+    let mapping1 = handle_mapspec(ctx, map1_ast, &assumption)?;
+    let mapping2 = handle_mapspec(ctx, map2_ast, &assumption)?;
 
     if mapping1.as_game_inst_name() == mapping2.as_game_inst_name() {
         panic!();
@@ -425,7 +508,7 @@ fn handle_reduction_body(
         // TODO reutrn err
     }
 
-    let game1_is_left = mapping1.as_game_inst_name() == left_name;
+    let game1_is_left = mapping1.as_game_inst_name() == left_name.as_str();
     let (left, right) = if game1_is_left {
         (mapping1, mapping2)
     } else {
@@ -438,42 +521,63 @@ fn handle_reduction_body(
 }
 
 fn handle_mapspec<'a>(
+    ctx: &mut ParseProofContext,
     ast: Pair<Rule>,
     assumption: &Assumption,
-    game_instances: &'a [GameInstance],
-) -> Result<Mapping> {
+) -> Result<Mapping, ParseProofError> {
     let span = ast.as_span();
 
     let mut ast = ast.into_inner();
 
-    let (assumption_game_inst_name, game_inst_name) = handle_string_pair(&mut ast);
+    let (
+        (first_game_inst_name, first_game_inst_name_span),
+        (second_game_inst_name, second_game_inst_name_span),
+    ) = handle_string_pair(&mut ast);
 
     // check that game instance names can be resolved
-    SliceResolver(game_instances)
-        .resolve_value(&game_inst_name)
-        .ok_or(Error::UndefinedGame(game_inst_name.clone()).with_span(span.clone()))?;
-    SliceResolver(game_instances)
-        .resolve_value(&assumption_game_inst_name)
-        .ok_or(Error::UndefinedGame(assumption_game_inst_name.clone()).with_span(span.clone()))?;
+    SliceResolver(&ctx.instances)
+        .resolve_value(&first_game_inst_name)
+        .ok_or(UndefinedGameInstanceError {
+            source_code: ctx.named_source(),
+            at: (first_game_inst_name_span.start()..first_game_inst_name_span.end()).into(),
+            game_inst_name: first_game_inst_name.clone(),
+        })?;
+    SliceResolver(&ctx.instances)
+        .resolve_value(&second_game_inst_name)
+        .ok_or(UndefinedGameInstanceError {
+            source_code: ctx.named_source(),
+            at: (second_game_inst_name_span.start()..second_game_inst_name_span.end()).into(),
+            game_inst_name: second_game_inst_name.clone(),
+        })?;
 
-    let is_left_assumption_game = assumption_game_inst_name == assumption.left_name;
-    let is_right_assumption_game = assumption_game_inst_name == assumption.right_name;
+    let is_left_assumption_game = first_game_inst_name.clone() == assumption.left_name;
+    let is_right_assumption_game = first_game_inst_name == assumption.right_name;
 
     if !(is_left_assumption_game || is_right_assumption_game) {
         println!("{assumption:?}");
-        return Err(Error::InvalidAssumptionMapping(format!(
-            "neither of {} and {} are the assumption game name {}",
-            assumption.left_name, assumption.right_name, assumption_game_inst_name
-        ))
-        .with_span(span));
+        return Err(AssumptionMappingLeftGameInstanceIsNotFromAssumption {
+            source_code: ctx.named_source(),
+            at: (first_game_inst_name_span.start()..first_game_inst_name_span.end()).into(),
+            game_instance_name: first_game_inst_name.to_string(),
+            assumption_left_game_instance_name: assumption.left_name.clone(),
+            assumption_right_game_instance_name: assumption.right_name.clone(),
+        }
+        .into());
     }
 
-    if is_left_assumption_game && is_right_assumption_game {
+    let is_left_assumption_game = second_game_inst_name == assumption.left_name;
+    let is_right_assumption_game = second_game_inst_name == assumption.right_name;
+
+    if !(is_left_assumption_game || is_right_assumption_game) {
         println!("{assumption:?}");
-        return Err(
-            Error::InvalidAssumptionMapping(format!("both are assumption game names"))
-                .with_span(span),
-        );
+        return Err(AssumptionMappingRightGameInstanceIsFromAssumption {
+            source_code: ctx.named_source(),
+            at: (second_game_inst_name_span.start()..second_game_inst_name_span.end()).into(),
+            game_instance_name: second_game_inst_name.to_string(),
+            model_left_game_instance_name: first_game_inst_name.clone(),
+            model_right_game_instance_name: second_game_inst_name.clone(),
+        }
+        .into());
     }
 
     let mappings: Vec<(String, String)> = ast
@@ -487,30 +591,27 @@ fn handle_mapspec<'a>(
     // TODO check mappings are valid
     for (_assumption_const, _game_const) in &mappings {}
 
-    if assumption.left_name != assumption_game_inst_name
-        && assumption.right_name != assumption_game_inst_name
-    {
-        let assumption_name = &assumption.name;
-        return Err(Error::InvalidAssumptionMapping(format!("assumption game {assumption_game_inst_name:?} does not exist in assumption {assumption_name:?}")).with_span(span));
-    };
-
-    let mapping = Mapping::new(assumption_game_inst_name, game_inst_name, mappings);
+    let mapping = Mapping::new(first_game_inst_name, second_game_inst_name, mappings);
     Ok(mapping)
 }
 
-fn handle_string_triplet(ast: &mut Pairs<Rule>) -> (String, String, String) {
-    let strs: Vec<_> = ast.take(3).map(|str| str.as_str()).collect();
+fn handle_string_triplet<'a>(
+    ast: &mut Pairs<'a, Rule>,
+) -> ((String, Span<'a>), (String, Span<'a>), (String, Span<'a>)) {
+    let mut strs: Vec<_> = ast
+        .take(3)
+        .map(|str| (str.as_str().to_string(), str.as_span()))
+        .collect();
 
-    (
-        strs[0].to_string(),
-        strs[1].to_string(),
-        strs[2].to_string(),
-    )
+    (strs.remove(0), strs.remove(0), strs.remove(0))
 }
 
-fn handle_string_pair(ast: &mut Pairs<Rule>) -> (String, String) {
-    let strs: Vec<_> = ast.take(2).map(|str| str.as_str()).collect();
-    (strs[0].to_string(), strs[1].to_string())
+fn handle_string_pair<'a>(ast: &mut Pairs<'a, Rule>) -> ((String, Span<'a>), (String, Span<'a>)) {
+    let mut strs: Vec<_> = ast
+        .take(2)
+        .map(|str| (str.as_str().to_string(), str.as_span()))
+        .collect();
+    (strs.remove(0), strs.remove(0))
 }
 
 fn next_pairs<'a>(ast: &'a mut Pairs<Rule>) -> Pairs<'a, Rule> {

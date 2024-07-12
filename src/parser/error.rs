@@ -93,16 +93,29 @@ pub struct TypeMismatchError {
 }
 
 #[derive(Error, Diagnostic, Debug)]
-#[error("undefined package instance '{inst_name}'")]
-#[diagnostic(code(ssbee::code::undefined_instance))]
-pub struct UndefinedInstanceError {
+#[error("undefined package instance '{pkg_inst_name}'")]
+#[diagnostic(code(ssbee::code::undefined_package_instance))]
+pub struct UndefinedPackageInstanceError {
     #[source_code]
     pub source_code: miette::NamedSource<String>,
 
     #[label("this package instance is not defined")]
     pub at: SourceSpan,
 
-    pub inst_name: String,
+    pub pkg_inst_name: String,
+}
+
+#[derive(Error, Diagnostic, Debug)]
+#[error("undefined game instance '{game_inst_name}'")]
+#[diagnostic(code(ssbee::code::undefined_game_instance))]
+pub struct UndefinedGameInstanceError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this game instance is not defined")]
+    pub at: SourceSpan,
+
+    pub game_inst_name: String,
 }
 
 #[derive(Error, Diagnostic, Debug)]
@@ -118,10 +131,23 @@ pub struct UndefinedPackageError {
     pub pkg_name: String,
 }
 
+#[derive(Error, Diagnostic, Debug)]
+#[error("undefined game '{game_name}'")]
+#[diagnostic(code(ssbee::code::undefined_game))]
+pub struct UndefinedGameError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this package is not defined")]
+    pub at: SourceSpan,
+
+    pub game_name: String,
+}
+
 #[derive(Debug, Diagnostic, Error)]
 #[error("parameter '{param_name}' does not exist on package {pkg_name}")]
-#[diagnostic(code(ssbee::code::no_such_parameter))]
-pub struct NoSuchParameterError {
+#[diagnostic(code(ssbee::code::pkg::no_such_parameter))]
+pub struct NoSuchPackageParameterError {
     #[source_code]
     pub source_code: miette::NamedSource<String>,
 
@@ -133,9 +159,25 @@ pub struct NoSuchParameterError {
 }
 
 #[derive(Debug, Diagnostic, Error)]
-#[error("parameter '{param_name}' has been defined twice in package instance {pkg_inst_name}")]
-#[diagnostic(code(ssbee::code::duplicate_parameter_definition))]
-pub struct DuplicateParameterDefinitionError {
+#[error("parameter '{param_name}' does not exist on game {game_name}")]
+#[diagnostic(code(ssbee::code::game::no_such_parameter))]
+pub struct NoSuchGameParameterError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this identifier here")]
+    pub at: SourceSpan,
+
+    pub param_name: String,
+    pub game_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error(
+    "package parameter '{param_name}' has been defined twice in package instance {pkg_inst_name}"
+)]
+#[diagnostic(code(ssbee::code::pkg_inst::duplicate_parameter_definition))]
+pub struct DuplicatePackageParameterDefinitionError {
     #[source_code]
     pub source_code: miette::NamedSource<String>,
 
@@ -150,13 +192,30 @@ pub struct DuplicateParameterDefinitionError {
 }
 
 #[derive(Debug, Diagnostic, Error)]
-#[error("package {pkg_name} declares parameters that are not defined in package instance {pkg_inst_name}: {missing_params}")]
-#[diagnostic(code(ssbee::code::missing_parameter_definition))]
-pub struct MissingParameterDefinitionError {
+#[error("game parameter '{param_name}' has been defined twice in game instance {game_inst_name}")]
+#[diagnostic(code(ssbee::code::game_inst::duplicate_parameter_definition))]
+pub struct DuplicateGameParameterDefinitionError {
     #[source_code]
     pub source_code: miette::NamedSource<String>,
 
     #[label("this identifier here")]
+    pub at: SourceSpan,
+
+    #[label("has previously been defined here")]
+    pub other: SourceSpan,
+
+    pub param_name: String,
+    pub game_inst_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("package {pkg_name} declares parameters that are not defined in package instance {pkg_inst_name}: {missing_params}")]
+#[diagnostic(code(ssbee::code::pkg::missing_parameter_definition))]
+pub struct MissingPackageParameterDefinitionError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this parameter definition block")]
     pub at: SourceSpan,
 
     pub pkg_name: String,
@@ -164,6 +223,70 @@ pub struct MissingParameterDefinitionError {
 
     pub missing_params_vec: Vec<String>,
     pub missing_params: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("game {game_name} declares parameters that are not defined in game instance {game_inst_name}: {missing_params}")]
+#[diagnostic(code(ssbee::code::game::missing_parameter_definition))]
+pub struct MissingGameParameterDefinitionError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this parameter definition block")]
+    pub at: SourceSpan,
+
+    pub game_name: String,
+    pub game_inst_name: String,
+
+    pub missing_params_vec: Vec<String>,
+    pub missing_params: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("use of undefined assumption {assumption_name}")]
+#[diagnostic(code(ssbee::code::undefined_assumption))]
+pub struct UndefinedAssumptionError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this assumption here")]
+    pub at: SourceSpan,
+
+    pub assumption_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("the first package instance name in an assumption package mapping block header must be from the assumption, but isn't")]
+#[diagnostic(code(ssbee::code::proof::reduction::assumption_mapping::no_assumption_game_instance))]
+#[help("the mapping maps the package instances of the assumption game and the model game. Therefore the first needs to be an assumption game instance, while the other needs to be a model game instance. Game instance names from the assumption are {assumption_left_game_instance_name} and {assumption_right_game_instance_name}.")]
+pub struct AssumptionMappingLeftGameInstanceIsNotFromAssumption {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this game instance name")]
+    pub at: SourceSpan,
+
+    pub game_instance_name: String,
+
+    pub assumption_left_game_instance_name: String,
+    pub assumption_right_game_instance_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("the second package instance name in an assumption package mapping block header must be from the model (i.e. not from the assumption), but isn't")]
+#[diagnostic(code(ssbee::code::proof::reduction::assumption_mapping::no_assumption_game_instance))]
+#[help("the mapping maps the package instances of the assumption game and the model game. Therefore the second needs to be a model game instance. Game instance names from the assumption are {model_left_game_instance_name} and {model_right_game_instance_name}.")]
+pub struct AssumptionMappingRightGameInstanceIsFromAssumption {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this game instance name")]
+    pub at: SourceSpan,
+
+    pub game_instance_name: String,
+
+    pub model_left_game_instance_name: String,
+    pub model_right_game_instance_name: String,
 }
 
 pub struct SpanError {

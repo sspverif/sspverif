@@ -1,8 +1,8 @@
 use super::{
     common::*,
     error::{
-        DuplicateParameterDefinitionError, MissingParameterDefinitionError, NoSuchParameterError,
-        UndefinedInstanceError, UndefinedPackageError,
+        DuplicatePackageParameterDefinitionError, MissingPackageParameterDefinitionError,
+        NoSuchPackageParameterError, UndefinedPackageError, UndefinedPackageInstanceError,
     },
     package::{handle_expression, ForComp, MultiInstanceIndices, ParsePackageError},
     ParseContext, Rule,
@@ -29,6 +29,27 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::iter::FromIterator as _;
 use thiserror::Error;
+
+#[derive(Debug)]
+pub struct ParseGameContext<'a> {
+    pub file_name: &'a str,
+    pub file_content: &'a str,
+    pub game_name: &'a str,
+    pub pkgs: &'a HashMap<String, Package>,
+
+    pub scope: Scope,
+
+    pub consts: HashMap<String, Type>,
+
+    pub instances: Vec<PackageInstance>,
+    pub instances_table: HashMap<String, (usize, PackageInstance)>,
+
+    pub edges: Vec<Edge>,
+    pub exports: Vec<Export>,
+
+    pub multi_inst_edges: Vec<MultiInstanceEdge>,
+    pub multi_inst_exports: Vec<MultiInstanceExport>,
+}
 
 impl<'a> ParseContext<'a> {
     fn game_context(
@@ -62,27 +83,6 @@ impl<'a> ParseContext<'a> {
             multi_inst_exports: vec![],
         }
     }
-}
-
-#[derive(Debug)]
-pub struct ParseGameContext<'a> {
-    pub file_name: &'a str,
-    pub file_content: &'a str,
-    pub game_name: &'a str,
-    pub pkgs: &'a HashMap<String, Package>,
-
-    pub scope: Scope,
-
-    pub consts: HashMap<String, Type>,
-
-    pub instances: Vec<PackageInstance>,
-    pub instances_table: HashMap<String, (usize, PackageInstance)>,
-
-    pub edges: Vec<Edge>,
-    pub exports: Vec<Export>,
-
-    pub multi_inst_edges: Vec<MultiInstanceEdge>,
-    pub multi_inst_exports: Vec<MultiInstanceExport>,
 }
 
 impl<'a> ParseGameContext<'a> {
@@ -179,7 +179,7 @@ pub enum ParseGameError {
 
     #[error(transparent)]
     #[diagnostic(transparent)]
-    UndefinedInstance(#[from] UndefinedInstanceError),
+    UndefinedInstance(#[from] UndefinedPackageInstanceError),
 
     #[error(transparent)]
     #[diagnostic(transparent)]
@@ -187,15 +187,15 @@ pub enum ParseGameError {
 
     #[error(transparent)]
     #[diagnostic(transparent)]
-    NoSuchParameter(#[from] NoSuchParameterError),
+    NoSuchParameter(#[from] NoSuchPackageParameterError),
 
     #[error(transparent)]
     #[diagnostic(transparent)]
-    DuplicateParameterDefinition(#[from] DuplicateParameterDefinitionError),
+    DuplicateParameterDefinition(#[from] DuplicatePackageParameterDefinitionError),
 
     #[error(transparent)]
     #[diagnostic(transparent)]
-    MissingParameterDefinition(#[from] MissingParameterDefinitionError),
+    MissingPackageParameterDefinition(#[from] MissingPackageParameterDefinitionError),
 }
 
 pub fn handle_composition(
@@ -271,11 +271,13 @@ pub fn handle_compose_assign_list_multi_inst(
                 }
                 Rule::identifier if line_builder.1.is_none() => {
                     if !ctx.has_pkg_instance(piece.as_str()) {
-                        return Err(ParseGameError::UndefinedInstance(UndefinedInstanceError {
-                            source_code: ctx.named_source(),
-                            at: todo!(),
-                            inst_name: todo!(),
-                        }));
+                        return Err(ParseGameError::UndefinedInstance(
+                            UndefinedPackageInstanceError {
+                                source_code: ctx.named_source(),
+                                at: todo!(),
+                                pkg_inst_name: todo!(),
+                            },
+                        ));
                     }
 
                     line_builder.1 = Some(piece.as_str().to_string())
@@ -466,10 +468,10 @@ fn handle_export_compose_assign_list_multi_inst(
                 Rule::identifier if dst_inst_name.is_none() => {
                     if !ctx.has_pkg_instance(piece.as_str()) {
                         let span = piece.as_span();
-                        return Err(UndefinedInstanceError {
+                        return Err(UndefinedPackageInstanceError {
                             source_code: ctx.named_source(),
                             at: (span.start()..span.end()).into(),
-                            inst_name: piece.to_string(),
+                            pkg_inst_name: piece.to_string(),
                         }
                         .into());
                     }
@@ -559,10 +561,10 @@ fn handle_edges_compose_assign_list_multi_inst(
                 Rule::identifier if dst_inst_name.is_none() => {
                     if !ctx.has_pkg_instance(piece.as_str()) {
                         let span = piece.as_span();
-                        return Err(UndefinedInstanceError {
+                        return Err(UndefinedPackageInstanceError {
                             source_code: ctx.named_source(),
                             at: (span.start()..span.end()).into(),
-                            inst_name: piece.to_string(),
+                            pkg_inst_name: piece.to_string(),
                         }
                         .into());
                     }

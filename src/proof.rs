@@ -374,12 +374,12 @@ pub enum GameHop {
 
 #[derive(Clone, Debug)]
 pub struct Proof {
-    name: String,
-    consts: Vec<(String, Type)>,
-    instances: Vec<GameInstance>,
-    assumptions: Vec<Assumption>,
-    game_hops: Vec<GameHop>,
-    pkgs: Vec<Package>,
+    pub(crate) name: String,
+    pub(crate) consts: Vec<(String, Type)>,
+    pub(crate) instances: Vec<GameInstance>,
+    pub(crate) assumptions: Vec<Assumption>,
+    pub(crate) game_hops: Vec<GameHop>,
+    pub(crate) pkgs: Vec<Package>,
 }
 
 impl Proof {

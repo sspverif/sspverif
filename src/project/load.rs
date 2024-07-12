@@ -86,33 +86,23 @@ pub(crate) fn proofs(
     dir.push(PROOFS_DIR);
     let dir_str = dir.to_str().expect("couldn't get the path string");
 
-    let pkgs = Vec::from_iter(pkgs.values().cloned());
-    let games = Vec::from_iter(games.values().cloned());
-
     let mut proofs = HashMap::new();
 
     for dir_entry in std::fs::read_dir(dir_str)? {
         let dir_entry = dir_entry?;
-        if let Some(name) = dir_entry.file_name().to_str() {
-            if name.ends_with(".ssp") {
+        if let Some(file_name) = dir_entry.file_name().to_str() {
+            if file_name.ends_with(".ssp") {
                 // TODO make a constant and figure out if we really need the sub-extensions
 
-                let filecontent = std::fs::read_to_string(dir_entry.path())?;
-                let parse_result = SspParser::parse_proof(&filecontent);
+                let file_content = std::fs::read_to_string(dir_entry.path())?;
+                let parse_result = SspParser::parse_proof(&file_content);
                 if let Err(e) = parse_result {
-                    return Err((name, e).into());
+                    return Err((file_name, e).into());
                 }
 
-                let mut scope = Scope::new();
-
                 let mut ast = parse_result.unwrap();
-                let proof = match handle_proof(ast.next().unwrap(), &mut scope, &pkgs, &games, name)
-                {
-                    Ok(proof) => proof,
-                    Err(err) => {
-                        return Err(err.with_source(filecontent).into());
-                    }
-                };
+                let proof =
+                    handle_proof(file_name, &file_content, ast.next().unwrap(), &pkgs, &games)?;
                 let proof_name = proof.as_name().to_string();
 
                 proofs.insert(proof_name, proof);
