@@ -6,15 +6,15 @@ use crate::{
     },
 };
 
-pub fn parse_pkg(code: &str, name: &str) -> (String, Package) {
+pub fn parse_pkg(code: &str, file_name: &str) -> (String, Package) {
     let mut pkg_pairs = SspParser::parse_package(code).unwrap_or_else(|err| {
         panic!(
-            "error parsing package {name} (in call to pest): {err}",
-            name = name,
+            "error parsing package {file_name} (in call to pest): {err}",
+            file_name = file_name,
             err = err
         )
     });
-    handle_pkg(name, code, pkg_pairs.next().unwrap()).unwrap()
+    handle_pkg(file_name, code, pkg_pairs.next().unwrap()).unwrap()
 }
 
 pub fn parse_pkg_fails(code: &str, name: &str) -> ParsePackageError {
@@ -39,6 +39,12 @@ pub const TINY_PKG_CODE: &str = r#"package TinyPkg {
 
             oracle N() -> Integer {
               return n;
+            }
+        }"#;
+
+pub const TINY_PKG_BAD_PARAM: &str = r#"package TinyPkg {
+            params {
+              foo: ThisTypeDoesNotExist,
             }
         }"#;
 pub const SMALL_FOR_PKG_CODE: &str = r#"package SmallForPkg {

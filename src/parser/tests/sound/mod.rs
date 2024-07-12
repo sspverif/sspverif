@@ -10,7 +10,12 @@ use crate::{
 use std::{collections::HashMap, iter::FromIterator as _};
 
 #[test]
-fn type_mismatch_in_params() {
+fn undefined_type_in_pkg_params() {
+    let err = parse_pkg_fails(TINY_PKG_BAD_PARAM, "tiny-pkg-bad-param.ssp");
+}
+
+#[test]
+fn type_mismatch_in_game_params() {
     let (name, pkg) = parse_pkg(TINY_PKG_CODE, "tiny-pkg");
     let pkg_map = HashMap::from_iter(vec![(name, pkg.clone())]);
     let mut game_pairs = SspParser::parse_composition(SMALL_MISTYPED_GAME_CODE).unwrap();
