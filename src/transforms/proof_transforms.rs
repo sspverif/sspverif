@@ -3,8 +3,8 @@ use std::{collections::HashSet, convert::Infallible};
 use crate::{proof::GameInstance, types::Type};
 
 use super::{
-    resolveoracles, returnify, samplify, split_partial, tableinitialize, treeify,
-    type_extract, unwrapify, GameTransform, Transformation,
+    resolveoracles, returnify, samplify, split_partial, tableinitialize, treeify, type_extract,
+    unwrapify, GameTransform, Transformation,
 };
 
 pub struct EquivalenceTransform;

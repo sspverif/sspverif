@@ -179,7 +179,7 @@ for_ = { kw_for ~ identifier ~ ":" ~ expression ~ for_comp ~ identifier ~ for_co
 for_comp = { ( "<=" | "<" ) }
 table_index = { expression }
 
-expression = _{ expr_list | expr_set | expr_none | expr_some | expr_unwrap | expr_add | expr_sub | expr_mul | expr_div | expr_or | expr_and | expr_xor | expr_not | expr_tuple | expr_equals | expr_not_equals | expr_newtable | fn_call | table_access | literal | identifier }
+expression = _{ expr_list | expr_set | expr_none | expr_untyped_none | expr_some | expr_unwrap | expr_add | expr_sub | expr_mul | expr_div | expr_or | expr_and | expr_xor | expr_not | expr_tuple | expr_equals | expr_not_equals | expr_newtable | fn_call | table_access | literal | identifier }
 
 expr_equals   = { "("  ~ expression ~ ("==" ~ expression)* ~ ")" }
 expr_not_equals = { "("  ~ expression ~ ("!=" ~ expression)* ~ ")" }
@@ -203,6 +203,7 @@ oracle_call_arglist = { expression ~ ( "," ~ expression)* }
 fn_call =  { identifier ~ "(" ~ fn_call_arglist? ~ ")" }
 fn_call_arglist = { expression ~ ( "," ~ expression)* }
 
+expr_untyped_none = { "None" }
 expr_none = { "None" ~ "as" ~ tipe }
 expr_some = { "Some" ~ "(" ~ expression ~ ")" }
 expr_unwrap = { "Unwrap" ~ "(" ~ expression ~ ")" }

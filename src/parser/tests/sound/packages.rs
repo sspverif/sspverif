@@ -37,6 +37,30 @@ fn undefined_type_in_pkg_state() {
 }
 
 #[test]
+fn type_mismatch_in_assignment_to_statevar() {
+    let err = packages::parse_fails(packages::ASSIGN_WRONG_TYPE_TO_STATE, "bad-state-assign.ssp");
+
+    match err {
+        ParsePackageError::ParseExpression(ParseExpressionError::TypeMismatch(
+            TypeMismatchError {
+                at,
+                expected,
+                got,
+                source_code,
+            },
+        )) => {
+            assert_eq!(expected, Type::Integer);
+            assert_eq!(got, Type::Boolean);
+            assert_eq!(slice_source_span(&source_code, &at), "false");
+        }
+        other => {
+            let msg = format!("expected a different error; got {:?}", other);
+            let report = miette::Report::new(other);
+            panic!("{}, which looks like this:\n{:?}", msg, report)
+        }
+    };
+}
+#[test]
 fn type_mismatch_in_game_params() {
     let (name, pkg) = packages::parse(packages::TINY, "tiny-pkg");
     let pkg_map = HashMap::from_iter(vec![(name, pkg.clone())]);

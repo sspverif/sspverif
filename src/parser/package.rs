@@ -2,7 +2,7 @@ use super::{
     common::*,
     error::{
         IdentifierAlreadyDeclaredError, NoSuchTypeError, TypeMismatchError,
-        UndefinedIdentifierError,
+        UndefinedIdentifierError, UntypedNoneTypeInferenceError,
     },
     ParseContext, Rule,
 };
@@ -18,12 +18,14 @@ use crate::{
         Identifier,
     },
     package::{OracleDef, OracleSig, Package},
-    parser::error::{ForLoopIdentifersDontMatchError, NoSuchOracleError, OracleAlreadyImportedError},
+    parser::error::{
+        ForLoopIdentifersDontMatchError, NoSuchOracleError, OracleAlreadyImportedError,
+    },
     statement::{CodeBlock, FilePosition, Statement},
     types::Type,
     util::{
         resolver::Named,
-        scope::{ Declaration, OracleContext, Scope},
+        scope::{Declaration, OracleContext, Scope},
     },
     writers::smt::{
         declare::declare_const,
@@ -144,8 +146,7 @@ pub enum ParsePackageError {
 
     #[error(transparent)]
     #[diagnostic(transparent)]
-    ForLoopIdentifersDontMatch(#[from]ForLoopIdentifersDontMatchError),
-
+    ForLoopIdentifersDontMatch(#[from] ForLoopIdentifersDontMatchError),
 }
 
 #[derive(Error, Debug)]
@@ -209,8 +210,7 @@ pub fn handle_pkg_spec(
                 let mut loopvar_scope = ctx.scope.clone();
 
                 let body_ast = spec.into_inner().next().unwrap();
-                handle_import_oracles_body(&mut ctx, body_ast, &mut loopvar_scope)
-                ?;
+                handle_import_oracles_body(&mut ctx, body_ast, &mut loopvar_scope)?;
             }
             Rule::oracle_def => {
                 handle_oracle_def(&mut ctx, spec)?;
@@ -327,6 +327,10 @@ pub enum ParseExpressionError {
     #[diagnostic(transparent)]
     #[error(transparent)]
     NoSuchType(#[from] NoSuchTypeError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    UntypedNoneTypeInference(#[from] UntypedNoneTypeInferenceError),
 }
 
 pub fn handle_expression(
@@ -428,6 +432,28 @@ pub fn handle_expression(
             let tipe = handle_type(ctx, ast.into_inner().next().unwrap())?;
             Expression::None(tipe)
         }
+
+        Rule::expr_untyped_none => {
+            if let Some(expected_type) = expected_type {
+                let Type::Maybe(inner_type) = expected_type else {
+                    return Err(TypeMismatchError {
+                        source_code: ctx.named_source(),
+                        at: (span.start()..span.end()).into(),
+                        expected: expected_type.to_owned(),
+                        got: Type::Maybe(Box::new(Type::Unknown)),
+                    }
+                    .into());
+                };
+                Expression::None(*inner_type.clone())
+            } else {
+                return Err(UntypedNoneTypeInferenceError {
+                    source_code: ctx.named_source(),
+                    at: (span.start()..span.end()).into(),
+                }
+                .into());
+            }
+        }
+
         Rule::expr_some => {
             // make sure the expected type is a maybe.
             // if yes, extract the expected type for the inner expression
@@ -633,12 +659,7 @@ pub fn handle_identifier_in_code_rhs(
         .lookup(name)
         .ok_or(ParseIdentifierError::Undefined(name.to_string()))?
         .into_identifier()
-        .unwrap_or_else(|decl| {
-            panic!(
-                "expected an identifier, got a clone {decl:?}",
-                decl = decl
-            )
-        });
+        .unwrap_or_else(|decl| panic!("expected an identifier, got a clone {decl:?}", decl = decl));
 
     Ok(ident)
 }
@@ -647,7 +668,7 @@ pub fn handle_identifier_in_code_lhs(
     ctx: &mut PackageParseContext,
     name_ast: Pair<Rule>,
     oracle_name: &str,
-    expected_type: Type,
+    expression_type: Type,
 ) -> Result<Identifier, ParseIdentifierError> {
     let name = name_ast.as_str();
     let span = name_ast.as_span();
@@ -663,31 +684,29 @@ pub fn handle_identifier_in_code_lhs(
                 pkg_name: ctx.pkg_name.to_string(),
                 oracle_name: oracle_name.to_string(),
                 name: name.to_string(),
-                tipe: expected_type.clone(),
+                tipe: expression_type.clone(),
                 pkg_inst_name: None,
                 game_name: None,
                 game_inst_name: None,
                 proof_name: None,
             }));
 
-        scope
+        if scope
             .declare(name, Declaration::Identifier(ident.clone()))
-            .map_err(|_|
-                IdentifierAlreadyDeclaredError {
-                    at: (span.start()..span.end()).into(),
-                    ident_name: name.to_string(),
-                    source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
-                })?;
+            .is_err()
+        {
+            unreachable!()
+        }
 
         ident
     };
 
-    let got = ident.get_type().unwrap();
-    if got != expected_type {
+    let declared_ident_type = ident.get_type().unwrap();
+    if declared_ident_type != expression_type {
         Err(ParseIdentifierError::TypeMismatch(TypeMismatchError {
             at: (span.start()..span.end()).into(),
-            expected: expected_type,
-            got,
+            expected: declared_ident_type,
+            got: expression_type,
             source_code: ctx.named_source(),
         }))
     } else {
@@ -781,12 +800,14 @@ pub fn handle_code(
                 Rule::assign => {
                     let mut inner = stmt.into_inner();
                     let name_ast = inner.next().unwrap();
-                    // it's fine to use a None expected_type here, because we later check that the
-                    // resulting type matches the identifier
-                    // maybe we could produce better errors (or have better type inference?) if we
-                    // first checked whether the identifier exists, and if yes use that as the
-                    // expected type here?
-                    let expr = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), None) ?;
+                    let name = name_ast.as_str();
+
+                    let expected_type = match ctx.scope.lookup(name) {
+                        Some(Declaration::Identifier(ident)) => ident.get_type(),
+                        _ => None,
+                    };
+
+                    let expr = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), expected_type.as_ref()) ?;
 
                     let expected_type = expr.get_type();
                     let ident = handle_identifier_in_code_lhs(
@@ -794,8 +815,7 @@ pub fn handle_code(
                         name_ast,
                         oracle_name,
                         expected_type,
-                    )
-                        ?;
+                    )?;
 
                     Statement::Assign(ident, None, expr, source_span)
                 }
@@ -974,7 +994,6 @@ pub fn handle_code(
                         .enumerate()
                         .map(|(i, ident_name)| {
                             handle_identifier_in_code_lhs(ctx, ident_name,  oracle_name, tipes[i].clone())
-                                
                         })
                         .collect::<Result<_,_>>()?;
 
@@ -1080,8 +1099,7 @@ pub fn handle_oracle_def(
             .unwrap();
     }
 
-    let code =
-        handle_code(ctx, inner.next().unwrap(), &sig)?;
+    let code = handle_code(ctx, inner.next().unwrap(), &sig)?;
 
     ctx.scope.leave();
 
@@ -1123,8 +1141,6 @@ pub fn handle_oracle_sig(
     })
 }
 
-
-
 pub fn handle_oracle_imports_oracle_sig(
     ctx: &mut PackageParseContext,
     oracle_sig: Pair<Rule>,
@@ -1148,7 +1164,7 @@ pub fn handle_oracle_imports_oracle_sig(
                     let indices: Vec<_> = next
                         .into_inner()
                         .map(|expr| handle_expression(&loopvar_ctx, expr, Some(&Type::Integer)))
-                        .collect::<Result<_, _>>() ?;
+                        .collect::<Result<_, _>>()?;
                     multi_inst_idx.extend_from_slice(&indices);
                     inner.next();
                 }
@@ -1200,7 +1216,6 @@ impl std::fmt::Display for ForCompError {
 }
 
 impl std::error::Error for ForCompError {}
-
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MultiInstanceIndices {
@@ -1449,16 +1464,18 @@ pub fn handle_import_oracles_body(
             Rule::import_oracles_oracle_sig => {
                 let span = entry.as_span();
                 let source_span = SourceSpan::from(span.start()..span.end());
-                let sig =
-                    handle_oracle_imports_oracle_sig(ctx, entry, loopvar_scope)?;
-                if ctx.imported_oracles
-                    .insert(sig.name.clone(), (sig.clone(), source_span)).is_some() {
-                    return Err(
-                        OracleAlreadyImportedError {
-                            source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
-                            at: source_span,
-                            oracle_name: sig.name.clone(),
-                        }.into())
+                let sig = handle_oracle_imports_oracle_sig(ctx, entry, loopvar_scope)?;
+                if ctx
+                    .imported_oracles
+                    .insert(sig.name.clone(), (sig.clone(), source_span))
+                    .is_some()
+                {
+                    return Err(OracleAlreadyImportedError {
+                        source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
+                        at: source_span,
+                        oracle_name: sig.name.clone(),
+                    }
+                    .into());
                 }
 
                 ctx.scope
@@ -1472,7 +1489,8 @@ pub fn handle_import_oracles_body(
                         ),
                         // we already checked that the oracle has not yet been imported, so this
                         // shouldn't fail?
-                    ).unwrap();
+                    )
+                    .unwrap();
             }
 
             Rule::import_oracles_for => {
@@ -1501,13 +1519,14 @@ pub fn handle_import_oracles_body(
                 let end_comp: ForComp = end_comp_ast.as_str().try_into().unwrap();
 
                 if ident != ident2 {
-                    return Err(ForLoopIdentifersDontMatchError{
+                    return Err(ForLoopIdentifersDontMatchError {
                         source_code: ctx.named_source(),
                         at_fst: (ident_span.start()..ident_span.end()).into(),
                         at_snd: (ident2_span.start()..ident2_span.end()).into(),
                         fst: ident,
                         snd: ident2,
-                    }.into());
+                    }
+                    .into());
                 }
 
                 let ident_data = PackageImportsLoopVarIdentifier {
@@ -1530,12 +1549,10 @@ pub fn handle_import_oracles_body(
 
                 loopvar_scope
                     .declare(&ident, Declaration::Identifier(identifier))
-                    .map_err(|_| {
-                        IdentifierAlreadyDeclaredError {
-                            source_code: ctx.named_source(),
-                            at: (ident_span.start()..ident_span.end()).into(),
-                            ident_name: ident,
-                        }
+                    .map_err(|_| IdentifierAlreadyDeclaredError {
+                        source_code: ctx.named_source(),
+                        at: (ident_span.start()..ident_span.end()).into(),
+                        ident_name: ident,
                     })?;
 
                 handle_import_oracles_body(ctx, for_ast.next().unwrap(), loopvar_scope)?;
@@ -1559,10 +1576,7 @@ pub fn handle_types_list(types: Pair<Rule>) -> Vec<String> {
 mod tests {
 
     use super::*;
-    use crate::parser::{
-        package::handle_pkg,
-        SspParser,
-    };
+    use crate::parser::{package::handle_pkg, SspParser};
 
     fn unwrap_parse_err<T>(res: Result<T, pest::error::Error<crate::parser::Rule>>) -> T {
         match res {
@@ -1576,8 +1590,6 @@ mod tests {
         handle_pkg(name, code, pkg_pairs.next().unwrap())
             .expect_err("expected to fail parsing the package")
     }
-
-
 }
 
 #[cfg(test)]

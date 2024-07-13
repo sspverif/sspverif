@@ -33,86 +33,102 @@ pub fn parse_fails(code: &str, name: &str) -> ParsePackageError {
 }
 
 pub const TINY: &str = r#"package TinyPkg {
-            params {
-              n: Integer,
-            }
+    params {
+        n: Integer,
+    }
 
-            oracle N() -> Integer {
-              return n;
-            }
-        }"#;
+    oracle N() -> Integer {
+        return n;
+    }
+}"#;
 
 pub const TINY_BAD_PARAM_TYPE: &str = r#"package TinyPkg {
-            params {
-              foo: ThisTypeDoesNotExist,
-            }
-        }"#;
+    params {
+        foo: ThisTypeDoesNotExist,
+    }
+}"#;
 
 pub const TINY_BAD_STATE_TYPE: &str = r#"package TinyPkg {
-            state {
-              foo: ThisTypeDoesNotExist,
-            }
-        }"#;
+    state {
+        foo: ThisTypeDoesNotExist,
+    }
+}"#;
+
+pub const ASSIGN_WRONG_TYPE_TO_STATE: &str = r#"package TinyPkg {
+    state {
+        foo: Integer,
+    }
+
+    oracle Foo() {
+        foo <- false;
+    }
+}"#;
 
 pub const SMALL_FOR: &str = r#"package SmallForPkg {
-       params {
-          n: Integer,
-       }
+    params {
+        n: Integer,
+    }
 
-       import oracles {
-         for i: 1 <= i <= n {
-           N[i]() -> Integer,
-         }
-       }
+    import oracles {
+        for i: 1 <= i <= n {
+        N[i]() -> Integer,
+        }
+    }
 
-       oracle Sum() -> Integer {
-         sum <- 0;
+    oracle Sum() -> Integer {
+        sum <- 0;
 
-         for i: 1 <= i <= n {
-           n_i <- invoke N[i]();
-           sum <- (sum + n_i);
-         }
+        for i: 1 <= i <= n {
+        n_i <- invoke N[i]();
+        sum <- (sum + n_i);
+        }
 
-         return sum;
-       }
-    }"#;
+        return sum;
+    }
+}"#;
 
 pub const TINY_BAD_1: &str = r#"package TinyBadPkg1 {
-            params {
-              n: Integer,
-            }
+    params {
+        n: Integer,
+    }
 
-            oracle N() -> String {
-              return n;
-            }
-        }"#;
+    oracle N() -> String {
+        return n;
+    }
+}"#;
 
 pub const TINY_BAD_2: &str = r#"package TinyBadPkg2 {
-            oracle N() -> String {
-              return n;
-            }
-        }"#;
+    oracle N() -> String {
+        return n;
+    }
+}"#;
 
 pub const TINY_BAD_3: &str = r#"package TinyBadPkg3 {
-            oracle N() -> Integer {
-              return (true + false);
-            }
-        }"#;
+    oracle N() -> Integer {
+        return (true + false);
+    }
+}"#;
 
 pub const TINY_BAD_4: &str = r#"package TinyBadPkg4 {
-            oracle N() -> Integer {
-              return (true + 3);
-            }
-        }"#;
+    oracle N() -> Integer {
+        return (true + 3);
+    }
+}"#;
 
 pub const TINY_BAD_5: &str = r#"package TinyBadPkg5 {
-            oracle N() -> Integer {
-              return (3 + true);
-            }
-        }"#;
+    oracle N() -> Integer {
+        return (3 + true);
+    }
+}"#;
 
 pub const TINY_BAD_6: &str = r#"package TinyBadPkg6 {
-            oracle N() -> Bool {
-              return (3 + 2);
-            }
-        }"#;
+    oracle N() -> Bool {
+        return (3 + 2);
+    }
+}"#;
+
+pub const NONE_INFERENCE_YAY: &str = r#"package NonePackage {
+    oracle Foo() -> Maybe(Integer) {
+        return None;
+    }
+}"#;

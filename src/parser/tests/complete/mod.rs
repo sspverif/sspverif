@@ -107,3 +107,8 @@ fn small_multi_inst_game() {
 
     assert_eq!(game.pkgs[0].multi_instance_indices.indices.len(), 1);
 }
+
+#[test]
+fn untyped_none_type_inference_works() {
+    let (name, pkg) = parse(NONE_INFERENCE_YAY, "none-type-inference-works.ssp");
+}

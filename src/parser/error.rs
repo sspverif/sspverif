@@ -329,7 +329,6 @@ pub struct AssumptionMappingLeftGameInstanceIsNotFromAssumption {
 #[derive(Debug, Diagnostic, Error)]
 #[error("the second package instance name in an assumption package mapping block header must be from the model (i.e. not from the assumption), but isn't")]
 #[diagnostic(code(ssbee::code::proof::reduction::assumption_mapping::no_assumption_game_instance))]
-#[help("the mapping maps the package instances of the assumption game and the model game. Therefore the second needs to be a model game instance. Game instance names from the assumption are {model_left_game_instance_name} and {model_right_game_instance_name}.")]
 pub struct AssumptionMappingRightGameInstanceIsFromAssumption {
     #[source_code]
     pub source_code: miette::NamedSource<String>,
@@ -341,4 +340,15 @@ pub struct AssumptionMappingRightGameInstanceIsFromAssumption {
 
     pub model_left_game_instance_name: String,
     pub model_right_game_instance_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("Can't infer type of `None`. Use `None as <type>` to construct a `None` of type `Maybe(<type>)`")]
+#[diagnostic(code(ssbee::code::untyped_none_type_inferene))]
+pub struct UntypedNoneTypeInferenceError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this None")]
+    pub at: SourceSpan,
 }
