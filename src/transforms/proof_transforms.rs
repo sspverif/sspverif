@@ -3,7 +3,7 @@ use std::{collections::HashSet, convert::Infallible};
 use crate::{proof::GameInstance, types::Type};
 
 use super::{
-    resolveoracles, resolvetypes, returnify, samplify, split_partial, tableinitialize, treeify,
+    resolveoracles, returnify, samplify, split_partial, tableinitialize, treeify,
     type_extract, unwrapify, GameTransform, Transformation,
 };
 
