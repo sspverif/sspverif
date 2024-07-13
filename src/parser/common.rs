@@ -1,15 +1,11 @@
-use crate::identifier::game_ident::GameIdentifier;
-use crate::identifier::proof_ident::ProofIdentifier;
 use crate::package::{Composition, Package};
-use crate::statement::FilePosition;
-use crate::util::scope::Scope;
-use crate::{expressions::Expression, identifier::Identifier, types::Type};
+use crate::{expressions::Expression, types::Type};
 
-use super::composition::{ParseGameContext, ParseGameError};
+use super::composition::ParseGameContext;
 use super::error::{
-    DuplicateGameParameterDefinitionError, DuplicatePackageParameterDefinitionError, Error,
+    DuplicateGameParameterDefinitionError, DuplicatePackageParameterDefinitionError,
     MissingGameParameterDefinitionError, MissingPackageParameterDefinitionError,
-    NoSuchGameParameterError, NoSuchPackageParameterError, NoSuchTypeError, OwnedSpan, SpanError,
+    NoSuchGameParameterError, NoSuchPackageParameterError, NoSuchTypeError,
 };
 use super::proof::{ParseProofContext, ParseProofError};
 use super::{ParseContext, Rule};

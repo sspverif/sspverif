@@ -112,7 +112,7 @@ This would be the contents is JSONy notation. We'll see how that looks like in t
 
 */
 use clap::{Parser, Subcommand};
-use sspverif::project::{self, error::Result};
+use sspverif::project;
 use sspverif::util::prover_process::ProverBackend;
 
 #[derive(Parser, Debug)]
@@ -164,11 +164,11 @@ struct WireCheck {
     dst_idx: usize,
 }
 
-fn prove(p: &Prove) -> Result<()> {
+fn prove(p: &Prove) -> Result<(), project::error::Error> {
     project::Project::load()?.prove(p.prover, p.transcript)
 }
 
-fn explain(_game_name: &str, _dst: &Option<String>) -> Result<()> {
+fn explain(_game_name: &str, _dst: &Option<String>) -> Result<(), project::error::Error> {
     todo!();
     /*
         let data = project::Project::load()?.explain_game(game_name)?;
@@ -181,11 +181,11 @@ fn explain(_game_name: &str, _dst: &Option<String>) -> Result<()> {
     // Ok(())
 }
 
-fn latex() -> Result<()> {
+fn latex() -> Result<(), project::error::Error> {
     project::Project::load()?.latex()
 }
 
-fn wire_check(game_name: &str, dst_idx: usize) -> Result<()> {
+fn wire_check(game_name: &str, dst_idx: usize) -> Result<(), project::error::Error> {
     project::Project::load()?.print_wire_check_smt(game_name, dst_idx);
     Ok(())
 }

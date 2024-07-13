@@ -74,11 +74,13 @@ impl<'a> CompositionSmtWriter<'a> {
     // builds a single (declare-datatype ...) expression for package instance `inst`
     fn smt_pkg_state(&self, inst: &PackageInstance) -> SmtExpr {
         self.get_package_instance_context(&inst.name)
-            .expect(&format!(
-                "game {} does not contain package instance with name {}",
-                self.game_inst.game().name,
-                &inst.name
-            ))
+            .unwrap_or_else(|| {
+                panic!(
+                    "game {} does not contain package instance with name {}",
+                    self.game_inst.game().name,
+                    &inst.name
+                )
+            })
             .smt_declare_pkgstate()
     }
 
@@ -137,7 +139,7 @@ impl<'a> CompositionSmtWriter<'a> {
         let mut stmts = block.0.iter().rev();
 
         let innermost = stmts.next();
-        let mut result = self.smt_build_innermost_nonsplit(&oracle_ctx, innermost.unwrap());
+        let mut result = self.smt_build_innermost_nonsplit(oracle_ctx, innermost.unwrap());
 
         for stmt in stmts {
             result = match stmt {
@@ -210,7 +212,7 @@ impl<'a> CompositionSmtWriter<'a> {
         let mut stmts = block.0.iter().rev();
 
         let innermost = stmts.next();
-        let mut result = self.smt_build_innermost_split(&oracle_ctx, innermost.unwrap());
+        let mut result = self.smt_build_innermost_split(oracle_ctx, innermost.unwrap());
 
         for stmt in stmts {
             result = match stmt {
@@ -370,14 +372,14 @@ impl<'a> CompositionSmtWriter<'a> {
         let first_true = branches
             .iter()
             .position(|(cond, _)| cond == &Expression::BooleanLiteral("true".to_string()))
-            .expect(&format!("branches: {:?}", branches));
+            .unwrap_or_else(|| panic!("branches: {:?}", branches));
 
         let (_, elsepath) = &branches[first_true];
         let mut block: SmtExpr = self.smt_build_intermediate_state_from_path(oracle_ctx, elsepath);
 
         for i in (0..=first_true).rev().skip(1) {
             let (cond, ifpath) = &branches[i];
-            let ifblock = self.smt_build_intermediate_state_from_path(oracle_ctx, &ifpath);
+            let ifblock = self.smt_build_intermediate_state_from_path(oracle_ctx, ifpath);
 
             block = SmtIte {
                 cond: cond.clone(),
@@ -437,8 +439,7 @@ impl<'a> CompositionSmtWriter<'a> {
         for (name, start) in their_loopvars {
             let is_common = common_loopvars
                 .clone()
-                .find(|(their_name, _)| &name == their_name)
-                .is_some();
+                .any(|(their_name, _)| name == their_name);
 
             next_loopvar_values.push(match (is_common, is_next_iteration) {
                 (true, true) => (
@@ -481,7 +482,7 @@ impl<'a> CompositionSmtWriter<'a> {
                         IntermediateStateSelector::LoopVar(_, name) => {
                             let (_, next_value) = next_loopvar_values
                                 .iter()
-                                .find(|(lv_name, _next_value)| &lv_name == name)
+                                .find(|(lv_name, _next_value)| lv_name == name)
                                 .unwrap();
                             next_value.clone()
                         }
@@ -754,7 +755,7 @@ impl<'a> CompositionSmtWriter<'a> {
                 )
             });
 
-        let rand_fn_name = names::fn_sample_rand_name(&game_name, tipe);
+        let rand_fn_name = names::fn_sample_rand_name(game_name, tipe);
 
         let rand_val: SmtExpr = (rand_fn_name, format!("{sample_id}"), ctr.clone()).into();
 
@@ -861,8 +862,7 @@ impl<'a> CompositionSmtWriter<'a> {
         let let_bindings = vec![(
             var_gamestate.name(),
             called_oracle_context.smt_access_return_state(names::var_ret_name()),
-        )
-            .into()];
+        )];
 
         let return_value_pattern = ReturnValue::new(oracle_ctx.oracle_return_type());
         let return_value_spec = return_value_pattern.datastructure_spec(&());
@@ -1203,7 +1203,7 @@ impl<'a> CompositionSmtWriter<'a> {
                     .recover_variables(
                         &spec,
                         &intermediate_state_constructor,
-                        self.smt_codeblock_split(&split_oracle_ctx, code.clone()),
+                        self.smt_codeblock_split(split_oracle_ctx, code.clone()),
                     )
                     .unwrap(),
             },
@@ -1324,7 +1324,7 @@ impl<'a> CompositionSmtWriter<'a> {
                 pkg_inst_name,
                 oracle_name,
             };
-            let intermediate_state_spec = intermediate_state_pattern.datastructure_spec(&dtype);
+            let intermediate_state_spec = intermediate_state_pattern.datastructure_spec(dtype);
 
             // this can't work, because it looks for an existing oracle. but it doesn't exist
             // anymore
@@ -1336,10 +1336,12 @@ impl<'a> CompositionSmtWriter<'a> {
                 let opath = step.path().smt_name();
                 let split_oracle_ctx = pkg_inst_ctx
                     .split_oracle_ctx_by_name_and_path(&orig_oracle_sig.name, step.path(), dtype)
-                    .expect(&format!(
-                        "couldn't find split oracle context for ({oname}, {opath}) in {:?}",
-                        pkg_inst_ctx.pkg_inst().pkg.split_oracles
-                    ));
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "couldn't find split oracle context for ({oname}, {opath}) in {:?}",
+                            pkg_inst_ctx.pkg_inst().pkg.split_oracles
+                        )
+                    });
                 split_oracle_fndefs.push(self.smt_define_split_oracle_fn(&split_oracle_ctx));
             }
 
@@ -1387,11 +1389,11 @@ impl<'a> CompositionSmtWriter<'a> {
         let partial_stuff = self.smt_composition_partial_stuff();
 
         rand.into_iter()
-            .chain(paramfuncs.into_iter())
-            .chain(state.into_iter())
-            .chain(ret.into_iter())
-            .chain(code.into_iter())
-            .chain(partial_stuff.into_iter())
+            .chain(paramfuncs)
+            .chain(state)
+            .chain(ret)
+            .chain(code)
+            .chain(partial_stuff)
             .collect()
     }
 }

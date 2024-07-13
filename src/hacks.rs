@@ -4,8 +4,8 @@ use crate::writers::smt::exprs::SmtExpr;
 
 pub struct ReturnValueDeclaration;
 
-impl Into<SmtExpr> for ReturnValueDeclaration {
-    fn into(self) -> SmtExpr {
+impl From<ReturnValueDeclaration> for SmtExpr {
+    fn from(_: ReturnValueDeclaration) -> Self {
         (
             "declare-datatypes",
             (("ReturnValue", 1),),
@@ -90,7 +90,7 @@ impl From<TupleDeclaration> for Vec<SmtExpr> {
         let TupleDeclaration(n) = val;
 
         if n == 0 {
-            return vec![("declare-datatypes", (("Tuple0", n),), ((("mk-typle0",),))).into()];
+            return vec![("declare-datatypes", (("Tuple0", n),), (("mk-typle0",),)).into()];
         }
 
         let types: Vec<SmtExpr> = (1..n + 1)

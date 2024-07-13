@@ -227,7 +227,7 @@ pub fn handle_pkg_spec(
         imports: ctx
             .imported_oracles
             .iter()
-            .map(|(_k, (v, loc))| (v.clone(), loc.clone()))
+            .map(|(_k, (v, loc))| (v.clone(), *loc))
             .collect(),
         state: ctx.state,
         split_oracles: vec![],
@@ -759,7 +759,7 @@ pub fn handle_code(
                     Statement::IfThenElse(
                         expr,
                         CodeBlock(vec![]),
-                        CodeBlock(vec![Statement::Abort(source_span.clone())]),
+                        CodeBlock(vec![Statement::Abort(source_span)]),
                          source_span,
                     )
                 }
@@ -921,7 +921,7 @@ pub fn handle_code(
                             Box::new(idx.get_type()),
                             Box::new(oracle_sig.tipe)
                         )),
-                        (Declaration::Identifier(ident), _) => {
+                        (Declaration::Identifier(_ident), _) => {
                             // XXX: we could also give notice that there exists an identifier of
                             // that name; but saying "there is no oracle of that name" isn't wrong
                             // either
@@ -1449,7 +1449,6 @@ pub fn handle_import_oracles_body(
             Rule::import_oracles_oracle_sig => {
                 let span = entry.as_span();
                 let source_span = SourceSpan::from(span.start()..span.end());
-                let file_pos = FilePosition::from_span(ctx.file_name, entry.as_span());
                 let sig =
                     handle_oracle_imports_oracle_sig(ctx, entry, loopvar_scope)?;
                 if ctx.imported_oracles
@@ -1477,48 +1476,29 @@ pub fn handle_import_oracles_body(
             }
 
             Rule::import_oracles_for => {
-                let for_span = entry.as_span();
                 let mut for_ast = entry.into_inner();
 
                 let ident_ast = for_ast.next().unwrap();
-                let ident_span = ident_ast.as_span();
-                let ident = ident_ast.as_str().to_string();
-
                 let for_start_ast = for_ast.next().unwrap();
-                let for_start_file_pos =
-                    FilePosition::from_span(ctx.file_name, for_start_ast.as_span());
-                let for_start =
-                    handle_expression(&ctx.parse_ctx(), for_start_ast, Some(&Type::Integer))
-                        .map_err(|e| {
-                            ParseImportOraclesError::ParseStartExpression(e, for_start_file_pos)
-                        })?;
-
                 let start_comp_ast = for_ast.next().unwrap();
-                let start_comp_filepos =
-                    FilePosition::from_span(ctx.file_name, start_comp_ast.as_span());
-                let start_comp: ForComp = start_comp_ast.as_str().try_into().map_err(|e| {
-                    ParseImportOraclesError::InvalidStartComparison(e, start_comp_filepos)
-                })?;
-
                 let ident2_ast = for_ast.next().unwrap();
-                let ident2_span = ident2_ast.as_span();
+                let end_comp_ast = for_ast.next().unwrap();
+                let for_end_ast = for_ast.next().unwrap();
+
+                let ident = ident_ast.as_str().to_string();
                 let ident2 = ident2_ast.as_str().to_string();
 
-                let end_comp_ast = for_ast.next().unwrap();
-                let end_comp_filepos =
-                    FilePosition::from_span(ctx.file_name, end_comp_ast.as_span());
-                let end_comp: ForComp = end_comp_ast.as_str().try_into().map_err(|e| {
-                    ParseImportOraclesError::InvalidEndComparison(e, end_comp_filepos)
-                })?;
+                let ident_span = ident_ast.as_span();
+                let ident2_span = ident2_ast.as_span();
 
-                let for_end_ast = for_ast.next().unwrap();
-                let for_end_file_pos =
-                    FilePosition::from_span(ctx.file_name, for_end_ast.as_span());
+                let for_start =
+                    handle_expression(&ctx.parse_ctx(), for_start_ast, Some(&Type::Integer))?;
                 let for_end =
-                    handle_expression(&ctx.parse_ctx(), for_end_ast, Some(&Type::Integer))
-                        .map_err(|e| {
-                            ParseImportOraclesError::ParseEndExpression(e, for_end_file_pos)
-                        })?;
+                    handle_expression(&ctx.parse_ctx(), for_end_ast, Some(&Type::Integer))?;
+
+                // the grammar ensures that try_into doesn't fail
+                let start_comp: ForComp = start_comp_ast.as_str().try_into().unwrap();
+                let end_comp: ForComp = end_comp_ast.as_str().try_into().unwrap();
 
                 if ident != ident2 {
                     return Err(ForLoopIdentifersDontMatchError{
@@ -1580,7 +1560,7 @@ mod tests {
 
     use super::*;
     use crate::parser::{
-        package::{handle_pkg, ParseExpressionError},
+        package::handle_pkg,
         SspParser,
     };
 

@@ -67,7 +67,7 @@ impl Communicator {
         let stdout = cmd.stdout.unwrap();
 
         let thrd = std::thread::spawn(move || {
-            writeln!(stdin, "")?;
+            writeln!(stdin)?;
             for data in recv {
                 if let Some(ref mut transcript) = transcript {
                     write!(transcript, "{data}")?;
@@ -125,7 +125,7 @@ impl Communicator {
 
                 self.buf.fill(0);
                 self.pos = rest_bs.len();
-                self.buf[..self.pos].copy_from_slice(&rest_bs);
+                self.buf[..self.pos].copy_from_slice(rest_bs);
 
                 return Ok((match_start, ret));
             }
@@ -144,7 +144,7 @@ impl Communicator {
     }
 
     pub fn join(&mut self) -> Result<()> {
-        if let None = self.thrd {
+        if self.thrd.is_none() {
             return Ok(());
         }
 
@@ -189,9 +189,9 @@ impl std::fmt::Write for Communicator {
             eprintln!("rest of data from prover:\n  {rest}");
             std::io::stderr().flush().expect("error flushing stderr");
 
-            return Err(std::fmt::Error);
+            Err(std::fmt::Error)
         } else {
-            return Ok(());
+            Ok(())
         }
     }
 }

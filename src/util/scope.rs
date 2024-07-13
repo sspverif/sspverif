@@ -80,7 +80,7 @@ impl Scope {
      */
     pub fn declare(&mut self, id: &str, scope_type: Declaration) -> Result<(), ()> {
         self.types.insert(scope_type.clone());
-        if self.lookup(id) == None {
+        if self.lookup(id).is_none() {
             if let Some(last) = self.entries.last_mut() {
                 last.insert(id.to_string(), scope_type.clone());
                 Ok(())

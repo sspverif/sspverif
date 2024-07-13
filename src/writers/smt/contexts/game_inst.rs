@@ -82,7 +82,7 @@ impl<'a> GameInstanceContext<'a> {
         };
         let declare_info = GameStateDeclareInfo {
             game_inst: self.game_inst,
-            sample_info: &sample_info,
+            sample_info,
         };
 
         let spec = game_state_pattern.datastructure_spec(&declare_info);
@@ -155,7 +155,7 @@ impl<'a> GameInstanceContext<'a> {
             pkg_inst_name: target_name,
         };
 
-        return game_state_pattern.update(&spec, &pkgstate_selector, gamestate, new_pkgstate);
+        game_state_pattern.update(&spec, &pkgstate_selector, gamestate, new_pkgstate)
     }
 
     pub fn smt_access_gamestate_const<S: Into<SmtExpr>>(
@@ -174,7 +174,7 @@ impl<'a> GameInstanceContext<'a> {
             tipe,
         };
 
-        return game_state_pattern.access(&spec, &const_selector, state);
+        game_state_pattern.access(&spec, &const_selector, state)
     }
 
     pub fn smt_access_gamestate_rand<S: Into<SmtExpr>>(
@@ -189,7 +189,7 @@ impl<'a> GameInstanceContext<'a> {
 
         let rand_selector = GameStateSelector::Randomness { sample_id };
 
-        return game_state_pattern.access(&spec, &rand_selector, state);
+        game_state_pattern.access(&spec, &rand_selector, state)
     }
 
     pub fn smt_update_gamestate_rand<S, V>(
@@ -209,7 +209,7 @@ impl<'a> GameInstanceContext<'a> {
 
         let rand_selector = GameStateSelector::Randomness { sample_id };
 
-        return game_state_pattern.update(&spec, &rand_selector, state, new_value);
+        game_state_pattern.update(&spec, &rand_selector, state, new_value)
     }
 
     // NOTE: This function could be implemented a bit more efficient. If the prover struggles, we could do that.

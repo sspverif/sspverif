@@ -206,15 +206,15 @@ impl Communicator {
                 let is_err_start = data.starts_with(r#"(error ""#);
                 let is_err_end = data.ends_with(")\n");
                 if data.starts_with("sat\n") {
-                    return (4, Some(Ok(ProverResponse::Sat)));
+                    (4, Some(Ok(ProverResponse::Sat)))
                 } else if data.starts_with("unsat\n") {
-                    return (6, Some(Ok(ProverResponse::Unsat)));
+                    (6, Some(Ok(ProverResponse::Unsat)))
                 } else if data.starts_with("unknown\n") {
-                    return (8, Some(Ok(ProverResponse::Unknown)));
+                    (8, Some(Ok(ProverResponse::Unknown)))
                 } else if is_err_start && is_err_end {
-                    return (data.len(), Some(Err(Error::ProverError(data.to_string()))));
+                    (data.len(), Some(Err(Error::ProverError(data.to_string()))))
                 } else {
-                    return (0, None);
+                    (0, None)
                 }
             };
 

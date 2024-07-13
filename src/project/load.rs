@@ -102,7 +102,7 @@ pub(crate) fn proofs(
 
                 let mut ast = parse_result.unwrap();
                 let proof =
-                    handle_proof(file_name, &file_content, ast.next().unwrap(), &pkgs, &games)?;
+                    handle_proof(file_name, &file_content, ast.next().unwrap(), pkgs, games)?;
                 let proof_name = proof.as_name().to_string();
 
                 proofs.insert(proof_name, proof);

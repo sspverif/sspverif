@@ -6,7 +6,7 @@ use crate::{
     },
 };
 
-pub fn parse_pkg(code: &str, file_name: &str) -> (String, Package) {
+pub fn parse(code: &str, file_name: &str) -> (String, Package) {
     let mut pkg_pairs = SspParser::parse_package(code).unwrap_or_else(|err| {
         panic!(
             "error parsing package {file_name} (in call to pest): {err}",
@@ -17,7 +17,7 @@ pub fn parse_pkg(code: &str, file_name: &str) -> (String, Package) {
     handle_pkg(file_name, code, pkg_pairs.next().unwrap()).unwrap()
 }
 
-pub fn parse_pkg_fails(code: &str, name: &str) -> ParsePackageError {
+pub fn parse_fails(code: &str, name: &str) -> ParsePackageError {
     // any test game should adhere to the grammar
     let mut pkg_pairs = SspParser::parse_package(code).unwrap_or_else(|err| {
         panic!(
@@ -32,7 +32,7 @@ pub fn parse_pkg_fails(code: &str, name: &str) -> ParsePackageError {
     ))
 }
 
-pub const TINY_PKG_CODE: &str = r#"package TinyPkg {
+pub const TINY: &str = r#"package TinyPkg {
             params {
               n: Integer,
             }
@@ -42,12 +42,19 @@ pub const TINY_PKG_CODE: &str = r#"package TinyPkg {
             }
         }"#;
 
-pub const TINY_PKG_BAD_PARAM: &str = r#"package TinyPkg {
+pub const TINY_BAD_PARAM_TYPE: &str = r#"package TinyPkg {
             params {
               foo: ThisTypeDoesNotExist,
             }
         }"#;
-pub const SMALL_FOR_PKG_CODE: &str = r#"package SmallForPkg {
+
+pub const TINY_BAD_STATE_TYPE: &str = r#"package TinyPkg {
+            state {
+              foo: ThisTypeDoesNotExist,
+            }
+        }"#;
+
+pub const SMALL_FOR: &str = r#"package SmallForPkg {
        params {
           n: Integer,
        }
@@ -70,7 +77,7 @@ pub const SMALL_FOR_PKG_CODE: &str = r#"package SmallForPkg {
        }
     }"#;
 
-pub const TINY_BAD_PKG_1_CODE: &str = r#"package TinyBadPkg1 {
+pub const TINY_BAD_1: &str = r#"package TinyBadPkg1 {
             params {
               n: Integer,
             }
@@ -80,31 +87,31 @@ pub const TINY_BAD_PKG_1_CODE: &str = r#"package TinyBadPkg1 {
             }
         }"#;
 
-pub const TINY_BAD_PKG_2_CODE: &str = r#"package TinyBadPkg2 {
+pub const TINY_BAD_2: &str = r#"package TinyBadPkg2 {
             oracle N() -> String {
               return n;
             }
         }"#;
 
-pub const TINY_BAD_PKG_3_CODE: &str = r#"package TinyBadPkg3 {
+pub const TINY_BAD_3: &str = r#"package TinyBadPkg3 {
             oracle N() -> Integer {
               return (true + false);
             }
         }"#;
 
-pub const TINY_BAD_PKG_4_CODE: &str = r#"package TinyBadPkg4 {
+pub const TINY_BAD_4: &str = r#"package TinyBadPkg4 {
             oracle N() -> Integer {
               return (true + 3);
             }
         }"#;
 
-pub const TINY_BAD_PKG_5_CODE: &str = r#"package TinyBadPkg5 {
+pub const TINY_BAD_5: &str = r#"package TinyBadPkg5 {
             oracle N() -> Integer {
               return (3 + true);
             }
         }"#;
 
-pub const TINY_BAD_PKG_6_CODE: &str = r#"package TinyBadPkg6 {
+pub const TINY_BAD_6: &str = r#"package TinyBadPkg6 {
             oracle N() -> Bool {
               return (3 + 2);
             }

@@ -130,9 +130,9 @@ impl<'a> PackageInstanceContext<'a> {
     pub fn smt_declare_pkgstate(&self) -> SmtExpr {
         let pkg = &self.pkg_inst().pkg;
         let pattern = self.pkg_state_pattern();
-        let spec = pattern.datastructure_spec(&pkg);
+        let spec = pattern.datastructure_spec(pkg);
 
-        return declare_datatype(&pattern, &spec);
+        declare_datatype(&pattern, &spec)
     }
 
     pub fn smt_access_pkgstate<S: Into<SmtExpr>>(

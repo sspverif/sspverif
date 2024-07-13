@@ -279,8 +279,8 @@ pub fn handle_compose_assign_list_multi_inst(
                         return Err(ParseGameError::UndefinedInstance(
                             UndefinedPackageInstanceError {
                                 source_code: ctx.named_source(),
-                                at: todo!(),
-                                pkg_inst_name: todo!(),
+                                at: (piece_span.start()..piece_span.end()).into(),
+                                pkg_inst_name: piece.as_str().to_string(),
                             },
                         ));
                     }
@@ -356,8 +356,8 @@ impl crate::error::LocationError for ParseGameError {
 }
 */
 
-pub fn handle_for_loop_body<'a>(
-    ctx: &mut ParseGameContext<'a>,
+pub fn handle_for_loop_body(
+    ctx: &mut ParseGameContext,
     ast: Pair<Rule>,
 ) -> Result<(), ParseGameError> {
     for comp_spec in ast.into_inner() {
@@ -641,10 +641,7 @@ fn handle_edges_compose_assign_list_multi_inst(
     Ok(edges)
 }
 
-pub fn handle_for_loop<'a>(
-    ctx: &mut ParseGameContext<'a>,
-    ast: Pair<Rule>,
-) -> Result<(), ParseGameError> {
+pub fn handle_for_loop(ctx: &mut ParseGameContext, ast: Pair<Rule>) -> Result<(), ParseGameError> {
     let mut parsed: Vec<Pair<Rule>> = ast.into_inner().collect();
     let decl_var_name = parsed[0].as_str();
     let lower_bound = handle_expression(&ctx.parse_ctx(), parsed.remove(1), Some(&Type::Integer))?;
@@ -760,7 +757,7 @@ pub fn handle_instance_decl_multi_inst(
     ctx: &mut ParseGameContext,
     ast: Pair<Rule>,
 ) -> Result<(), ParseGameError> {
-    let span = ast.as_span();
+    //let span = ast.as_span();
 
     println!(">>>> {:#?}:{:?}", ast, ast.as_rule());
 

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, iter::FromIterator};
+use std::collections::HashMap;
 
 use crate::{
     expressions::Expression,
@@ -33,7 +33,7 @@ use super::{
 use super::{
     error::{
         AssumptionMappingRightGameInstanceIsFromAssumption, DuplicateGameParameterDefinitionError,
-        Error, NoSuchGameParameterError, UndefinedAssumptionError, UndefinedGameInstanceError,
+        NoSuchGameParameterError, UndefinedAssumptionError, UndefinedGameInstanceError,
     },
     package::ParseExpressionError,
 };
@@ -217,7 +217,7 @@ pub fn handle_proof(
     let proof_ast = iter.next().unwrap();
 
     let ctx = ParseContext::new(file_name, file_content);
-    let mut ctx = ctx.proof_context(proof_name, &pkgs, &games);
+    let mut ctx = ctx.proof_context(proof_name, pkgs, games);
     ctx.scope.enter();
 
     for ast in proof_ast.into_inner() {
@@ -290,7 +290,7 @@ fn handle_instance_assign_list(
 ) -> Result<(Vec<(String, Type)>, Vec<(GameConstIdentifier, Expression)>), ParseProofError> {
     let ast = ast.into_inner();
 
-    let mut types = vec![];
+    let types = vec![];
     let mut consts = vec![];
 
     for ast in ast {
@@ -375,7 +375,7 @@ fn handle_game_hops(ctx: &mut ParseProofContext, ast: Pairs<Rule>) -> Result<(),
     Ok(())
 }
 
-fn handle_equivalence<'a>(
+fn handle_equivalence(
     ctx: &mut ParseProofContext,
     ast: Pair<Rule>,
 ) -> Result<Vec<GameHop>, ParseProofError> {
@@ -476,7 +476,7 @@ fn handle_reduction(
 fn handle_reduction_body(
     ctx: &mut ParseProofContext,
     left_name: Pair<Rule>,
-    right_name: Pair<Rule>,
+    _right_name: Pair<Rule>,
     body: Pair<Rule>,
 ) -> Result<Reduction, ParseProofError> {
     let mut ast = body.into_inner();
@@ -530,8 +530,6 @@ fn handle_mapspec<'a>(
     ast: Pair<Rule>,
     assumption: &Assumption,
 ) -> Result<Mapping, ParseProofError> {
-    let span = ast.as_span();
-
     let mut ast = ast.into_inner();
 
     let (
@@ -586,8 +584,7 @@ fn handle_mapspec<'a>(
     }
 
     let mappings: Vec<(String, String)> = ast
-        .map(Pair::into_inner)
-        .flatten()
+        .flat_map(Pair::into_inner)
         .map(|pair| pair.as_str())
         .map(str::to_string)
         .tuples()
@@ -621,15 +618,6 @@ fn handle_string_pair<'a>(ast: &mut Pairs<'a, Rule>) -> ((String, Span<'a>), (St
 
 fn next_pairs<'a>(ast: &'a mut Pairs<Rule>) -> Pairs<'a, Rule> {
     ast.next().unwrap().into_inner()
-}
-
-fn next_pair<'a>(ast: &'a mut Pairs<Rule>) -> Pair<'a, Rule> {
-    ast.next().unwrap()
-}
-
-fn next_pairs_with_span<'a>(ast: &'a mut Pairs<Rule>) -> (Pairs<'a, Rule>, Span<'a>) {
-    let pair = ast.next().unwrap();
-    (pair.clone().into_inner(), pair.as_span())
 }
 
 fn next_str<'a>(ast: &'a mut Pairs<Rule>) -> &'a str {

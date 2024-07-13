@@ -50,7 +50,7 @@ pub trait FunctionPattern {
 
     fn call(&self, args: &[SmtExpr]) -> SmtExpr {
         let mut call: Vec<SmtExpr> = vec![self.function_name().into()];
-        call.extend(args.iter().map(|arg| arg.clone()));
+        call.extend(args.iter().cloned());
         SmtExpr::List(call)
     }
 }
