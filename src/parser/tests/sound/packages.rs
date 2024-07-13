@@ -1,14 +1,11 @@
 use crate::{
     parser::{
-        composition::{handle_composition, ParseGameError},
         error::{NoSuchTypeError, TypeMismatchError, UndefinedIdentifierError},
         package::{ParseExpressionError, ParsePackageError},
-        tests::{games, packages, slice_source_span},
-        SspParser,
+        tests::{packages, slice_source_span},
     },
     types::Type,
 };
-use std::{collections::HashMap, iter::FromIterator as _};
 
 #[test]
 fn undefined_type_in_pkg_params() {
@@ -59,33 +56,6 @@ fn type_mismatch_in_assignment_to_statevar() {
             panic!("{}, which looks like this:\n{:?}", msg, report)
         }
     };
-}
-#[test]
-fn type_mismatch_in_game_params() {
-    let (name, pkg) = packages::parse(packages::TINY, "tiny-pkg");
-    let pkg_map = HashMap::from_iter(vec![(name, pkg.clone())]);
-    let mut game_pairs = SspParser::parse_composition(games::SMALL_MISTYPED).unwrap();
-    let err = handle_composition(
-        "small-mistyped-game.ssp",
-        games::SMALL_MISTYPED,
-        game_pairs.next().unwrap(),
-        &pkg_map,
-    )
-    .expect_err("expecting an error");
-    assert!(matches!(
-        &err,
-        ParseGameError::ParseExpression(ParseExpressionError::TypeMismatch(
-            TypeMismatchError {
-                at,
-                expected: Type::Integer,
-                got: Type::Boolean,
-                source_code,
-            }
-        )) if &source_code.inner()[at.offset()..(at.offset()+at.len())] == "n"
-    ));
-
-    let report = miette::Report::new(err);
-    println!("{report:?}");
 }
 
 #[test]

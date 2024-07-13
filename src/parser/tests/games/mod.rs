@@ -38,6 +38,22 @@ pub const SMALL: &str = r#"composition SmallGame {
         }
     }"#;
 
+pub const SMALL_NOPARAMS: &str = r#"composition SmallGameNoparams {
+        const n: Integer;
+
+        instance tiny_instance  = TinyPkg {
+        }
+    }"#;
+
+pub const SMALL_EMPTYPARAMS: &str = r#"composition SmallGameEmptyparams {
+        const n: Integer;
+
+        instance tiny_instance  = TinyPkg {
+            params {
+            }
+        }
+    }"#;
+
 pub const SMALL_MISTYPED: &str = r#"composition SmallMistypedGame {
         const n: Bool;
 

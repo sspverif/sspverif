@@ -1,1 +1,2 @@
+mod games;
 mod packages;
