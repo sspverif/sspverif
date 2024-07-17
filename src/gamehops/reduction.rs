@@ -38,10 +38,6 @@ impl Composition {
 }
  */
 
-fn same_package(left: &PackageInstance, right: &PackageInstance) -> bool {
-    left.pkg == right.pkg
-}
-
 pub fn verify(red: &Reduction, proof: &Proof) -> Result<()> {
     let left_mapping = red.left();
     let right_mapping = red.right();
@@ -103,95 +99,6 @@ pub fn verify(red: &Reduction, proof: &Proof) -> Result<()> {
     }
 
     // TODO check that all names are well-defined (or has that already happened?)
-
-    let right_package_resolver = SliceResolver(&right.game().pkgs);
-    let left_package_resolver = SliceResolver(&left.game().pkgs);
-    let assumption_right_package_resolver = SliceResolver(&assumption_right.game().pkgs);
-    let assumption_left_package_resolver = SliceResolver(&assumption_left.game().pkgs);
-
-    // Mapping may only occure with the same package type
-    let mismatches_left: Vec<_> = leftmap
-        .iter()
-        .map(|(from, to)| {
-            let assumption_left_pkg_inst = assumption_left_package_resolver
-                .resolve_value(from)
-                .ok_or(Error::ProofCheck(format!(
-                    "error resolving package {from} in left game {}",
-                    assumption_left.name()
-                )))?;
-
-            let left_pkg_inst =
-                left_package_resolver
-                    .resolve_value(to)
-                    .ok_or(Error::ProofCheck(format!(
-                        "error resolving package {to} in left assumption game {}",
-                        left.name()
-                    )))?;
-
-            Ok((left_pkg_inst, assumption_left_pkg_inst))
-        })
-        .filter(|to| match to {
-            Ok((from, to)) => !same_package(from, to),
-            Err(_) => true,
-        })
-        .map(|res| {
-            res.map(|(from, to)| {
-                format!(
-                    "{:#?} and {:#?} have different types",
-                    from.params, to.params
-                )
-            })
-        })
-        .collect::<Result<_>>()?;
-
-    if !mismatches_left.is_empty() {
-        return Err(Error::ProofCheck(format!(
-            "leftmap has incompatible package instances: {}",
-            mismatches_left.join(", ")
-        )));
-    }
-
-    let mismatches_right: Vec<_> = rightmap
-        .iter()
-        .map(|(from, to)| {
-            let assumption_right_pkg_inst = assumption_right_package_resolver
-                .resolve_value(from)
-                .ok_or(Error::ProofCheck(format!(
-                "error resolving package {from} in right game {}",
-                assumption_right.name()
-            )))?;
-
-            let right_pkg_inst =
-                right_package_resolver
-                    .resolve_value(to)
-                    .ok_or(Error::ProofCheck(format!(
-                        "error resolving package {to} in right assumption game {}",
-                        right.name()
-                    )))?;
-
-            Ok((right_pkg_inst, assumption_right_pkg_inst))
-        })
-        .filter(|to| match to {
-            Ok((from, to)) => !same_package(from, to),
-            Err(_) => true,
-        })
-        .map(|res| {
-            res.map(|(from, to)| {
-                format!(
-                    "{} and {} have different types",
-                    from.as_name(),
-                    to.as_name()
-                )
-            })
-        })
-        .collect::<Result<_>>()?;
-
-    if !mismatches_right.is_empty() {
-        return Err(Error::ProofCheck(format!(
-            "rightmap has incompatible package instances: {}",
-            mismatches_right.join(", ")
-        )));
-    }
 
     // Every PackageInstance in the assumptions is mapped
     if assumption_left.game().pkgs.len() != leftmap.len() {
