@@ -1,4 +1,4 @@
-proof AEProto {
+proof AEProtozwei {
     const n: Integer;
     const m: Integer;
     const prf: fn Bits(n),Bits(n) -> Bits(n);
