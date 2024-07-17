@@ -223,7 +223,7 @@ pub fn tex_write_oracle(
     pkgname: &str,
     target: &Path,
 ) -> std::io::Result<String> {
-    let fname = target.join(format!("{}_{}.tex", pkgname, oracle.sig.name));
+    let fname = target.join(format!("Oracle_{}_{}.tex", pkgname, oracle.sig.name));
     let mut file = File::create(fname.clone())?;
     let mut writer = BlockWriter::new(&mut file);
 
@@ -248,7 +248,7 @@ pub fn tex_write_oracle(
 }
 
 pub fn tex_write_package(package: &PackageInstance, target: &Path) -> std::io::Result<String> {
-    let fname = target.join(format!("{}.tex", package.name));
+    let fname = target.join(format!("Package_{}.tex", package.name));
     let mut file = File::create(fname.clone())?;
 
     writeln!(
@@ -275,6 +275,7 @@ pub fn tex_write_composition(
     let mut file = File::create(fname)?;
 
     writeln!(file, "\\documentclass[a4paper,landscape]{{article}}")?;
+    writeln!(file, "\\usepackage[margin=1in]{{geometry}}")?;
     writeln!(file, "\\usepackage[operators]{{cryptocode}}")?;
     writeln!(file, "\\usepackage{{tikz}}")?;
     writeln!(
@@ -289,7 +290,9 @@ pub fn tex_write_composition(
         file,
         "\\newcommand{{\\n}}[1]{{\\ensuremath{{\\mathit{{#1}}}}}}"
     )?;
+	writeln!(file, "\\title{{{} Game}}", composition.name)?;
     writeln!(file, "\\begin{{document}}")?;
+    writeln!(file, "\\maketitle")?;
     writeln!(file, "\\tikzstyle{{package}} = [inner sep=1pt,align=center,rounded corners,draw,minimum width=2cm,minimum height=1cm,font=\\small]")?;
     writeln!(file, "\\tikzstyle{{onarrow}} = [inner sep=1pt,font=\\scriptsize,anchor=east,at end,xshift=-0.1mm,align=left,fill=white]")?;
 
