@@ -118,6 +118,7 @@ impl Project {
     pub fn latex(&self) -> Result<()> {
         let mut path = self.root_dir.clone();
         path.push("_build/latex/");
+        std::fs::create_dir_all(&path)?;
 
         for (name, game) in &self.games {
             let (transformed, _) = crate::transforms::samplify::Transformation(game)
