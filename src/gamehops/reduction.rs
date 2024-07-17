@@ -109,9 +109,9 @@ pub fn verify(red: &Reduction, proof: &Proof) -> Result<()> {
         )));
     }
     if assumption_right.game().pkgs.len() != rightmap.len() {
-        return Err(Error::ProofCheck(format!(
-            "Some package instances in right assumption are not mapped"
-        )));
+        return Err(Error::ProofCheck(
+            "Some package instances in right assumption are not mapped".to_string(),
+        ));
     }
 
     // Every PackageInstance in the game, which is mapped
@@ -120,14 +120,12 @@ pub fn verify(red: &Reduction, proof: &Proof) -> Result<()> {
         let from = &left.game().pkgs[*from].name;
         let from_is_mapped = leftmap
             .iter()
-            .find(|(_, game_inst_name)| game_inst_name == from)
-            .is_some();
+            .any(|(_, game_inst_name)| game_inst_name == from);
 
         let to = &left.game().pkgs[*to].name;
         let to_is_mapped = leftmap
             .iter()
-            .find(|(_, game_inst_name)| game_inst_name == to)
-            .is_some();
+            .any(|(_, game_inst_name)| game_inst_name == to);
 
         if from_is_mapped && !to_is_mapped {
             return Err(Error::ProofCheck(format!(
@@ -139,14 +137,12 @@ pub fn verify(red: &Reduction, proof: &Proof) -> Result<()> {
         let from = &right.game().pkgs[*from].name;
         let from_is_mapped = rightmap
             .iter()
-            .find(|(_, game_inst_name)| game_inst_name == from)
-            .is_some();
+            .any(|(_, game_inst_name)| game_inst_name == from);
 
         let to = &right.game().pkgs[*to].name;
         let to_is_mapped = rightmap
             .iter()
-            .find(|(_, game_inst_name)| game_inst_name == to)
-            .is_some();
+            .any(|(_, game_inst_name)| game_inst_name == to);
 
         if from_is_mapped && !to_is_mapped {
             return Err(Error::ProofCheck(format!(
@@ -158,16 +154,14 @@ pub fn verify(red: &Reduction, proof: &Proof) -> Result<()> {
     // The PackageInstances in the games which are *not* mapped need to be identical
     let unmapped_left: HashSet<_> =
         HashSet::from_iter(left.game().pkgs.iter().filter(|pkg_inst| {
-            leftmap
+            !leftmap
                 .iter()
-                .find(|(_, game_inst_name)| game_inst_name == &pkg_inst.name)
-                .is_none()
+                .any(|(_, game_inst_name)| game_inst_name == &pkg_inst.name)
         }));
     let unmapped_right = HashSet::from_iter(right.game().pkgs.iter().filter(|pkg_inst| {
-        rightmap
+        !rightmap
             .iter()
-            .find(|(_, game_inst_name)| game_inst_name == &pkg_inst.name)
-            .is_none()
+            .any(|(_, game_inst_name)| game_inst_name == &pkg_inst.name)
     }));
 
     if unmapped_left != unmapped_right {
