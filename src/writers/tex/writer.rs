@@ -5,6 +5,8 @@ use std::path::Path;
 use crate::expressions::Expression;
 use crate::identifier::Identifier;
 use crate::package::{Composition, Edge, Export, OracleDef, PackageInstance};
+use crate::proof::GameHop;
+use crate::proof::Proof;
 use crate::statement::{CodeBlock, Statement};
 
 /// TODO: Move to struct so we can have verbose versions (e.g. writing types to expressions)
@@ -359,7 +361,7 @@ pub fn tex_write_composition(
 
     tex_write_document_header(&file)?;
 
-    writeln!(file, "\\title{{{} Game}}", composition.name)?;
+    writeln!(file, "\\title{{{} Game}}", name)?;
     writeln!(file, "\\begin{{document}}")?;
     writeln!(file, "\\maketitle")?;
 
@@ -373,5 +375,49 @@ pub fn tex_write_composition(
 
     writeln!(file, "\\end{{document}}")?;
 
+    Ok(())
+}
+
+pub fn tex_write_proof(proof: &Proof, name: &str, target: &Path) -> std::io::Result<()> {
+    let fname = target.join(format!("Proof_{}.tex", name));
+    let mut file = File::create(fname)?;
+
+    tex_write_document_header(&file)?;
+
+    writeln!(file, "\\title{{Proof: {}}}", name)?;
+    writeln!(file, "\\begin{{document}}")?;
+    writeln!(file, "\\maketitle")?;
+
+	writeln!(file, "\\section{{Games}}")?;
+
+	for instance in &proof.instances {
+		writeln!(file, "\\subsection{{{} Game}}", instance.name())?;
+
+		let graphfname = target.join(format!("CompositionGraph_{}.tex", instance.name()));
+		writeln!(file, "\\input{{{}}}", graphfname.display())?;
+
+		for package in &instance.game().pkgs {
+			let pkgfname = target.join(format!("Package_{}.tex", package.name));
+			writeln!(file, "\\input{{{}}}", pkgfname.display())?;
+		}
+	}
+	
+    for game_hop in &proof.game_hops {
+        match &game_hop {
+            GameHop::Reduction(red) => {
+                writeln!(file, "\\section{{Reduction to {}}}", red.assumption_name())?;
+            }
+            GameHop::Equivalence(equiv) => {
+                writeln!(
+                    file,
+                    "\\section{{Equivalence between {} and {}}}",
+                    equiv.left_name(),
+                    equiv.right_name()
+                )?;
+            }
+        }
+    }
+
+    writeln!(file, "\\end{{document}}")?;
     Ok(())
 }

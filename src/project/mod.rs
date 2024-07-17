@@ -130,6 +130,10 @@ impl Project {
             crate::writers::tex::writer::tex_write_composition(&transformed, name, path.as_path())?;
         }
 
+        for (name, proof) in &self.proofs {
+            crate::writers::tex::writer::tex_write_proof(&proof, name, path.as_path())?;
+        }
+
         Ok(())
     }
 
