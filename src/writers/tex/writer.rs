@@ -266,14 +266,7 @@ pub fn tex_write_package(package: &PackageInstance, target: &Path) -> std::io::R
     Ok(fname.to_str().unwrap().to_string())
 }
 
-pub fn tex_write_composition(
-    composition: &Composition,
-    name: &str,
-    target: &Path,
-) -> std::io::Result<()> {
-    let fname = target.join(format!("Composition_{}.tex", name));
-    let mut file = File::create(fname)?;
-
+fn tex_write_document_header(mut file: &File) -> std::io::Result<()> {
     writeln!(file, "\\documentclass[a4paper,landscape]{{article}}")?;
     writeln!(file, "\\usepackage[margin=1in]{{geometry}}")?;
     writeln!(file, "\\usepackage[operators]{{cryptocode}}")?;
@@ -290,11 +283,18 @@ pub fn tex_write_composition(
         file,
         "\\newcommand{{\\n}}[1]{{\\ensuremath{{\\mathit{{#1}}}}}}"
     )?;
-	writeln!(file, "\\title{{{} Game}}", composition.name)?;
-    writeln!(file, "\\begin{{document}}")?;
-    writeln!(file, "\\maketitle")?;
     writeln!(file, "\\tikzstyle{{package}} = [inner sep=1pt,align=center,rounded corners,draw,minimum width=2cm,minimum height=1cm,font=\\small]")?;
     writeln!(file, "\\tikzstyle{{onarrow}} = [inner sep=1pt,font=\\scriptsize,anchor=east,at end,xshift=-0.1mm,align=left,fill=white]")?;
+    Ok(())
+}
+
+fn tex_write_composition_graph(
+    composition: &Composition,
+    name: &str,
+    target: &Path,
+) -> std::io::Result<String> {
+    let fname = target.join(format!("CompositionGraph_{}.tex", name));
+    let mut file = File::create(fname.clone())?;
 
     let mut printed = Vec::new();
     let mut newly = Vec::new();
@@ -345,6 +345,26 @@ pub fn tex_write_composition(
         writeln!(file, "\\draw[-latex,rounded corners] (nodea) -- ($(nodea.east) + (1,0)$) |- node[onarrow] {{\\O{{{}}}}} (node{});", oracle.name, to)?;
     }
     writeln!(file, "\\end{{tikzpicture}}")?;
+
+    Ok(fname.to_str().unwrap().to_string())
+}
+
+pub fn tex_write_composition(
+    composition: &Composition,
+    name: &str,
+    target: &Path,
+) -> std::io::Result<()> {
+    let fname = target.join(format!("Composition_{}.tex", name));
+    let mut file = File::create(fname)?;
+
+    tex_write_document_header(&file)?;
+
+    writeln!(file, "\\title{{{} Game}}", composition.name)?;
+    writeln!(file, "\\begin{{document}}")?;
+    writeln!(file, "\\maketitle")?;
+
+    let graphfname = tex_write_composition_graph(composition, name, target)?;
+    writeln!(file, "\\input{{{}}}", graphfname)?;
 
     for pkg in &composition.pkgs {
         let pkgfname = tex_write_package(pkg, target)?;
