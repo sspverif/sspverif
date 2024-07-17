@@ -8,6 +8,7 @@ use crate::package::{Composition, Edge, Export, OracleDef, PackageInstance};
 use crate::proof::GameHop;
 use crate::proof::Proof;
 use crate::statement::{CodeBlock, Statement};
+use crate::types::Type;
 
 /// TODO: Move to struct so we can have verbose versions (e.g. writing types to expressions)
 
@@ -32,6 +33,10 @@ impl<'a> BlockWriter<'a> {
         format!("\\n{{{}}}", ident.ident().replace('_', "\\_"))
     }
 
+	fn type_to_tex(&self, tipe: &Type) -> String {
+        format!("\\O{{{:?}}}", tipe)
+	}
+
     fn expression_to_tex(&self, expr: &Expression) -> String {
         match expr {
             Expression::Bot => "\\bot".to_string(),
@@ -39,6 +44,7 @@ impl<'a> BlockWriter<'a> {
             Expression::Not(expr) => format!("\\neg {}", self.expression_to_tex(expr)),
             Expression::Unwrap(expr) => format!("\\O{{unwrap}}({})", self.expression_to_tex(expr)),
             Expression::Some(expr) => format!("\\O{{some}}({})", self.expression_to_tex(expr)),
+			Expression::None(tipe) => format!("\\O{{none}}({})", self.type_to_tex(tipe)),
             Expression::Add(lhs, rhs) => format!(
                 "({} + {})",
                 self.expression_to_tex(lhs),
@@ -146,11 +152,11 @@ impl<'a> BlockWriter<'a> {
 
                 writeln!(
                     self.file,
-                    "{}{} \\stackrel{{{}}}{{\\sample}} {:?}\\\\",
+                    "{}{} \\stackrel{{{}}}{{\\sample}} {}\\\\",
                     genindentation(indentation),
                     self.ident_to_tex(ident),
                     cnt,
-                    tipe
+                    self.type_to_tex(tipe)
                 )?;
             }
             Statement::Sample(ident, Some(idxexpr), maybecnt, tipe, _) => {
@@ -158,12 +164,12 @@ impl<'a> BlockWriter<'a> {
 
                 writeln!(
                     self.file,
-                    "{}{}[{}] \\stackrel{{{}}}{{\\samples}} {:?}\\\\",
+                    "{}{}[{}] \\stackrel{{{}}}{{\\samples}} {}\\\\",
                     genindentation(indentation),
                     self.ident_to_tex(ident),
                     self.expression_to_tex(idxexpr),
                     cnt,
-                    tipe
+                    self.type_to_tex(tipe)
                 )?;
             }
             Statement::InvokeOracle {
@@ -176,7 +182,7 @@ impl<'a> BlockWriter<'a> {
                 ..
             } => {
                 writeln!(self.file,
-                         "{}{} \\stackrel{{\\gets}}{{\\mathsf{{\\tiny{{invoke}}}}}} {}({}) \\pccomment{{Pkg: {}}} \\\\",
+                         "{}{} \\stackrel{{\\mathsf{{\\tiny{{invoke}}}}}}{{\\gets}} \\O{{{}}}({}) \\pccomment{{Pkg: {}}} \\\\",
                          genindentation(indentation),
                          self.ident_to_tex(ident), name,
                          args.iter().map(|expr| self.expression_to_tex(expr)).collect::<Vec<_>>().join(", "),
@@ -193,7 +199,7 @@ impl<'a> BlockWriter<'a> {
                 ..
             } => {
                 writeln!(self.file,
-                         "{}{}[{}] \\stackrel{{\\gets}}{{\\mathsf{{\\tiny invoke}}}} {}({}) \\pccomment{{Pkg: {}}} \\\\",
+                         "{}{}[{}] \\stackrel{{\\mathsf{{\\tiny invoke}}}}{{\\gets}} \\O{{{}}}({}) \\pccomment{{Pkg: {}}} \\\\",
                          genindentation(indentation),
                          self.ident_to_tex(ident),
                          self.expression_to_tex(idxexpr),
@@ -431,7 +437,7 @@ pub fn tex_write_proof(proof: &Proof, name: &str, target: &Path) -> std::io::Res
 
                 writeln!(
                     file,
-                    "Game {} with Assumption Game {} in red",
+                    "Game {} with Assumption Game {} in red\n\n",
                     red.left().as_game_inst_name(),
                     red.left().as_assumption_game_inst_name()
                 )?;
@@ -448,7 +454,7 @@ pub fn tex_write_proof(proof: &Proof, name: &str, target: &Path) -> std::io::Res
 
                 writeln!(
                     file,
-                    "\n\nGame {} with Assumption Game {} in red",
+                    "\n\nGame {} with Assumption Game {} in red\n\n",
                     red.right().as_game_inst_name(),
                     red.right().as_assumption_game_inst_name()
                 )?;
