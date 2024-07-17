@@ -1,0 +1,66 @@
+proof AEProto {
+    const n: Integer;
+    const m: Integer;
+    const prf: fn Bits(n),Bits(n) -> Bits(n);
+    const enc: fn Bits(n),Bits(n),Bits(n) -> Bits(m);
+    const dec: fn Bits(n),Bits(m)         -> Bits(n);
+  
+    instance real = Real {
+        params {
+            n: n,
+			m: m,
+	    prf: prf,
+            enc: enc,
+            dec: dec,
+        }
+    }
+
+    instance monprfreal = Monprfreal {
+        params {
+            n  : n  ,
+  	        prf: prf,
+        }
+    }
+
+    instance modprfreal = Modprfreal {
+        params {
+            n  : n  ,
+  	        prf: prf,
+        }
+    }
+
+
+    assumptions {
+    }
+
+    gamehops {
+    equivalence modprfreal monprfreal 
+        {
+            EVAL: 
+            {
+                invariant: [
+                    ./proofs/invariant-PRF.smt2
+                ]
+
+                lemmas {
+                    aborts-equal-EVAL:   []
+                    invariant-EVAL:      [no-abort-EVAL]
+                    same-output-EVAL:    [no-abort-EVAL]
+                }
+            }
+            GET: 
+            {
+                invariant: [
+                    ./proofs/invariant-PRF.smt2
+                ]
+
+                lemmas {
+                    aborts-equal-GET:   []
+                    invariant-GET:      [no-abort-GET]
+                    same-output-GET:    [no-abort-GET]
+                }
+            }
+        }
+
+    }
+}

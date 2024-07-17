@@ -1,0 +1,17 @@
+composition Monprfreal {
+    const n: Integer;
+    const prf: fn Bits(n), Bits(n) -> Bits(n);
+    
+    instance prf = PRFIdeal {
+        params {
+            n:   n,
+        }
+    }
+
+    compose {
+        adversary: {
+            Eval: prf,
+            Get:  prf,
+        },
+    }
+}
