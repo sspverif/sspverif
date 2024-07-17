@@ -5,10 +5,7 @@ use self::{
     pkg_ident::{PackageIdentifier, PackageOracleCodeLoopVarIdentifier},
 };
 
-// TODO: remove the Parameter and GameInstanceConst variants so we can derive PartialEq again. Then
-//       we can also remove the linter exception
-#[allow(clippy::derived_hash_with_manual_eq)]
-#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord)]
+#[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
 pub enum Identifier {
     PackageIdentifier(pkg_ident::PackageIdentifier),
     GameIdentifier(game_ident::GameIdentifier),
@@ -344,6 +341,12 @@ pub mod game_ident {
         pub proof_name: Option<String>,
         pub inst_info: Option<GameIdentInstanciationInfo>,
     }
+
+    impl From<GameLoopVarIdentifier> for Identifier {
+        fn from(value: GameLoopVarIdentifier) -> Self {
+            Identifier::GameIdentifier(GameIdentifier::LoopVar(value))
+        }
+    }
 }
 
 pub mod proof_ident {
@@ -423,6 +426,18 @@ pub mod proof_ident {
         pub start_comp: ForComp,
         pub end_comp: ForComp,
         pub inst_info: Option<ProofIdentInstanciationInfo>,
+    }
+
+    impl From<ProofConstIdentifier> for Identifier {
+        fn from(value: ProofConstIdentifier) -> Self {
+            Identifier::ProofIdentifier(ProofIdentifier::Const(value))
+        }
+    }
+
+    impl From<ProofLoopVarIdentifier> for Identifier {
+        fn from(value: ProofLoopVarIdentifier) -> Self {
+            Identifier::ProofIdentifier(ProofIdentifier::LoopVar(value))
+        }
     }
 }
 
@@ -572,19 +587,6 @@ pub struct ComposeLoopVar {
     pub(crate) name_in_comp: String,
     pub(crate) pkgname: String,
     pub(crate) game_inst_name: String,
-}
-
-impl PartialEq for Identifier {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Local(x), Self::Local(y)) => x == y,
-
-            // TODO: maybe do something clever based on instantiation info?
-            (Self::GameIdentifier(x), Self::GameIdentifier(y)) => x == y,
-            (Self::PackageIdentifier(x), Self::PackageIdentifier(y)) => x == y,
-            _ => false,
-        }
-    }
 }
 
 impl Identifier {

@@ -281,6 +281,7 @@ pub fn handle_compose_assign_list_multi_inst(
                                 source_code: ctx.named_source(),
                                 at: (piece_span.start()..piece_span.end()).into(),
                                 pkg_inst_name: piece.as_str().to_string(),
+                                in_game: ctx.game_name.to_string(),
                             },
                         ));
                     }
@@ -477,6 +478,7 @@ fn handle_export_compose_assign_list_multi_inst(
                             source_code: ctx.named_source(),
                             at: (span.start()..span.end()).into(),
                             pkg_inst_name: piece.to_string(),
+                            in_game: ctx.game_name.to_string(),
                         }
                         .into());
                     }
@@ -570,6 +572,7 @@ fn handle_edges_compose_assign_list_multi_inst(
                             source_code: ctx.named_source(),
                             at: (span.start()..span.end()).into(),
                             pkg_inst_name: piece.to_string(),
+                            in_game: ctx.game_name.to_string(),
                         }
                         .into());
                     }

@@ -104,7 +104,7 @@ pub struct TypeMismatchError {
 }
 
 #[derive(Error, Diagnostic, Debug)]
-#[error("undefined package instance '{pkg_inst_name}'")]
+#[error("package instance '{pkg_inst_name}' is not defined in game {in_game}")]
 #[diagnostic(code(ssbee::code::undefined_package_instance))]
 pub struct UndefinedPackageInstanceError {
     #[source_code]
@@ -114,6 +114,7 @@ pub struct UndefinedPackageInstanceError {
     pub at: SourceSpan,
 
     pub pkg_inst_name: String,
+    pub in_game: String,
 }
 
 #[derive(Error, Diagnostic, Debug)]
@@ -344,11 +345,75 @@ pub struct AssumptionMappingRightGameInstanceIsFromAssumption {
 
 #[derive(Debug, Diagnostic, Error)]
 #[error("Can't infer type of `None`. Use `None as <type>` to construct a `None` of type `Maybe(<type>)`")]
-#[diagnostic(code(ssbee::code::untyped_none_type_inferene))]
+#[diagnostic(code(ssbee::code::untyped_none_type_inference))]
 pub struct UntypedNoneTypeInferenceError {
     #[source_code]
     pub source_code: miette::NamedSource<String>,
 
     #[label("this None")]
     pub at: SourceSpan,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("The package instances {left_pkg_inst_name} and {right_pkg_inst_name} in a reduction mapping have different package types")]
+#[diagnostic(code(ssbee::code::proof::reduction::mapping::package_mismatch))]
+pub struct AssumptionMappingContainsDifferentPackagesError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this package instance is a {left_pkg_name}")]
+    pub at_left: SourceSpan,
+    #[label("this package instance is a {right_pkg_name}")]
+    pub at_right: SourceSpan,
+
+    pub left_pkg_inst_name: String,
+    pub right_pkg_inst_name: String,
+    pub left_pkg_name: String,
+    pub right_pkg_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("The package instances {left_pkg_inst_name} and {right_pkg_inst_name} in a reduction have different package types")]
+#[diagnostic(code(ssbee::code::proof::reduction::mapping::reduction_package_mismatch))]
+pub struct ReductionContainsDifferentPackagesError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this package instance is a {left_pkg_name}")]
+    pub at_left: SourceSpan,
+    #[label("this package instance is a {right_pkg_name}")]
+    pub at_right: SourceSpan,
+
+    pub left_pkg_inst_name: String,
+    pub right_pkg_inst_name: String,
+    pub left_pkg_name: String,
+    pub right_pkg_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("The package instance {pkg_inst_name} was mapped twice")]
+#[diagnostic(code(ssbee::code::proof::reduction::mapping::duplicate_package_instance))]
+pub struct AssumptionMappingDuplicatePackageInstanceError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("now here")]
+    pub at_this: SourceSpan,
+    #[label("and before here")]
+    pub at_prev: SourceSpan,
+
+    pub pkg_inst_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("The package instance {pkg_inst_name} of the assumption game has not been mapped")]
+#[diagnostic(code(ssbee::code::proof::reduction::mapping::duplicate_package_instance))]
+pub struct AssumptionMappingMissesPackageInstanceError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("in this mapping")]
+    pub at: SourceSpan,
+
+    pub pkg_inst_name: String,
 }
