@@ -291,13 +291,10 @@ fn tex_write_document_header(mut file: &File) -> std::io::Result<()> {
 }
 
 fn tex_write_composition_graph(
+    mut file: &File,
     composition: &Composition,
-    name: &str,
-    target: &Path,
-) -> std::io::Result<String> {
-    let fname = target.join(format!("CompositionGraph_{}.tex", name));
-    let mut file = File::create(fname.clone())?;
-
+    pkgmap: &[(std::string::String, std::string::String)],
+) -> std::io::Result<()> {
     let mut printed = Vec::new();
     let mut newly = Vec::new();
 
@@ -316,13 +313,24 @@ fn tex_write_composition_graph(
                 .iter()
                 .any(|Edge(from, to, _oracle)| i == *from && !printed.contains(to))
             {
+                let fill = if pkgmap
+                    .iter()
+                    .find(|(pkgname, _)| composition.pkgs[i].name == *pkgname)
+                    .is_some()
+                {
+                    "red!50"
+                } else {
+                    "white"
+                };
+
                 writeln!(
                     file,
-                    "\\node[package] (node{}) at ({}, {}) {{\\M{{{}}}}};",
+                    "\\node[align=center,package,fill={fill}] (node{}) at ({}, {}) {{\\M{{{}}}\\\\\\M{{{}}}}};",
                     i,
                     tikzx,
                     tikzy,
-                    composition.pkgs[i].name.replace('_', "\\_")
+                    composition.pkgs[i].name.replace('_', "\\_"),
+                    composition.pkgs[i].pkg.name.replace('_', "\\_")
                 )?;
                 newly.push(i);
                 tikzy -= 2;
@@ -338,6 +346,7 @@ fn tex_write_composition_graph(
         tikzx -= 4;
         tikzy = tikzx / 4;
     }
+
     writeln!(
         file,
         "\\node[package] (nodea) at ({}, {}) {{$A$}};",
@@ -347,6 +356,19 @@ fn tex_write_composition_graph(
         writeln!(file, "\\draw[-latex,rounded corners] (nodea) -- ($(nodea.east) + (1,0)$) |- node[onarrow] {{\\O{{{}}}}} (node{});", oracle.name, to)?;
     }
     writeln!(file, "\\end{{tikzpicture}}")?;
+
+    Ok(())
+}
+
+fn tex_write_composition_graph_file(
+    composition: &Composition,
+    name: &str,
+    target: &Path,
+) -> std::io::Result<String> {
+    let fname = target.join(format!("CompositionGraph_{}.tex", name));
+    let mut file = File::create(fname.clone())?;
+
+    tex_write_composition_graph(&file, composition, &Vec::new())?;
 
     Ok(fname.to_str().unwrap().to_string())
 }
@@ -365,7 +387,7 @@ pub fn tex_write_composition(
     writeln!(file, "\\begin{{document}}")?;
     writeln!(file, "\\maketitle")?;
 
-    let graphfname = tex_write_composition_graph(composition, name, target)?;
+    let graphfname = tex_write_composition_graph_file(composition, name, target)?;
     writeln!(file, "\\input{{{}}}", graphfname)?;
 
     for pkg in &composition.pkgs {
@@ -388,24 +410,58 @@ pub fn tex_write_proof(proof: &Proof, name: &str, target: &Path) -> std::io::Res
     writeln!(file, "\\begin{{document}}")?;
     writeln!(file, "\\maketitle")?;
 
-	writeln!(file, "\\section{{Games}}")?;
+    writeln!(file, "\\section{{Games}}")?;
 
-	for instance in &proof.instances {
-		writeln!(file, "\\subsection{{{} Game}}", instance.name())?;
+    for instance in &proof.instances {
+        writeln!(file, "\\subsection{{{} Game}}", instance.name())?;
 
-		let graphfname = target.join(format!("CompositionGraph_{}.tex", instance.name()));
-		writeln!(file, "\\input{{{}}}", graphfname.display())?;
+        let graphfname = target.join(format!("CompositionGraph_{}.tex", instance.name()));
+        writeln!(file, "\\input{{{}}}", graphfname.display())?;
 
-		for package in &instance.game().pkgs {
-			let pkgfname = target.join(format!("Package_{}.tex", package.name));
-			writeln!(file, "\\input{{{}}}", pkgfname.display())?;
-		}
-	}
-	
+        for package in &instance.game().pkgs {
+            let pkgfname = target.join(format!("Package_{}.tex", package.name));
+            writeln!(file, "\\input{{{}}}", pkgfname.display())?;
+        }
+    }
+
     for game_hop in &proof.game_hops {
         match &game_hop {
             GameHop::Reduction(red) => {
                 writeln!(file, "\\section{{Reduction to {}}}", red.assumption_name())?;
+
+                writeln!(
+                    file,
+                    "Game {} with Assumption Game {} in red",
+                    red.left().as_game_inst_name(),
+                    red.left().as_assumption_game_inst_name()
+                )?;
+                let left_game_instance = proof
+                    .instances
+                    .iter()
+                    .find(|instance| instance.name() == red.left().as_game_inst_name())
+                    .unwrap();
+                tex_write_composition_graph(
+                    &file,
+                    left_game_instance.game(),
+                    red.left().pkg_maps(),
+                )?;
+
+                writeln!(
+                    file,
+                    "\n\nGame {} with Assumption Game {} in red",
+                    red.right().as_game_inst_name(),
+                    red.right().as_assumption_game_inst_name()
+                )?;
+                let right_game_instance = proof
+                    .instances
+                    .iter()
+                    .find(|instance| instance.name() == red.right().as_game_inst_name())
+                    .unwrap();
+                tex_write_composition_graph(
+                    &file,
+                    right_game_instance.game(),
+                    red.right().pkg_maps(),
+                )?;
             }
             GameHop::Equivalence(equiv) => {
                 writeln!(
