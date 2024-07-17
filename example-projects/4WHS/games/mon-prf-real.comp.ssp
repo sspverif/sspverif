@@ -11,8 +11,8 @@ composition Monprfreal {
 
     compose {
         adversary: {
-            Eval: red,
-            Get:  red,
+            Eval: prf,
+            Get:  prf,
         },
     }
 }

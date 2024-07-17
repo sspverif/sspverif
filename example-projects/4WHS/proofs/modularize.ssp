@@ -1,20 +1,10 @@
-proof AEProto {
+proof WHSProto {
     const n: Integer;
     const m: Integer;
     const prf: fn Bits(n),Bits(n) -> Bits(n);
-    const enc: fn Bits(n),Bits(n),Bits(n) -> Bits(m);
-    const dec: fn Bits(n),Bits(m)         -> Bits(n);
+    const mac: fn Bits(n),Bits(n) -> Bits(n);
+    const verify: fn Bits(n),Bits(n),Bits(n) -> Bool;
   
-    instance real = Real {
-        params {
-            n: n,
-			m: m,
-	    prf: prf,
-            enc: enc,
-            dec: dec,
-        }
-    }
-
     instance monprfreal = Monprfreal {
         params {
             n  : n  ,
@@ -22,45 +12,30 @@ proof AEProto {
         }
     }
 
-    instance modprfreal = Modprfreal {
+    instance monprfideal = Monprfideal {
         params {
             n  : n  ,
-  	        prf: prf,
         }
     }
 
 
     assumptions {
+        Monprf: monprfreal ~ monprfideal
     }
 
-    gamehops {
-    equivalence modprfreal monprfreal 
+    gamehops 
+    {
+        reduction monprfreal monprfideal  
         {
-            EVAL: 
-            {
-                invariant: [
-                    ./proofs/invariant-PRF.smt2
-                ]
+            assumption Monprf
 
-                lemmas {
-                    aborts-equal-EVAL:   []
-                    invariant-EVAL:      [no-abort-EVAL]
-                    same-output-EVAL:    [no-abort-EVAL]
-                }
+            map monprfreal monprfreal {
+                prf    : prf
             }
-            GET: 
-            {
-                invariant: [
-                    ./proofs/invariant-PRF.smt2
-                ]
 
-                lemmas {
-                    aborts-equal-GET:   []
-                    invariant-GET:      [no-abort-GET]
-                    same-output-GET:    [no-abort-GET]
-                }
+            map monprfideal monprfideal {
+                prf    : prf
             }
         }
-
     }
 }
