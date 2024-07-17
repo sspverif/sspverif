@@ -1,11 +1,10 @@
-proof AEProto 
-{
+proof AEProto {
     const n: Integer;
     const m: Integer;
     const prf: fn Bits(n),Bits(n) -> Bits(n);
     const enc: fn Bits(n),Bits(n),Bits(n) -> Bits(m);
     const dec: fn Bits(n),Bits(m)         -> Bits(n);
-  
+
     instance real = Real {
         params {
             n: n,
@@ -18,9 +17,9 @@ proof AEProto
 
     instance hybrid = Hybrid {
         params {
-              n: n,
-			  m: m,
-   	        prf: prf,
+            n: n,
+            m: m,
+            prf: prf,
             enc: enc,
             dec: dec,
         }
@@ -44,10 +43,8 @@ proof AEProto
         Modprf: modprfreal ~ modprfideal
     }
 
-    gamehops 
-    {
-        reduction hybrid real  
-        {
+    gamehops {
+        reduction hybrid real {
             assumption Modprf
 
             map modprfreal real {

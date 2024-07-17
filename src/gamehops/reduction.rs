@@ -90,16 +90,16 @@ pub fn verify(red: &Reduction, proof: &Proof) -> Result<()> {
 
     // PackageInstances are only mentioned once
     if !(leftmap.iter().map(|(from, _to)| from).all_unique()) {
-        return Err(Error::ProofCheck(format!("leftmap has duplicate from")));
+        return Err(Error::ProofCheck("leftmap has duplicate from".to_string()));
     }
     if !(leftmap.iter().map(|(_from, to)| to).all_unique()) {
-        return Err(Error::ProofCheck(format!("leftmap has duplicate to")));
+        return Err(Error::ProofCheck("leftmap has duplicate to".to_string()));
     }
     if !(rightmap.iter().map(|(from, _to)| from).all_unique()) {
-        return Err(Error::ProofCheck(format!("rightmap has duplicate from")));
+        return Err(Error::ProofCheck("rightmap has duplicate from".to_string()));
     }
     if !(rightmap.iter().map(|(_from, to)| to).all_unique()) {
-        return Err(Error::ProofCheck(format!("rightmap has duplicate to")));
+        return Err(Error::ProofCheck("rightmap has duplicate to".to_string()));
     }
 
     // TODO check that all names are well-defined (or has that already happened?)
