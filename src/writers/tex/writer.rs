@@ -437,7 +437,7 @@ pub fn tex_write_proof(proof: &Proof, name: &str, target: &Path) -> std::io::Res
 
                 writeln!(
                     file,
-                    "Game {} with Assumption Game {} in red\n\n",
+                    "\\subsection{{Game {} with Assumption Game {} highlighted in red}}",
                     red.left().as_game_inst_name(),
                     red.left().as_assumption_game_inst_name()
                 )?;
@@ -454,7 +454,7 @@ pub fn tex_write_proof(proof: &Proof, name: &str, target: &Path) -> std::io::Res
 
                 writeln!(
                     file,
-                    "\n\nGame {} with Assumption Game {} in red\n\n",
+                    "\\subsection{{Game {} with Assumption Game {} highlighted  in red}}",
                     red.right().as_game_inst_name(),
                     red.right().as_assumption_game_inst_name()
                 )?;
