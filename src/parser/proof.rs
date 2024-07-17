@@ -27,15 +27,13 @@ use thiserror::Error;
 
 use super::{
     common,
-    error::{MissingGameParameterDefinitionError, NoSuchTypeError, UndefinedGameError},
-    ParseContext,
-};
-use super::{
     error::{
         AssumptionMappingRightGameInstanceIsFromAssumption, DuplicateGameParameterDefinitionError,
-        NoSuchGameParameterError, UndefinedAssumptionError, UndefinedGameInstanceError,
+        MissingGameParameterDefinitionError, NoSuchGameParameterError, NoSuchTypeError,
+        UndefinedAssumptionError, UndefinedGameError, UndefinedGameInstanceError,
     },
     package::ParseExpressionError,
+    ParseContext,
 };
 
 #[derive(Debug)]
@@ -525,7 +523,7 @@ fn handle_reduction_body(
     Ok(reduction)
 }
 
-fn handle_mapspec<'a>(
+fn handle_mapspec(
     ctx: &mut ParseProofContext,
     ast: Pair<Rule>,
     assumption: &Assumption,
@@ -533,52 +531,51 @@ fn handle_mapspec<'a>(
     let mut ast = ast.into_inner();
 
     let (
-        (first_game_inst_name, first_game_inst_name_span),
-        (second_game_inst_name, second_game_inst_name_span),
+        (fst_game_inst_name, fst_game_inst_name_span),
+        (snd_game_inst_name, snd_game_inst_name_span),
     ) = handle_string_pair(&mut ast);
 
     // check that game instance names can be resolved
     SliceResolver(&ctx.instances)
-        .resolve_value(&first_game_inst_name)
+        .resolve_value(&fst_game_inst_name)
         .ok_or(UndefinedGameInstanceError {
             source_code: ctx.named_source(),
-            at: (first_game_inst_name_span.start()..first_game_inst_name_span.end()).into(),
-            game_inst_name: first_game_inst_name.clone(),
+            at: (fst_game_inst_name_span.start()..fst_game_inst_name_span.end()).into(),
+            game_inst_name: fst_game_inst_name.clone(),
         })?;
     SliceResolver(&ctx.instances)
-        .resolve_value(&second_game_inst_name)
+        .resolve_value(&snd_game_inst_name)
         .ok_or(UndefinedGameInstanceError {
             source_code: ctx.named_source(),
-            at: (second_game_inst_name_span.start()..second_game_inst_name_span.end()).into(),
-            game_inst_name: second_game_inst_name.clone(),
+            at: (snd_game_inst_name_span.start()..snd_game_inst_name_span.end()).into(),
+            game_inst_name: snd_game_inst_name.clone(),
         })?;
 
-    let is_left_assumption_game = first_game_inst_name.clone() == assumption.left_name;
-    let is_right_assumption_game = first_game_inst_name == assumption.right_name;
+    let fst_is_assumption_game =
+        fst_game_inst_name == assumption.left_name || fst_game_inst_name == assumption.right_name;
+    let snd_is_assumption_game =
+        snd_game_inst_name == assumption.left_name || snd_game_inst_name == assumption.right_name;
 
-    if !(is_left_assumption_game || is_right_assumption_game) {
+    if !fst_is_assumption_game {
         println!("{assumption:?}");
         return Err(AssumptionMappingLeftGameInstanceIsNotFromAssumption {
             source_code: ctx.named_source(),
-            at: (first_game_inst_name_span.start()..first_game_inst_name_span.end()).into(),
-            game_instance_name: first_game_inst_name.to_string(),
+            at: (fst_game_inst_name_span.start()..fst_game_inst_name_span.end()).into(),
+            game_instance_name: fst_game_inst_name.to_string(),
             assumption_left_game_instance_name: assumption.left_name.clone(),
             assumption_right_game_instance_name: assumption.right_name.clone(),
         }
         .into());
     }
 
-    let is_left_assumption_game = second_game_inst_name == assumption.left_name;
-    let is_right_assumption_game = second_game_inst_name == assumption.right_name;
-
-    if !(is_left_assumption_game || is_right_assumption_game) {
+    if snd_is_assumption_game {
         println!("{assumption:?}");
         return Err(AssumptionMappingRightGameInstanceIsFromAssumption {
             source_code: ctx.named_source(),
-            at: (second_game_inst_name_span.start()..second_game_inst_name_span.end()).into(),
-            game_instance_name: second_game_inst_name.to_string(),
-            model_left_game_instance_name: first_game_inst_name.clone(),
-            model_right_game_instance_name: second_game_inst_name.clone(),
+            at: (snd_game_inst_name_span.start()..snd_game_inst_name_span.end()).into(),
+            game_instance_name: snd_game_inst_name.to_string(),
+            model_left_game_instance_name: fst_game_inst_name.clone(),
+            model_right_game_instance_name: snd_game_inst_name.clone(),
         }
         .into());
     }
@@ -593,7 +590,7 @@ fn handle_mapspec<'a>(
     // TODO check mappings are valid
     for (_assumption_const, _game_const) in &mappings {}
 
-    let mapping = Mapping::new(first_game_inst_name, second_game_inst_name, mappings);
+    let mapping = Mapping::new(fst_game_inst_name, snd_game_inst_name, mappings);
     Ok(mapping)
 }
 
