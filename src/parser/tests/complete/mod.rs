@@ -33,7 +33,7 @@ fn empty_state_section_is_fine() {
 
 #[test]
 fn tiny_game_without_packages() {
-    let game = games::parse(games::TINY, "tiny-game", &HashMap::default());
+    let game = games::parse_file("tiny.ssp", &HashMap::default());
 
     assert_eq!(game.name, "TinyGame");
     assert_eq!(game.consts[0].0, "n");
@@ -44,7 +44,7 @@ fn tiny_game_without_packages() {
 
 #[test]
 fn tiny_package() {
-    let (name, pkg) = parse(TINY, "tiny.ssp");
+    let (name, pkg) = parse_file("tiny.ssp");
 
     assert_eq!(name, "TinyPkg");
     assert_eq!(pkg.params.len(), 1);
@@ -59,9 +59,9 @@ fn tiny_package() {
 
 #[test]
 fn small_game() {
-    let (name, pkg) = parse(TINY, "tiny.ssp");
+    let (name, pkg) = parse_file("tiny.ssp");
     let pkg_map = HashMap::from_iter(vec![(name, pkg.clone())]);
-    let game = games::parse(games::SMALL, "small-game", &pkg_map);
+    let game = games::parse_file("small.ssp", &pkg_map);
 
     assert_eq!(game.name, "SmallGame");
     assert_eq!(game.consts.len(), 1);
@@ -86,7 +86,7 @@ fn small_game() {
 
 #[test]
 fn small_for_package() {
-    let (name, pkg) = parse(SMALL_FOR, "small-for-pkg");
+    let (name, pkg) = parse_file("small_for.ssp");
 
     assert_eq!(name, "SmallForPkg");
     assert_eq!(pkg.params.len(), 1);
@@ -100,9 +100,9 @@ fn small_for_package() {
 
 #[test]
 fn small_multi_inst_game() {
-    let (name, pkg) = parse(TINY, "tiny.ssp");
+    let (name, pkg) = parse_file("tiny.ssp");
     let pkg_map = HashMap::from_iter(vec![(name, pkg.clone())]);
-    let game = games::parse(games::SMALL_MULTI_INST, "small-multi-inst-game", &pkg_map);
+    let game = games::parse_file("small_multi_inst.ssp", &pkg_map);
     println!("{game:#?}");
 
     assert_eq!(game.pkgs[0].multi_instance_indices.indices.len(), 1);
@@ -110,5 +110,5 @@ fn small_multi_inst_game() {
 
 #[test]
 fn untyped_none_type_inference_works() {
-    let (name, pkg) = parse(NONE_INFERENCE_YAY, "none-type-inference-works.ssp");
+    let (name, pkg) = parse_file("none_inference_return.ssp");
 }

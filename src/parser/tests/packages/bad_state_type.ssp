@@ -1,0 +1,5 @@
+package TinyPkg {
+    state {
+        foo: ThisTypeDoesNotExist,
+    }
+}

@@ -1,0 +1,5 @@
+package TinyBadPkg6 {
+    oracle N() -> Bool {
+        return (3 + 2);
+    }
+}

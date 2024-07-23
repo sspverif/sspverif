@@ -1,0 +1,5 @@
+package BadParamTypePkg {
+    params {
+        foo: ThisTypeDoesNotExist,
+    }
+}

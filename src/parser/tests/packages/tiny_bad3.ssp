@@ -1,0 +1,5 @@
+package TinyBadPkg3 {
+    oracle N() -> Integer {
+        return (true + false);
+    }
+}

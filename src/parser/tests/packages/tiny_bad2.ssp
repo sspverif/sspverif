@@ -1,0 +1,5 @@
+package TinyBadPkg2 {
+    oracle N() -> String {
+        return n;
+    }
+}

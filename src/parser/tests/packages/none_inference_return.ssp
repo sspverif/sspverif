@@ -1,0 +1,5 @@
+package NonePackage {
+    oracle Foo() -> Maybe(Integer) {
+        return None;
+    }
+}
