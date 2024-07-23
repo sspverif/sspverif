@@ -11,9 +11,9 @@ use std::{collections::HashMap, iter::FromIterator as _};
 
 #[test]
 fn type_mismatch_in_game_params() {
-    let (name, pkg) = packages::parse(packages::TINY, "tiny-pkg");
+    let (name, pkg) = packages::parse_file("tiny.ssp");
     let pkg_map = HashMap::from_iter(vec![(name, pkg.clone())]);
-    let err = games::parse_fails(games::SMALL_MISTYPED, "small-mistyped-game.ssp", &pkg_map);
+    let err = games::parse_file_fails("small_mistyped.ssp", &pkg_map);
 
     assert!(matches!(
         &err,
@@ -33,9 +33,9 @@ fn type_mismatch_in_game_params() {
 
 #[test]
 fn missing_game_params_block() {
-    let (name, pkg) = packages::parse(packages::TINY, "tiny-pkg");
+    let (name, pkg) = packages::parse_file("tiny.ssp");
     let pkg_map = HashMap::from_iter(vec![(name, pkg.clone())]);
-    let err = games::parse_fails(games::SMALL_NOPARAMS, "small-noparams-game.ssp", &pkg_map);
+    let err = games::parse_file_fails("small_noparams.ssp", &pkg_map);
 
     // TODO: figure out what error this should be
 
@@ -44,13 +44,9 @@ fn missing_game_params_block() {
 }
 #[test]
 fn missing_game_empty_block() {
-    let (name, pkg) = packages::parse(packages::TINY, "tiny-pkg");
+    let (name, pkg) = packages::parse_file("tiny.ssp");
     let pkg_map = HashMap::from_iter(vec![(name, pkg.clone())]);
-    let err = games::parse_fails(
-        games::SMALL_EMPTYPARAMS,
-        "small-emptyparams-game.ssp",
-        &pkg_map,
-    );
+    let err = games::parse_file_fails("small_emptyparams.ssp", &pkg_map);
 
     // TODO: figure out what error this should be
 

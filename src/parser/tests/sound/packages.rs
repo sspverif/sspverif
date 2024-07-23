@@ -9,7 +9,7 @@ use crate::{
 
 #[test]
 fn undefined_type_in_pkg_params() {
-    let err = packages::parse_fails(packages::TINY_BAD_PARAM_TYPE, "tiny-pkg-bad-param.ssp");
+    let err = packages::parse_file_fails("bad_param_type.ssp");
     assert!(
         matches!(err, ParsePackageError::NoSuchType(NoSuchTypeError {
                 type_name,
@@ -22,7 +22,7 @@ fn undefined_type_in_pkg_params() {
 
 #[test]
 fn undefined_type_in_pkg_state() {
-    let err = packages::parse_fails(packages::TINY_BAD_STATE_TYPE, "tiny-pkg-bad-state.ssp");
+    let err = packages::parse_file_fails("bad_state_type.ssp");
     assert!(
         matches!(err, ParsePackageError::NoSuchType(NoSuchTypeError {
                 type_name,
@@ -35,7 +35,7 @@ fn undefined_type_in_pkg_state() {
 
 #[test]
 fn type_mismatch_in_assignment_to_statevar() {
-    let err = packages::parse_fails(packages::ASSIGN_WRONG_TYPE_TO_STATE, "bad-state-assign.ssp");
+    let err = packages::parse_file_fails("state_assignment_type_mismatch.ssp");
 
     match err {
         ParsePackageError::ParseExpression(ParseExpressionError::TypeMismatch(
@@ -60,7 +60,7 @@ fn type_mismatch_in_assignment_to_statevar() {
 
 #[test]
 fn wrong_return_type_fails() {
-    let err = packages::parse_fails(packages::TINY_BAD_1, "tiny-bad-pkg-1");
+    let err = packages::parse_file_fails("tiny_bad1.ssp");
 
     assert!(
         matches!(
@@ -80,7 +80,7 @@ fn wrong_return_type_fails() {
 
 #[test]
 fn missing_identifier_fails() {
-    let err = packages::parse_fails(packages::TINY_BAD_2, "tiny-bad-pkg-2");
+    let err = packages::parse_file_fails("tiny_bad2.ssp");
 
     assert!(matches!(
         err,
@@ -95,7 +95,7 @@ fn missing_identifier_fails() {
 
 #[test]
 fn bad_add_fails_1() {
-    let err = packages::parse_fails(packages::TINY_BAD_3, "tiny-bad-pkg-3");
+    let err = packages::parse_file_fails("tiny_bad3.ssp");
 
     assert!(
         matches!(
@@ -118,7 +118,7 @@ fn bad_add_fails_1() {
 
 #[test]
 fn bad_add_fails_2() {
-    let err = packages::parse_fails(packages::TINY_BAD_4, "tiny-bad-pkg-4");
+    let err = packages::parse_file_fails("tiny_bad4.ssp");
 
     assert!(
         matches!(
@@ -141,7 +141,7 @@ fn bad_add_fails_2() {
 
 #[test]
 fn bad_add_fails_3() {
-    let err = packages::parse_fails(packages::TINY_BAD_5, "tiny-bad-pkg-5");
+    let err = packages::parse_file_fails("tiny_bad5.ssp");
 
     assert!(
         matches!(
@@ -164,7 +164,7 @@ fn bad_add_fails_3() {
 
 #[test]
 fn bad_add_fails_4() {
-    let err = packages::parse_fails(packages::TINY_BAD_6, "tiny-bad-pkg-6");
+    let err = packages::parse_file_fails("tiny_bad6.ssp");
 
     assert!(
         matches!(

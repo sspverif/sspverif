@@ -1,0 +1,3 @@
+composition TinyGame {
+    const n: Integer;
+}

@@ -1,0 +1,9 @@
+package TinyPkg {
+    params {
+        n: Integer,
+    }
+
+    oracle N() -> Integer {
+        return n;
+    }
+}

@@ -1,0 +1,9 @@
+package TinyBadPkg1 {
+    params {
+        n: Integer,
+    }
+
+    oracle N() -> String {
+        return n;
+    }
+}

@@ -204,7 +204,7 @@ pub struct NoSuchOracleError {
     #[source_code]
     pub source_code: miette::NamedSource<String>,
 
-    #[label("this type here")]
+    #[label("this oracle here")]
     pub at: SourceSpan,
 
     pub oracle_name: String,

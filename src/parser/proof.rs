@@ -4,7 +4,6 @@ use crate::{
     expressions::Expression,
     identifier::{
         game_ident::{GameConstIdentifier, GameIdentifier},
-        pkg_ident::PackageIdentifier,
         proof_ident::{
             ProofConstIdentifier,
             ProofIdentifier::{self, Const},
@@ -13,14 +12,13 @@ use crate::{
     },
     package::{Composition, Edge, Package, PackageInstance},
     parser::{
-        self,
         error::{
             AssumptionMappingContainsDifferentPackagesError,
             AssumptionMappingDuplicatePackageInstanceError,
             AssumptionMappingLeftGameInstanceIsNotFromAssumption,
             ReductionContainsDifferentPackagesError,
         },
-        proof, Rule,
+        Rule,
     },
     proof::{Assumption, Claim, Equivalence, GameHop, GameInstance, Mapping, Proof, Reduction},
     types::Type,
@@ -40,7 +38,6 @@ use thiserror::Error;
 
 use super::{
     common,
-    composition::ParseGameContext,
     error::{
         AssumptionMappingMissesPackageInstanceError,
         AssumptionMappingRightGameInstanceIsFromAssumption, DuplicateGameParameterDefinitionError,

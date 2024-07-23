@@ -23,53 +23,25 @@ pub fn parse_fails(code: &str, name: &str, pkg_map: &HashMap<String, Package>) -
     ))
 }
 
-pub const TINY: &str = r#"composition TinyGame {
-    const n: Integer;
+pub fn parse_file(file_name: &'static str, pkg_map: &HashMap<String, Package>) -> Composition {
+    let file = std::fs::File::open(format!("src/parser/tests/games/{file_name}"))
+        .unwrap_or_else(|_| panic!("error opening test code game {}", file_name));
+
+    let contents = std::io::read_to_string(file)
+        .unwrap_or_else(|_| panic!("error reading test code game {}", file_name));
+
+    parse(&contents, file_name, pkg_map)
 }
-"#;
 
-pub const SMALL: &str = r#"composition SmallGame {
-        const n: Integer;
+pub fn parse_file_fails(
+    file_name: &'static str,
+    pkg_map: &HashMap<String, Package>,
+) -> ParseGameError {
+    let file = std::fs::File::open(format!("src/parser/tests/games/{file_name}"))
+        .unwrap_or_else(|_| panic!("error opening test code game {}", file_name));
 
-        instance tiny_instance  = TinyPkg {
-            params {
-                n: n,
-            }
-        }
-    }"#;
+    let contents = std::io::read_to_string(file)
+        .unwrap_or_else(|_| panic!("error reading test code game {}", file_name));
 
-pub const SMALL_NOPARAMS: &str = r#"composition SmallGameNoparams {
-        const n: Integer;
-
-        instance tiny_instance  = TinyPkg {
-        }
-    }"#;
-
-pub const SMALL_EMPTYPARAMS: &str = r#"composition SmallGameEmptyparams {
-        const n: Integer;
-
-        instance tiny_instance  = TinyPkg {
-            params {
-            }
-        }
-    }"#;
-
-pub const SMALL_MISTYPED: &str = r#"composition SmallMistypedGame {
-        const n: Bool;
-
-        instance tiny_instance  = TinyPkg {
-            params {
-                n: n,
-            }
-        }
-    }"#;
-
-pub const SMALL_MULTI_INST: &str = r#"composition SmallMultiInstGame {
-        for i: 0 <= i < 200 {
-            instance tiny_instance[i] = TinyPkg {
-                params {
-                    n:  i
-                }
-            }
-        }
-    }"#;
+    parse_fails(&contents, file_name, pkg_map)
+}

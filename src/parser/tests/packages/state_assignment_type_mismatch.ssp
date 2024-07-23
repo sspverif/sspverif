@@ -1,0 +1,9 @@
+package TinyPkg {
+    state {
+        foo: Integer,
+    }
+
+    oracle Foo() {
+        foo <- false;
+    }
+}

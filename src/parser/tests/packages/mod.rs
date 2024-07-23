@@ -32,103 +32,22 @@ pub fn parse_fails(code: &str, name: &str) -> ParsePackageError {
     ))
 }
 
-pub const TINY: &str = r#"package TinyPkg {
-    params {
-        n: Integer,
-    }
+pub fn parse_file(file_name: &'static str) -> (String, Package) {
+    let file = std::fs::File::open(format!("src/parser/tests/packages/{file_name}"))
+        .unwrap_or_else(|_| panic!("error opening test code package {}", file_name));
 
-    oracle N() -> Integer {
-        return n;
-    }
-}"#;
+    let contents = std::io::read_to_string(file)
+        .unwrap_or_else(|_| panic!("error reading test code package {}", file_name));
 
-pub const TINY_BAD_PARAM_TYPE: &str = r#"package TinyPkg {
-    params {
-        foo: ThisTypeDoesNotExist,
-    }
-}"#;
+    parse(&contents, file_name)
+}
 
-pub const TINY_BAD_STATE_TYPE: &str = r#"package TinyPkg {
-    state {
-        foo: ThisTypeDoesNotExist,
-    }
-}"#;
+pub fn parse_file_fails(file_name: &'static str) -> ParsePackageError {
+    let file = std::fs::File::open(format!("src/parser/tests/packages/{file_name}"))
+        .unwrap_or_else(|_| panic!("error opening test code package {}", file_name));
 
-pub const ASSIGN_WRONG_TYPE_TO_STATE: &str = r#"package TinyPkg {
-    state {
-        foo: Integer,
-    }
+    let contents = std::io::read_to_string(file)
+        .unwrap_or_else(|_| panic!("error reading test code package {}", file_name));
 
-    oracle Foo() {
-        foo <- false;
-    }
-}"#;
-
-pub const SMALL_FOR: &str = r#"package SmallForPkg {
-    params {
-        n: Integer,
-    }
-
-    import oracles {
-        for i: 1 <= i <= n {
-        N[i]() -> Integer,
-        }
-    }
-
-    oracle Sum() -> Integer {
-        sum <- 0;
-
-        for i: 1 <= i <= n {
-        n_i <- invoke N[i]();
-        sum <- (sum + n_i);
-        }
-
-        return sum;
-    }
-}"#;
-
-pub const TINY_BAD_1: &str = r#"package TinyBadPkg1 {
-    params {
-        n: Integer,
-    }
-
-    oracle N() -> String {
-        return n;
-    }
-}"#;
-
-pub const TINY_BAD_2: &str = r#"package TinyBadPkg2 {
-    oracle N() -> String {
-        return n;
-    }
-}"#;
-
-pub const TINY_BAD_3: &str = r#"package TinyBadPkg3 {
-    oracle N() -> Integer {
-        return (true + false);
-    }
-}"#;
-
-pub const TINY_BAD_4: &str = r#"package TinyBadPkg4 {
-    oracle N() -> Integer {
-        return (true + 3);
-    }
-}"#;
-
-pub const TINY_BAD_5: &str = r#"package TinyBadPkg5 {
-    oracle N() -> Integer {
-        return (3 + true);
-    }
-}"#;
-
-pub const TINY_BAD_6: &str = r#"package TinyBadPkg6 {
-    oracle N() -> Bool {
-        return (3 + 2);
-    }
-}"#;
-
-pub const NONE_INFERENCE_YAY: &str = r#"package NonePackage {
-    oracle Foo() -> Maybe(Integer) {
-        return None;
-    }
-}"#;
+    parse_fails(&contents, file_name)
+}

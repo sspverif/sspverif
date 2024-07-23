@@ -1,0 +1,9 @@
+composition SmallMistypedGame {
+    const n: Bool;
+
+    instance tiny_instance  = TinyPkg {
+        params {
+            n: n,
+        }
+    }
+}

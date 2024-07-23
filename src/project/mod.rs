@@ -131,7 +131,7 @@ impl Project {
         }
 
         for (name, proof) in &self.proofs {
-            crate::writers::tex::writer::tex_write_proof(&proof, name, path.as_path())?;
+            crate::writers::tex::writer::tex_write_proof(proof, name, path.as_path())?;
         }
 
         Ok(())

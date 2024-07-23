@@ -1,0 +1,9 @@
+composition SmallGame {
+    const n: Integer;
+
+    instance tiny_instance  = TinyPkg {
+        params {
+            n: n,
+        }
+    }
+}
