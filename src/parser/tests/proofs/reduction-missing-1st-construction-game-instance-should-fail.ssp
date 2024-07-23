@@ -4,15 +4,6 @@ proof PRF {
     const prf: fn Bits(n),Bits(n) -> Bits(n);
     const enc: fn Bits(n),Bits(n),Bits(n) -> Bits(m);
 
-    instance constructionreal = ConstructionReal {
-        params {
-            n: n,
-            m: m,
-            prf: prf,
-            enc: enc,
-
-        }
-    }
 
     instance constructionideal = ConstructionIdeal {
         params {

@@ -1,4 +1,4 @@
-composition ConstructionIdeal {
+composition ConstructionReal {
     const n: Integer;
     const m: Integer;
     const prf: fn Bits(n), Bits(n) -> Bits(n);
@@ -11,7 +11,7 @@ composition ConstructionIdeal {
         }
     }
     
-    instance key = KeyIdeal {
+    instance key = KeyReal {
         params {
             n: n,
         }

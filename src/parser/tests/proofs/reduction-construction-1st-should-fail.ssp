@@ -47,7 +47,7 @@ proof PRF {
         reduction constructionreal constructionideal {
             assumption Assumption
 
-            map assumptionreal constructionreal {
+            map constructionreal constructionreal {
                 key    : key
                 prf    : prf
             }

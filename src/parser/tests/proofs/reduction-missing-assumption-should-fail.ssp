@@ -38,9 +38,6 @@ proof PRF {
         }
     }
 
-    assumptions {
-        Assumption: assumptionreal ~ assumptionideal
-    }
 
 
     gamehops {
