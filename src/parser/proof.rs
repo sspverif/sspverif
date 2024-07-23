@@ -515,10 +515,10 @@ fn handle_reduction_body(
     body: Pair<Rule>,
 ) -> Result<Reduction, ParseProofError> {
     let mut ast = body.into_inner();
-    let assumptions_ast = ast.next().unwrap();
-    let assumptions_span = assumptions_ast.as_span();
-    let mut assumptions_ast = assumptions_ast.into_inner();
-    let assumption_name = next_str(&mut assumptions_ast);
+    let assumptions_spec_ast = ast.next().unwrap();
+    let assumptions_name_ast = assumptions_spec_ast.into_inner().next().unwrap();
+    let assumptions_name_span = assumptions_name_ast.as_span();
+    let assumption_name = assumptions_name_ast.as_str();
 
     // check that assumption_name turns up in the assumptions list
     // and fetch the assumption definition
@@ -527,7 +527,7 @@ fn handle_reduction_body(
         .resolve_value(assumption_name)
         .ok_or(UndefinedAssumptionError {
             source_code: ctx.named_source(),
-            at: (assumptions_span.start()..assumptions_span.end()).into(),
+            at: (assumptions_name_span.start()..assumptions_name_span.end()).into(),
             assumption_name: assumption_name.to_string(),
         })?
         .clone();
