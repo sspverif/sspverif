@@ -53,10 +53,10 @@ impl<'a> EquivalenceContext<'a> {
             }
         }
 
-        base_declarations.extend(hacks::MaybeDeclaration.into_iter());
+        base_declarations.extend(hacks::MaybeDeclaration);
         base_declarations.push(hacks::ReturnValueDeclaration.into());
-        base_declarations.extend(hacks::TuplesDeclaration(1..32).into_iter());
-        base_declarations.extend(hacks::EmptyDeclaration.into_iter());
+        base_declarations.extend(hacks::TuplesDeclaration(1..32));
+        base_declarations.extend(hacks::EmptyDeclaration);
 
         for decl in base_declarations {
             comm.write_smt(decl)?
@@ -68,10 +68,10 @@ impl<'a> EquivalenceContext<'a> {
     fn emit_game_definitions(&self, comm: &mut Communicator) -> Result<()> {
         let instance_resolver = SliceResolver(self.proof.instances());
         let left = instance_resolver
-            .resolve_value(&self.eq.left_name())
+            .resolve_value(self.eq.left_name())
             .unwrap();
         let right = instance_resolver
-            .resolve_value(&self.eq.right_name())
+            .resolve_value(self.eq.right_name())
             .unwrap();
 
         let mut left_writer =
