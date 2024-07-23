@@ -1,4 +1,4 @@
-proof AEProtozwei {
+proof Modularize {
     const n: Integer;
     const m: Integer;
     const prf: fn Bits(n),Bits(n) -> Bits(n);
@@ -8,8 +8,8 @@ proof AEProtozwei {
     instance real = Real {
         params {
             n: n,
-			m: m,
-	    prf: prf,
+            m: m,
+            prf: prf,
             enc: enc,
             dec: dec,
         }
