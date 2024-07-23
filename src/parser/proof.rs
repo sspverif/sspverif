@@ -628,7 +628,7 @@ fn handle_mapspec(
 
     let (
         (assumption_game_inst_name, assumption_game_inst_name_span),
-        (bigger_game_inst_name, bigger_game_inst_name_span),
+        (construction_game_inst_name, construction_game_inst_name_span),
     ) = handle_string_pair(&mut ast);
 
     // check that game instance names can be resolved
@@ -640,20 +640,22 @@ fn handle_mapspec(
                 .into(),
             game_inst_name: assumption_game_inst_name.clone(),
         })?;
-    let bigger_game_inst = SliceResolver(&ctx.instances)
-        .resolve_value(&bigger_game_inst_name)
+    let construction_game_inst = SliceResolver(&ctx.instances)
+        .resolve_value(&construction_game_inst_name)
         .ok_or(UndefinedGameInstanceError {
             source_code: ctx.named_source(),
-            at: (bigger_game_inst_name_span.start()..bigger_game_inst_name_span.end()).into(),
-            game_inst_name: bigger_game_inst_name.clone(),
+            at: (construction_game_inst_name_span.start()..construction_game_inst_name_span.end())
+                .into(),
+            game_inst_name: construction_game_inst_name.clone(),
         })?;
 
     let assumption_game_is_really_assumption_game = assumption_game_inst_name
         == assumption.left_name
         || assumption_game_inst_name == assumption.right_name;
 
-    let bigger_game_is_actually_assumption_game = bigger_game_inst_name == assumption.left_name
-        || bigger_game_inst_name == assumption.right_name;
+    let construction_game_is_actually_assumption_game = construction_game_inst_name
+        == assumption.left_name
+        || construction_game_inst_name == assumption.right_name;
 
     if !assumption_game_is_really_assumption_game {
         println!("{assumption:?}");
@@ -668,14 +670,15 @@ fn handle_mapspec(
         .into());
     }
 
-    if bigger_game_is_actually_assumption_game {
+    if construction_game_is_actually_assumption_game {
         println!("{assumption:?}");
         return Err(AssumptionMappingRightGameInstanceIsFromAssumption {
             source_code: ctx.named_source(),
-            at: (bigger_game_inst_name_span.start()..bigger_game_inst_name_span.end()).into(),
-            game_instance_name: bigger_game_inst_name.to_string(),
+            at: (construction_game_inst_name_span.start()..construction_game_inst_name_span.end())
+                .into(),
+            game_instance_name: construction_game_inst_name.to_string(),
             model_left_game_instance_name: assumption_game_inst_name.clone(),
-            model_right_game_instance_name: bigger_game_inst_name.clone(),
+            model_right_game_instance_name: construction_game_inst_name.clone(),
         }
         .into());
     }
@@ -683,12 +686,12 @@ fn handle_mapspec(
     let mappings: Vec<_> = ast.flat_map(Pair::into_inner).tuples().collect();
 
     let mut assumption_game_pkg_inst_names: HashMap<String, &Pair<'_, Rule>> = HashMap::new();
-    let mut bigger_game_pkg_inst_names: HashMap<String, &Pair<'_, Rule>> = HashMap::new();
+    let mut construction_game_pkg_inst_names: HashMap<String, &Pair<'_, Rule>> = HashMap::new();
 
     // check mappings are valid
-    for (assumption_game_pkg_inst_name_ast, bigger_game_pkg_inst_name_ast) in &mappings {
+    for (assumption_game_pkg_inst_name_ast, construction_game_pkg_inst_name_ast) in &mappings {
         let assumption_game_pkg_inst_name = assumption_game_pkg_inst_name_ast.as_str();
-        let bigger_game_pkg_inst_name = bigger_game_pkg_inst_name_ast.as_str();
+        let construction_game_pkg_inst_name = construction_game_pkg_inst_name_ast.as_str();
 
         // check for duplicates
         if let Some(prev_map) = assumption_game_pkg_inst_names.get(assumption_game_pkg_inst_name) {
@@ -709,8 +712,10 @@ fn handle_mapspec(
             .into());
         }
 
-        if let Some(prev_map) = bigger_game_pkg_inst_names.get(bigger_game_pkg_inst_name) {
-            let span_this = bigger_game_pkg_inst_name_ast.as_span();
+        if let Some(prev_map) =
+            construction_game_pkg_inst_names.get(construction_game_pkg_inst_name)
+        {
+            let span_this = construction_game_pkg_inst_name_ast.as_span();
             let at_this = (span_this.start()..span_this.end()).into();
 
             let span_prev = prev_map.as_span();
@@ -730,9 +735,9 @@ fn handle_mapspec(
             assumption_game_pkg_inst_name.to_string(),
             assumption_game_pkg_inst_name_ast,
         );
-        bigger_game_pkg_inst_names.insert(
-            bigger_game_pkg_inst_name.to_string(),
-            bigger_game_pkg_inst_name_ast,
+        construction_game_pkg_inst_names.insert(
+            construction_game_pkg_inst_name.to_string(),
+            construction_game_pkg_inst_name_ast,
         );
 
         // get the package instances
@@ -753,36 +758,36 @@ fn handle_mapspec(
             .into());
         };
 
-        let Some(bigger_game_pkg_inst) = bigger_game_inst
+        let Some(construction_game_pkg_inst) = construction_game_inst
             .game()
             .pkgs
             .iter()
-            .find(|pkg_inst| bigger_game_pkg_inst_name == pkg_inst.name)
+            .find(|pkg_inst| construction_game_pkg_inst_name == pkg_inst.name)
         else {
-            let span = bigger_game_pkg_inst_name_ast.as_span();
+            let span = construction_game_pkg_inst_name_ast.as_span();
             let at = (span.start()..span.end()).into();
             return Err(UndefinedPackageInstanceError {
                 source_code: ctx.named_source(),
                 at,
                 pkg_inst_name: assumption_game_pkg_inst_name.to_string(),
-                in_game: bigger_game_inst.game().name.clone(),
+                in_game: construction_game_inst.game().name.clone(),
             }
             .into());
         };
 
         // check that the package names (sort of the types) are the same
-        if assumption_game_pkg_inst.pkg.name != bigger_game_pkg_inst.pkg.name {
+        if assumption_game_pkg_inst.pkg.name != construction_game_pkg_inst.pkg.name {
             let span_left = assumption_game_pkg_inst_name_ast.as_span();
             let at_left = (span_left.start()..span_left.end()).into();
 
-            let span_right = bigger_game_pkg_inst_name_ast.as_span();
+            let span_right = construction_game_pkg_inst_name_ast.as_span();
             let at_right = (span_right.start()..span_right.end()).into();
 
             let left_pkg_name = assumption_game_pkg_inst.pkg.name.clone();
             let left_pkg_inst_name = assumption_game_pkg_inst_name.to_string();
 
-            let right_pkg_name = bigger_game_pkg_inst.pkg.name.clone();
-            let right_pkg_inst_name = bigger_game_pkg_inst_name.to_string();
+            let right_pkg_name = construction_game_pkg_inst.pkg.name.clone();
+            let right_pkg_inst_name = construction_game_pkg_inst_name.to_string();
 
             return Err(AssumptionMappingContainsDifferentPackagesError {
                 source_code: ctx.named_source(),
@@ -801,8 +806,8 @@ fn handle_mapspec(
             ctx,
             assumption_game_pkg_inst,
             assumption_game_inst,
-            bigger_game_pkg_inst,
-            bigger_game_inst,
+            construction_game_pkg_inst,
+            construction_game_inst,
         )?;
     }
 
@@ -825,12 +830,12 @@ fn handle_mapspec(
 
     // check that packages that are mapped only call packages that are also mapped
 
-    let bigger_game = bigger_game_inst.game();
+    let bigger_game = construction_game_inst.game();
     for Edge(from, to, _sig) in &bigger_game.edges {
         let from_name = &bigger_game.pkgs[*from].name;
         let to_name = &bigger_game.pkgs[*to].name;
-        if bigger_game_pkg_inst_names.contains_key(from_name)
-            && !bigger_game_pkg_inst_names.contains_key(to_name)
+        if construction_game_pkg_inst_names.contains_key(from_name)
+            && !construction_game_pkg_inst_names.contains_key(to_name)
         {
             todo!("write error message that mapping isn't a clean cut and mapped packages call unmapped packages")
         }
@@ -838,7 +843,7 @@ fn handle_mapspec(
 
     let mapping = Mapping::new(
         assumption_game_inst_name,
-        bigger_game_inst_name,
+        construction_game_inst_name,
         mappings
             .into_iter()
             .map(|(ast1, ast2)| (ast1.as_str().to_string(), ast2.as_str().to_string()))
