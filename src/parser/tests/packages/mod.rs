@@ -1,3 +1,5 @@
+use std::{collections::HashMap, iter::FromIterator as _};
+
 use crate::{
     package::Package,
     parser::{
@@ -32,7 +34,7 @@ pub fn parse_fails(code: &str, name: &str) -> ParsePackageError {
     ))
 }
 
-pub fn parse_file(file_name: &'static str) -> (String, Package) {
+pub fn parse_file(file_name: &str) -> (String, Package) {
     let file = std::fs::File::open(format!("src/parser/tests/packages/{file_name}"))
         .unwrap_or_else(|_| panic!("error opening test code package {}", file_name));
 
@@ -42,7 +44,11 @@ pub fn parse_file(file_name: &'static str) -> (String, Package) {
     parse(&contents, file_name)
 }
 
-pub fn parse_file_fails(file_name: &'static str) -> ParsePackageError {
+pub fn parse_files(file_names: &[&str]) -> HashMap<String, Package> {
+    HashMap::from_iter(file_names.iter().cloned().map(parse_file))
+}
+
+pub fn parse_file_fails(file_name: &str) -> ParsePackageError {
     let file = std::fs::File::open(format!("src/parser/tests/packages/{file_name}"))
         .unwrap_or_else(|_| panic!("error opening test code package {}", file_name));
 

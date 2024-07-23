@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, iter::FromIterator as _};
 
 use crate::{
     package::{Composition, Package},
@@ -23,14 +23,24 @@ pub fn parse_fails(code: &str, name: &str, pkg_map: &HashMap<String, Package>) -
     ))
 }
 
-pub fn parse_file(file_name: &'static str, pkg_map: &HashMap<String, Package>) -> Composition {
+pub fn parse_file(file_name: &str, pkgs: &HashMap<String, Package>) -> Composition {
     let file = std::fs::File::open(format!("src/parser/tests/games/{file_name}"))
         .unwrap_or_else(|_| panic!("error opening test code game {}", file_name));
 
     let contents = std::io::read_to_string(file)
         .unwrap_or_else(|_| panic!("error reading test code game {}", file_name));
 
-    parse(&contents, file_name, pkg_map)
+    parse(&contents, file_name, pkgs)
+}
+
+pub fn parse_files(
+    file_names: &[&str],
+    pkgs: &HashMap<String, Package>,
+) -> HashMap<String, Composition> {
+    HashMap::from_iter(file_names.iter().cloned().map(|name| {
+        let game = parse_file(name, pkgs);
+        (game.name.clone(), game)
+    }))
 }
 
 pub fn parse_file_fails(
