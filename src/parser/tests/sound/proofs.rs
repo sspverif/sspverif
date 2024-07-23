@@ -266,11 +266,11 @@ fn fail_reduction_inconsistent_wiring_less() {
     let assumption_game_inst_name = slice_source_span(source_code, assumption_at);
     let construction_game_inst_name = slice_source_span(source_code, construction_at);
 
-    assert_eq!(assumption_pkg_inst_name, "key");
-    assert_eq!(construction_pkg_inst_name, "key");
+    assert_eq!(assumption_pkg_inst_name, "prf");
+    assert_eq!(construction_pkg_inst_name, "prf");
     assert_eq!(oracle_name, "Get");
-    assert_eq!(assumption_game_inst_name, "key");
-    assert_eq!(construction_game_inst_name, "key");
+    assert_eq!(assumption_game_inst_name, "prf");
+    assert_eq!(construction_game_inst_name, "prf");
 
     let report = miette::Report::new(err);
     println!("the error prints like this:\n{:?}", report)
