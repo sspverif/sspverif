@@ -23,4 +23,9 @@ package PRF {
         k <- prf(ltk_, h);
         _ <- invoke Set(k, h);
     } 
+
+    oracle Get(h: Bits(n)) -> Bits(n) {
+        return h;
+    }
+
 }
