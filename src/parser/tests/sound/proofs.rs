@@ -1,6 +1,12 @@
 use std::{collections::HashMap, iter::FromIterator};
 
-use crate::parser::tests::{games, packages, proofs, slice_source_span};
+use miette::Error;
+
+use crate::parser::{
+    error::AssumptionExportsNotSufficientError,
+    proof::ParseProofError,
+    tests::{games, packages, proofs, slice_source_span},
+};
 
 #[test]
 fn fail_reduction_assumption_is_second() {
@@ -186,13 +192,35 @@ fn fail_reduction_assumption_exposes_less() {
         &pkgs,
     );
 
-    todo!("we don't have the correct error type yet, and we don't even catch this error");
-
-    let _err = proofs::parse_file_fails(
+    let err = proofs::parse_file_fails(
         "reduction-assumption-exposes-less-should-fail.ssp",
         &pkgs,
         &games,
     );
+
+    let ParseProofError::AssumptionExportsNotSufficient(AssumptionExportsNotSufficientError {
+        source_code,
+        assumption_at,
+        construction_at,
+        assumption_pkg_inst_name,
+        construction_pkg_inst_name,
+        oracle_name,
+    }) = &err
+    else {
+        panic!("expected a different error. got {}", err)
+    };
+
+    let assumption_game_inst_name = slice_source_span(source_code, assumption_at);
+    let construction_game_inst_name = slice_source_span(source_code, construction_at);
+
+    assert_eq!(assumption_pkg_inst_name, "key");
+    assert_eq!(construction_pkg_inst_name, "key");
+    assert_eq!(oracle_name, "Get");
+    assert_eq!(assumption_game_inst_name, "key");
+    assert_eq!(construction_game_inst_name, "key");
+
+    let report = miette::Report::new(err);
+    println!("the error prints like this:\n{:?}", report)
 }
 
 #[test]
@@ -217,11 +245,33 @@ fn fail_reduction_inconsistent_wiring_less() {
         &pkgs,
     );
 
-    todo!("we don't have the correct error type yet, and we don't even catch this error");
-
     let err = proofs::parse_file_fails(
         "reduction-inconsistent-wiring-should-fail.ssp",
         &pkgs,
         &games,
     );
+
+    let ParseProofError::AssumptionExportsNotSufficient(AssumptionExportsNotSufficientError {
+        source_code,
+        assumption_at,
+        construction_at,
+        assumption_pkg_inst_name,
+        construction_pkg_inst_name,
+        oracle_name,
+    }) = &err
+    else {
+        panic!("expected a different error. got {}", err)
+    };
+
+    let assumption_game_inst_name = slice_source_span(source_code, assumption_at);
+    let construction_game_inst_name = slice_source_span(source_code, construction_at);
+
+    assert_eq!(assumption_pkg_inst_name, "key");
+    assert_eq!(construction_pkg_inst_name, "key");
+    assert_eq!(oracle_name, "Get");
+    assert_eq!(assumption_game_inst_name, "key");
+    assert_eq!(construction_game_inst_name, "key");
+
+    let report = miette::Report::new(err);
+    println!("the error prints like this:\n{:?}", report)
 }

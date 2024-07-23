@@ -10,7 +10,7 @@ use crate::{
         },
         Identifier,
     },
-    package::{Composition, Edge, Package, PackageInstance},
+    package::{Composition, Edge, Export, Package, PackageInstance},
     parser::{
         error::{
             AssumptionMappingContainsDifferentPackagesError,
@@ -39,7 +39,7 @@ use thiserror::Error;
 use super::{
     common,
     error::{
-        AssumptionMappingMissesPackageInstanceError,
+        AssumptionExportsNotSufficientError, AssumptionMappingMissesPackageInstanceError,
         AssumptionMappingRightGameInstanceIsFromAssumption, DuplicateGameParameterDefinitionError,
         MissingGameParameterDefinitionError, NoSuchGameParameterError, NoSuchTypeError,
         UndefinedAssumptionError, UndefinedGameError, UndefinedGameInstanceError,
@@ -238,6 +238,10 @@ pub enum ParseProofError {
     #[diagnostic(transparent)]
     #[error(transparent)]
     ReductionContainsDifferentPackages(#[from] ReductionContainsDifferentPackagesError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    AssumptionExportsNotSufficient(#[from] AssumptionExportsNotSufficientError),
 }
 
 pub fn handle_proof(
@@ -688,6 +692,8 @@ fn handle_mapspec(
     let mut assumption_game_pkg_inst_names: HashMap<String, &Pair<'_, Rule>> = HashMap::new();
     let mut construction_game_pkg_inst_names: HashMap<String, &Pair<'_, Rule>> = HashMap::new();
 
+    let mut pkg_offset_mapping = vec![];
+
     // check mappings are valid
     for (assumption_game_pkg_inst_name_ast, construction_game_pkg_inst_name_ast) in &mappings {
         let assumption_game_pkg_inst_name = assumption_game_pkg_inst_name_ast.as_str();
@@ -741,11 +747,13 @@ fn handle_mapspec(
         );
 
         // get the package instances
-        let Some(assumption_game_pkg_inst) = assumption_game_inst
-            .game()
-            .pkgs
-            .iter()
-            .find(|&pkg_inst| assumption_game_pkg_inst_name == pkg_inst.name)
+        let Some((assumption_game_pkg_inst_offset, assumption_game_pkg_inst)) =
+            assumption_game_inst
+                .game()
+                .pkgs
+                .iter()
+                .position(|pkg_inst| assumption_game_pkg_inst_name == pkg_inst.name)
+                .map(|offs| (offs, &assumption_game_inst.game().pkgs[offs]))
         else {
             let span = assumption_game_pkg_inst_name_ast.as_span();
             let at = (span.start()..span.end()).into();
@@ -758,11 +766,13 @@ fn handle_mapspec(
             .into());
         };
 
-        let Some(construction_game_pkg_inst) = construction_game_inst
-            .game()
-            .pkgs
-            .iter()
-            .find(|pkg_inst| construction_game_pkg_inst_name == pkg_inst.name)
+        let Some((construction_game_pkg_inst_offset, construction_game_pkg_inst)) =
+            construction_game_inst
+                .game()
+                .pkgs
+                .iter()
+                .position(|pkg_inst| construction_game_pkg_inst_name == pkg_inst.name)
+                .map(|offs| (offs, &construction_game_inst.game().pkgs[offs]))
         else {
             let span = construction_game_pkg_inst_name_ast.as_span();
             let at = (span.start()..span.end()).into();
@@ -809,6 +819,11 @@ fn handle_mapspec(
             construction_game_pkg_inst,
             construction_game_inst,
         )?;
+
+        pkg_offset_mapping.push((
+            assumption_game_pkg_inst_offset,
+            construction_game_pkg_inst_offset,
+        ));
     }
 
     // read all mappings. now check we mapped all package instances of the assumption.
@@ -838,6 +853,137 @@ fn handle_mapspec(
             && !construction_game_pkg_inst_names.contains_key(to_name)
         {
             todo!("write error message that mapping isn't a clean cut and mapped packages call unmapped packages")
+        }
+    }
+
+    // check that if an oracle can be called by adversary or reduction in the construction game,
+    // then it must be exported in the assumption game.
+    // specifically, check that
+    // for all mapped construction packa or goes to the adversaryge instances mapped_pkg_inst
+    //   for every incoming export into mapped_pkg_inst
+    //     require that the oracle at the edge is exported.
+    //   for every incoming edge e into mapped_pkg_inst
+    //     if e.src is not maapped
+    //       require that the oracle at the edge is exported.
+    //
+    // said differently,
+    // for all edges `(from, to, osig)` in the construction game
+    //   if `to` is mapped to `assumption_to` and `from` isn't
+    //     require that in the assumption game, there is an export `(assumption_to, osig)`
+    // for all exports `(to, osig)` in the construction game
+    //   if `to` is mapped to `assumption_to`
+    //     require that in the assumption game, there is an export `(assumption_to, osig)`
+    //
+    for Edge(src, dst, osig) in &construction_game_inst.game().edges {
+        let src_is_mapped = pkg_offset_mapping
+            .iter()
+            .any(|(_, constr_src)| constr_src == src);
+        let dst_mapping =
+            pkg_offset_mapping
+                .iter()
+                .find_map(|(assumption_dst, construction_dst)| {
+                    if dst == construction_dst {
+                        Some(*assumption_dst)
+                    } else {
+                        None
+                    }
+                });
+
+        if let Some(assumption_dst) = dst_mapping {
+            let export_exists =
+                assumption_game_inst
+                    .game()
+                    .exports
+                    .iter()
+                    .any(|Export(found_dst, found_osig)| {
+                        *found_dst == assumption_dst && found_osig == osig
+                    });
+
+            if !src_is_mapped && !export_exists {
+                let assumption_dst_name = &assumption_game_inst.game().pkgs[assumption_dst].name;
+                let (assumption_ast, construction_ast) = mappings
+                    .iter()
+                    .find(|pair| pair.0.as_str() == assumption_dst_name)
+                    .unwrap();
+
+                let assumption_span = assumption_ast.as_span();
+                let assumption_at = (assumption_span.start()..assumption_span.end()).into();
+
+                let construction_span = construction_ast.as_span();
+                let construction_at = (construction_span.start()..construction_span.end()).into();
+
+                let assumption_pkg_inst_name = assumption_game_inst.game().pkgs[assumption_dst]
+                    .name
+                    .clone();
+                let construction_pkg_inst_name =
+                    construction_game_inst.game().pkgs[*dst].name.clone();
+                let oracle_name = osig.name.clone();
+
+                return Err(AssumptionExportsNotSufficientError {
+                    source_code: ctx.named_source(),
+                    assumption_at,
+                    construction_at,
+                    assumption_pkg_inst_name,
+                    construction_pkg_inst_name,
+                    oracle_name,
+                }
+                .into());
+            }
+        }
+    }
+
+    for Export(dst, osig) in &construction_game_inst.game().exports {
+        let dst_mapping =
+            pkg_offset_mapping
+                .iter()
+                .find_map(|(assumption_dst, construction_dst)| {
+                    if dst == construction_dst {
+                        Some(*assumption_dst)
+                    } else {
+                        None
+                    }
+                });
+
+        if let Some(assumption_dst) = dst_mapping {
+            let export_exists =
+                assumption_game_inst
+                    .game()
+                    .exports
+                    .iter()
+                    .any(|Export(found_dst, found_osig)| {
+                        *found_dst == assumption_dst && found_osig == osig
+                    });
+
+            if !export_exists {
+                let assumption_dst_name = &assumption_game_inst.game().pkgs[assumption_dst].name;
+                let (assumption_ast, construction_ast) = mappings
+                    .iter()
+                    .find(|pair| pair.0.as_str() == assumption_dst_name)
+                    .unwrap();
+
+                let assumption_span = assumption_ast.as_span();
+                let assumption_at = (assumption_span.start()..assumption_span.end()).into();
+
+                let construction_span = construction_ast.as_span();
+                let construction_at = (construction_span.start()..construction_span.end()).into();
+
+                let assumption_pkg_inst_name = assumption_game_inst.game().pkgs[assumption_dst]
+                    .name
+                    .clone();
+                let construction_pkg_inst_name =
+                    construction_game_inst.game().pkgs[*dst].name.clone();
+                let oracle_name = osig.name.clone();
+
+                return Err(AssumptionExportsNotSufficientError {
+                    source_code: ctx.named_source(),
+                    assumption_at,
+                    construction_at,
+                    assumption_pkg_inst_name,
+                    construction_pkg_inst_name,
+                    oracle_name,
+                }
+                .into());
+            }
         }
     }
 

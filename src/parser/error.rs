@@ -417,3 +417,26 @@ pub struct AssumptionMappingMissesPackageInstanceError {
 
     pub pkg_inst_name: String,
 }
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("The construction package instance `{construction_pkg_inst_name}` has an incoming edge with oracle `{oracle_name}`, but the mapped assumption package instance `{assumption_pkg_inst_name}` doesn't")]
+#[diagnostic(code(ssbee::code::proof::reduction::mapping::assumption_exports_insufficient))]
+pub struct AssumptionExportsNotSufficientError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label(
+        "in the assumption game, access to the `{oracle_name}` is not exported for this package instance"
+    )]
+    pub assumption_at: SourceSpan,
+
+    #[label(
+        "but in the construction game, oracle `{oracle_name}` can be called on this package instance"
+    )]
+    pub construction_at: SourceSpan,
+
+    pub assumption_pkg_inst_name: String,
+    pub construction_pkg_inst_name: String,
+
+    pub oracle_name: String,
+}
