@@ -164,3 +164,64 @@ fn fail_reduction_assumption_not_defined() {
     let at = slice_source_span(&err.source_code, &err.at);
     assert_eq!(at, "Assumption");
 }
+
+#[test]
+fn fail_reduction_assumption_exposes_less() {
+    let pkgs = packages::parse_files(&[
+        "Enc.pkg.ssp",
+        "KeyIdeal.pkg.ssp",
+        "KeyReal.pkg.ssp",
+        "PRF.pkg.ssp",
+    ]);
+
+    let games = games::parse_files(
+        &[
+            "AssumptionIdeal.comp.ssp",
+            "AssumptionIdealWeak.comp.ssp",
+            "AssumptionReal.comp.ssp",
+            "AssumptionRealWeak.comp.ssp",
+            "ConstructionReal.comp.ssp",
+            "ConstructionIdeal.comp.ssp",
+        ],
+        &pkgs,
+    );
+
+    todo!("we don't have the correct error type yet, and we don't even catch this error");
+
+    let _err = proofs::parse_file_fails(
+        "reduction-assumption-exposes-less-should-fail.ssp",
+        &pkgs,
+        &games,
+    );
+}
+
+#[test]
+fn fail_reduction_inconsistent_wiring_less() {
+    let pkgs = packages::parse_files(&[
+        "Enc.pkg.ssp",
+        "KeyIdeal.pkg.ssp",
+        "KeyReal.pkg.ssp",
+        "PRF.pkg.ssp",
+    ]);
+
+    let games = games::parse_files(
+        &[
+            "AssumptionIdeal.comp.ssp",
+            "AssumptionIdealWeak.comp.ssp",
+            "AssumptionReal.comp.ssp",
+            "AssumptionRealWeak.comp.ssp",
+            "ConstructionReal.comp.ssp",
+            "ConstructionReal-badwiring.comp.ssp",
+            "ConstructionIdeal.comp.ssp",
+        ],
+        &pkgs,
+    );
+
+    todo!("we don't have the correct error type yet, and we don't even catch this error");
+
+    let err = proofs::parse_file_fails(
+        "reduction-inconsistent-wiring-should-fail.ssp",
+        &pkgs,
+        &games,
+    );
+}
