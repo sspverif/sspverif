@@ -554,6 +554,9 @@ pub(crate) mod instantiate {
                 &other_ident,
                 type_assignments,
             )),
+            Expression::TableAccess(ident, expr) => {
+                Expression::TableAccess(rewrite_identifier(inst_name, game_name, &ident, type_assignments), expr)
+            },
             other => other.clone(),
         })
     }
