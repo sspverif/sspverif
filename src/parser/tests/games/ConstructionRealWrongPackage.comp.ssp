@@ -1,0 +1,40 @@
+composition ConstructionRealWrongPackage {
+    const n: Integer;
+    const m: Integer;
+    const prf: fn Bits(n), Bits(n) -> Bits(n);
+    const enc: fn Bits(n), Bits(n), Bits(n) -> Bits(m);
+    
+    instance prf = PRF {
+        params {
+            n:   n,
+            prf: prf,
+        }
+    }
+    
+    instance key = KeyIdeal {
+        params {
+            n: n,
+        }
+    }
+    
+    instance enc = Enc {
+        params {
+            n:   n,
+            m:   m,
+            enc: enc,
+        }
+    }
+    
+    compose {
+        adversary: {
+            Eval: prf,
+            Enc:  enc,
+        },
+        prf: {
+            Set: key,
+        },
+        enc: {
+            Get: key,
+        }
+    }
+}
