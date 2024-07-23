@@ -150,7 +150,7 @@ pub struct UndefinedGameError {
     #[source_code]
     pub source_code: miette::NamedSource<String>,
 
-    #[label("this package is not defined")]
+    #[label("this game is not defined")]
     pub at: SourceSpan,
 
     pub game_name: String,
