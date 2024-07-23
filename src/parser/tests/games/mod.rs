@@ -45,13 +45,3 @@ pub fn parse_file_fails(
 
     parse_fails(&contents, file_name, pkg_map)
 }
-
-pub const SMALL_MULTI_INST: &str = r#"composition SmallMultiInstGame {
-        for i: 0 <= i < 200 {
-            instance tiny_instance[i] = TinyPkg {
-                params {
-                    n:  i
-                }
-            }
-        }
-    }"#;

@@ -1,5 +1,3 @@
-use std::io::Read;
-
 use crate::{
     package::Package,
     parser::{
