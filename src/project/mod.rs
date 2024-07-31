@@ -10,6 +10,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use error::Result;
 
+use crate::util::prover_process::Communicator;
 //use crate::transforms::typecheck::wire_proofs;
 use crate::{
     gamehops::{equivalence, reduction},
@@ -97,12 +98,15 @@ impl Project {
                 match game_hop {
                     GameHop::Reduction(red) => reduction::verify(red, proof)?,
                     GameHop::Equivalence(eq) => {
-                        let transcript_file = if transcript {
-                            Some(self.get_joined_smt_file(eq.left_name(), eq.right_name())?)
+                        let transcript_file: std::fs::File;
+                        let prover = if transcript {
+                            transcript_file =
+                                self.get_joined_smt_file(eq.left_name(), eq.right_name())?;
+                            Communicator::new_with_transcript(backend, transcript_file)?
                         } else {
-                            None
+                            Communicator::new(backend)?
                         };
-                        equivalence::verify(eq, proof, backend, transcript_file)?
+                        equivalence::verify(eq, proof, prover)?;
                     }
                 }
 

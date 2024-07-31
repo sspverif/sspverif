@@ -25,39 +25,13 @@ pub struct Communicator {
 }
 
 impl Communicator {
-    pub fn new_z3() -> Result<Self> {
-        let mut cmd = std::process::Command::new("z3");
-        cmd.args(["-in", "-smt2"])
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::inherit());
-
-        Self::new_from_cmd(cmd, None)
+    pub fn new_from_cmd_without_transcript(cmd: std::process::Command) -> Result<Self> {
+        Self::new_from_cmd::<Vec<u8>>(cmd, None)
     }
 
-    pub fn new_cvc4() -> Result<Self> {
-        let mut cmd = std::process::Command::new("cvc4");
-        cmd.args(["--lang=smt2", "--incremental", "--produce-models"])
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::inherit());
-
-        Self::new_from_cmd(cmd, None)
-    }
-
-    pub fn new_cvc4_with_transcript(f: std::fs::File) -> Result<Self> {
-        let mut cmd = std::process::Command::new("cvc4");
-        cmd.args(["--lang=smt2", "--incremental", "--produce-models"])
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::inherit());
-
-        Self::new_from_cmd(cmd, Some(f))
-    }
-
-    pub fn new_from_cmd(
+    pub fn new_from_cmd<W: std::io::Write + Send + Sync + 'static>(
         mut cmd: std::process::Command,
-        mut transcript: Option<std::fs::File>,
+        mut transcript: Option<W>,
     ) -> Result<Self> {
         let cmd = cmd.spawn()?;
 

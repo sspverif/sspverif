@@ -517,7 +517,7 @@ pub(crate) mod instantiate {
                 .iter()
                 .find_map(|(search, replace)| match (search, replace) {
                     (Identifier::GameIdentifier(GameIdentifier::Const(search)), new_expr) => {
-                        if search == &game_const_ident {
+                        if search.name == game_const_ident.name {
                             let new_expr = new_expr.map(|expr| match expr {
                                 Expression::Identifier(Identifier::ProofIdentifier(
                                     proof_ident,

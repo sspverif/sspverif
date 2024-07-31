@@ -6,4 +6,10 @@ composition SmallGame {
             n: n,
         }
     }
+
+    compose {
+      adversary: {
+        N: tiny_instance,
+      }
+    }
 }

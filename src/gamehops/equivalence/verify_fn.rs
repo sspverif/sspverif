@@ -10,12 +10,7 @@ use crate::{
 
 use super::EquivalenceContext;
 
-pub fn verify(
-    eq: &Equivalence,
-    proof: &Proof,
-    backend: ProverBackend,
-    transcript_file: Option<File>,
-) -> Result<()> {
+pub fn verify(eq: &Equivalence, proof: &Proof, mut prover: Communicator) -> Result<()> {
     let (proof, auxs) = EquivalenceTransform.transform_proof(proof).unwrap();
 
     let eqctx = EquivalenceContext {
@@ -23,8 +18,6 @@ pub fn verify(
         proof: &proof,
         auxs: &auxs,
     };
-
-    let mut prover = Communicator::new(backend, transcript_file)?;
 
     std::thread::sleep(std::time::Duration::from_millis(20));
 

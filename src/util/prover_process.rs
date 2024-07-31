@@ -76,29 +76,22 @@ impl fmt::Display for ProverResponse {
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl Communicator {
-    pub fn new(backend: ProverBackend, transcript: Option<std::fs::File>) -> Result<Self> {
+    pub fn new(backend: ProverBackend) -> Result<Self> {
         match backend {
-            ProverBackend::Cvc4 => {
-                if let Some(f) = transcript {
-                    Communicator::new_cvc4_with_transcript(f)
-                } else {
-                    Communicator::new_cvc4()
-                }
-            }
-            ProverBackend::Cvc5 => {
-                if let Some(f) = transcript {
-                    Communicator::new_cvc5_with_transcript(f)
-                } else {
-                    Communicator::new_cvc5()
-                }
-            }
-            ProverBackend::Z3 => {
-                if let Some(f) = transcript {
-                    Communicator::new_z3_with_transcript(f)
-                } else {
-                    Communicator::new_z3()
-                }
-            }
+            ProverBackend::Cvc4 => Communicator::new_cvc4(),
+            ProverBackend::Cvc5 => Communicator::new_cvc5(),
+            ProverBackend::Z3 => Communicator::new_z3(),
+        }
+    }
+
+    pub fn new_with_transcript<W: std::io::Write + Send + Sync + 'static>(
+        backend: ProverBackend,
+        transcript: W,
+    ) -> Result<Self> {
+        match backend {
+            ProverBackend::Cvc4 => Communicator::new_cvc4_with_transcript(transcript),
+            ProverBackend::Cvc5 => Communicator::new_cvc5_with_transcript(transcript),
+            ProverBackend::Z3 => Communicator::new_z3_with_transcript(transcript),
         }
     }
 
@@ -109,10 +102,14 @@ impl Communicator {
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::inherit());
 
-        Ok(Self(process::Communicator::new_from_cmd(cmd, None)?))
+        Ok(Self(
+            process::Communicator::new_from_cmd_without_transcript(cmd)?,
+        ))
     }
 
-    pub fn new_z3_with_transcript(transcript: std::fs::File) -> Result<Self> {
+    pub fn new_z3_with_transcript<W: std::io::Write + Send + Sync + 'static>(
+        transcript: W,
+    ) -> Result<Self> {
         let mut cmd = std::process::Command::new("z3");
         cmd.args(["-in", "-smt2"])
             .stdin(std::process::Stdio::piped())
@@ -132,10 +129,14 @@ impl Communicator {
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::inherit());
 
-        Ok(Self(process::Communicator::new_from_cmd(cmd, None)?))
+        Ok(Self(
+            process::Communicator::new_from_cmd_without_transcript(cmd)?,
+        ))
     }
 
-    pub fn new_cvc4_with_transcript(transcript: std::fs::File) -> Result<Self> {
+    pub fn new_cvc4_with_transcript<W: std::io::Write + Send + Sync + 'static>(
+        transcript: W,
+    ) -> Result<Self> {
         let mut cmd = std::process::Command::new("cvc4");
         cmd.args(["--lang=smt2", "--incremental", "--produce-models"])
             .stdin(std::process::Stdio::piped())
@@ -155,10 +156,14 @@ impl Communicator {
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::inherit());
 
-        Ok(Self(process::Communicator::new_from_cmd(cmd, None)?))
+        Ok(Self(
+            process::Communicator::new_from_cmd_without_transcript(cmd)?,
+        ))
     }
 
-    pub fn new_cvc5_with_transcript(transcript: std::fs::File) -> Result<Self> {
+    pub fn new_cvc5_with_transcript<W: std::io::Write + Send + Sync + 'static>(
+        transcript: W,
+    ) -> Result<Self> {
         //let mut cmd = std::process::Command::new("cat");
         //cmd.stdin(std::process::Stdio::piped())
 
@@ -174,7 +179,9 @@ impl Communicator {
         )?))
     }
 
-    pub fn new_debug_with_transcript(transcript: std::fs::File) -> Result<Self> {
+    pub fn new_debug_with_transcript<W: std::io::Write + Send + Sync + 'static>(
+        transcript: W,
+    ) -> Result<Self> {
         let mut cmd = std::process::Command::new("sh");
         cmd.args([
             "/home/keks/academia/ssp-tools/sspds-rs/write_to.sh",
