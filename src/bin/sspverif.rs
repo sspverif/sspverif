@@ -131,11 +131,21 @@ enum Commands {
     /// Give information about the provided code
     Explain(Explain),
 
-    // Prove the whole project.
+    /// Prove the whole project.
     Prove(Prove),
 
-    // Print Wire Check SMTLIB code
+    /// Print Wire Check SMTLIB code
     WireCheck(WireCheck),
+
+    /// Reformat file or directory
+    Format(Format),
+}
+
+#[derive(clap::Args, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Format {
+    /// Input to reformat
+    input: Option<std::path::PathBuf>,
 }
 
 #[derive(clap::Args, Debug)]
@@ -185,6 +195,19 @@ fn latex() -> Result<(), project::error::Error> {
     project::Project::load()?.latex()
 }
 
+fn format(f: &Format) -> Result<(), project::error::Error> {
+    if let Some(input) = &f.input {
+        if input.is_file() {
+            sspverif::format::format_file(input)?;
+        } else {
+            println!("input not a file");
+        }
+    } else {
+        println!("no input");
+    }
+    Ok(())
+}
+
 fn wire_check(game_name: &str, dst_idx: usize) -> Result<(), project::error::Error> {
     project::Project::load()?.print_wire_check_smt(game_name, dst_idx);
     Ok(())
@@ -198,6 +221,7 @@ fn main() -> miette::Result<()> {
         Commands::Latex => latex(),
         Commands::Explain(Explain { game_name, output }) => explain(game_name, output),
         Commands::WireCheck(args) => wire_check(&args.game_name, args.dst_idx),
+        Commands::Format(f) => format(f),
     };
 
     println!("{result:#?}");

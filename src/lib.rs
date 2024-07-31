@@ -2,6 +2,7 @@
 extern crate pest_derive;
 
 pub mod expressions;
+pub mod format;
 pub mod gamehops;
 pub mod identifier;
 pub mod package;
