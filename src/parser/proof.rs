@@ -296,7 +296,7 @@ fn handle_instance_decl(
 ) -> Result<(), ParseProofError> {
     let mut ast = ast.into_inner();
 
-    let inst_name = ast.next().unwrap().as_str().to_string();
+    let game_inst_name = ast.next().unwrap().as_str().to_string();
     let game_name_ast = ast.next().unwrap();
     let game_name_span = game_name_ast.as_span();
     let game_name = game_name_ast.as_str();
@@ -308,14 +308,20 @@ fn handle_instance_decl(
         game_name: game_name.to_string(),
     })?;
 
-    let (types, consts) = handle_instance_assign_list(ctx, &inst_name, game, body_ast)?;
+    let (types, consts) = handle_instance_assign_list(ctx, &game_inst_name, game, body_ast)?;
 
     let consts_as_ident = consts
         .iter()
         .map(|(ident, expr)| (ident.clone().into(), expr.clone()))
         .collect();
 
-    let game_inst = GameInstance::new(inst_name, game.clone(), types, consts_as_ident);
+    let game_inst = GameInstance::new(
+        game_inst_name,
+        ctx.proof_name.to_string(),
+        game.clone(),
+        types,
+        consts_as_ident,
+    );
     ctx.add_game_instance(game_inst);
 
     Ok(())

@@ -168,7 +168,7 @@ impl<'a> GameInstanceContext<'a> {
         let declare_info = self.game_state_declare_info(sample_info);
         let spec = game_state_pattern.datastructure_spec(&declare_info);
 
-        let tipe = self.param_type(param_name)?;
+        let tipe = self.param_type(param_name)?.clone();
         let const_selector = GameStateSelector::Const {
             const_name: param_name,
             tipe,

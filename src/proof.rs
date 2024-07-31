@@ -1,7 +1,8 @@
 use crate::{
     expressions::Expression,
-    identifier::Identifier,
+    identifier::{game_ident::GameConstIdentifier, Identifier},
     package::{Composition, Package},
+    packageinstance::instantiate::InstantiationContext,
     types::Type,
     util::resolver::{Resolver, SliceResolver},
 };
@@ -11,11 +12,11 @@ use crate::impl_Named;
 ////////////////////////////////////////////////////
 
 #[derive(Debug, Clone)]
-pub struct GameInstance {
-    name: String,
-    game: Composition,
-    types: Vec<(String, Type)>,
-    consts: Vec<(Identifier, Expression)>,
+pub(crate) struct GameInstance {
+    pub(crate) name: String,
+    pub(crate) game: Composition,
+    pub(crate) types: Vec<(String, Type)>,
+    pub(crate) consts: Vec<(GameConstIdentifier, Expression)>,
 }
 
 impl_Named!(GameInstance);
@@ -26,49 +27,38 @@ mod instantiate {
         identifier::{pkg_ident::PackageConstIdentifier, Identifier},
         package::Package,
         packageinstance::{
-            instantiate::{self, rewrite_expression},
+            instantiate::{self, rewrite_expression, InstantiationContext},
             PackageInstance,
         },
         parser::package::MultiInstanceIndices,
         types::Type,
     };
 
+    /*
+    *
+    *This function looks funny.
+    It is doing working during a game-to-gameinstance rewrite,
+    but does things for a pacakge-to-package instance rewrite.
+    *
+    * */
     pub(crate) fn rewrite_pkg_inst(
-        pkg_inst_name: &str,
-        game_name: &str,
-        pkg: &Package,
-        mut multi_instance_indices: MultiInstanceIndices,
-        mut params: Vec<(PackageConstIdentifier, Expression)>,
-        types: Vec<(String, Type)>,
-        game_params: Vec<(Identifier, Expression)>,
-        game_inst_name: &str,
+        inst_ctx: InstantiationContext,
+        pkg_inst: &PackageInstance,
     ) -> PackageInstance {
-        let new_oracles = pkg
+        let mut pkg_inst = pkg_inst.clone();
+
+        let new_oracles = pkg_inst
+            .pkg
             .oracles
             .iter()
-            .map(|oracle_def| {
-                instantiate::rewrite_oracle_def(
-                    pkg_inst_name,
-                    game_name,
-                    oracle_def,
-                    &game_params,
-                    &types,
-                )
-            })
+            .map(|oracle_def| inst_ctx.rewrite_oracle_def(oracle_def))
             .collect();
 
-        let new_split_oracles = pkg
+        let new_split_oracles = pkg_inst
+            .pkg
             .split_oracles
             .iter()
-            .map(|split_oracle_def| {
-                instantiate::rewrite_split_oracle_def(
-                    pkg_inst_name,
-                    game_name,
-                    split_oracle_def,
-                    &game_params,
-                    &types,
-                )
-            })
+            .map(|split_oracle_def| inst_ctx.rewrite_split_oracle_def(split_oracle_def))
             .collect();
 
         let pkg = Package {
@@ -76,55 +66,41 @@ mod instantiate {
             params: vec![],
             oracles: new_oracles,
             split_oracles: new_split_oracles,
-            ..pkg.clone()
+            ..pkg_inst.pkg.clone()
         };
 
-        for (_, expr) in &mut params {
-            *expr =
-                rewrite_expression(game_inst_name, game_name, expr, game_params.as_slice(), &[]);
+        for (_, expr) in &mut pkg_inst.params {
+            *expr = inst_ctx.rewrite_expression(expr)
         }
 
-        for index in &mut multi_instance_indices.indices {
-            *index = rewrite_expression(
-                game_inst_name,
-                game_name,
-                index,
-                game_params.as_slice(),
-                &[],
-            );
+        for index in &mut pkg_inst.multi_instance_indices.indices {
+            *index = inst_ctx.rewrite_expression(index);
         }
 
-        PackageInstance {
-            params,
-            types,
-            pkg,
-            name: pkg_inst_name.to_string(),
-            multi_instance_indices,
-        }
+        PackageInstance { pkg, ..pkg_inst }
     }
 }
 
 impl GameInstance {
     pub fn new(
         game_inst_name: String,
+        proof_name: String,
         game: Composition,
         types: Vec<(String, Type)>,
-        params: Vec<(Identifier, Expression)>,
+        params: Vec<(GameConstIdentifier, Expression)>,
     ) -> GameInstance {
+        let inst_ctx: InstantiationContext = InstantiationContext::new_game_instantiation_context(
+            &game_inst_name,
+            &proof_name,
+            &params,
+            &types,
+        );
+
         let new_pkg_instances = game
             .pkgs
             .iter()
             .map(|pkg_inst| -> crate::package::PackageInstance {
-                instantiate::rewrite_pkg_inst(
-                    &pkg_inst.name,
-                    &game.name,
-                    &pkg_inst.pkg,
-                    pkg_inst.multi_instance_indices.clone(),
-                    pkg_inst.params.clone(),
-                    pkg_inst.types.clone(),
-                    params.clone(),
-                    &game_inst_name,
-                )
+                instantiate::rewrite_pkg_inst(inst_ctx, pkg_inst)
             })
             .collect();
 
@@ -153,10 +129,6 @@ impl GameInstance {
 
     pub fn name(&self) -> &str {
         &self.name
-    }
-
-    pub fn consts(&self) -> &[(Identifier, Expression)] {
-        &self.consts
     }
 
     pub fn types(&self) -> &[(String, Type)] {

@@ -10,6 +10,8 @@ use crate::{
     types::Type,
 };
 
+use self::instantiate::InstantiationContext;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PackageInstance {
     pub name: String,
@@ -51,6 +53,14 @@ impl PackageInstance {
         params: Vec<(PackageConstIdentifier, Expression)>,
         types: Vec<(String, Type)>,
     ) -> PackageInstance {
+        let inst_ctx: InstantiationContext =
+            InstantiationContext::new_package_instantiation_context(
+                pkg_inst_name,
+                game_name,
+                &params,
+                &types,
+            );
+
         let params_as_ident: Vec<(Identifier, Expression)> = params
             .iter()
             .map(|(ident, expr)| (ident.clone().into(), expr.clone()))
@@ -59,29 +69,13 @@ impl PackageInstance {
         let new_oracles = pkg
             .oracles
             .iter()
-            .map(|oracle_def| {
-                instantiate::rewrite_oracle_def(
-                    pkg_inst_name,
-                    game_name,
-                    oracle_def,
-                    &params_as_ident,
-                    &types,
-                )
-            })
+            .map(|oracle_def| inst_ctx.rewrite_oracle_def(oracle_def))
             .collect();
 
         let new_split_oracles = pkg
             .split_oracles
             .iter()
-            .map(|split_oracle_def| {
-                instantiate::rewrite_split_oracle_def(
-                    pkg_inst_name,
-                    game_name,
-                    split_oracle_def,
-                    &params_as_ident,
-                    &types,
-                )
-            })
+            .map(|split_oracle_def| inst_ctx.rewrite_split_oracle_def(split_oracle_def))
             .collect();
 
         let pkg = Package {
@@ -109,9 +103,11 @@ impl PackageInstance {
 }
 
 pub(crate) mod instantiate {
+    use std::marker::PhantomData;
+
     use crate::{
         identifier::{
-            game_ident::{GameIdentInstanciationInfo, GameIdentifier},
+            game_ident::{GameConstIdentifier, GameIdentInstanciationInfo, GameIdentifier},
             pkg_ident::{
                 PackageImportsLoopVarIdentifier, PackageLocalIdentifier,
                 PackageOracleArgIdentifier, PackageOracleCodeLoopVarIdentifier,
@@ -119,352 +115,331 @@ pub(crate) mod instantiate {
             },
             proof_ident::ProofIdentInstanciationInfo,
         },
+        package::Composition,
+        proof::GameInstance,
         split::{SplitOracleDef, SplitOracleSig, SplitPath, SplitType},
         statement::CodeBlock,
     };
 
     use super::*;
 
-    pub(crate) fn rewrite_oracle_def(
-        pkg_inst_name: &str,
-        game_name: &str,
-        oracle_def: &OracleDef,
-        const_assignments: &[(Identifier, Expression)],
-        type_assignments: &[(String, Type)],
-    ) -> OracleDef {
-        OracleDef {
-            sig: rewrite_oracle_sig(&oracle_def.sig, type_assignments),
-            code: rewrite_oracle_code(
-                pkg_inst_name,
-                game_name,
-                &oracle_def.code,
-                const_assignments,
-                type_assignments,
-            ),
-            file_pos: oracle_def.file_pos,
-        }
+    #[derive(Debug, Clone, Copy)]
+    pub(crate) enum InstantiationSource<'a> {
+        Package {
+            const_assignments: &'a [(PackageConstIdentifier, Expression)],
+        },
+
+        Game {
+            const_assignments: &'a [(GameConstIdentifier, Expression)],
+        },
     }
 
-    pub(crate) fn rewrite_split_oracle_def(
-        pkg_inst_name: &str,
-        game_name: &str,
-        split_oracle_def: &SplitOracleDef,
-        const_assignments: &[(Identifier, Expression)],
-        type_assignments: &[(String, Type)],
-    ) -> SplitOracleDef {
-        SplitOracleDef {
-            sig: rewrite_split_oracle_sig(
-                pkg_inst_name,
-                game_name,
-                &split_oracle_def.sig,
-                const_assignments,
-                type_assignments,
-            ),
-            code: rewrite_oracle_code(
-                pkg_inst_name,
-                game_name,
-                &split_oracle_def.code,
-                const_assignments,
-                type_assignments,
-            ),
-        }
+    #[derive(Debug, Clone, Copy)]
+    pub(crate) struct InstantiationContext<'a> {
+        src: InstantiationSource<'a>,
+
+        inst_name: &'a str,
+        parent_name: &'a str,
+
+        type_assignments: &'a [(String, Type)],
     }
 
-    pub(crate) fn rewrite_oracle_sig(
-        oracle_sig: &OracleSig,
-        type_assignments: &[(String, Type)],
-    ) -> OracleSig {
-        let type_rewrite_rules: Vec<_> = type_assignments
-            .iter()
-            .map(|(name, tipe)| (Type::UserDefined(name.to_string()), tipe.clone()))
-            .collect();
-
-        OracleSig {
-            name: oracle_sig.name.clone(),
-            multi_inst_idx: oracle_sig.multi_inst_idx.clone(),
-            args: oracle_sig
-                .args
-                .iter()
-                .map(|(name, tipe)| (name.clone(), tipe.rewrite(&type_rewrite_rules)))
-                .collect(),
-            tipe: oracle_sig.tipe.rewrite(&type_rewrite_rules),
+    impl<'a> InstantiationContext<'a> {
+        pub(crate) fn new_package_instantiation_context(
+            inst_name: &'a str,
+            parent_name: &'a str,
+            consts: &'a [(PackageConstIdentifier, Expression)],
+            types: &'a [(String, Type)],
+        ) -> Self {
+            Self {
+                src: InstantiationSource::Package {
+                    const_assignments: consts,
+                },
+                inst_name,
+                parent_name,
+                type_assignments: types,
+            }
         }
-    }
 
-    pub(crate) fn rewrite_split_oracle_sig(
-        pkg_inst_name: &str,
-        game_name: &str,
-        split_oracle_sig: &SplitOracleSig,
-        const_assignments: &[(Identifier, Expression)],
-        type_assignments: &[(String, Type)],
-    ) -> SplitOracleSig {
-        let type_rewrite_rules: Vec<_> = type_assignments
-            .iter()
-            .map(|(name, tipe)| (Type::UserDefined(name.to_string()), tipe.clone()))
-            .collect();
+        pub(crate) fn new_game_instantiation_context(
+            inst_name: &'a str,
+            parent_name: &'a str,
+            consts: &'a [(GameConstIdentifier, Expression)],
+            types: &'a [(String, Type)],
+        ) -> Self {
+            Self {
+                src: InstantiationSource::Game {
+                    const_assignments: consts,
+                },
+                inst_name,
+                parent_name,
+                type_assignments: types,
+            }
+        }
 
-        SplitOracleSig {
-            name: split_oracle_sig.name.clone(),
-            args: split_oracle_sig
-                .args
-                .iter()
-                .map(|(name, tipe)| (name.clone(), tipe.rewrite(&type_rewrite_rules)))
-                .collect(),
-            partial_vars: split_oracle_sig
-                .partial_vars
-                .iter()
-                .map(|(name, tipe)| (name.clone(), tipe.rewrite(&type_rewrite_rules)))
-                .collect(),
-            path: SplitPath::new(
-                split_oracle_sig
-                    .path
-                    .path()
+        pub(crate) fn rewrite_oracle_def(&self, oracle_def: &OracleDef) -> OracleDef {
+            OracleDef {
+                sig: self.rewrite_oracle_sig(&oracle_def.sig),
+                code: self.rewrite_oracle_code(&oracle_def.code),
+                file_pos: oracle_def.file_pos,
+            }
+        }
+
+        pub(crate) fn rewrite_oracle_sig(&self, oracle_sig: &OracleSig) -> OracleSig {
+            {
+                let type_rewrite_rules: Vec<_> = self
+                    .type_assignments
                     .iter()
-                    .map(|component| crate::split::SplitPathComponent {
-                        pkg_inst_name: component.pkg_inst_name.clone(),
-                        oracle_name: component.oracle_name.clone(),
-                        split_type: match &component.split_type {
-                            SplitType::Plain
-                            | SplitType::IfBranch
-                            | SplitType::ElseBranch
-                            | SplitType::Invoc(_) => component.split_type.clone(),
-                            SplitType::ForStep(ident, start, end) => SplitType::ForStep(
-                                ident.clone(),
-                                rewrite_expression(
-                                    pkg_inst_name,
-                                    game_name,
-                                    start,
-                                    const_assignments,
-                                    type_assignments,
+                    .map(|(name, tipe)| (Type::UserDefined(name.to_string()), tipe.clone()))
+                    .collect();
+
+                OracleSig {
+                    name: oracle_sig.name.clone(),
+                    multi_inst_idx: oracle_sig.multi_inst_idx.clone(),
+                    args: oracle_sig
+                        .args
+                        .iter()
+                        .map(|(name, tipe)| (name.clone(), tipe.rewrite(&type_rewrite_rules)))
+                        .collect(),
+                    tipe: oracle_sig.tipe.rewrite(&type_rewrite_rules),
+                }
+            }
+        }
+
+        pub(crate) fn rewrite_oracle_code(&self, code: &CodeBlock) -> CodeBlock {
+            CodeBlock(
+                code.0
+                    .iter()
+                    .map(|stmt| self.rewrite_statement(stmt))
+                    .collect(),
+            )
+        }
+
+        pub(crate) fn rewrite_split_oracle_sig(
+            &self,
+            split_oracle_sig: &SplitOracleSig,
+        ) -> SplitOracleSig {
+            let type_rewrite_rules: Vec<_> = self
+                .type_assignments
+                .iter()
+                .map(|(name, tipe)| (Type::UserDefined(name.to_string()), tipe.clone()))
+                .collect();
+
+            SplitOracleSig {
+                name: split_oracle_sig.name.clone(),
+                args: split_oracle_sig
+                    .args
+                    .iter()
+                    .map(|(name, tipe)| (name.clone(), tipe.rewrite(&type_rewrite_rules)))
+                    .collect(),
+                partial_vars: split_oracle_sig
+                    .partial_vars
+                    .iter()
+                    .map(|(name, tipe)| (name.clone(), tipe.rewrite(&type_rewrite_rules)))
+                    .collect(),
+                path: SplitPath::new(
+                    split_oracle_sig
+                        .path
+                        .path()
+                        .iter()
+                        .map(|component| crate::split::SplitPathComponent {
+                            pkg_inst_name: component.pkg_inst_name.clone(),
+                            oracle_name: component.oracle_name.clone(),
+                            split_type: match &component.split_type {
+                                SplitType::Plain
+                                | SplitType::IfBranch
+                                | SplitType::ElseBranch
+                                | SplitType::Invoc(_) => component.split_type.clone(),
+                                SplitType::ForStep(ident, start, end) => SplitType::ForStep(
+                                    ident.clone(),
+                                    self.rewrite_expression(start),
+                                    self.rewrite_expression(end),
                                 ),
-                                rewrite_expression(
-                                    pkg_inst_name,
-                                    game_name,
-                                    end,
-                                    const_assignments,
-                                    type_assignments,
-                                ),
-                            ),
-                            SplitType::IfCondition(expr) => {
-                                SplitType::IfCondition(rewrite_expression(
-                                    pkg_inst_name,
-                                    game_name,
-                                    expr,
-                                    const_assignments,
-                                    type_assignments,
-                                ))
-                            }
-                        },
-                        split_range: component.split_range.clone(),
-                    })
-                    .collect(),
-            ),
-            tipe: split_oracle_sig.tipe.rewrite(&type_rewrite_rules),
+                                SplitType::IfCondition(expr) => {
+                                    SplitType::IfCondition(self.rewrite_expression(expr))
+                                }
+                            },
+                            split_range: component.split_range.clone(),
+                        })
+                        .collect(),
+                ),
+                tipe: split_oracle_sig.tipe.rewrite(&type_rewrite_rules),
+            }
+        }
+
+        pub(crate) fn rewrite_split_oracle_def(
+            &self,
+            split_oracle_def: &SplitOracleDef,
+        ) -> SplitOracleDef {
+            SplitOracleDef {
+                sig: self.rewrite_split_oracle_sig(&split_oracle_def.sig),
+                code: self.rewrite_oracle_code(&split_oracle_def.code),
+            }
+        }
+
+        pub(crate) fn rewrite_statement(&self, stmt: &Statement) -> Statement {
+            let type_rewrite_rules: Vec<_> = self
+                .type_assignments
+                .iter()
+                .map(|(name, tipe)| (Type::UserDefined(name.to_string()), tipe.clone()))
+                .collect();
+
+            match stmt {
+                Statement::Abort(_) => stmt.clone(),
+                Statement::Return(expr, pos) => Statement::Return(
+                    expr.clone().map(|expr| self.rewrite_expression(&expr)),
+                    *pos,
+                ),
+
+                Statement::Assign(ident, index, value, pos) => Statement::Assign(
+                    rewrite_identifier(
+                        self.inst_name,
+                        self.parent_name,
+                        ident,
+                        self.type_assignments,
+                    ),
+                    index.clone().map(|expr| self.rewrite_expression(&expr)),
+                    self.rewrite_expression(value),
+                    *pos,
+                ),
+                Statement::Parse(idents, expr, pos) => Statement::Parse(
+                    idents
+                        .iter()
+                        .map(|ident| {
+                            rewrite_identifier(
+                                self.inst_name,
+                                self.parent_name,
+                                ident,
+                                self.type_assignments,
+                            )
+                        })
+                        .collect(),
+                    self.rewrite_expression(expr),
+                    *pos,
+                ),
+                Statement::Sample(ident, index, sample_id, tipe, pos) => Statement::Sample(
+                    rewrite_identifier(
+                        self.inst_name,
+                        self.parent_name,
+                        ident,
+                        self.type_assignments,
+                    ),
+                    index.clone().map(|expr| self.rewrite_expression(&expr)),
+                    *sample_id,
+                    tipe.rewrite(&type_rewrite_rules),
+                    *pos,
+                ),
+                Statement::InvokeOracle {
+                    id,
+                    opt_idx,
+                    opt_dst_inst_idx,
+                    name,
+                    args,
+                    target_inst_name,
+                    tipe,
+                    file_pos,
+                } => Statement::InvokeOracle {
+                    id: rewrite_identifier(
+                        self.inst_name,
+                        self.parent_name,
+                        id,
+                        self.type_assignments,
+                    ),
+                    opt_idx: opt_idx.clone().map(|expr| self.rewrite_expression(&expr)),
+                    opt_dst_inst_idx: opt_dst_inst_idx
+                        .clone()
+                        .map(|expr| self.rewrite_expression(&expr)),
+                    name: name.clone(),
+                    args: args
+                        .iter()
+                        .map(|expr| self.rewrite_expression(expr))
+                        .collect(),
+                    target_inst_name: target_inst_name.clone(),
+                    tipe: tipe.clone().map(|tipe| tipe.rewrite(&type_rewrite_rules)),
+                    file_pos: *file_pos,
+                },
+
+                Statement::IfThenElse(cond, ifblock, elseblock, pos) => Statement::IfThenElse(
+                    self.rewrite_expression(cond),
+                    self.rewrite_oracle_code(ifblock),
+                    self.rewrite_oracle_code(elseblock),
+                    *pos,
+                ),
+                Statement::For(ident, start, end, code, pos) => Statement::For(
+                    ident.clone(),
+                    self.rewrite_expression(start),
+                    self.rewrite_expression(end),
+                    self.rewrite_oracle_code(code),
+                    *pos,
+                ),
+            }
         }
     }
 
-    pub(crate) fn rewrite_oracle_code(
-        pkg_inst_name: &str,
-        game_name: &str,
-        code: &CodeBlock,
-        const_assignments: &[(Identifier, Expression)],
-        type_assignments: &[(String, Type)],
-    ) -> CodeBlock {
-        let _type_rewrite_rules: Vec<_> = type_assignments
-            .iter()
-            .map(|(name, tipe)| (Type::UserDefined(name.to_string()), tipe.clone()))
-            .collect();
-
-        CodeBlock(
-            code.0
-                .iter()
-                .map(|stmt| {
-                    rewrite_statement(
-                        pkg_inst_name,
-                        game_name,
-                        stmt,
-                        const_assignments,
-                        type_assignments,
-                    )
-                })
-                .collect(),
-        )
-    }
-
-    pub(crate) fn rewrite_statement(
-        pkg_inst_name: &str,
-        game_name: &str,
-        stmt: &Statement,
-        const_assignments: &[(Identifier, Expression)],
-        type_assignments: &[(String, Type)],
-    ) -> Statement {
-        let type_rewrite_rules: Vec<_> = type_assignments
-            .iter()
-            .map(|(name, tipe)| (Type::UserDefined(name.to_string()), tipe.clone()))
-            .collect();
-
-        match stmt {
-            Statement::Abort(_) => stmt.clone(),
-            Statement::Return(expr, pos) => Statement::Return(
-                expr.clone().map(|expr| {
-                    rewrite_expression(
-                        pkg_inst_name,
-                        game_name,
-                        &expr,
-                        const_assignments,
-                        type_assignments,
-                    )
-                }),
-                *pos,
-            ),
-
-            Statement::Assign(ident, index, value, pos) => Statement::Assign(
-                rewrite_identifier(pkg_inst_name, game_name, ident, type_assignments),
-                index.clone().map(|expr| {
-                    rewrite_expression(
-                        pkg_inst_name,
-                        game_name,
-                        &expr,
-                        const_assignments,
-                        type_assignments,
-                    )
-                }),
-                rewrite_expression(
-                    pkg_inst_name,
-                    game_name,
-                    value,
-                    const_assignments,
-                    type_assignments,
-                ),
-                *pos,
-            ),
-            Statement::Parse(idents, expr, pos) => Statement::Parse(
-                idents
+    impl<'a> InstantiationContext<'a> {
+        pub(crate) fn rewrite_expression(&self, expr: &Expression) -> Expression {
+            expr.map(|expr| match (self.src, expr) {
+                (
+                    InstantiationSource::Package { const_assignments },
+                    Expression::Identifier(Identifier::PackageIdentifier(
+                        PackageIdentifier::Const(pkg_const_ident),
+                    )),
+                ) => const_assignments
                     .iter()
-                    .map(|ident| {
-                        rewrite_identifier(pkg_inst_name, game_name, ident, type_assignments)
-                    })
-                    .collect(),
-                rewrite_expression(
-                    pkg_inst_name,
-                    game_name,
-                    expr,
-                    const_assignments,
-                    type_assignments,
-                ),
-                *pos,
-            ),
-            Statement::Sample(ident, index, sample_id, tipe, pos) => Statement::Sample(
-                rewrite_identifier(pkg_inst_name, game_name, ident, type_assignments),
-                index.clone().map(|expr| {
-                    rewrite_expression(
-                        pkg_inst_name,
-                        game_name,
-                        &expr,
-                        const_assignments,
-                        type_assignments,
-                    )
-                }),
-                *sample_id,
-                tipe.rewrite(&type_rewrite_rules),
-                *pos,
-            ),
-            Statement::InvokeOracle {
-                id,
-                opt_idx,
-                opt_dst_inst_idx,
-                name,
-                args,
-                target_inst_name,
-                tipe,
-                file_pos,
-            } => Statement::InvokeOracle {
-                id: rewrite_identifier(pkg_inst_name, game_name, id, type_assignments),
-                opt_idx: opt_idx.clone().map(|expr| {
-                    rewrite_expression(
-                        pkg_inst_name,
-                        game_name,
-                        &expr,
-                        const_assignments,
-                        type_assignments,
-                    )
-                }),
-                opt_dst_inst_idx: opt_dst_inst_idx.clone().map(|expr| {
-                    rewrite_expression(
-                        pkg_inst_name,
-                        game_name,
-                        &expr,
-                        const_assignments,
-                        type_assignments,
-                    )
-                }),
-                name: name.clone(),
-                args: args
-                    .iter()
-                    .map(|expr| {
-                        rewrite_expression(
-                            pkg_inst_name,
-                            game_name,
-                            expr,
-                            const_assignments,
-                            type_assignments,
-                        )
-                    })
-                    .collect(),
-                target_inst_name: target_inst_name.clone(),
-                tipe: tipe.clone().map(|tipe| tipe.rewrite(&type_rewrite_rules)),
-                file_pos: *file_pos,
-            },
+                    .find_map(|(search, replace)| {
+                        if search.name == pkg_const_ident.name {
+                            let new_expr = replace.map(|expr| match expr {
+                                Expression::Identifier(Identifier::GameIdentifier(game_ident)) => {
+                                    let inst_info = GameIdentInstanciationInfo {
+                                        lower: pkg_const_ident.clone(),
+                                        pkg_inst_name: self.inst_name.to_string(),
+                                    };
 
-            Statement::IfThenElse(cond, ifblock, elseblock, pos) => Statement::IfThenElse(
-                rewrite_expression(
-                    pkg_inst_name,
-                    game_name,
-                    cond,
-                    const_assignments,
-                    type_assignments,
-                ),
-                rewrite_oracle_code(
-                    pkg_inst_name,
-                    game_name,
-                    ifblock,
-                    const_assignments,
-                    type_assignments,
-                ),
-                rewrite_oracle_code(
-                    pkg_inst_name,
-                    game_name,
-                    elseblock,
-                    const_assignments,
-                    type_assignments,
-                ),
-                *pos,
-            ),
-            Statement::For(ident, start, end, code, pos) => Statement::For(
-                ident.clone(),
-                rewrite_expression(
-                    pkg_inst_name,
-                    game_name,
-                    start,
-                    const_assignments,
-                    type_assignments,
-                ),
-                rewrite_expression(
-                    pkg_inst_name,
-                    game_name,
-                    end,
-                    const_assignments,
-                    type_assignments,
-                ),
-                rewrite_oracle_code(
-                    pkg_inst_name,
-                    game_name,
-                    code,
-                    const_assignments,
-                    type_assignments,
-                ),
-                *pos,
-            ),
+                                    Expression::Identifier(Identifier::GameIdentifier(
+                                        game_ident.with_instance_info(inst_info),
+                                    ))
+                                }
+                                other => other,
+                            });
+                            Some(new_expr)
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap(),
+                (
+                    InstantiationSource::Game { const_assignments },
+                    Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(
+                        game_const_ident,
+                    ))),
+                ) => const_assignments
+                    .iter()
+                    .find_map(|(search, replace)| {
+                        if search.name == game_const_ident.name {
+                            let new_expr = replace.map(|expr| match expr {
+                                Expression::Identifier(Identifier::ProofIdentifier(
+                                    proof_ident,
+                                )) => {
+                                    let inst_info = ProofIdentInstanciationInfo {
+                                        lower: game_const_ident.clone(),
+                                        game_inst_name: self.inst_name.to_string(),
+                                    };
+
+                                    Expression::Identifier(Identifier::ProofIdentifier(
+                                        proof_ident.with_instance_info(inst_info),
+                                    ))
+                                }
+                                other => other,
+                            });
+                            Some(new_expr)
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap(),
+
+                (_, expr) => expr,
+            })
         }
     }
 
@@ -482,7 +457,7 @@ pub(crate) mod instantiate {
                 .iter()
                 .find_map(|(search, replace)| match (search, replace) {
                     (Identifier::PackageIdentifier(PackageIdentifier::Const(search)), new_expr) => {
-                        if search == &pkg_const_ident {
+                        if search.name == pkg_const_ident.name {
                             let new_expr = new_expr.map(|expr| match expr {
                                 Expression::Identifier(Identifier::GameIdentifier(game_ident)) => {
                                     let inst_info = GameIdentInstanciationInfo {

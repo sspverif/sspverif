@@ -593,11 +593,11 @@ impl<'a> EquivalenceContext<'a> {
                 (
                     format!("randomness-mapping-{oracle_name}"),
                     (
-                        format!("get-rand-ctr-{game_name_left}"),
+                        format!("get-rand-ctr-{game_inst_name_left}"),
                         "randmap-sample-id-left",
                     ),
                     (
-                        format!("get-rand-ctr-{game_name_right}"),
+                        format!("get-rand-ctr-{game_inst_name_right}"),
                         "randmap-sample-id-right",
                     ),
                     "randmap-sample-id-left",
@@ -882,11 +882,11 @@ impl<'a> EquivalenceContext<'a> {
                 (
                     format!("randomness-mapping-{oracle_name}"),
                     (
-                        format!("get-rand-ctr-{game_name_left}"),
+                        format!("get-rand-ctr-{game_inst_name_left}"),
                         "randmap-sample-id-left",
                     ),
                     (
-                        format!("get-rand-ctr-{game_name_right}"),
+                        format!("get-rand-ctr-{game_inst_name_right}"),
                         "randmap-sample-id-right",
                     ),
                     "randmap-sample-id-left",
@@ -1040,7 +1040,7 @@ impl<'a> EquivalenceContext<'a> {
 
         (
             "define-fun",
-            format!("get-rand-ctr-{game_name}"),
+            format!("get-rand-ctr-{game_inst_name}"),
             (("sample-id", Type::Integer),),
             "Int",
             body,

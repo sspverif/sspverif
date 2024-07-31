@@ -16,7 +16,7 @@ pub struct GameStatePattern<'a> {
 #[derive(PartialEq, Eq)]
 pub enum GameStateSelector<'a> {
     PackageInstance { pkg_inst_name: &'a str },
-    Const { const_name: &'a str, tipe: &'a Type },
+    Const { const_name: &'a str, tipe: Type },
     Randomness { sample_id: usize },
 }
 
@@ -94,7 +94,7 @@ impl<'a> DatastructurePattern<'a> for GameStatePattern<'a> {
             GameStateSelector::PackageInstance { pkg_inst_name } => {
                 names::pkgstate_sort_name(&game_inst_name, &pkg_inst_name).into()
             }
-            GameStateSelector::Const { tipe, .. } => (*tipe).into(),
+            GameStateSelector::Const { tipe, .. } => tipe.clone().into(),
             GameStateSelector::Randomness { .. } => Type::Integer.into(),
         }
     }
@@ -114,14 +114,16 @@ impl<'a> DatastructurePattern<'a> for GameStatePattern<'a> {
 
         let const_selectors = info
             .game_inst
-            .game()
             .consts
             .iter()
             // function parameters are just declared as smtlib functions globally, so we don't
             // want them to be part of this datatype. This way we also stay compatible with
             // solvers that don't support higher-order functions.
-            .filter(|(_, tipe)| !matches!(tipe, crate::types::Type::Fn(_, _)))
-            .map(|(const_name, tipe)| GameStateSelector::Const { const_name, tipe });
+            .filter(|(name, expr)| !matches!(expr, crate::expressions::Expression::FnCall(_, _)))
+            .map(|(const_name, expr)| GameStateSelector::Const {
+                const_name: &const_name.name,
+                tipe: expr.get_type(),
+            });
 
         let rand_selectors = (0..info.sample_info.count)
             .map(|sample_id| GameStateSelector::Randomness { sample_id });
