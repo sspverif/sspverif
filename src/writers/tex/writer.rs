@@ -33,9 +33,9 @@ impl<'a> BlockWriter<'a> {
         format!("\\n{{{}}}", ident.ident().replace('_', "\\_"))
     }
 
-	fn type_to_tex(&self, tipe: &Type) -> String {
+    fn type_to_tex(&self, tipe: &Type) -> String {
         format!("\\O{{{:?}}}", tipe)
-	}
+    }
 
     fn expression_to_tex(&self, expr: &Expression) -> String {
         match expr {
@@ -44,7 +44,7 @@ impl<'a> BlockWriter<'a> {
             Expression::Not(expr) => format!("\\neg {}", self.expression_to_tex(expr)),
             Expression::Unwrap(expr) => format!("\\O{{unwrap}}({})", self.expression_to_tex(expr)),
             Expression::Some(expr) => format!("\\O{{some}}({})", self.expression_to_tex(expr)),
-			Expression::None(tipe) => format!("\\O{{none}}({})", self.type_to_tex(tipe)),
+            Expression::None(tipe) => format!("\\O{{none}}({})", self.type_to_tex(tipe)),
             Expression::Add(lhs, rhs) => format!(
                 "({} + {})",
                 self.expression_to_tex(lhs),
@@ -394,15 +394,15 @@ pub fn tex_write_composition(
     writeln!(file, "\\maketitle")?;
 
     let graphfname = tex_write_composition_graph_file(composition, name, target)?;
-	writeln!(file, "\\begin{{center}}")?;
+    writeln!(file, "\\begin{{center}}")?;
     writeln!(file, "\\input{{{}}}", graphfname)?;
-	writeln!(file, "\\end{{center}}")?;
+    writeln!(file, "\\end{{center}}")?;
 
     for pkg in &composition.pkgs {
         let pkgfname = tex_write_package(pkg, target)?;
-		writeln!(file, "\\begin{{center}}")?;
+        writeln!(file, "\\begin{{center}}")?;
         writeln!(file, "\\input{{{}}}", pkgfname)?;
-		writeln!(file, "\\end{{center}}")?;
+        writeln!(file, "\\end{{center}}")?;
     }
 
     writeln!(file, "\\end{{document}}")?;
@@ -426,15 +426,15 @@ pub fn tex_write_proof(proof: &Proof, name: &str, target: &Path) -> std::io::Res
         writeln!(file, "\\subsection{{{} Game}}", instance.name())?;
 
         let graphfname = target.join(format!("CompositionGraph_{}.tex", instance.name()));
-		writeln!(file, "\\begin{{center}}")?;
+        writeln!(file, "\\begin{{center}}")?;
         writeln!(file, "\\input{{{}}}", graphfname.display())?;
-		writeln!(file, "\\end{{center}}")?;
+        writeln!(file, "\\end{{center}}")?;
 
         for package in &instance.game().pkgs {
             let pkgfname = target.join(format!("Package_{}.tex", package.name));
-			writeln!(file, "\\begin{{center}}")?;
+            writeln!(file, "\\begin{{center}}")?;
             writeln!(file, "\\input{{{}}}", pkgfname.display())?;
-			writeln!(file, "\\end{{center}}")?;
+            writeln!(file, "\\end{{center}}")?;
         }
     }
 
@@ -449,7 +449,7 @@ pub fn tex_write_proof(proof: &Proof, name: &str, target: &Path) -> std::io::Res
                     red.left().as_game_inst_name(),
                     red.left().as_assumption_game_inst_name()
                 )?;
-				writeln!(file, "\\begin{{center}}")?;
+                writeln!(file, "\\begin{{center}}")?;
                 let left_game_instance = proof
                     .instances
                     .iter()
@@ -460,7 +460,7 @@ pub fn tex_write_proof(proof: &Proof, name: &str, target: &Path) -> std::io::Res
                     left_game_instance.game(),
                     red.left().pkg_maps(),
                 )?;
-				writeln!(file, "\\end{{center}}")?;
+                writeln!(file, "\\end{{center}}")?;
 
                 writeln!(
                     file,
@@ -468,7 +468,7 @@ pub fn tex_write_proof(proof: &Proof, name: &str, target: &Path) -> std::io::Res
                     red.right().as_game_inst_name(),
                     red.right().as_assumption_game_inst_name()
                 )?;
-				writeln!(file, "\\begin{{center}}")?;
+                writeln!(file, "\\begin{{center}}")?;
                 let right_game_instance = proof
                     .instances
                     .iter()
@@ -479,7 +479,7 @@ pub fn tex_write_proof(proof: &Proof, name: &str, target: &Path) -> std::io::Res
                     right_game_instance.game(),
                     red.right().pkg_maps(),
                 )?;
-				writeln!(file, "\\end{{center}}")?;
+                writeln!(file, "\\end{{center}}")?;
             }
             GameHop::Equivalence(equiv) => {
                 writeln!(
