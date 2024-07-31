@@ -1,5 +1,5 @@
 use crate::package::{Composition, Package};
-use crate::{expressions::Expression, types::Type};
+use crate::{debug_assert_matches, expressions::Expression, types::Type};
 
 use super::composition::ParseGameContext;
 use super::error::{
@@ -80,6 +80,7 @@ pub(crate) fn handle_game_params_def_list(
     pkg_inst_name: &str,
     ast: Pair<Rule>,
 ) -> std::result::Result<Vec<(String, Expression)>, super::composition::ParseGameError> {
+    debug_assert_matches!(ast.as_rule(), Rule::params_def_list);
     let params = &pkg.params;
     let mut defined_params = HashMap::<String, SourceSpan>::new();
     let block_span = ast.as_span();

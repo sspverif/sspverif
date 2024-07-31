@@ -32,3 +32,10 @@ pub mod error {
         fn file_pos(&self) -> &FilePosition;
     }
 }
+
+#[macro_export]
+macro_rules! debug_assert_matches {
+    ($v:expr, $p:pat) => {
+        debug_assert!(matches!($v, $p))
+    };
+}

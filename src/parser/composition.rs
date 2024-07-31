@@ -9,6 +9,7 @@ use super::{
     ParseContext, Rule,
 };
 use crate::{
+    debug_assert_matches,
     expressions::Expression,
     identifier::{
         game_ident::{GameConstIdentifier, GameIdentifier},
@@ -24,6 +25,7 @@ use crate::{
     //transforms::{resolvetypes::ResolveTypesPackageInstanceTransform, PackageInstanceTransform},
     types::Type,
 };
+use itertools::Itertools as _;
 use miette::{Diagnostic, NamedSource};
 use pest::iterators::{Pair, Pairs};
 use std::collections::HashMap;
@@ -708,35 +710,35 @@ pub fn handle_instance_assign_list(
     ),
     super::composition::ParseGameError,
 > {
+    debug_assert_matches!(ast.as_rule(), Rule::instance_assign_list);
+    let span = ast.as_span();
     let mut params = vec![];
     let types = vec![];
 
     for elem in ast.into_inner() {
         match elem.as_rule() {
             Rule::params_def => {
-                let defs = handle_game_params_def_list(
-                    ctx,
-                    pkg,
-                    pkg_inst_name,
-                    elem.into_inner().next().unwrap(),
-                )?;
-                params.extend(defs.into_iter().map(|(name, value)| {
-                    (
-                        PackageConstIdentifier {
-                            pkg_name: pkg.name.to_string(),
-                            name,
-                            tipe: value.get_type(),
-                            // we don't resolve it here yet, so we can easily find it when
-                            // searching this list when we don't have the value yet.
-                            game_name: None,
-                            game_assignment: None,
-                            pkg_inst_name: None,
-                            game_inst_name: None,
-                            proof_name: None,
-                        },
-                        value,
-                    )
-                }))
+                if let Some(params_def_list) = elem.into_inner().next() {
+                    let defs =
+                        handle_game_params_def_list(ctx, pkg, pkg_inst_name, params_def_list)?;
+                    params.extend(defs.into_iter().map(|(name, value)| {
+                        (
+                            PackageConstIdentifier {
+                                pkg_name: pkg.name.to_string(),
+                                name,
+                                tipe: value.get_type(),
+                                // we don't resolve it here yet, so we can easily find it when
+                                // searching this list when we don't have the value yet.
+                                game_name: None,
+                                game_assignment: None,
+                                pkg_inst_name: None,
+                                game_inst_name: None,
+                                proof_name: None,
+                            },
+                            value,
+                        )
+                    }))
+                }
             }
             Rule::types_def => {
                 todo!();
@@ -753,6 +755,30 @@ pub fn handle_instance_assign_list(
         }
     }
 
+    let missing_params_vec: Vec<_> = pkg
+        .params
+        .iter()
+        .filter_map(|(name, _, _)| {
+            if params.iter().any(|(p, _)| &p.name == name) {
+                None
+            } else {
+                Some(name.clone())
+            }
+        })
+        .collect();
+    if !missing_params_vec.is_empty() {
+        let missing_params = missing_params_vec.iter().join(", ");
+        return Err(MissingPackageParameterDefinitionError {
+            source_code: ctx.named_source(),
+            at: (span.start()..span.end()).into(),
+            pkg_name: pkg.name.clone(),
+            pkg_inst_name: pkg_inst_name.to_string(),
+            missing_params_vec,
+            missing_params,
+        }
+        .into());
+    }
+
     Ok((params, types))
 }
 
@@ -760,14 +786,8 @@ pub fn handle_instance_decl_multi_inst(
     ctx: &mut ParseGameContext,
     ast: Pair<Rule>,
 ) -> Result<(), ParseGameError> {
-    //let span = ast.as_span();
-
-    println!(">>>> {:#?}:{:?}", ast, ast.as_rule());
-
     let mut inner = ast.into_inner();
     let inst_name = inner.next().unwrap().as_str();
-
-    println!("inst_name: {:?}", inst_name);
 
     let indices_ast = inner.next().unwrap();
     println!("indices: {:?}", indices_ast);
@@ -775,8 +795,6 @@ pub fn handle_instance_decl_multi_inst(
         .into_inner()
         .map(|index_ast| handle_expression(&ctx.parse_ctx(), index_ast, Some(&Type::Integer)))
         .collect::<Result<Vec<_>, _>>()?;
-
-    println!("indices: {:?}", indices);
 
     let pkg_name_ast = inner.next().unwrap();
     let pkg_name_span = pkg_name_ast.as_span();
@@ -864,14 +882,18 @@ pub fn handle_instance_decl(
     ctx: &mut ParseGameContext,
     ast: Pair<Rule>,
 ) -> Result<(), ParseGameError> {
+    debug_assert_matches!(ast.as_rule(), Rule::instance_decl);
     let span = ast.as_span();
 
     let mut inner = ast.into_inner();
-    let pkg_inst_name = inner.next().unwrap().as_str();
+    let pkg_inst_name_ast = inner.next().unwrap();
+    debug_assert_matches!(pkg_inst_name_ast.as_rule(), Rule::identifier);
+    let pkg_inst_name = pkg_inst_name_ast.as_str();
 
     let index_or_pkgname = inner.next().unwrap();
-    let (multi_instance_indices, pkg_name, pkg_name_span) =
-        if index_or_pkgname.as_rule() == Rule::index_id_list {
+    let (multi_instance_indices, pkg_name, pkg_name_span) = match index_or_pkgname.as_rule() {
+        // TODO: this is most likely the wrong rule to check against. Write tests!
+        Rule::index_id_list => {
             let indices_ast = index_or_pkgname.into_inner();
             let indices: Vec<_> = indices_ast
                 .map(|index| handle_expression(&ctx.parse_ctx(), index, Some(&Type::Integer)))
@@ -883,13 +905,14 @@ pub fn handle_instance_decl(
                 pkg_name_ast.as_str(),
                 pkg_name_ast.as_span(),
             )
-        } else {
-            (
-                MultiInstanceIndices::empty(),
-                index_or_pkgname.as_str(),
-                index_or_pkgname.as_span(),
-            )
-        };
+        }
+        Rule::identifier => (
+            MultiInstanceIndices::empty(),
+            index_or_pkgname.as_str(),
+            index_or_pkgname.as_span(),
+        ),
+        _ => unreachable!(),
+    };
 
     let pkg = ctx
         .pkgs
