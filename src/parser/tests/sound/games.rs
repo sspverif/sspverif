@@ -66,3 +66,36 @@ fn param_wrong_type() {
     assert_eq!(err.expected, Type::Integer);
     assert_eq!(err.got, Type::Bits("n".to_string()));
 }
+
+#[test]
+fn oracle_missing() {
+    let pkgs = packages::parse_files(&["PRF.pkg.ssp", "KeyReal.pkg.ssp", "Enc.pkg.ssp"]);
+    let err = games::parse_file_fails("Game-missing-edge-should-fail.comp.ssp", &pkgs);
+
+    // TODO: figure out what error this should be, see OracleMissingError 
+
+    let report = miette::Report::new(err);
+    println!("{report:?}");
+}
+
+#[test]
+fn oracle_imported_twice() {
+    let pkgs = packages::parse_files(&["PRF.pkg.ssp", "KeyReal.pkg.ssp", "Enc.pkg.ssp"]);
+    let err = games::parse_file_fails("Game-too-many-edges-left-should-fail.comp.ssp", &pkgs);
+
+    // TODO: figure out what error this should be, error type seems to be still missing
+
+    let report = miette::Report::new(err);
+    println!("{report:?}");
+}
+
+#[test]
+fn oracle_imported_but_not_exported() {
+    let pkgs = packages::parse_files(&["PRF.pkg.ssp", "KeyReal.pkg.ssp", "Enc.pkg.ssp"]);
+    let err = games::parse_file_fails("Game-too-many-edges-right-should-fail.comp.ssp", &pkgs);
+
+    // TODO: figure out what error this should be, error type seems to be still missing
+
+    let report = miette::Report::new(err);
+    println!("{report:?}");
+}

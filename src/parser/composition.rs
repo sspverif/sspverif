@@ -3,7 +3,7 @@ use super::{
     error::{
         DuplicatePackageParameterDefinitionError, MissingPackageParameterDefinitionError,
         NoSuchPackageParameterError, NoSuchTypeError, UndefinedPackageError,
-        UndefinedPackageInstanceError,
+        UndefinedPackageInstanceError, OracleMissingError
     },
     package::{handle_expression, ForComp, MultiInstanceIndices, ParsePackageError},
     ParseContext, Rule,
@@ -203,6 +203,10 @@ pub enum ParseGameError {
     #[diagnostic(transparent)]
     #[error(transparent)]
     NoSuchType(#[from] NoSuchTypeError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    OracleMissing(#[from] OracleMissingError),
 }
 
 pub fn handle_composition(

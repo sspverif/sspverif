@@ -472,3 +472,18 @@ pub struct AssumptionExportsNotSufficientError {
 
     pub oracle_name: String,
 }
+
+#[derive(Error, Diagnostic, Debug)]
+#[error("oracle missing: TODO")]
+#[diagnostic(code(ssbee::code::type_mismatch))]
+pub struct OracleMissingError {
+    #[label("oracle missing: TODO")]
+    pub at: SourceSpan,
+
+    pub expected: Type,
+
+    pub got: Type,
+
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+}
