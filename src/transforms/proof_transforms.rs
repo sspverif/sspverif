@@ -47,7 +47,6 @@ fn transform_game_inst(
             ),
         ),
     ),
-    //typecheck::TypeCheckError,
     Infallible,
 > {
     let comp = game_inst.game();
@@ -55,8 +54,7 @@ fn transform_game_inst(
     //let (comp, _) = resolvetypes::Transformation(comp)
     //    .transform()
     //    .expect("resolving user-defined types failed");
-    // let (comp, scope) = typecheck::Transformation::new_with_empty_scope(&comp).transform()?;
-    let (comp, types) = type_extract::Transformation(&comp)
+    let (comp, types) = type_extract::Transformation(comp)
         .transform()
         .expect("type extraction transformation failed unexpectedly");
     let (comp, samplinginfo) = samplify::Transformation(&comp)

@@ -45,10 +45,7 @@ fn replace_unwrap(expr: &Expression, ctr: &mut usize) -> (Expression, Vec<(Expre
             if let Expression::Unwrap(_) = e {
                 let varname: String = format!("unwrap-{}", map_ctr);
                 ac.push((e, varname.clone()));
-                (
-                    (map_ctr + 1, ac),
-                    Identifier::Local(varname).to_expression(),
-                )
+                ((map_ctr + 1, ac), Identifier::Local(varname).into())
             } else {
                 ((map_ctr, ac), e)
             }
@@ -222,14 +219,14 @@ mod test {
         let code = block! {
             Statement::Assign(Identifier::Local("d".to_string()), None,
                                   Expression::Unwrap(Box::new(
-                                      Identifier::Local("e".to_string()).to_expression())), pos)
+                                      Identifier::Local("e".to_string()).into())), pos)
         };
         let newcode = block! {
             Statement::Assign(Identifier::Local("unwrap-1".to_string()), None,
                                   Expression::Unwrap(Box::new(
-                                      Identifier::Local("e".to_string()).to_expression())),pos),
+                                      Identifier::Local("e".to_string()).into())),pos),
             Statement::Assign(Identifier::Local("d".to_string()), None,
-                                  Identifier::Local("unwrap-1".to_string()).to_expression(), pos)
+                                  Identifier::Local("unwrap-1".to_string()).into(), pos)
         };
         let mut ctr = 1usize;
         assert_eq!(newcode, unwrapify(&code, &mut ctr).unwrap());
@@ -242,22 +239,22 @@ mod test {
         let code = block! {
             Statement::Assign(Identifier::Local("d".to_string()), None,
                                 Expression::Unwrap(Box::new(
-                                    Identifier::Local("e".to_string()).to_expression())), pos0),
+                                    Identifier::Local("e".to_string()).into())), pos0),
             Statement::Assign(Identifier::Local("f".to_string()), None,
                                 Expression::Unwrap(Box::new(
-                                    Identifier::Local("g".to_string()).to_expression())), pos1)
+                                    Identifier::Local("g".to_string()).into())), pos1)
         };
         let newcode = block! {
             Statement::Assign(Identifier::Local("unwrap-1".to_string()), None,
                                 Expression::Unwrap(Box::new(
-                                    Identifier::Local("e".to_string()).to_expression())), pos0),
+                                    Identifier::Local("e".to_string()).into())), pos0),
             Statement::Assign(Identifier::Local("d".to_string()), None,
-                                Identifier::Local("unwrap-1".to_string()).to_expression(), pos0),
+                                Identifier::Local("unwrap-1".to_string()).into(), pos0),
             Statement::Assign(Identifier::Local("unwrap-2".to_string()), None,
                                  Expression::Unwrap(Box::new(
-                                     Identifier::Local("g".to_string()).to_expression())), pos1),
+                                     Identifier::Local("g".to_string()).into())), pos1),
             Statement::Assign(Identifier::Local("f".to_string()), None,
-                                Identifier::Local("unwrap-2".to_string()).to_expression(), pos1)
+                                Identifier::Local("unwrap-2".to_string()).into(), pos1)
         };
         let mut ctr = 1usize;
         assert_eq!(newcode, unwrapify(&code, &mut ctr).unwrap());
@@ -270,17 +267,17 @@ mod test {
             Statement::Assign(Identifier::Local("d".to_string()), None,
                                  Expression::Unwrap(Box::new(
                                      Expression::Unwrap(Box::new(
-                                         Identifier::Local("e".to_string()).to_expression())))), pos)
+                                         Identifier::Local("e".to_string()).into())))), pos)
         };
         let newcode = block! {
                     Statement::Assign(Identifier::Local("unwrap-1".to_string()), None,
                                         Expression::Unwrap(Box::new(
-                                            Identifier::Local("e".to_string()).to_expression())), pos ),
+                                            Identifier::Local("e".to_string()).into())), pos ),
                     Statement::Assign(Identifier::Local("unwrap-2".to_string()), None,
                                         Expression::Unwrap(Box::new(
-                                          Identifier::Local("unwrap-1".to_string()).to_expression())), pos ),
+                                          Identifier::Local("unwrap-1".to_string()).into())), pos ),
                     Statement::Assign(Identifier::Local("d".to_string()), None,
-                                        Identifier::Local("unwrap-2".to_string()).to_expression(), pos)
+                                        Identifier::Local("unwrap-2".to_string()).into(), pos)
         };
         let mut ctr = 1usize;
         assert_eq!(newcode, unwrapify(&code, &mut ctr).unwrap());
@@ -292,14 +289,14 @@ mod test {
         let code = block! {
             Statement::Assign(Identifier::Local("d".to_string()), None,
                               Expression::Unwrap(Box::new(
-                                  Identifier::Local("e".to_string()).to_expression())), pos)
+                                  Identifier::Local("e".to_string()).into())), pos)
         };
         let newcode = block! {
             Statement::Assign(Identifier::Local("unwrap-1".to_string()), None,
                                   Expression::Unwrap(Box::new(
-                                      Identifier::Local("e".to_string()).to_expression())), pos),
+                                      Identifier::Local("e".to_string()).into())), pos),
             Statement::Assign(Identifier::Local("d".to_string()), None,
-                                  Identifier::Local("unwrap-1".to_string()).to_expression(), pos)
+                                  Identifier::Local("unwrap-1".to_string()).into(), pos)
         };
         let mut ctr = 1usize;
         assert_eq!(newcode, unwrapify(&code, &mut ctr).unwrap());

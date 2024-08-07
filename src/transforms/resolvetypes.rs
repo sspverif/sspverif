@@ -1,4 +1,3 @@
-/*
 use miette::SourceSpan;
 
 use super::PackageInstanceTransform;
@@ -397,8 +396,7 @@ fn ident_walker(
         Identifier::Local(_) => panic!("shouldn't use Identifier::Local, but found {:?}", ident),
     };
 
-
-     type_walker(type_mapping, place, file_pos, tipe)
+    type_walker(type_mapping, place, file_pos, tipe)
 }
 
 fn type_walker(
@@ -450,4 +448,3 @@ fn type_walker(
         _ => Ok(()),
     }
 }
-*/

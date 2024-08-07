@@ -111,7 +111,7 @@ pub fn samplify(
                         sampletypes,
                         positions,
                     )?,
-                    file_pos.clone(),
+                    file_pos,
                 ));
             }
             Statement::For(iter, start, end, code, file_pos) => newcode.push(Statement::For(
@@ -127,7 +127,7 @@ pub fn samplify(
                     sampletypes,
                     positions,
                 )?,
-                file_pos.clone(),
+                file_pos,
             )),
 
             Statement::Sample(id, expr, None, tipe, file_pos) => {
@@ -147,7 +147,7 @@ pub fn samplify(
                     expr,
                     Some(*ctr),
                     tipe.clone(),
-                    file_pos.clone(),
+                    file_pos,
                 ));
                 *ctr += 1;
             }

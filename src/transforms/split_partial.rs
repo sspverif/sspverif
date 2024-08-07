@@ -63,7 +63,7 @@ impl SplitInfoEntry {
     }
 
     pub fn split_type(&self) -> Option<&SplitType> {
-        Some(&self.path.last()?.split_type())
+        Some(self.path.last()?.split_type())
     }
 
     pub fn original_sig(&self) -> &OracleSig {
@@ -253,7 +253,7 @@ impl Statement {
 }
 
 fn is_actually_not_split(
-    transformed: &Vec<(Vec<Identifier>, SplitPath, CodeBlock, Vec<(String, Type)>)>,
+    transformed: &[(Vec<Identifier>, SplitPath, CodeBlock, Vec<(String, Type)>)],
 ) -> bool {
     if transformed.len() == 1 {
         let (_, path, _, _) = &transformed[0];
@@ -490,6 +490,7 @@ fn transform_codeblock(
                 file_pos,
                 ..
             } => {
+                let file_pos = *file_pos;
                 let oracle_name = name;
                 let (_, splits) = sig_mapping
                     .iter()
@@ -500,7 +501,7 @@ fn transform_codeblock(
 
                 let (_, last_splitpath, last_sig) = splits.last().unwrap();
 
-                result.extend(splits.into_iter().take(splits.len() - 1).map(
+                result.extend(splits.iter().take(splits.len() - 1).map(
                     |(loopvars, splitpath, split_sig)| {
                         let name = &split_sig.name;
                         let invoc_target_data = InvocTargetData {
@@ -537,7 +538,7 @@ fn transform_codeblock(
                                 args: args.clone(),
                                 target_inst_name: Some(target_inst_name.to_string()),
                                 tipe: None,
-                                file_pos: file_pos.clone(),
+                                file_pos,
                             }]),
                             split_locals.clone(),
                         )
@@ -552,7 +553,7 @@ fn transform_codeblock(
                 let mut newpath = prefix.extended(mk_single_split_path_component(
                     SplitType::Invoc(invoc_target_data),
                 ));
-                newpath.join(&last_splitpath);
+                newpath.join(last_splitpath);
                 result.push((
                     loopvars.clone(),
                     newpath,
@@ -564,7 +565,7 @@ fn transform_codeblock(
                         args: args.clone(),
                         target_inst_name: Some(target_inst_name.to_string()),
                         tipe: tipe.clone(),
-                        file_pos: file_pos.clone(),
+                        file_pos,
                     }]),
                     split_locals,
                 ))
@@ -591,59 +592,6 @@ fn transform_codeblock(
     }
 
     result
-}
-
-#[cfg(test)]
-mod test {
-    // use std::default::Default;
-    //
-    // use crate::{
-    //     expressions::Expression,
-    //     identifier::Identifier,
-    //     statement::{CodeBlock, Statement},
-    // };
-    //
-    // use super::*;
-    //
-    // #[test]
-    // fn oracle_transform_splits_around_for() {
-    //     let id_i = Identifier::new_scalar("i");
-    //     let id_foo = Identifier::new_scalar("foo");
-    //     let expr_i = Expression::Identifier(id_i.clone());
-    //     let expr_foo = Expression::Identifier(id_foo.clone());
-    //
-    //     let code = CodeBlock(vec![
-    //         Statement::Assign(
-    //             id_foo.clone(),
-    //             None,
-    //             Expression::IntegerLiteral("2".to_string()),
-    //         ),
-    //         Statement::For(
-    //             id_i.clone(),
-    //             Expression::IntegerLiteral("0".to_string()),
-    //             Expression::IntegerLiteral("10".to_string()),
-    //             CodeBlock(vec![Statement::Assign(
-    //                 Identifier::new_scalar("foo"),
-    //                 None,
-    //                 Expression::Add(Box::new(expr_i.clone()), Box::new(expr_foo.clone())),
-    //             )]),
-    //         ),
-    //         Statement::Return(Some(expr_foo.clone())),
-    //     ]);
-    //
-    //     let mut sig_mapping = Default::default();
-    //
-    //     let out = transform_codeblock(
-    //         "the-pkg",
-    //         "TheOracle",
-    //         &code,
-    //         SplitPath::empty(),
-    //         vec![],
-    //         &mut sig_mapping,
-    //     );
-    //
-    //     println!("{out:#?}");
-    // }
 }
 
 fn get_declarations(stmt: &Statement) -> Option<(String, Type)> {
@@ -839,4 +787,57 @@ fn determine_branches(entries: &[SplitInfoEntry], i: usize) -> Vec<(Expression, 
     // );
 
     out
+}
+
+#[cfg(test)]
+mod test {
+    // use std::default::Default;
+    //
+    // use crate::{
+    //     expressions::Expression,
+    //     identifier::Identifier,
+    //     statement::{CodeBlock, Statement},
+    // };
+    //
+    // use super::*;
+    //
+    // #[test]
+    // fn oracle_transform_splits_around_for() {
+    //     let id_i = Identifier::new_scalar("i");
+    //     let id_foo = Identifier::new_scalar("foo");
+    //     let expr_i = Expression::Identifier(id_i.clone());
+    //     let expr_foo = Expression::Identifier(id_foo.clone());
+    //
+    //     let code = CodeBlock(vec![
+    //         Statement::Assign(
+    //             id_foo.clone(),
+    //             None,
+    //             Expression::IntegerLiteral("2".to_string()),
+    //         ),
+    //         Statement::For(
+    //             id_i.clone(),
+    //             Expression::IntegerLiteral("0".to_string()),
+    //             Expression::IntegerLiteral("10".to_string()),
+    //             CodeBlock(vec![Statement::Assign(
+    //                 Identifier::new_scalar("foo"),
+    //                 None,
+    //                 Expression::Add(Box::new(expr_i.clone()), Box::new(expr_foo.clone())),
+    //             )]),
+    //         ),
+    //         Statement::Return(Some(expr_foo.clone())),
+    //     ]);
+    //
+    //     let mut sig_mapping = Default::default();
+    //
+    //     let out = transform_codeblock(
+    //         "the-pkg",
+    //         "TheOracle",
+    //         &code,
+    //         SplitPath::empty(),
+    //         vec![],
+    //         &mut sig_mapping,
+    //     );
+    //
+    //     println!("{out:#?}");
+    // }
 }

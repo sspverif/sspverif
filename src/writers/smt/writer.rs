@@ -760,13 +760,7 @@ impl<'a> CompositionSmtWriter<'a> {
         let rand_val: SmtExpr = (rand_fn_name, format!("{sample_id}"), ctr.clone()).into();
 
         let new_val = if let Some(idx) = opt_idx {
-            (
-                "store",
-                ident.to_expression(),
-                idx.clone(),
-                rand_val.clone(),
-            )
-                .into()
+            ("store", ident.clone(), idx.clone(), rand_val.clone()).into()
         } else {
             rand_val
         };
@@ -908,13 +902,7 @@ impl<'a> CompositionSmtWriter<'a> {
         };
 
         if opt_idx.is_some() {
-            (
-                "store",
-                id.to_expression(),
-                opt_idx.clone().unwrap(),
-                smt_expr,
-            )
-                .into()
+            ("store", id.clone(), opt_idx.clone().unwrap(), smt_expr).into()
         } else {
             smt_expr.into()
         }
@@ -952,7 +940,7 @@ impl<'a> CompositionSmtWriter<'a> {
                 //         .unwrap()
                 // }
                 //
-                Identifier::Local(_) => ident.to_expression().into(),
+                Identifier::Local(_) => ident.clone().into(),
                 _ => {
                     unreachable!("")
                 }
