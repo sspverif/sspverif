@@ -1,4 +1,8 @@
-use super::{games, packages::*, proofs};
+use super::{
+    games,
+    packages::{self, *},
+    proofs,
+};
 use crate::{
     expressions::Expression,
     gamehops::equivalence,
@@ -147,6 +151,28 @@ fn equivalence_gamehome_generates_code() {
             transcript = transcript
         )
     })
+}
+
+#[test]
+fn game_instantiating_with_literal_works() {
+    let pkgs = packages::parse_files(&["PRF.pkg.ssp", "KeyReal.pkg.ssp", "Enc.pkg.ssp"]);
+    let game = games::parse_file("Game-instantiating-with-literal-works.comp.ssp", &pkgs);
+
+    assert_eq!(game.name, "ConstructionReal");
+    let prf = game
+        .pkgs
+        .iter()
+        .find(|pkg_inst| pkg_inst.name == "prf")
+        .unwrap();
+
+    assert_eq!(
+        prf.params
+            .iter()
+            .find(|(id, _expr)| id.name == "n")
+            .unwrap()
+            .1,
+        Expression::IntegerLiteral(1)
+    );
 }
 
 /// This is a helper for transcripts. It can be cloned, and what is written in one clone can be

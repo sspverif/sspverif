@@ -6,7 +6,7 @@ composition ConstructionReal {
     
     instance prf = PRF {
         params {
-            n:   n,
+            n:   1,
             prf: prf,
         }
     }
