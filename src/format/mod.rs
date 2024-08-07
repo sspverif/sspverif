@@ -78,16 +78,18 @@ fn format_oracle_sig(
 
     let maybe_tipe = inner.next();
     let tipe = match maybe_tipe {
-        None => "()",
-        Some(t) => &format_type(t)?,
+        None => "",
+        Some(t) => {
+            let typestr = format_type(t)?;
+            if typestr == "()" {
+                ""
+            } else {
+                &format!(" -> {}", typestr)
+            }
+        }
     };
 
-    ctx.push_line(&format!(
-        "oracle {}({}) -> {} {{",
-        name,
-        args.join(", "),
-        tipe
-    ));
+    ctx.push_line(&format!("oracle {}({}){} {{", name, args.join(", "), tipe));
     Ok(())
 }
 
@@ -144,6 +146,22 @@ fn format_expr(expr_ast: Pair<Rule>) -> Result<String, project::error::Error> {
                 .join(" or ");
             format!("({concat_expr})")
         }
+        Rule::expr_xor => {
+            let concat_expr = expr_ast
+                .into_inner()
+                .map(|expr| format_expr(expr))
+                .collect::<Result<Vec<_>, _>>()?
+                .join(" xor ");
+            format!("({concat_expr})")
+        }
+        Rule::expr_and => {
+            let concat_expr = expr_ast
+                .into_inner()
+                .map(|expr| format_expr(expr))
+                .collect::<Result<Vec<_>, _>>()?
+                .join(" and ");
+            format!("({concat_expr})")
+        }
         Rule::expr_tuple => {
             let concat_expr = expr_ast
                 .into_inner()
@@ -187,7 +205,7 @@ fn format_expr(expr_ast: Pair<Rule>) -> Result<String, project::error::Error> {
             .join(", ");
             format!("{ident}({args})")
         }
-        Rule::literal_boolean | Rule::literal_integer => expr_ast.as_str().to_string(),
+        Rule::literal_boolean | Rule::literal_integer => expr_ast.as_str().trim().to_string(),
         Rule::identifier => {
             let name = expr_ast.as_str();
             name.to_owned()
@@ -401,10 +419,12 @@ fn format_types_block(
     types_ast: Pair<Rule>,
 ) -> Result<(), project::error::Error> {
     let mut inner = types_ast.into_inner();
-    //println!("{:?}", inner);
-    let typename = inner.next().unwrap().as_str();
-    //let typedef = format_type(inner.next().unwrap())?;
-    ctx.push_line(&format!("{typename}"));
+    for typeentry in inner {
+        //println!("{:?}", inner);
+        let typename = typeentry.as_str();
+        //let typedef = format_type(inner.next().unwrap())?;
+        ctx.push_line(&format!("{typename},"));
+    }
     Ok(())
 }
 
@@ -430,10 +450,17 @@ fn format_import_oracles(
             Rule::import_oracles_oracle_sig => {
                 let mut inner = entry.into_inner();
                 let ident = inner.next().unwrap().as_str();
-                let args = inner.next().unwrap();
-                if !matches!(args.as_rule(), Rule::fn_maybe_arglist) {
-                    unimplemented!("cant do for imports for now");
-                }
+                let mut args = inner.next().unwrap();
+                let ident = if !matches!(args.as_rule(), Rule::fn_maybe_arglist) {
+                    let results = args
+                        .into_inner()
+                        .map(|pair| format_expr(pair))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    args = inner.next().unwrap();
+                    &format!("{}[{}]", ident, results.join(", "))
+                } else {
+                    ident
+                };
 
                 let args = args
                     .into_inner()
@@ -442,10 +469,14 @@ fn format_import_oracles(
                     .join(", ");
                 let return_type = inner.next();
                 match return_type {
-                    None => ctx.push_line(&format!("{ident}({args}) -> (),")),
+                    None => ctx.push_line(&format!("{ident}({args}),")),
                     Some(t) => {
                         let rettype = format_type(t)?;
-                        ctx.push_line(&format!("{ident}({args}) -> {rettype},"));
+                        if rettype != "()" {
+                            ctx.push_line(&format!("{ident}({args}) -> {rettype},"));
+                        } else {
+                            ctx.push_line(&format!("{ident}({args}),"));
+                        }
                     }
                 }
             }
@@ -492,7 +523,10 @@ fn format_pkg_spec(
         ctx.push_line("types {");
         ctx.add_indent();
         for type_block in types_rules {
-            format_types_block(ctx, type_block.clone().into_inner().next().unwrap())?;
+            let inner = type_block.clone().into_inner().next();
+            if !(inner == None) {
+                format_types_block(ctx, inner.unwrap())?;
+            }
         }
         ctx.remove_indent();
         ctx.push_line("}");
