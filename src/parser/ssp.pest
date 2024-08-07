@@ -114,7 +114,7 @@ types_list = { type_userdefined ~ ( "," ~ type_userdefined )* ~ ","? }
 // these are for composition files in instance blocks
 params_def = { kw_params ~ ("{" ~ params_def_list ~ "}" | "{" ~ "}") }
 params_def_list = { params_def_spec ~ ( "," ~ params_def_spec )* ~ ","? }
-params_def_spec = { identifier ~ ":" ~ ( literal | identifier )  }
+params_def_spec = { identifier ~ ":" ~ expression  }
 
 types_def = { kw_types ~ ("{" ~ types_def_list ~ "}" | "{" ~ "}") }
 types_def_list = { types_def_spec ~ ( "," ~ types_def_spec )* ~ ","? }
