@@ -355,21 +355,39 @@ pub struct UntypedNoneTypeInferenceError {
 }
 
 #[derive(Debug, Diagnostic, Error)]
-#[error("The package instances {left_pkg_inst_name} and {right_pkg_inst_name} in a reduction mapping have different package types")]
+#[error("The package instances {assumption_pkg_inst_name} and {construction_pkg_inst_name} in a reduction mapping have different package types")]
 #[diagnostic(code(ssbee::code::proof::reduction::mapping::package_mismatch))]
 pub struct AssumptionMappingContainsDifferentPackagesError {
     #[source_code]
     pub source_code: miette::NamedSource<String>,
 
-    #[label("this package instance is a {left_pkg_name}")]
-    pub at_left: SourceSpan,
-    #[label("this package instance is a {right_pkg_name}")]
-    pub at_right: SourceSpan,
+    #[label("this package instance is a {assumption_pkg_name}")]
+    pub at_assumption: SourceSpan,
+    #[label("this package instance is a {construction_pkg_name}")]
+    pub at_construction: SourceSpan,
 
-    pub left_pkg_inst_name: String,
-    pub right_pkg_inst_name: String,
-    pub left_pkg_name: String,
-    pub right_pkg_name: String,
+    pub assumption_pkg_inst_name: String,
+    pub construction_pkg_inst_name: String,
+    pub assumption_pkg_name: String,
+    pub construction_pkg_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("The package instances {assumption_pkg_inst_name} and {construction_pkg_inst_name} in a reduction mapping have different parameter assignments for {param_names}")]
+#[diagnostic(code(ssbee::code::proof::reduction::mapping::package_mismatch))]
+pub struct AssumptionMappingParameterMismatchError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this package instance")]
+    pub at_assumption: SourceSpan,
+    #[label("and that package instance")]
+    pub at_construction: SourceSpan,
+
+    pub assumption_pkg_inst_name: String,
+    pub construction_pkg_inst_name: String,
+
+    pub param_names: String,
 }
 
 #[derive(Debug, Diagnostic, Error)]
@@ -379,15 +397,29 @@ pub struct ReductionContainsDifferentPackagesError {
     #[source_code]
     pub source_code: miette::NamedSource<String>,
 
-    #[label("this package instance is a {left_pkg_name}")]
-    pub at_left: SourceSpan,
-    #[label("this package instance is a {right_pkg_name}")]
-    pub at_right: SourceSpan,
+    #[label("in this reduction")]
+    pub at_reduction: SourceSpan,
 
     pub left_pkg_inst_name: String,
     pub right_pkg_inst_name: String,
     pub left_pkg_name: String,
     pub right_pkg_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("The package instances {left_pkg_inst_name} and {right_pkg_inst_name} in a reduction have different parameter assignments for {param_names}")]
+#[diagnostic(code(ssbee::code::proof::reduction::mapping::reduction_package_mismatch))]
+pub struct ReductionPackageInstanceParameterMismatchError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("in this reduction")]
+    pub at_reduction: SourceSpan,
+
+    pub left_pkg_inst_name: String,
+    pub right_pkg_inst_name: String,
+
+    pub param_names: String,
 }
 
 #[derive(Debug, Diagnostic, Error)]

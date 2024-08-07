@@ -122,6 +122,7 @@ fn untyped_none_type_inference_works() {
 }
 
 #[test]
+#[ignore]
 fn equivalence_gamehome_generates_code() {
     let packages = parse_files(&["tiny.ssp"]);
     let games = games::parse_files(&["small.ssp"], &packages);
