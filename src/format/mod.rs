@@ -116,6 +116,12 @@ fn format_type(tipe_ast: Pair<Rule>) -> Result<String, project::error::Error> {
 fn format_expr(expr_ast: Pair<Rule>) -> Result<String, project::error::Error> {
     let span = expr_ast.as_span();
     return Ok(match expr_ast.as_rule() {
+        Rule::expr_add => {
+            let mut inner = expr_ast.into_inner();
+            let lhs = format_expr(inner.next().unwrap())?;
+            let rhs = format_expr(inner.next().unwrap())?;
+            format!("({lhs} + {rhs})")
+        }
         Rule::expr_sub => {
             let mut inner = expr_ast.into_inner();
             let lhs = format_expr(inner.next().unwrap())?;
@@ -481,7 +487,23 @@ fn format_import_oracles(
                 }
             }
             Rule::import_oracles_for => {
-                unimplemented!("cant do imports with for currently")
+				let mut parsed: Vec<Pair<Rule>> = entry.into_inner().collect();
+                let decl_var_name = parsed[0].as_str();
+                let lower_bound = format_expr(parsed.remove(1))?;
+                let lower_bound_type = parsed[1].as_str();
+                let bound_var_name = parsed[2].as_str();
+                let upper_bound_type = parsed[3].as_str();
+                let upper_bound = format_expr(parsed.remove(4))?;
+                let loopvar = decl_var_name.to_string();
+
+                ctx.push_line(&format!("for {loopvar}: {lower_bound} {lower_bound_type} {loopvar} {upper_bound_type} {upper_bound} {{"));
+                ctx.add_indent();
+
+                format_import_oracles(ctx, parsed.remove(4))?;
+
+                ctx.remove_indent();
+                ctx.push_line("}");
+
             }
             _ => {
                 unreachable!("")
