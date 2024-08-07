@@ -4,6 +4,7 @@ use crate::{
     expressions::Expression,
     identifier::{
         game_ident::{GameConstIdentifier, GameIdentifier},
+        pkg_ident::PackageConstIdentifier,
         proof_ident::{
             ProofConstIdentifier,
             ProofIdentifier::{self, Const},
@@ -40,10 +41,11 @@ use super::{
     common,
     error::{
         AssumptionExportsNotSufficientError, AssumptionMappingMissesPackageInstanceError,
+        AssumptionMappingParameterMismatchError,
         AssumptionMappingRightGameInstanceIsFromAssumption, DuplicateGameParameterDefinitionError,
         MissingGameParameterDefinitionError, NoSuchGameParameterError, NoSuchTypeError,
-        UndefinedAssumptionError, UndefinedGameError, UndefinedGameInstanceError,
-        UndefinedPackageInstanceError,
+        ReductionPackageInstanceParameterMismatchError, UndefinedAssumptionError,
+        UndefinedGameError, UndefinedGameInstanceError, UndefinedPackageInstanceError,
     },
     package::ParseExpressionError,
     ParseContext,
@@ -227,6 +229,10 @@ pub enum ParseProofError {
 
     #[diagnostic(transparent)]
     #[error(transparent)]
+    AssumptionMappingParameterMismatch(#[from] AssumptionMappingParameterMismatchError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
     AssumptionMappingDuplicatePackageInstance(
         #[from] AssumptionMappingDuplicatePackageInstanceError,
     ),
@@ -238,6 +244,12 @@ pub enum ParseProofError {
     #[diagnostic(transparent)]
     #[error(transparent)]
     ReductionContainsDifferentPackages(#[from] ReductionContainsDifferentPackagesError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    ReductionPackageInstanceParameterMismatch(
+        #[from] ReductionPackageInstanceParameterMismatchError,
+    ),
 
     #[diagnostic(transparent)]
     #[error(transparent)]
@@ -524,6 +536,7 @@ fn handle_reduction_body(
     _right_name: Pair<Rule>,
     body: Pair<Rule>,
 ) -> Result<Reduction, ParseProofError> {
+    let reduction_span = body.as_span();
     let mut ast = body.into_inner();
     let assumptions_spec_ast = ast.next().unwrap();
     let assumptions_name_ast = assumptions_spec_ast.into_inner().next().unwrap();
@@ -594,26 +607,32 @@ fn handle_reduction_body(
     unmapped_pkg_insts2.sort_by(|left, right| left.name.cmp(&right.name));
 
     for (left, right) in unmapped_pkg_insts1.iter().zip(unmapped_pkg_insts2.iter()) {
-        if left.pkg.name != right.pkg.name {
-            return Err(ReductionContainsDifferentPackagesError {
-                source_code: ctx.named_source(),
-                at_left: todo!(),
-                at_right: todo!(),
-                left_pkg_inst_name: left.name.clone(),
-                left_pkg_name: left.pkg.name.clone(),
-                right_pkg_inst_name: right.name.clone(),
-                right_pkg_name: right.pkg.name.clone(),
-            }
-            .into());
-        }
+        match package_instances_diff(ctx, left, left_game_inst, right, right_game_inst) {
+            PackageInstanceDiff::DifferentPackage(left_pkg_name, right_pkg_name) => {
+                return Err(ReductionContainsDifferentPackagesError {
+                    source_code: ctx.named_source(),
+                    at_reduction: (reduction_span.start()..reduction_span.end()).into(),
+                    left_pkg_inst_name: left.name.clone(),
+                    right_pkg_inst_name: right.name.clone(),
 
-        verify_package_instances_quasi_equiavalent(
-            ctx,
-            left,
-            left_game_inst,
-            right,
-            right_game_inst,
-        )?;
+                    left_pkg_name,
+                    right_pkg_name,
+                }
+                .into());
+            }
+            PackageInstanceDiff::DifferentParams(param_diff) => {
+                return Err(ReductionPackageInstanceParameterMismatchError {
+                    source_code: ctx.named_source(),
+                    at_reduction: (reduction_span.start()..reduction_span.end()).into(),
+                    left_pkg_inst_name: left.name.clone(),
+                    right_pkg_inst_name: right.name.clone(),
+
+                    param_names: param_diff.iter().map(|(name, _, _)| &name.name).join(", "),
+                }
+                .into());
+            }
+            PackageInstanceDiff::Same => {}
+        }
     }
 
     let game1_is_left = mapping1.as_game_inst_name() == left_name.as_str();
@@ -791,40 +810,67 @@ fn handle_mapspec(
             .into());
         };
 
-        // check that the package names (sort of the types) are the same
-        if assumption_game_pkg_inst.pkg.name != construction_game_pkg_inst.pkg.name {
-            let span_left = assumption_game_pkg_inst_name_ast.as_span();
-            let at_left = (span_left.start()..span_left.end()).into();
-
-            let span_right = construction_game_pkg_inst_name_ast.as_span();
-            let at_right = (span_right.start()..span_right.end()).into();
-
-            let left_pkg_name = assumption_game_pkg_inst.pkg.name.clone();
-            let left_pkg_inst_name = assumption_game_pkg_inst_name.to_string();
-
-            let right_pkg_name = construction_game_pkg_inst.pkg.name.clone();
-            let right_pkg_inst_name = construction_game_pkg_inst_name.to_string();
-
-            return Err(AssumptionMappingContainsDifferentPackagesError {
-                source_code: ctx.named_source(),
-                at_left,
-                at_right,
-
-                left_pkg_inst_name,
-                right_pkg_inst_name,
-                left_pkg_name,
-                right_pkg_name,
-            }
-            .into());
-        }
-
-        verify_package_instances_quasi_equiavalent(
+        // check that the mapped package instances are equivalent, i.e. same package and same
+        // parameters.
+        match package_instances_diff(
             ctx,
             assumption_game_pkg_inst,
             assumption_game_inst,
             construction_game_pkg_inst,
             construction_game_inst,
-        )?;
+        ) {
+            PackageInstanceDiff::DifferentPackage(assumption_pkg_name, construction_pkg_name) => {
+                let span_assumption = assumption_game_pkg_inst_name_ast.as_span();
+                let at_assumption = (span_assumption.start()..span_assumption.end()).into();
+
+                let span_construction = construction_game_pkg_inst_name_ast.as_span();
+                let at_construction = (span_construction.start()..span_construction.end()).into();
+
+                let assumption_pkg_inst_name = assumption_game_pkg_inst_name.to_string();
+                let construction_pkg_inst_name = construction_game_pkg_inst_name.to_string();
+
+                return Err(AssumptionMappingContainsDifferentPackagesError {
+                    source_code: ctx.named_source(),
+                    at_assumption,
+                    at_construction,
+
+                    assumption_pkg_inst_name,
+                    construction_pkg_inst_name,
+
+                    assumption_pkg_name,
+                    construction_pkg_name,
+                }
+                .into());
+            }
+            PackageInstanceDiff::DifferentParams(different_params) => {
+                let span_assumption = assumption_game_pkg_inst_name_ast.as_span();
+                let at_assumption = (span_assumption.start()..span_assumption.end()).into();
+
+                let span_construction = construction_game_pkg_inst_name_ast.as_span();
+                let at_construction = (span_construction.start()..span_construction.end()).into();
+
+                let assumption_pkg_inst_name = assumption_game_pkg_inst_name.to_string();
+                let construction_pkg_inst_name = construction_game_pkg_inst_name.to_string();
+
+                let param_names = different_params
+                    .iter()
+                    .map(|(id, _, _)| &id.name)
+                    .join(", ");
+
+                return Err(AssumptionMappingParameterMismatchError {
+                    source_code: ctx.named_source(),
+                    at_assumption,
+                    at_construction,
+
+                    assumption_pkg_inst_name,
+                    construction_pkg_inst_name,
+
+                    param_names,
+                }
+                .into());
+            }
+            PackageInstanceDiff::Same => {}
+        }
 
         pkg_offset_mapping.push((
             assumption_game_pkg_inst_offset,
@@ -1031,20 +1077,30 @@ fn next_str<'a>(ast: &'a mut Pairs<Rule>) -> &'a str {
     ast.next().unwrap().as_str()
 }
 
-fn verify_package_instances_quasi_equiavalent(
+fn package_instances_diff(
     _ctx: &ParseProofContext,
     left_pkg_inst: &PackageInstance,
     left_game_inst: &GameInstance,
     right_pkg_inst: &PackageInstance,
     right_game_inst: &GameInstance,
-) -> Result<(), ParseProofError> {
+) -> PackageInstanceDiff {
+    if left_pkg_inst.pkg.name != right_pkg_inst.pkg.name {
+        return PackageInstanceDiff::DifferentPackage(
+            left_pkg_inst.pkg.name.clone(),
+            right_pkg_inst.pkg.name.clone(),
+        );
+    }
+
     // if parsing went well so far, all parameters should have been assigned. since they are
     // the same package type, they need to have the same parameters. for the next check we need
     // to be able to rely on that, so we just make sure here.
     assert_eq!(left_pkg_inst.params.len(), right_pkg_inst.params.len());
+
+    let mut different_params = vec![];
+
     // compare the values of individual parameters
-    for (param_ident, param_expr) in &left_pkg_inst.params {
-        let (_, other_param_expr) = right_pkg_inst
+    for (param_ident, left_param_expr) in &left_pkg_inst.params {
+        let (_, right_param_expr) = right_pkg_inst
                 .params
                 .iter()
                 .find(|(other_param_ident, _)| param_ident.name == other_param_ident.name)
@@ -1095,17 +1151,27 @@ fn verify_package_instances_quasi_equiavalent(
             }
         };
 
-        let redacted_param_expr = param_expr.map(redact_expr);
-        let redacted_other_param_expr = other_param_expr.map(redact_expr);
+        let redacted_left_param_expr = left_param_expr.map(redact_expr);
+        let redacted_right_param_expr = right_param_expr.map(redact_expr);
 
-        if redacted_param_expr != redacted_other_param_expr {
-            todo!(
-                "write error message for param mismatch in reduction mapping:\n    {:?}\n != {:?}",
-                redacted_param_expr,
-                redacted_other_param_expr
-            )
+        if redacted_left_param_expr != redacted_right_param_expr {
+            different_params.push((
+                param_ident.clone(),
+                left_param_expr.clone(),
+                right_param_expr.clone(),
+            ));
         }
     }
 
-    Ok(())
+    if !different_params.is_empty() {
+        PackageInstanceDiff::DifferentParams(different_params)
+    } else {
+        PackageInstanceDiff::Same
+    }
+}
+
+enum PackageInstanceDiff {
+    DifferentPackage(String, String),
+    DifferentParams(Vec<(PackageConstIdentifier, Expression, Expression)>),
+    Same,
 }
