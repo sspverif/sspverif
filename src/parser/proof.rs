@@ -1133,7 +1133,7 @@ fn package_instances_diff(
                 }
                 Identifier::GameIdentifier(GameIdentifier::Const(_)) => unreachable!(),
                 Identifier::PackageIdentifier(_) => unreachable!(),
-                Identifier::Local(_) => unreachable!(),
+                Identifier::Generated(_, _) => unreachable!(),
             }
         };
 

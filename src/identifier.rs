@@ -11,12 +11,9 @@ pub enum Identifier {
     GameIdentifier(game_ident::GameIdentifier),
     ProofIdentifier(proof_ident::ProofIdentifier),
 
-    // TODO Add
-    // GameInstanceIdentifier(GameInstanceIdentifier),
-
-    // get rid of the rest
-    Local(String),
-    // TODO add parameter identifiers for each place of definition (package/game/proof)
+    /// Denotes identifiers that were injected by transforms.
+    /// Should only live inside oracle code
+    Generated(String, Type),
 }
 
 impl From<GameConstIdentifier> for Identifier {
@@ -448,18 +445,18 @@ impl From<Identifier> for Expression {
 }
 
 impl Identifier {
-    pub fn get_type(&self) -> Option<Type> {
+    pub fn get_type(&self) -> Type {
         match self {
-            Identifier::PackageIdentifier(pkg_ident) => Some(pkg_ident.get_type()),
-            Identifier::GameIdentifier(game_ident) => Some(game_ident.get_type()),
-            Identifier::ProofIdentifier(proof_ident) => Some(proof_ident.get_type()),
-            _ => None,
+            Identifier::PackageIdentifier(pkg_ident) => pkg_ident.get_type(),
+            Identifier::GameIdentifier(game_ident) => game_ident.get_type(),
+            Identifier::ProofIdentifier(proof_ident) => proof_ident.get_type(),
+            Identifier::Generated(_, ty) => ty.clone(),
         }
     }
 
     pub fn ident_ref(&self) -> &str {
         match self {
-            Identifier::Local(name) => name,
+            Identifier::Generated(name, _) => name,
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident_ref(),
             Identifier::GameIdentifier(game_ident) => game_ident.ident_ref(),
             Identifier::ProofIdentifier(proof_ident) => proof_ident.ident_ref(),
@@ -468,7 +465,7 @@ impl Identifier {
 
     pub fn ident(&self) -> String {
         match self {
-            Identifier::Local(ident) => ident.clone(),
+            Identifier::Generated(ident, _) => ident.clone(),
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident(),
             Identifier::GameIdentifier(game_ident) => game_ident.ident(),
             Identifier::ProofIdentifier(proof_ident) => proof_ident.ident(),

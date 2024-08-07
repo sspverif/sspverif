@@ -44,8 +44,9 @@ fn replace_unwrap(expr: &Expression, ctr: &mut usize) -> (Expression, Vec<(Expre
         expr.mapfold((*ctr, Vec::new()), |(map_ctr, mut ac), e| {
             if let Expression::Unwrap(_) = e {
                 let varname: String = format!("unwrap-{}", map_ctr);
+                let ty = e.get_type();
                 ac.push((e, varname.clone()));
-                ((map_ctr + 1, ac), Identifier::Local(varname).into())
+                ((map_ctr + 1, ac), Identifier::Generated(varname, ty).into())
             } else {
                 ((map_ctr, ac), e)
             }
@@ -62,7 +63,7 @@ fn create_unwrap_stmts(
         .iter()
         .map(|(expr, varname)| {
             Statement::Assign(
-                Identifier::Local(varname.clone()),
+                Identifier::Generated(varname.clone(), expr.get_type()),
                 None,
                 expr.clone(),
                 *file_pos,
@@ -210,23 +211,49 @@ mod test {
     use super::unwrapify;
     use crate::block;
     use crate::expressions::Expression;
+    use crate::identifier::pkg_ident::{PackageIdentifier, PackageLocalIdentifier};
     use crate::identifier::Identifier;
     use crate::statement::{CodeBlock, Statement};
+    use crate::types::Type;
+
+    fn local_ident(name: &str, ty: Type) -> Identifier {
+        Identifier::PackageIdentifier(PackageIdentifier::Local(PackageLocalIdentifier {
+            pkg_name: "TestPackage".to_string(),
+            oracle_name: "TestOracle".to_string(),
+            name: name.to_string(),
+            tipe: ty,
+            pkg_inst_name: None,
+            game_name: None,
+            game_inst_name: None,
+            proof_name: None,
+        }))
+    }
+
+    fn gend_ident(name: &str, ty: Type) -> Identifier {
+        Identifier::Generated(name.to_string(), ty)
+    }
+
+    fn maybe(ty: Type) -> Type {
+        Type::Maybe(Box::new(ty))
+    }
+
+    fn unwrap<E: Clone + Into<Expression>>(expr: &E) -> Expression {
+        Expression::Unwrap(Box::new(expr.clone().into()))
+    }
 
     #[test]
     fn unwrap_assign() {
         let pos: SourceSpan = (0..0).into();
+        let d = local_ident("d", Type::Integer);
+        let e = local_ident("e", maybe(Type::Integer));
+        let u1 = gend_ident("unwrap-1", Type::Integer);
+
         let code = block! {
-            Statement::Assign(Identifier::Local("d".to_string()), None,
-                                  Expression::Unwrap(Box::new(
-                                      Identifier::Local("e".to_string()).into())), pos)
+            Statement::Assign(d.clone(), None, unwrap(&e), pos)
         };
         let newcode = block! {
-            Statement::Assign(Identifier::Local("unwrap-1".to_string()), None,
-                                  Expression::Unwrap(Box::new(
-                                      Identifier::Local("e".to_string()).into())),pos),
-            Statement::Assign(Identifier::Local("d".to_string()), None,
-                                  Identifier::Local("unwrap-1".to_string()).into(), pos)
+            Statement::Assign(u1.clone(), None, unwrap(&e),pos),
+            Statement::Assign(d.clone(), None, u1.into(), pos)
         };
         let mut ctr = 1usize;
         assert_eq!(newcode, unwrapify(&code, &mut ctr).unwrap());
@@ -236,25 +263,24 @@ mod test {
     fn unwrap_two_statements() {
         let pos0: SourceSpan = (0..0).into();
         let pos1: SourceSpan = (1..1).into();
+
+        let d = local_ident("d", Type::Integer);
+        let e = local_ident("e", maybe(Type::Integer));
+        let u1 = gend_ident("unwrap-1", Type::Integer);
+
+        let f = local_ident("f", Type::Integer);
+        let g = local_ident("g", maybe(Type::Integer));
+        let u2 = gend_ident("unwrap-2", Type::Integer);
+
         let code = block! {
-            Statement::Assign(Identifier::Local("d".to_string()), None,
-                                Expression::Unwrap(Box::new(
-                                    Identifier::Local("e".to_string()).into())), pos0),
-            Statement::Assign(Identifier::Local("f".to_string()), None,
-                                Expression::Unwrap(Box::new(
-                                    Identifier::Local("g".to_string()).into())), pos1)
+            Statement::Assign(d.clone(), None, unwrap(&e), pos0),
+            Statement::Assign(f.clone(), None, unwrap(&g), pos1)
         };
         let newcode = block! {
-            Statement::Assign(Identifier::Local("unwrap-1".to_string()), None,
-                                Expression::Unwrap(Box::new(
-                                    Identifier::Local("e".to_string()).into())), pos0),
-            Statement::Assign(Identifier::Local("d".to_string()), None,
-                                Identifier::Local("unwrap-1".to_string()).into(), pos0),
-            Statement::Assign(Identifier::Local("unwrap-2".to_string()), None,
-                                 Expression::Unwrap(Box::new(
-                                     Identifier::Local("g".to_string()).into())), pos1),
-            Statement::Assign(Identifier::Local("f".to_string()), None,
-                                Identifier::Local("unwrap-2".to_string()).into(), pos1)
+            Statement::Assign(u1.clone(), None, unwrap(&e), pos0),
+            Statement::Assign(d, None, u1.into(), pos0),
+            Statement::Assign(u2.clone(), None, unwrap(&g), pos1),
+            Statement::Assign(f, None, u2.into(), pos1)
         };
         let mut ctr = 1usize;
         assert_eq!(newcode, unwrapify(&code, &mut ctr).unwrap());
@@ -263,40 +289,18 @@ mod test {
     #[test]
     fn nested_statements() {
         let pos: SourceSpan = (0..0).into();
-        let code = block! {
-            Statement::Assign(Identifier::Local("d".to_string()), None,
-                                 Expression::Unwrap(Box::new(
-                                     Expression::Unwrap(Box::new(
-                                         Identifier::Local("e".to_string()).into())))), pos)
-        };
-        let newcode = block! {
-                    Statement::Assign(Identifier::Local("unwrap-1".to_string()), None,
-                                        Expression::Unwrap(Box::new(
-                                            Identifier::Local("e".to_string()).into())), pos ),
-                    Statement::Assign(Identifier::Local("unwrap-2".to_string()), None,
-                                        Expression::Unwrap(Box::new(
-                                          Identifier::Local("unwrap-1".to_string()).into())), pos ),
-                    Statement::Assign(Identifier::Local("d".to_string()), None,
-                                        Identifier::Local("unwrap-2".to_string()).into(), pos)
-        };
-        let mut ctr = 1usize;
-        assert_eq!(newcode, unwrapify(&code, &mut ctr).unwrap());
-    }
 
-    #[test]
-    fn unwrap_typed_assign() {
-        let pos: SourceSpan = (0..0).into();
+        let d = local_ident("d", Type::Integer);
+        let e = local_ident("e", maybe(maybe(Type::Integer)));
+        let u1 = gend_ident("unwrap-1", maybe(Type::Integer));
+        let u2 = gend_ident("unwrap-2", Type::Integer);
         let code = block! {
-            Statement::Assign(Identifier::Local("d".to_string()), None,
-                              Expression::Unwrap(Box::new(
-                                  Identifier::Local("e".to_string()).into())), pos)
+            Statement::Assign(d.clone(), None, unwrap(&unwrap(&e)), pos)
         };
         let newcode = block! {
-            Statement::Assign(Identifier::Local("unwrap-1".to_string()), None,
-                                  Expression::Unwrap(Box::new(
-                                      Identifier::Local("e".to_string()).into())), pos),
-            Statement::Assign(Identifier::Local("d".to_string()), None,
-                                  Identifier::Local("unwrap-1".to_string()).into(), pos)
+                    Statement::Assign(u1.clone(), None, unwrap(&e), pos ),
+                    Statement::Assign(u2.clone(), None, unwrap(&u1), pos ),
+                    Statement::Assign(d, None, u2.into(), pos)
         };
         let mut ctr = 1usize;
         assert_eq!(newcode, unwrapify(&code, &mut ctr).unwrap());

@@ -66,11 +66,9 @@ impl Expression {
             Expression::StringLiteral(_) => Type::String,
             Expression::BooleanLiteral(_) => Type::Boolean,
             Expression::IntegerLiteral(_) => Type::Integer,
-            Expression::Identifier(ident) => ident.get_type().unwrap_or_else(|| {
-                panic!("we found a bad identifier!\n  {ident:#?}", ident = ident)
-            }),
+            Expression::Identifier(ident) => ident.get_type(),
             Expression::EmptyTable(t) => t.clone(),
-            Expression::TableAccess(ident, _) => match ident.get_type().unwrap() {
+            Expression::TableAccess(ident, _) => match ident.get_type() {
                 Type::Table(_, value_type) => Type::Maybe(Box::new(value_type.deref().clone())),
                 _ => unreachable!(),
             },
@@ -90,7 +88,7 @@ impl Expression {
                     Identifier::ProofIdentifier(proof_ident) => proof_ident.get_type(),
 
                     // These are old and need to go
-                    Identifier::Local(_) => {
+                    Identifier::Generated(_, _) => {
                         unreachable!()
                     }
                 };

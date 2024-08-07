@@ -25,10 +25,10 @@ impl<W: Write> FmtWriter<W> {
 
     pub fn write_identifier(&mut self, id: &Identifier) -> Result {
         match id {
-            Identifier::Local(x) => {
+            Identifier::Generated(x, _) => {
                 self.write_string(x)?;
                 if self.annotate {
-                    self.write_string(" /* local identifier */ ")?;
+                    self.write_string(" /* generated identifier */ ")?;
                 }
             }
             _ => todo!(),

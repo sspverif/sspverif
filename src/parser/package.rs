@@ -508,15 +508,11 @@ pub fn handle_expression(
             let ident_name = ident_ast.as_str();
             let ident = handle_identifier_in_code_rhs(ident_name, &ctx.scope).unwrap();
 
-            let Some(table_type) = ident.get_type() else {
-                unreachable!("this should have been a proper identifier")
-            };
-
-            let Type::Table(idx_type, val_type) = table_type else {
+            let Type::Table(idx_type, val_type) = ident.get_type() else {
                 return Err(ParseExpressionError::TypeMismatch(TypeMismatchError {
                     at: (ident_span.start()..ident_span.end()).into(),
                     expected: Type::Table(Box::new(Type::Unknown), Box::new(Type::Unknown)),
-                    got: table_type,
+                    got: ident.get_type(),
                     source_code: ctx.named_source(),
                 }));
             };
@@ -701,7 +697,7 @@ pub fn handle_identifier_in_code_lhs(
         ident
     };
 
-    let declared_ident_type = ident.get_type().unwrap();
+    let declared_ident_type = ident.get_type();
     if declared_ident_type != expression_type {
         Err(ParseIdentifierError::TypeMismatch(TypeMismatchError {
             at: (span.start()..span.end()).into(),
@@ -803,7 +799,7 @@ pub fn handle_code(
                     let name = name_ast.as_str();
 
                     let expected_type = match ctx.scope.lookup(name) {
-                        Some(Declaration::Identifier(ident)) => ident.get_type(),
+                        Some(Declaration::Identifier(ident)) => Some(ident.get_type()),
                         _ => None,
                     };
 
@@ -848,7 +844,7 @@ pub fn handle_code(
                         }.into());
                     };
 
-                    let ty_ident = ident.get_type().unwrap();
+                    let ty_ident = ident.get_type();
                     let Type::Table(ty_key, ty_value_without_maybe) = &ty_ident else {
                         let span = name_ast.as_span();
                         return Err(TypeMismatchError{
@@ -861,7 +857,7 @@ pub fn handle_code(
 
                     let ty_value_with_maybe = Type::Maybe(ty_value_without_maybe.clone());
 
-                    let index = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), Some(&**ty_key))?;
+                    let index = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), Some(&*ty_key))?;
                     let expr = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), Some(&ty_value_with_maybe))?;
 
                     let expected_type = match expr.get_type() {
