@@ -305,15 +305,12 @@ fn fail_reduction_non_matching_package_fail() {
 
     let ParseProofError::AssumptionMappingContainsDifferentPackages(
         AssumptionMappingContainsDifferentPackagesError {
-            source_code,
-            at_assumption,
-            at_construction,
-
             assumption_pkg_inst_name,
             construction_pkg_inst_name,
 
             assumption_pkg_name,
             construction_pkg_name,
+            ..
         },
     ) = &err
     else {
@@ -359,7 +356,6 @@ fn fail_wrong_params_in_reduction_should_fail() {
 
     let ParseProofError::ReductionPackageInstanceParameterMismatch(
         ReductionPackageInstanceParameterMismatchError {
-            source_code,
             left_pkg_inst_name,
             right_pkg_inst_name,
             param_names,
