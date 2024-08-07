@@ -73,7 +73,7 @@ fn format_oracle_sig(
                 let tipe = format_type(inner.next().unwrap())?;
                 Ok(format!("{id}: {tipe}"))
             })
-            .collect::<Result<Vec<String>,project::error::Error>>()?
+            .collect::<Result<Vec<String>, project::error::Error>>()?
     };
 
     let maybe_tipe = inner.next();
@@ -92,22 +92,23 @@ fn format_oracle_sig(
 }
 
 fn format_type(tipe_ast: Pair<Rule>) -> Result<String, project::error::Error> {
-	Ok(match tipe_ast.as_rule() {
-		Rule::type_tuple => {
-            let inner = tipe_ast.into_inner()
+    Ok(match tipe_ast.as_rule() {
+        Rule::type_tuple => {
+            let inner = tipe_ast
+                .into_inner()
                 .map(|t| format_type(t))
                 .collect::<Result<Vec<_>, _>>()?
-				.join(", ");
-			format!("({inner})")
+                .join(", ");
+            format!("({inner})")
         }
-		Rule::type_table => {
+        Rule::type_table => {
             let mut inner = tipe_ast.into_inner();
             let indextype = format_type(inner.next().unwrap())?;
             let valuetype = format_type(inner.next().unwrap())?;
             format!("Table({indextype}, {valuetype})")
         }
-		_ => tipe_ast.as_str().to_owned()
-	})
+        _ => tipe_ast.as_str().to_owned(),
+    })
 }
 
 fn format_expr(expr_ast: Pair<Rule>) -> Result<String, project::error::Error> {
@@ -182,8 +183,9 @@ fn format_expr(expr_ast: Pair<Rule>) -> Result<String, project::error::Error> {
                     .into_inner()
                     .map(|expr| format_expr(expr))
                     .collect::<Result<_, _>>()?,
-            }.join(", ");
-			format!("{ident}({args})")
+            }
+            .join(", ");
+            format!("{ident}({args})")
         }
         Rule::literal_boolean | Rule::literal_integer => expr_ast.as_str().to_string(),
         Rule::identifier => {
@@ -325,9 +327,15 @@ fn format_code(ctx: &mut FormatContext, code_ast: Pair<Rule>) -> Result<(), proj
                     }
                 }
 
-                ctx.push_line(&format!(
-                    "{ident}[index] <- invoke {oracle_name}{multi_instance}({argstring});"
-                ));
+                if index != "" {
+                    ctx.push_line(&format!(
+                        "{ident}[{index}] <- invoke {oracle_name}{multi_instance}({argstring});"
+                    ));
+                } else {
+                    ctx.push_line(&format!(
+                        "{ident} <- invoke {oracle_name}{multi_instance}({argstring});"
+                    ));
+                }
             }
             Rule::parse => {
                 let mut inner = stmt.into_inner();
@@ -351,7 +359,7 @@ fn format_code(ctx: &mut FormatContext, code_ast: Pair<Rule>) -> Result<(), proj
                 let upper_bound = format_expr(parsed.remove(4))?;
                 let loopvar = decl_var_name.to_string();
 
-                ctx.push_line(&format!("for {loopvar}: {lower_bound} {lower_bound_type} {loopvar} {upper_bound_type} {upper_bound}"));
+                ctx.push_line(&format!("for {loopvar}: {lower_bound} {lower_bound_type} {loopvar} {upper_bound_type} {upper_bound} {{"));
                 ctx.add_indent();
 
                 format_code(ctx, parsed.remove(4))?;
@@ -388,67 +396,68 @@ fn format_oracle_def(
     Ok(())
 }
 
-
 fn format_types_block(
     ctx: &mut FormatContext,
     types_ast: Pair<Rule>,
 ) -> Result<(), project::error::Error> {
     let mut inner = types_ast.into_inner();
+    //println!("{:?}", inner);
     let typename = inner.next().unwrap().as_str();
-    let typedef = format_type(inner.next().unwrap())?;
-    ctx.push_line(&format!("({typename}: {typedef})"));
-	Ok(())
+    //let typedef = format_type(inner.next().unwrap())?;
+    ctx.push_line(&format!("{typename}"));
+    Ok(())
 }
 
 fn format_decl_list(
     ctx: &mut FormatContext,
     decl_list_ast: Pair<Rule>,
 ) -> Result<(), project::error::Error> {
-	for entry in decl_list_ast.into_inner() {
-		let mut inner = entry.into_inner();
-		let declname = inner.next().unwrap().as_str();
-		let decldef = format_type(inner.next().unwrap())?;
-		ctx.push_line(&format!("{declname}: {decldef},"));
-	}
-	Ok(())
+    for entry in decl_list_ast.into_inner() {
+        let mut inner = entry.into_inner();
+        let declname = inner.next().unwrap().as_str();
+        let decldef = format_type(inner.next().unwrap())?;
+        ctx.push_line(&format!("{declname}: {decldef},"));
+    }
+    Ok(())
 }
 
 fn format_import_oracles(
     ctx: &mut FormatContext,
     decl_list_ast: Pair<Rule>,
 ) -> Result<(), project::error::Error> {
-	for entry in decl_list_ast.into_inner() {
+    for entry in decl_list_ast.into_inner() {
+        match entry.as_rule() {
+            Rule::import_oracles_oracle_sig => {
+                let mut inner = entry.into_inner();
+                let ident = inner.next().unwrap().as_str();
+                let args = inner.next().unwrap();
+                if !matches!(args.as_rule(), Rule::fn_maybe_arglist) {
+                    unimplemented!("cant do for imports for now");
+                }
 
-		match entry.as_rule() {
-			Rule::import_oracles_oracle_sig => {
-				let mut inner = entry.into_inner();
-				let ident = inner.next().unwrap().as_str();
-				let args = inner.next().unwrap();
-				if ! matches!(args.as_rule(), Rule::fn_maybe_arglist) {
-					unimplemented!("cant do for imports for now");
-				}
-
-				let args = args.into_inner().map(|arg| arg.as_str().to_owned()).collect::<Vec<String>>().join(", ");
-				let return_type = inner.next();
-				match return_type {
-					None => ctx.push_line(&format!("{ident}({args}) -> (),")),
-					Some(t) => {
-						let rettype = format_type(t)?;
-						ctx.push_line(&format!("{ident}({args}) -> {rettype},"));
-					}
-				}
-			}
-			Rule::import_oracles_for => {
-				unimplemented!("cant do for imports for now")
-			}
-			_ => {unreachable!("")}
-		}
-		// let mut inner = entry.into_inner();
-		// let declname = inner.next().unwrap().as_str();
-		// let decldef = format_type(inner.next().unwrap())?;
-		// ctx.push_line(&format!("{declname}: {decldef},"));
-	}
-	Ok(())
+                let args = args
+                    .into_inner()
+                    .map(|arg| arg.as_str().to_owned())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                let return_type = inner.next();
+                match return_type {
+                    None => ctx.push_line(&format!("{ident}({args}) -> (),")),
+                    Some(t) => {
+                        let rettype = format_type(t)?;
+                        ctx.push_line(&format!("{ident}({args}) -> {rettype},"));
+                    }
+                }
+            }
+            Rule::import_oracles_for => {
+                unimplemented!("cant do imports with for currently")
+            }
+            _ => {
+                unreachable!("")
+            }
+        }
+    }
+    Ok(())
 }
 
 fn format_pkg_spec(
@@ -456,75 +465,82 @@ fn format_pkg_spec(
     pkg_spec_ast: Pair<Rule>,
 ) -> Result<(), project::error::Error> {
     // sort different types consistently when generating output
-	let specs : Vec<_> = pkg_spec_ast.into_inner().collect();
+    let specs: Vec<_> = pkg_spec_ast.into_inner().collect();
 
-	let types_rules : Vec<_> = specs.iter().filter(|x| matches!(x.as_rule(), Rule::types)).collect();
-	let params_rules : Vec<_> = specs.iter().filter(|x| matches!(x.as_rule(), Rule::params)).collect();
-	let state_rules : Vec<_> = specs.iter().filter(|x| matches!(x.as_rule(), Rule::state)).collect();
-	let import_rules : Vec<_> = specs.iter().filter(|x| matches!(x.as_rule(), Rule::import_oracles)).collect();
-	let oracle_def_rules : Vec<_> = specs.iter().filter(|x| matches!(x.as_rule(), Rule::oracle_def)).collect();
+    let types_rules: Vec<_> = specs
+        .iter()
+        .filter(|x| matches!(x.as_rule(), Rule::types))
+        .collect();
+    let params_rules: Vec<_> = specs
+        .iter()
+        .filter(|x| matches!(x.as_rule(), Rule::params))
+        .collect();
+    let state_rules: Vec<_> = specs
+        .iter()
+        .filter(|x| matches!(x.as_rule(), Rule::state))
+        .collect();
+    let import_rules: Vec<_> = specs
+        .iter()
+        .filter(|x| matches!(x.as_rule(), Rule::import_oracles))
+        .collect();
+    let oracle_def_rules: Vec<_> = specs
+        .iter()
+        .filter(|x| matches!(x.as_rule(), Rule::oracle_def))
+        .collect();
 
-	if types_rules.len() > 0 {
-		ctx.push_line("types {");
-		ctx.add_indent();
-		for type_block in types_rules {
-			format_types_block(ctx,type_block.clone().into_inner().next().unwrap())?;
-		}
-		ctx.remove_indent();
-		ctx.push_line("}");
-		ctx.push_line("");
-	}
+    if types_rules.len() > 0 {
+        ctx.push_line("types {");
+        ctx.add_indent();
+        for type_block in types_rules {
+            format_types_block(ctx, type_block.clone().into_inner().next().unwrap())?;
+        }
+        ctx.remove_indent();
+        ctx.push_line("}");
+        ctx.push_line("");
+    }
 
-	if params_rules.len() > 0 {
-		ctx.push_line("params {");
-		ctx.add_indent();
-		for param_block in params_rules {
-			format_decl_list(ctx,param_block.clone().into_inner().next().unwrap())?;
-		}
-		ctx.remove_indent();
-		ctx.push_line("}");
-		ctx.push_line("");
-	}
-	
-	if state_rules.len() > 0 {
-		ctx.push_line("state {");
-		ctx.add_indent();
-		for state_block in state_rules {
-			format_decl_list(ctx,state_block.clone().into_inner().next().unwrap())?;
-		}
-		ctx.remove_indent();
-		ctx.push_line("}");
-		ctx.push_line("");
-	}
+    if params_rules.len() > 0 {
+        ctx.push_line("params {");
+        ctx.add_indent();
+        for param_block in params_rules {
+            let inner = param_block.clone().into_inner().next();
+            if !(inner == None) {
+                format_decl_list(ctx, inner.unwrap())?;
+            }
+        }
+        ctx.remove_indent();
+        ctx.push_line("}");
+        ctx.push_line("");
+    }
 
-	if import_rules.len() > 0 {
-		ctx.push_line("import oracles {");
-		ctx.add_indent();
-		for import_block in import_rules {
-			format_import_oracles(ctx,import_block.clone().into_inner().next().unwrap())?;
-		}
-		ctx.remove_indent();
-		ctx.push_line("}");
-		ctx.push_line("");
-	}
+    if state_rules.len() > 0 {
+        ctx.push_line("state {");
+        ctx.add_indent();
+        for state_block in state_rules {
+            let inner = state_block.clone().into_inner().next();
+            if !(inner == None) {
+                format_decl_list(ctx, inner.unwrap())?;
+            }
+        }
+        ctx.remove_indent();
+        ctx.push_line("}");
+        ctx.push_line("");
+    }
 
-	for oracle_def in oracle_def_rules {
+    if import_rules.len() > 0 {
+        ctx.push_line("import oracles {");
+        ctx.add_indent();
+        for import_block in import_rules {
+            format_import_oracles(ctx, import_block.clone().into_inner().next().unwrap())?;
+        }
+        ctx.remove_indent();
+        ctx.push_line("}");
+        ctx.push_line("");
+    }
+
+    for oracle_def in oracle_def_rules {
         format_oracle_def(ctx, oracle_def.clone())?;
-	}
-		
-	
-    // for spec in pkg_spec_ast.into_inner() {
-    //     match spec.as_rule() {
-    //         Rule::types => {}
-    //         Rule::params => {}
-    //         Rule::state => {}
-    //         Rule::import_oracles => {}
-    //         Rule::oracle_def => {
-    //             format_oracle_def(ctx, spec)?;
-    //         }
-    //         _ => unreachable!("unhandled ast node in package: {}", spec),
-    //     }
-    // }
+    }
 
     Ok(())
 }
@@ -559,10 +575,9 @@ pub fn format_file(file: &std::path::PathBuf) -> Result<(), project::error::Erro
 
     write!(target, "{}", ctx.to_str());
 
-	match target.persist(file) {
+    match target.persist(file) {
         Ok(_) => Ok(()),
         Err(e) => Err(e.error),
     }?;
     Ok(())
 }
-
