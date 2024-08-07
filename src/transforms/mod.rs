@@ -12,9 +12,7 @@ pub mod split_partial;
 pub mod tableinitialize;
 pub mod treeify;
 pub mod type_extract;
-//pub mod typecheck;
 pub mod unwrapify;
-//pub mod varspecify;
 
 pub mod proof_transforms;
 
