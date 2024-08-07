@@ -5,14 +5,13 @@ use crate::package::Composition;
 use crate::statement::{CodeBlock, Statement};
 use crate::types::Type;
 
-pub type Error = Infallible;
 pub struct Transformation<'a>(pub &'a Composition);
 
 impl<'a> super::Transformation for Transformation<'a> {
-    type Err = Error;
+    type Err = Infallible;
     type Aux = HashSet<Type>;
 
-    fn transform(&self) -> Result<(Composition, HashSet<Type>), Error> {
+    fn transform(&self) -> Result<(Composition, HashSet<Type>), Infallible> {
         let mut set = HashSet::new();
 
         let insts = &self.0.pkgs.iter();

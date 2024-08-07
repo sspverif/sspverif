@@ -13,7 +13,7 @@ pub enum Error {
 
 pub struct TransformNg;
 
-impl<'a> super::GameTransform for TransformNg {
+impl super::GameTransform for TransformNg {
     type Err = Error;
     type Aux = ();
 
@@ -49,21 +49,6 @@ impl<'a> super::GameTransform for TransformNg {
             },
             (),
         ))
-    }
-}
-
-use super::GameTransform;
-
-impl super::GameInstanceTransform for TransformNg {
-    type Err = Error;
-    type Aux = ();
-
-    fn transform_game_instance(
-        &self,
-        instance: &crate::proof::GameInstance,
-    ) -> Result<(crate::proof::GameInstance, Self::Aux), Self::Err> {
-        let (game, _) = <Self as GameTransform>::transform_game(&self, instance.game())?;
-        Ok((instance.with_other_game(game), ()))
     }
 }
 
@@ -122,7 +107,7 @@ pub fn returnify(
                 expr.clone(),
                 returnify(ifcode, none_ok, pkg_inst_name, oracle_name)?,
                 returnify(elsecode, none_ok, pkg_inst_name, oracle_name)?,
-                file_pos.clone(),
+                *file_pos,
             ));
             Ok(CodeBlock(retval))
         }
@@ -141,7 +126,7 @@ pub fn returnify(
                 )
             } else {
                 let mut retval = cb.0.clone();
-                retval.push(Statement::Return(None, other.file_pos().clone()));
+                retval.push(Statement::Return(None, other.file_pos()));
                 Ok(CodeBlock(retval))
             }
         }
@@ -204,7 +189,7 @@ mod test {
         let d = pkg_local_test_ident("d", Type::Integer);
         let file_pos: SourceSpan = (0..1).into();
         let code = block! {
-            Statement::Sample(d, None, None, Type::Integer, file_pos.clone()),
+            Statement::Sample(d, None, None, Type::Integer, file_pos),
             Statement::Return(None, file_pos)
         };
         assert_eq!(
@@ -218,8 +203,8 @@ mod test {
         let file_pos: SourceSpan = (0..1).into();
         let d = pkg_local_test_ident("d", Type::Integer);
         let code = block! {
-            Statement::Sample(d, None, None, Type::Integer, file_pos.clone()),
-            Statement::Return(Some(Expression::IntegerLiteral(5)), file_pos.clone())
+            Statement::Sample(d, None, None, Type::Integer, file_pos),
+            Statement::Return(Some(Expression::IntegerLiteral(5)), file_pos)
         };
         assert_eq!(
             code,
@@ -232,7 +217,7 @@ mod test {
         let file_pos: SourceSpan = (0..1).into();
         let d = pkg_local_test_ident("d", Type::Integer);
         let code = block! {
-            Statement::Sample(d, None, None, Type::Integer, file_pos.clone()),
+            Statement::Sample(d, None, None, Type::Integer, file_pos),
             Statement::Abort(file_pos)
         };
         assert_eq!(
@@ -246,11 +231,11 @@ mod test {
         let file_pos: SourceSpan = (0..1).into();
         let d = pkg_local_test_ident("d", Type::Integer);
         let before = block! {
-            Statement::Sample(d.clone(), None, None, Type::Integer, file_pos.clone())
+            Statement::Sample(d.clone(), None, None, Type::Integer, file_pos)
         };
         let after = block! {
-            Statement::Sample(d, None, None,  Type::Integer, file_pos.clone()),
-            Statement::Return(None, file_pos.clone())
+            Statement::Sample(d, None, None,  Type::Integer, file_pos),
+            Statement::Return(None, file_pos)
         };
         assert_eq!(
             after,
@@ -270,28 +255,28 @@ mod test {
         let e = pkg_local_test_ident("e", Type::Integer);
         let before = block! {
             Statement::IfThenElse(
-                Expression::new_equals(vec![&(a.to_expression()),
-                                            &(a.to_expression())]),
+                Expression::new_equals(vec![&(a.clone().into()),
+                                            &(a.clone().into())]),
                 block!{
-                    Statement::Sample(d.clone(), None, None, Type::Integer, file_pos.clone())
+                    Statement::Sample(d.clone(), None, None, Type::Integer, file_pos)
                 },
                 block!{
-                    Statement::Sample(e.clone(), None, None, Type::Integer, file_pos.clone()),
-                    Statement::Return(None, file_pos.clone())
-                }, file_pos.clone())
+                    Statement::Sample(e.clone(), None, None, Type::Integer, file_pos),
+                    Statement::Return(None, file_pos)
+                }, file_pos)
         };
         let after = block! {
             Statement::IfThenElse(
-                Expression::new_equals(vec![&(a.to_expression()),
-                                            &(a.to_expression())]),
+                Expression::new_equals(vec![&(a.clone().into()),
+                                            &(a.clone().into())]),
                 block!{
-                    Statement::Sample(d, None, None, Type::Integer, file_pos.clone()),
-                    Statement::Return(None, file_pos.clone())
+                    Statement::Sample(d, None, None, Type::Integer, file_pos),
+                    Statement::Return(None, file_pos)
                 },
                 block!{
-                    Statement::Sample(e, None, None, Type::Integer, file_pos.clone()),
-                    Statement::Return(None, file_pos.clone())
-                }, file_pos.clone())
+                    Statement::Sample(e, None, None, Type::Integer, file_pos),
+                    Statement::Return(None, file_pos)
+                }, file_pos)
         };
         assert_eq!(
             after,
@@ -311,27 +296,27 @@ mod test {
         let e = pkg_local_test_ident("e", Type::Integer);
         let before = block! {
             Statement::IfThenElse(
-                Expression::new_equals(vec![&(a.to_expression()),
-                                            &(a.to_expression())]),
+                Expression::new_equals(vec![&(a.clone().into()),
+                                            &(a.clone().into())]),
                 block!{
-                    Statement::Sample(d.clone(), None, None, Type::Integer, file_pos.clone())
+                    Statement::Sample(d.clone(), None, None, Type::Integer, file_pos)
                 },
                 block!{
-                    Statement::Sample(e.clone(), None, None, Type::Integer, file_pos.clone())
-                }, file_pos.clone())
+                    Statement::Sample(e.clone(), None, None, Type::Integer, file_pos)
+                }, file_pos)
         };
         let after = block! {
             Statement::IfThenElse(
-                Expression::new_equals(vec![&(a.to_expression()),
-                                            &(a.to_expression())]),
+                Expression::new_equals(vec![&(a.clone().into()),
+                                            &(a.clone().into())]),
                 block!{
-                    Statement::Sample(d.clone(), None, None, Type::Integer, file_pos.clone()),
-                    Statement::Return(None, file_pos.clone())
+                    Statement::Sample(d.clone(), None, None, Type::Integer, file_pos),
+                    Statement::Return(None, file_pos)
                 },
                 block!{
-                    Statement::Sample(e.clone(), None, None, Type::Integer, file_pos.clone()),
-                    Statement::Return(None, file_pos.clone())
-                }, file_pos.clone())
+                    Statement::Sample(e.clone(), None, None, Type::Integer, file_pos),
+                    Statement::Return(None, file_pos)
+                }, file_pos)
         };
         assert_eq!(
             after,

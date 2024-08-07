@@ -1,11 +1,9 @@
-use crate::{
-    package::{Composition, Package, PackageInstance},
-    proof::{GameInstance, Proof},
-    types::Type,
-};
+use crate::{package::Composition, proof::Proof};
+
+// commented out because we currently don't handle parametric types :(
+//pub mod resolvetypes;
 
 pub mod resolveoracles;
-pub mod resolvetypes;
 pub mod returnify;
 pub mod samplify;
 pub mod split_partial;
@@ -16,54 +14,21 @@ pub mod unwrapify;
 
 pub mod proof_transforms;
 
-pub trait PackageTransform {
-    type Err;
-    type Aux;
-
-    fn transform_package(&self, pkg: &Package) -> Result<(Package, Self::Aux), Self::Err>;
-}
-
-pub trait PackageInstanceTransform {
-    type Err;
-    type Aux;
-
-    fn transform_package_instance(
-        &self,
-        inst: &PackageInstance,
-    ) -> Result<(PackageInstance, Self::Aux), Self::Err>;
-}
-
-pub trait TypeTransform {
-    type Err;
-    type Aux;
-
-    fn transform_type(&self, tipe: &Type) -> Result<(Type, Self::Aux), Self::Err>;
-}
-pub trait GameInstanceTransform {
-    type Err;
-    type Aux;
-
-    fn transform_game_instance(
-        &self,
-        instance: &GameInstance,
-    ) -> Result<(GameInstance, Self::Aux), Self::Err>;
-}
-
-pub trait GameTransform {
+pub(crate) trait GameTransform {
     type Err;
     type Aux;
 
     fn transform_game(&self, game: &Composition) -> Result<(Composition, Self::Aux), Self::Err>;
 }
 
-pub trait ProofTransform {
+pub(crate) trait ProofTransform {
     type Err;
     type Aux;
 
     fn transform_proof(&self, proof: &Proof) -> Result<(Proof, Self::Aux), Self::Err>;
 }
 
-pub trait Transformation {
+pub(crate) trait Transformation {
     type Err;
     type Aux;
 

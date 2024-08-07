@@ -9,6 +9,12 @@ use crate::identifier::proof_ident::{ProofConstIdentifier, ProofIdentifier};
 use crate::identifier::Identifier;
 use crate::types::Type;
 
+impl From<Identifier> for SmtExpr {
+    fn from(value: Identifier) -> Self {
+        Expression::Identifier(value).into()
+    }
+}
+
 impl From<Expression> for SmtExpr {
     fn from(expr: Expression) -> SmtExpr {
         //eprintln!("DEBUG expr->smt: {expr:?}");
@@ -161,7 +167,7 @@ impl From<Expression> for SmtExpr {
             Expression::Bot => SmtExpr::Atom("bot".to_string()),
             Expression::TableAccess(table, index) => SmtExpr::List(vec![
                 SmtExpr::Atom("select".into()),
-                table.to_expression().into(),
+                table.clone().into(),
                 (*index).into(),
             ]),
             Expression::Tuple(exprs) => {

@@ -25,7 +25,7 @@ use crate::{
     types::Type,
     util::{
         resolver::{Resolver, SliceResolver},
-        scope::{Declaration, Scope},
+        scope::{AlreadyDefinedError, Declaration, Scope},
     },
 };
 
@@ -140,7 +140,7 @@ impl<'a> ParseProofContext<'a> {
             pkgs: packages.values().cloned().collect(),
         }
     }
-    fn declare(&mut self, name: &str, clone: Declaration) -> Result<(), ()> {
+    fn declare(&mut self, name: &str, clone: Declaration) -> Result<(), AlreadyDefinedError> {
         self.scope.declare(name, clone)
     }
     // TODO: check dupes here?
@@ -152,9 +152,6 @@ impl<'a> ParseProofContext<'a> {
             .insert(game_inst.name().to_string(), (offset, game_inst));
     }
 
-    fn has_game_instance(&self, name: &str) -> bool {
-        self.instances_table.contains_key(name)
-    }
     fn get_game_instance(&self, name: &str) -> Option<(usize, &GameInstance)> {
         self.instances_table
             .get(name)
@@ -164,10 +161,6 @@ impl<'a> ParseProofContext<'a> {
     // TODO: check dupes here?
     fn add_const(&mut self, name: String, ty: Type) {
         self.consts.insert(name, ty);
-    }
-
-    fn get_const(&self, name: &str) -> Option<&Type> {
-        self.consts.get(name)
     }
 }
 
@@ -324,7 +317,7 @@ fn handle_instance_decl(
 
     let consts_as_ident = consts
         .iter()
-        .map(|(ident, expr)| (ident.clone().into(), expr.clone()))
+        .map(|(ident, expr)| (ident.clone(), expr.clone()))
         .collect();
 
     let game_inst = GameInstance::new(

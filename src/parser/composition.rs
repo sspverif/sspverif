@@ -24,6 +24,7 @@ use crate::{
     statement::FilePosition,
     //transforms::{resolvetypes::ResolveTypesPackageInstanceTransform, PackageInstanceTransform},
     types::Type,
+    util::scope::AlreadyDefinedError,
 };
 use itertools::Itertools as _;
 use miette::{Diagnostic, NamedSource};
@@ -125,7 +126,7 @@ impl<'a> ParseGameContext<'a> {
         }
     }
 
-    fn declare(&mut self, name: &str, clone: Declaration) -> Result<(), ()> {
+    fn declare(&mut self, name: &str, clone: Declaration) -> Result<(), AlreadyDefinedError> {
         self.scope.declare(name, clone)
     }
     // TODO: check dupes here?

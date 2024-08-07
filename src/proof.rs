@@ -1,6 +1,6 @@
 use crate::{
     expressions::Expression,
-    identifier::{game_ident::GameConstIdentifier, Identifier},
+    identifier::game_ident::GameConstIdentifier,
     package::{Composition, Package},
     packageinstance::instantiate::InstantiationContext,
     types::Type,
@@ -23,15 +23,8 @@ impl_Named!(GameInstance);
 
 mod instantiate {
     use crate::{
-        expressions::Expression,
-        identifier::{pkg_ident::PackageConstIdentifier, Identifier},
         package::Package,
-        packageinstance::{
-            instantiate::{self, rewrite_expression, InstantiationContext},
-            PackageInstance,
-        },
-        parser::package::MultiInstanceIndices,
-        types::Type,
+        packageinstance::{instantiate::InstantiationContext, PackageInstance},
     };
 
     /*

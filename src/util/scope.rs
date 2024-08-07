@@ -44,6 +44,9 @@ pub struct Scope {
     types: HashSet<Declaration>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct AlreadyDefinedError;
+
 impl Default for Scope {
     fn default() -> Self {
         Self::new()
@@ -78,7 +81,11 @@ impl Scope {
      *  - No scope at all
      *  - Identifier exists somewhere in the scope tower already
      */
-    pub fn declare(&mut self, id: &str, scope_type: Declaration) -> Result<(), ()> {
+    pub fn declare(
+        &mut self,
+        id: &str,
+        scope_type: Declaration,
+    ) -> Result<(), AlreadyDefinedError> {
         self.types.insert(scope_type.clone());
         if self.lookup(id).is_none() {
             if let Some(last) = self.entries.last_mut() {
@@ -88,7 +95,7 @@ impl Scope {
                 panic!("scope declare: scope stack is empty");
             }
         } else {
-            Err(()) // already defined
+            Err(AlreadyDefinedError) // already defined
         }
     }
 

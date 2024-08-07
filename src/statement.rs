@@ -36,8 +36,8 @@ pub enum Statement {
 }
 
 impl Statement {
-    pub fn file_pos(&self) -> &SourceSpan {
-        match self {
+    pub fn file_pos(&self) -> SourceSpan {
+        *match self {
             Statement::Abort(file_pos)
             | Statement::Return(_, file_pos)
             | Statement::Assign(_, _, _, file_pos)
