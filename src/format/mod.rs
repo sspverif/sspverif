@@ -572,6 +572,149 @@ fn format_pkg(ctx: &mut FormatContext, pkg_ast: Pair<Rule>) -> Result<(), projec
     Ok(())
 }
 
+fn format_game(ctx: &mut FormatContext, pkg_ast: Pair<Rule>) -> Result<(), project::error::Error> {
+    let mut inner = pkg_ast.into_inner();
+    let pkg_name = inner.next().unwrap().as_str();
+    let spec = inner.next().unwrap();
+
+    ctx.push_line(&format!("composition {pkg_name} {{"));
+    ctx.add_indent();
+
+    let specs: Vec<_> = spec.into_inner().collect();
+
+    let const_rules: Vec<_> = specs
+        .iter()
+        .filter(|x| matches!(x.as_rule(), Rule::const_decl))
+        .collect();
+
+    let compose_rules: Vec<_> = specs
+        .iter()
+        .filter(|x| matches!(x.as_rule(), Rule::compose_decl))
+        .collect();
+
+    for const_rule in const_rules {
+        let mut inner = const_rule.clone().into_inner();
+        let varname = inner.next().unwrap().as_str();
+        let vartype = format_type(inner.next().unwrap())?;
+        ctx.push_line(&format!("const {varname}: {vartype};"))
+    }
+
+    for spec in &specs {
+        match spec.as_rule() {
+            Rule::const_decl => { /* handled separately */ }
+            // Rule::game_for => {
+            //     unimplemented!("nope")
+            // }
+            Rule::instance_decl => {
+                ctx.push_line("");
+                let mut inner = spec.clone().into_inner();
+                let instname = inner.next().unwrap().as_str();
+                let next = inner.next().unwrap();
+                if next.as_rule() == Rule::indices_expr {
+                    let results = next
+                        .into_inner()
+                        .map(|pair| format_expr(pair))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let gamename = inner.next().unwrap().as_str();
+                    let indices = results.join(", ");
+                    ctx.push_line(&format!("instance {instname}[{indices}] = {gamename} {{"));
+                } else {
+                    let gamename = next.as_str();
+                    ctx.push_line(&format!("instance {instname} = {gamename} {{"));
+                    ctx.add_indent();
+                }
+
+                let instance_inner: Vec<_> = inner.next().unwrap().into_inner().collect();
+                let params_rules: Vec<_> = instance_inner
+                    .iter()
+                    .filter(|x| matches!(x.as_rule(), Rule::params_def))
+                    .collect();
+                let types_rules: Vec<_> = instance_inner
+                    .iter()
+                    .filter(|x| matches!(x.as_rule(), Rule::types_def))
+                    .collect();
+
+                if params_rules.len() > 0 {
+                    ctx.push_line("params {");
+                    ctx.add_indent();
+                    for param_block in params_rules {
+                        let inner = param_block.clone().into_inner().next();
+                        if !(inner == None) {
+                            for block in inner.unwrap().into_inner() {
+                                let mut inner = block.into_inner();
+                                let paramname = inner.next().unwrap().as_str();
+                                let paramexpr = format_expr(inner.next().unwrap())?;
+                                ctx.push_line(&format!("{paramname}: {paramexpr},"))
+                            }
+                        }
+                    }
+                    ctx.remove_indent();
+                    ctx.push_line("}");
+                    ctx.push_line("");
+                }
+
+                if types_rules.len() > 0 {
+                    ctx.push_line("types {");
+                    ctx.add_indent();
+                    for types_block in types_rules {
+                        let inner = types_block.clone().into_inner().next();
+                        if !(inner == None) {
+                            for block in inner.unwrap().into_inner() {
+                                let mut inner = block.into_inner();
+                                let typealias = format_type(inner.next().unwrap())?;
+                                let realtype = format_type(inner.next().unwrap())?;
+                                ctx.push_line(&format!("{typealias}: {realtype},"))
+                            }
+                        }
+                    }
+                    ctx.remove_indent();
+                    ctx.push_line("}");
+                    ctx.push_line("");
+                }
+                ctx.remove_indent();
+                ctx.push_line("}");
+            }
+            Rule::compose_decl => { /* handled separately */ }
+            _ => {
+                unreachable!("{:?}", spec)
+            }
+        }
+    }
+
+    if compose_rules.len() > 0 {
+        ctx.push_line("compose {");
+        ctx.add_indent();
+
+        for compose_rule in compose_rules {
+            let mut inner = compose_rule.clone().into_inner();
+            for compblock in inner {
+                let mut compblock = compblock.into_inner();
+                let importer = compblock.next().unwrap().as_str();
+                let imports = compblock.map(|pair| {
+                    let mut pairs = pair.into_inner();
+                    let oracle = pairs.next().unwrap().as_str();
+                    let package = pairs.next().unwrap().as_str();
+                    (oracle, package)
+                });
+                ctx.push_line(&format!("{}: {{", importer));
+                ctx.add_indent();
+                for (oracle, package) in imports {
+                    ctx.push_line(&format!("{}: {},", oracle, package));
+                }
+                ctx.remove_indent();
+                ctx.push_line("},");
+            }
+        }
+
+        ctx.remove_indent();
+        ctx.push_line("}");
+    }
+
+    ctx.remove_indent();
+    ctx.push_line("}");
+	Ok(())
+}
+
 pub fn format_file(file: &std::path::PathBuf) -> Result<(), project::error::Error> {
     let mut indent = 0;
     let file_content = std::fs::read_to_string(file)?;
@@ -579,13 +722,20 @@ pub fn format_file(file: &std::path::PathBuf) -> Result<(), project::error::Erro
     let absname = std::path::absolute(file)?;
     let dirname = absname.parent().unwrap();
     let mut target = tempfile::NamedTempFile::new_in(dirname)?;
-
-    let mut ast =
-        SspParser::parse_package(&file_content).map_err(|e| (file.to_str().unwrap(), e))?;
     let mut ctx = FormatContext::new(file.to_str().unwrap(), &file_content);
-    let formated = format_pkg(&mut ctx, ast.next().unwrap())?;
 
-    write!(target, "{}", ctx.to_str());
+    if ctx.is_package() {
+        let mut ast =
+            SspParser::parse_package(&file_content).map_err(|e| (file.to_str().unwrap(), e))?;
+        format_pkg(&mut ctx, ast.next().unwrap())?;
+    }
+    if ctx.is_game() {
+        let mut ast =
+            SspParser::parse_composition(&file_content).map_err(|e| (file.to_str().unwrap(), e))?;
+        format_game(&mut ctx, ast.next().unwrap())?;
+    }
+
+    write!(target, "{}", ctx.to_str())?;
 
     match target.persist(file) {
         Ok(_) => Ok(()),
