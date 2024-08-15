@@ -50,9 +50,7 @@ fn format_oracle_sig(
 	if one_line.len() > 80 {
 		ctx.push_line(&format!("oracle {name}("));
 		ctx.add_indent();
-		for arg in args.join(",\n").split('\n') {
-			ctx.push_line(arg);
-		}
+		ctx.push_lines(&args.join(",\n").split('\n').collect::<Vec<_>>());
 		ctx.remove_indent();
 		ctx.push_line(&format!("){tipe} {{"));
 	} else {
