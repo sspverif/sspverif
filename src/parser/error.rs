@@ -502,3 +502,20 @@ pub struct MissingEdgeForImportedOracleError {
     pub oracle_name: String,
 }
 
+#[derive(Error, Diagnostic, Debug)]
+#[error("game {game_name} assigns an edge from package instance {pkg_inst_name} of package type {pkg_name} for oracle {oracle_name}, but that package doesn't import that oracle")]
+#[diagnostic(code(ssbee::code::game::unused_edge))]
+pub struct UnusedEdgeError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    // this should be the package instance definition
+    #[label("oracle {oracle_name} not imported by package instance {pkg_inst_name}")]
+    pub at: SourceSpan,
+
+    pub pkg_inst_name: String,
+    pub pkg_name: String,
+    pub oracle_name: String,
+    pub game_name: String,
+}
+

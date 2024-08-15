@@ -4,6 +4,7 @@ use super::{
         DuplicatePackageParameterDefinitionError, MissingEdgeForImportedOracleError,
         MissingPackageParameterDefinitionError, NoSuchPackageParameterError, NoSuchTypeError,
         UndefinedOracleError, UndefinedPackageError, UndefinedPackageInstanceError,
+        UnusedEdgeError,
     },
     package::{handle_expression, ForComp, MultiInstanceIndices, ParsePackageError},
     ParseContext, Rule,
@@ -215,6 +216,10 @@ pub enum ParseGameError {
     #[diagnostic(transparent)]
     #[error(transparent)]
     MissingEdgeForImportedOracle(#[from] MissingEdgeForImportedOracleError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    UnusedEdge(#[from] UnusedEdgeError),
 }
 
 pub fn handle_composition(
@@ -505,9 +510,7 @@ fn handle_export_compose_assign_list_multi_inst(
         let mut assignment = assignment.into_inner();
 
         let first = assignment.peek().unwrap();
-
         let (modifier_ast, oracle_name_ast, dst_pkg_inst_name_ast) = match first.as_rule() {
-            // no modifier, just two identifiers
             Rule::identifier => {
                 let oracle_name = assignment.next().unwrap();
                 let dst_inst_name = assignment.next().unwrap();
@@ -539,44 +542,6 @@ fn handle_export_compose_assign_list_multi_inst(
             })
             .transpose()?;
 
-        /*
-        let mut oracle_name = None;
-        let mut dst_inst_name = None;
-        let mut dst_instance_idx = vec![];
-        let span = assignment.as_span();
-        for piece in assignment.into_inner() {
-            match piece.as_rule() {
-                Rule::identifier if oracle_name.is_none() => {
-                    oracle_name = Some(piece.as_str());
-                }
-                Rule::identifier if dst_inst_name.is_none() => {
-                    if !ctx.has_pkg_instance(piece.as_str()) {
-                        let span = piece.as_span();
-                        return Err(UndefinedPackageInstanceError {
-                            source_code: ctx.named_source(),
-                            at: (span.start()..span.end()).into(),
-                            pkg_inst_name: piece.to_string(),
-                            in_game: ctx.game_name.to_string(),
-                        }
-                        .into());
-                    }
-
-                    dst_inst_name = Some(piece.as_str());
-                }
-                Rule::compose_assign_modifier_with_index => dst_instance_idx.append(
-                    &mut piece
-                        .into_inner()
-                        .next()
-                        .unwrap()
-                        .into_inner()
-                        .map(|e| handle_expression(&ctx.parse_ctx(), e, Some(&Type::Integer)))
-                        .collect::<Result<_, _>>()?,
-                ),
-                _ => unreachable!(""),
-            }
-        }
-        */
-
         let (dst_offset, dst_inst) =
             ctx.get_pkg_instance(dst_pkg_inst_name)
                 .ok_or(UndefinedPackageInstanceError {
@@ -601,10 +566,8 @@ fn handle_export_compose_assign_list_multi_inst(
 
         assert!(oracle_sig.multi_inst_idx.indices.is_empty());
 
-        if let Some(dst_instance_idx) = dst_inst_idx {
-            oracle_sig.multi_inst_idx = MultiInstanceIndices {
-                indices: dst_instance_idx,
-            };
+        if let Some(indices) = dst_inst_idx {
+            oracle_sig.multi_inst_idx = MultiInstanceIndices { indices };
         }
 
         exports.push(MultiInstanceExport {
@@ -625,82 +588,87 @@ fn handle_edges_compose_assign_list_multi_inst(
     let mut edges = vec![];
 
     for assignment in ast {
-        let mut oracle_name = None;
-        let mut dst_inst_name = None;
-        let mut dst_instance_idx = vec![];
-        let span = assignment.as_span();
-        for piece in assignment.into_inner() {
-            match piece.as_rule() {
-                Rule::identifier if oracle_name.is_none() => {
-                    oracle_name = Some(piece.as_str());
-                }
-                Rule::identifier if dst_inst_name.is_none() => {
-                    if !ctx.has_pkg_instance(piece.as_str()) {
-                        let span = piece.as_span();
-                        return Err(UndefinedPackageInstanceError {
-                            source_code: ctx.named_source(),
-                            at: (span.start()..span.end()).into(),
-                            pkg_inst_name: piece.to_string(),
-                            in_game: ctx.game_name.to_string(),
-                        }
-                        .into());
-                    }
+        assert_eq!(assignment.as_rule(), Rule::compose_assign);
 
-                    dst_inst_name = Some(piece.as_str());
-                }
-                Rule::compose_assign_modifier_with_index => dst_instance_idx.append(
-                    &mut piece
-                        .into_inner()
-                        .next()
-                        .unwrap()
-                        .into_inner()
-                        .map(|e| handle_expression(&ctx.parse_ctx(), e, Some(&Type::Integer)))
-                        .collect::<Result<_, _>>()?,
-                ),
-                other_rule => unreachable!("found rule {rule:?}", rule = other_rule),
+        let mut assignment = assignment.into_inner();
+
+        let first = assignment.peek().unwrap();
+        let (modifier_ast, oracle_name_ast, dst_pkg_inst_name_ast) = match first.as_rule() {
+            Rule::identifier => {
+                let oracle_name = assignment.next().unwrap();
+                let dst_inst_name = assignment.next().unwrap();
+                (None, oracle_name, dst_inst_name)
             }
-        }
+            Rule::compose_assign_modifier_with_index => {
+                let modifier = assignment.next().unwrap();
+                let oracle_name = assignment.next().unwrap();
+                let dst_inst_name = assignment.next().unwrap();
+                (Some(modifier), oracle_name, dst_inst_name)
+            }
+            _ => unreachable!(),
+        };
 
-        let oracle_name = oracle_name.expect("expected there to be an oracle name");
-        let dst_inst_name = dst_inst_name.expect("expected there to be a dst instance name");
+        let oracle_name = oracle_name_ast.as_str();
+        let oracle_name_span = oracle_name_ast.as_span();
+        let dst_pkg_inst_name = dst_pkg_inst_name_ast.as_str();
+        let dst_pkg_inst_name_span = dst_pkg_inst_name_ast.as_span();
+
+        let dst_inst_idx: Option<Vec<Expression>> = modifier_ast
+            .map(|modifier| {
+                modifier
+                    .into_inner()
+                    .next()
+                    .unwrap()
+                    .into_inner()
+                    .map(|idx| handle_expression(&ctx.parse_ctx(), idx, Some(&Type::Integer)))
+                    .collect()
+            })
+            .transpose()?;
+
+        let (dst_offset, dst_inst) =
+            ctx.get_pkg_instance(dst_pkg_inst_name)
+                .ok_or(UndefinedPackageInstanceError {
+                    source_code: ctx.named_source(),
+                    at: (dst_pkg_inst_name_span.start()..dst_pkg_inst_name_span.end()).into(),
+                    pkg_inst_name: dst_pkg_inst_name.to_string(),
+                    in_game: ctx.game_name.to_string(),
+                })?;
 
         println!("mi found oracle {oracle_name}");
 
-        let Some((dst_offset, dst_inst)) = ctx.get_pkg_instance(dst_inst_name) else {
-            let pos = FilePosition::new(
-                ctx.file_name.to_string(),
-                span.start_pos().line_col().0,
-                span.end_pos().line_col().0,
-            );
-            panic!(
-                "instance {} not declared but used at {}",
-                dst_inst_name, pos
-            )
-        };
-
-        let oracle_sig = match dst_inst
+        let mut oracle_sig = dst_inst
             .pkg
             .oracles
             .iter()
             .find(|oracle_def| oracle_def.sig.name == oracle_name)
+            .ok_or(UndefinedOracleError {
+                source_code: ctx.named_source(),
+                at: (oracle_name_span.start()..oracle_name_span.end()).into(),
+                oracle_name: oracle_name.to_string(),
+            })?
+            .sig
+            .clone();
+
+        let (src_pkg_inst, _) = &ctx.instances[source_pkgidx];
+        if src_pkg_inst
+            .pkg
+            .imports
+            .iter()
+            .all(|(osig, _)| oracle_name != osig.name)
         {
-            None => {
-                panic!(
-                    "oracle {oracle_name} not found in package instance {dst_inst_name}, file name {file_name}",
-                    file_name = ctx.file_name
-                );
-            }
-            Some(def) => def.sig.clone(),
-        };
+            return Err(ParseGameError::UnusedEdge(UnusedEdgeError {
+                source_code: ctx.named_source(),
+                at: (oracle_name_span.start()..oracle_name_span.end()).into(),
+                pkg_inst_name: src_pkg_inst.name.clone(),
+                pkg_name: src_pkg_inst.pkg.name.clone(),
+                oracle_name: oracle_name.to_string(),
+                game_name: ctx.game_name.to_string(),
+            }));
+        }
 
-        let multi_inst_idx = MultiInstanceIndices {
-            indices: dst_instance_idx,
-        };
-
-        let oracle_sig = OracleSig {
-            multi_inst_idx,
-            ..oracle_sig
-        };
+        if let Some(indices) = dst_inst_idx {
+            oracle_sig.multi_inst_idx = MultiInstanceIndices { indices };
+        }
 
         edges.push(MultiInstanceEdge {
             dest_pkgidx: dst_offset,
