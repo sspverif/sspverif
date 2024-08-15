@@ -1,10 +1,10 @@
 use super::{
     common::*,
     error::{
-        DuplicatePackageParameterDefinitionError, MissingEdgeForImportedOracleError,
-        MissingPackageParameterDefinitionError, NoSuchPackageParameterError, NoSuchTypeError,
-        UndefinedOracleError, UndefinedPackageError, UndefinedPackageInstanceError,
-        UnusedEdgeError,
+        DuplicateEdgeDefinitionError, DuplicatePackageParameterDefinitionError,
+        MissingEdgeForImportedOracleError, MissingPackageParameterDefinitionError,
+        NoSuchPackageParameterError, NoSuchTypeError, UndefinedOracleError, UndefinedPackageError,
+        UndefinedPackageInstanceError, UnusedEdgeError,
     },
     package::{handle_expression, ForComp, MultiInstanceIndices, ParsePackageError},
     ParseContext, Rule,
@@ -220,6 +220,10 @@ pub enum ParseGameError {
     #[diagnostic(transparent)]
     #[error(transparent)]
     UnusedEdge(#[from] UnusedEdgeError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    DuplicateEdgeDefinition(#[from] DuplicateEdgeDefinitionError),
 }
 
 pub fn handle_composition(
@@ -668,6 +672,22 @@ fn handle_edges_compose_assign_list_multi_inst(
 
         if let Some(indices) = dst_inst_idx {
             oracle_sig.multi_inst_idx = MultiInstanceIndices { indices };
+        }
+
+        if edges.iter().any(|existing_edge: &MultiInstanceEdge| {
+            // TODO: this will probably fail for real multi-instance, handle that later
+
+            existing_edge.source_pkgidx == source_pkgidx
+                && existing_edge.oracle_sig.name == oracle_name
+        }) {
+            return Err(DuplicateEdgeDefinitionError {
+                source_code: ctx.named_source(),
+                at: (oracle_name_span.start()..oracle_name_span.end()).into(),
+                pkg_inst_name: src_pkg_inst.name.to_string(),
+                oracle_name: oracle_name.to_string(),
+                game_name: ctx.game_name.to_string(),
+            }
+            .into());
         }
 
         edges.push(MultiInstanceEdge {

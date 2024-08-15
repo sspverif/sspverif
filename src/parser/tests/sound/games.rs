@@ -2,8 +2,9 @@ use crate::{
     parser::{
         composition::ParseGameError,
         error::{
-            MissingEdgeForImportedOracleError, MissingPackageParameterDefinitionError,
-            TypeMismatchError, UndefinedOracleError, UnusedEdgeError,
+            DuplicateEdgeDefinitionError, MissingEdgeForImportedOracleError,
+            MissingPackageParameterDefinitionError, TypeMismatchError, UndefinedOracleError,
+            UnusedEdgeError,
         },
         package::ParseExpressionError,
         tests::{games, packages},
@@ -132,6 +133,29 @@ fn oracle_missing_edge_for_imported_oracle() {
 
 #[test]
 fn oracle_imported_twice() {
+    let pkgs = packages::parse_files(&["PRF.pkg.ssp", "KeyReal.pkg.ssp", "Enc.pkg.ssp"]);
+    let err = games::parse_file_fails("Game-double-edge-should-fail.comp.ssp", &pkgs);
+
+    assert!(
+        matches!(
+            &err,
+            ParseGameError::DuplicateEdgeDefinition(DuplicateEdgeDefinitionError {
+                pkg_inst_name,
+                oracle_name,
+                ..
+            }) if pkg_inst_name == "enc" && oracle_name == "Get"
+        ),
+        "got instead:\n{err:?}",
+        //err = err,
+        err = miette::Report::new(err)
+    );
+
+    let report = miette::Report::new(err);
+    println!("{report:?}");
+}
+
+#[test]
+fn edge_connected_but_not_imported() {
     let pkgs = packages::parse_files(&["PRF.pkg.ssp", "KeyReal.pkg.ssp", "Enc.pkg.ssp"]);
     let err = games::parse_file_fails("Game-too-many-edges-left-should-fail.comp.ssp", &pkgs);
 
