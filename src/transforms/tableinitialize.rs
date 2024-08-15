@@ -53,7 +53,7 @@ pub fn tableinitialize(
                 ));
             }
             Statement::Assign(
-                Identifier::Local(ref id),
+                Identifier::Generated(ref id, _),
                 Some(ref idxexpr),
                 ref expr,
                 ref file_pos,
@@ -70,7 +70,7 @@ pub fn tableinitialize(
                 if !new_initialized.contains(id) {
                     new_initialized.push(id.clone());
                     newcode.push(Statement::Assign(
-                        Identifier::Local(id.clone()),
+                        Identifier::Generated(id.clone(), tabletype.clone()),
                         None,
                         Expression::EmptyTable(tabletype),
                         *file_pos,
@@ -79,7 +79,7 @@ pub fn tableinitialize(
                 newcode.push(stmt);
             }
             Statement::Sample(
-                Identifier::Local(ref id),
+                Identifier::Generated(ref id, _),
                 Some(ref idxexpr),
                 _,
                 ref tipe,
@@ -91,7 +91,7 @@ pub fn tableinitialize(
                 if !new_initialized.contains(id) {
                     new_initialized.push(id.clone());
                     newcode.push(Statement::Assign(
-                        Identifier::Local(id.clone()),
+                        Identifier::Generated(id.clone(), tabletype.clone()),
                         None,
                         Expression::EmptyTable(tabletype),
                         *file_pos,
@@ -100,7 +100,7 @@ pub fn tableinitialize(
                 newcode.push(stmt);
             }
             Statement::InvokeOracle {
-                id: Identifier::Local(ref id),
+                id: Identifier::Generated(ref id, _),
                 opt_idx: Some(ref idxexpr),
                 tipe: ref opt_ret_tipe,
                 ref file_pos,
@@ -117,7 +117,7 @@ pub fn tableinitialize(
                 if !new_initialized.contains(id) {
                     new_initialized.push(id.clone());
                     newcode.push(Statement::Assign(
-                        Identifier::Local(id.clone()),
+                        Identifier::Generated(id.clone(), tabletype.clone()),
                         None,
                         Expression::EmptyTable(tabletype),
                         *file_pos,

@@ -797,7 +797,7 @@ impl<'a> CompositionSmtWriter<'a> {
             .filter(|ident| ident.ident() != "_")
             .enumerate()
             .map(|(i, ident)| {
-                let ident = if let Identifier::Local(ident) = ident {
+                let ident = if let Identifier::Generated(ident, _) = ident {
                     ident
                 } else {
                     unreachable!()
@@ -940,7 +940,7 @@ impl<'a> CompositionSmtWriter<'a> {
                 //         .unwrap()
                 // }
                 //
-                Identifier::Local(_) => ident.clone().into(),
+                Identifier::Generated(_, _) => ident.clone().into(),
                 _ => {
                     unreachable!("")
                 }
@@ -969,7 +969,7 @@ impl<'a> CompositionSmtWriter<'a> {
             //         body: result,
             //     }
             // }
-            Identifier::Local(name) => SmtLet {
+            Identifier::Generated(name, _) => SmtLet {
                 bindings: vec![(name.clone(), outexpr)]
                     .into_iter()
                     .filter(|(name, _)| name != "_:")

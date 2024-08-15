@@ -20,9 +20,9 @@ impl<W: Write> Writer<W> {
 
     pub fn write_identifier(&mut self, id: &Identifier) -> Result {
         match id {
-            Identifier::Local(x) => {
+            Identifier::Generated(x, _) => {
                 self.write_string(x)?;
-                self.write_string(" /* local identifier */ ")?;
+                self.write_string(" /* generated identifier */ ")?;
             }
             Identifier::PackageIdentifier(_) => todo!(),
             Identifier::GameIdentifier(_) => todo!(),

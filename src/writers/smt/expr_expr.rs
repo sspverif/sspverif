@@ -136,7 +136,7 @@ impl From<Expression> for SmtExpr {
                 pkg_ident.ident_ref().into()
             }
 
-            Expression::Identifier(Identifier::Local(identname)) => SmtExpr::Atom(identname),
+            Expression::Identifier(Identifier::Generated(identname, _)) => SmtExpr::Atom(identname),
 
             // TODO
             // I would love to use PackageStatePattern here, but in order to use the access

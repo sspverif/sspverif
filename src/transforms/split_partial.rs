@@ -599,7 +599,7 @@ fn get_declarations(stmt: &Statement) -> Option<(String, Type)> {
         Statement::Parse(_ids, _expr, _) => {
             todo!()
         }
-        Statement::Assign(Identifier::Local(id_name), Some(idx), expr, _) => Some((
+        Statement::Assign(Identifier::Generated(id_name, _), Some(idx), expr, _) => Some((
             id_name.to_string(),
             Type::Table(Box::new(idx.get_type().clone()), {
                 let expr_outer_type = expr.get_type();
@@ -611,26 +611,26 @@ fn get_declarations(stmt: &Statement) -> Option<(String, Type)> {
                 expr_inner_type.clone()
             }),
         )),
-        Statement::Assign(Identifier::Local(id_name), None, expr, _) => {
+        Statement::Assign(Identifier::Generated(id_name, _), None, expr, _) => {
             Some((id_name.to_string(), expr.get_type().clone()))
         }
         Statement::InvokeOracle {
-            id: Identifier::Local(id_name),
+            id: Identifier::Generated(id_name, _),
             tipe: Some(tipe),
             opt_idx: Some(idx),
             ..
         }
-        | Statement::Sample(Identifier::Local(id_name), Some(idx), _, tipe, _) => Some((
+        | Statement::Sample(Identifier::Generated(id_name, _), Some(idx), _, tipe, _) => Some((
             id_name.to_string(),
             Type::Table(Box::new(idx.get_type().clone()), Box::new(tipe.clone())),
         )),
         Statement::InvokeOracle {
-            id: Identifier::Local(id_name),
+            id: Identifier::Generated(id_name, _),
             tipe: Some(tipe),
             opt_idx: None,
             ..
         }
-        | Statement::Sample(Identifier::Local(id_name), None, _, tipe, _) => {
+        | Statement::Sample(Identifier::Generated(id_name, _), None, _, tipe, _) => {
             Some((id_name.to_string(), tipe.clone()))
         }
         _ => None,

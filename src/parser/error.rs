@@ -474,16 +474,18 @@ pub struct AssumptionExportsNotSufficientError {
 }
 
 #[derive(Error, Diagnostic, Debug)]
-#[error("oracle missing: TODO")]
-#[diagnostic(code(ssbee::code::type_mismatch))]
-pub struct OracleMissingError {
-    #[label("oracle missing: TODO")]
-    pub at: SourceSpan,
-
-    pub expected: Type,
-
-    pub got: Type,
-
+#[error("package instance {pkg_inst_name} of package type {pkg_name} imports oracle {oracle_name}, but no such edge exists in composition")]
+#[diagnostic(code(ssbee::code::game::missing_edge))]
+pub struct MissingEdgeForImportedOracleError {
     #[source_code]
     pub source_code: miette::NamedSource<String>,
+
+    // this should be the package instance definition
+    #[label("missing edge to oracle {oracle_name} for package instance {pkg_inst_name}")]
+    pub at: SourceSpan,
+
+    pub pkg_inst_name: String,
+    pub pkg_name: String,
+    pub oracle_name: String,
 }
+
