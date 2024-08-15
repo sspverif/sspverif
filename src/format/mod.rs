@@ -11,6 +11,26 @@ mod context;
 
 use context::FormatContext;
 
+fn create_oracle_sig(
+    ctx: &mut FormatContext,
+    prefix: &str,
+    suffix: &str,
+    name: &str,
+    args: &Vec<String>,
+    tipe: &str,
+) {
+    let one_line = format!("{}{}({}){}{}", prefix, name, args.join(", "), tipe, suffix);
+    if one_line.len() > 80 {
+        ctx.push_line(&format!("{prefix}{name}("));
+        ctx.add_indent();
+        ctx.push_lines(&args.join(",\n").split('\n').collect::<Vec<_>>());
+        ctx.remove_indent();
+        ctx.push_line(&format!("){tipe}{suffix}"));
+    } else {
+        ctx.push_line(&one_line);
+    }
+}
+
 fn format_oracle_sig(
     ctx: &mut FormatContext,
     oracle_sig_ast: Pair<Rule>,
@@ -46,16 +66,7 @@ fn format_oracle_sig(
         }
     };
 
-	let one_line = format!("oracle {}({}){} {{", name, args.join(", "), tipe);
-	if one_line.len() > 80 {
-		ctx.push_line(&format!("oracle {name}("));
-		ctx.add_indent();
-		ctx.push_lines(&args.join(",\n").split('\n').collect::<Vec<_>>());
-		ctx.remove_indent();
-		ctx.push_line(&format!("){tipe} {{"));
-	} else {
-		ctx.push_line(&one_line);
-	}
+    create_oracle_sig(ctx, "oracle ", " {", name, &args, tipe);
     Ok(())
 }
 
@@ -429,31 +440,33 @@ fn format_import_oracles(
                     ident
                 };
 
-                let args = args
-                    .into_inner()
-                    .next()
-                    .unwrap()
-                    .into_inner()
-                    .map(|arg| {
-                        let mut inner = arg.into_inner();
-                        let arg = inner.next().unwrap().as_str();
-                        let tipe = format_type(inner.next().unwrap())?;
-                        Ok::<String, project::error::Error>(format!("{arg}: {tipe}"))
-                    })
-                    .collect::<Result<Vec<String>, _>>()?
-                    .join(", ");
+                let args = args.into_inner().next();
+                let args = if args == None {
+                    Vec::new()
+                } else {
+                    args.unwrap()
+                        .into_inner()
+                        .map(|arg| {
+                            let mut inner = arg.into_inner();
+                            let arg = inner.next().unwrap().as_str();
+                            let tipe = format_type(inner.next().unwrap())?;
+                            Ok::<String, project::error::Error>(format!("{arg}: {tipe}"))
+                        })
+                        .collect::<Result<Vec<String>, _>>()?
+                };
                 let return_type = inner.next();
-                match return_type {
-                    None => ctx.push_line(&format!("{ident}({args}),")),
+                let return_type = match return_type {
+                    None => "",
                     Some(t) => {
                         let rettype = format_type(t)?;
                         if rettype != "()" {
-                            ctx.push_line(&format!("{ident}({args}) -> {rettype},"));
+                            &format!(" -> {rettype}")
                         } else {
-                            ctx.push_line(&format!("{ident}({args}),"));
+                            ""
                         }
                     }
-                }
+                };
+                create_oracle_sig(ctx, "", ",", ident, &args, return_type);
             }
             Rule::import_oracles_for => {
                 let mut parsed: Vec<Pair<Rule>> = entry.into_inner().collect();
