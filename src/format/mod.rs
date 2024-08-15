@@ -46,7 +46,18 @@ fn format_oracle_sig(
         }
     };
 
-    ctx.push_line(&format!("oracle {}({}){} {{", name, args.join(", "), tipe));
+	let one_line = format!("oracle {}({}){} {{", name, args.join(", "), tipe);
+	if one_line.len() > 80 {
+		ctx.push_line(&format!("oracle {name}("));
+		ctx.add_indent();
+		for arg in args.join(",\n").split('\n') {
+			ctx.push_line(arg);
+		}
+		ctx.remove_indent();
+		ctx.push_line(&format!("){tipe} {{"));
+	} else {
+		ctx.push_line(&one_line);
+	}
     Ok(())
 }
 
