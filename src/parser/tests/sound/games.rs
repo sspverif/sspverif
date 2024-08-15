@@ -72,7 +72,7 @@ fn oracle_missing() {
     let pkgs = packages::parse_files(&["PRF.pkg.ssp", "KeyReal.pkg.ssp", "Enc.pkg.ssp"]);
     let err = games::parse_file_fails("Game-missing-edge-should-fail.comp.ssp", &pkgs);
 
-    // TODO: figure out what error this should be, see OracleMissingError 
+    // TODO: figure out what error this should be, started writing OracleMissingError, but the code doesn't do anything interesting yet. 
 
     let report = miette::Report::new(err);
     println!("{report:?}");
