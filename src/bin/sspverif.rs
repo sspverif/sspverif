@@ -197,11 +197,7 @@ fn latex() -> Result<(), project::error::Error> {
 
 fn format(f: &Format) -> Result<(), project::error::Error> {
     if let Some(input) = &f.input {
-        if input.is_file() {
-            sspverif::format::format_file(input)?;
-        } else {
-            println!("input not a file");
-        }
+        sspverif::format::format_file(input)?;
     } else {
         println!("no input");
     }

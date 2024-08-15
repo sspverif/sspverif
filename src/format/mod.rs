@@ -71,7 +71,6 @@ fn format_type(tipe_ast: Pair<Rule>) -> Result<String, project::error::Error> {
 }
 
 fn format_expr(expr_ast: Pair<Rule>) -> Result<String, project::error::Error> {
-    let span = expr_ast.as_span();
     return Ok(match expr_ast.as_rule() {
         Rule::expr_add => {
             let mut inner = expr_ast.into_inner();
@@ -186,10 +185,6 @@ fn format_expr(expr_ast: Pair<Rule>) -> Result<String, project::error::Error> {
 
 fn format_code(ctx: &mut FormatContext, code_ast: Pair<Rule>) -> Result<(), project::error::Error> {
     for stmt in code_ast.into_inner() {
-        let span = stmt.as_span();
-        let source_span = SourceSpan::from(span.start()..span.end());
-        //let file_pos = FilePosition::from_span(ctx.file_name, span);
-
         match stmt.as_rule() {
             Rule::ite => {
                 let mut inner = stmt.into_inner();
@@ -712,34 +707,41 @@ fn format_game(ctx: &mut FormatContext, pkg_ast: Pair<Rule>) -> Result<(), proje
 
     ctx.remove_indent();
     ctx.push_line("}");
-	Ok(())
+    Ok(())
 }
 
 pub fn format_file(file: &std::path::PathBuf) -> Result<(), project::error::Error> {
-    let mut indent = 0;
-    let file_content = std::fs::read_to_string(file)?;
+	//println!("{:?}", file);
+    if file.is_dir() {
+        for file in file.read_dir().unwrap() {
+			format_file(&file?.path())?;
+		}
+		Ok(())
+    } else {
+        let file_content = std::fs::read_to_string(file)?;
 
-    let absname = std::path::absolute(file)?;
-    let dirname = absname.parent().unwrap();
-    let mut target = tempfile::NamedTempFile::new_in(dirname)?;
-    let mut ctx = FormatContext::new(file.to_str().unwrap(), &file_content);
+        let absname = std::path::absolute(file)?;
+        let dirname = absname.parent().unwrap();
+        let mut target = tempfile::NamedTempFile::new_in(dirname)?;
+        let mut ctx = FormatContext::new(file.to_str().unwrap(), &file_content);
 
-    if ctx.is_package() {
-        let mut ast =
-            SspParser::parse_package(&file_content).map_err(|e| (file.to_str().unwrap(), e))?;
-        format_pkg(&mut ctx, ast.next().unwrap())?;
+        if ctx.is_package() {
+            let mut ast =
+                SspParser::parse_package(&file_content).map_err(|e| (file.to_str().unwrap(), e))?;
+            format_pkg(&mut ctx, ast.next().unwrap())?;
+        }
+        if ctx.is_game() {
+            let mut ast = SspParser::parse_composition(&file_content)
+                .map_err(|e| (file.to_str().unwrap(), e))?;
+            format_game(&mut ctx, ast.next().unwrap())?;
+        }
+
+        write!(target, "{}", ctx.to_str())?;
+
+        match target.persist(file) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.error),
+        }?;
+        Ok(())
     }
-    if ctx.is_game() {
-        let mut ast =
-            SspParser::parse_composition(&file_content).map_err(|e| (file.to_str().unwrap(), e))?;
-        format_game(&mut ctx, ast.next().unwrap())?;
-    }
-
-    write!(target, "{}", ctx.to_str())?;
-
-    match target.persist(file) {
-        Ok(_) => Ok(()),
-        Err(e) => Err(e.error),
-    }?;
-    Ok(())
 }
