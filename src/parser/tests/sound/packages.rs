@@ -184,3 +184,41 @@ fn bad_add_fails_4() {
 
     println!("{:?}", miette::Report::new(err));
 }
+
+#[test]
+fn loop_start_non_integer_fails() {
+    let err = packages::parse_file_fails("EmptyLoopStartNonIntegerFails.pkg.ssp");
+
+    assert!(
+        matches!(
+            &err,
+            ParsePackageError::ParseExpression(ParseExpressionError::TypeMismatch(
+                TypeMismatchError {
+                    expected: Type::Integer,
+                    got,
+                    ..
+                }
+            )) if got == &Type:: Bits("n".to_string())));
+    assert_eq!(
+        "type mismatch: got Bits(\"n\"), expected Integer",err.to_string()
+    )
+}
+
+#[test]
+fn loop_end_non_integer_fails() {
+    let err = packages::parse_file_fails("EmptyLoopEndNonIntegerFails.pkg.ssp");
+
+    assert!(
+        matches!(
+            &err,
+            ParsePackageError::ParseExpression(ParseExpressionError::TypeMismatch(
+                TypeMismatchError {
+                    expected: Type::Integer,
+                    got,
+                    ..
+                }
+            )) if got == &Type:: Bits("n".to_string())));
+    assert_eq!(
+        "type mismatch: got Bits(\"n\"), expected Integer",err.to_string()
+    )
+}

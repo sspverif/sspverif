@@ -4,15 +4,10 @@ use super::{
     proofs,
 };
 use crate::{
-    expressions::Expression,
-    gamehops::equivalence,
-    identifier::{
+    expressions::Expression, gamehops::equivalence, identifier::{
         game_ident::{GameConstIdentifier, GameIdentifier},
         Identifier,
-    },
-    proof::GameHop,
-    types::Type,
-    util::prover_process::{Communicator, ProverBackend},
+    }, proof::GameHop, statement::Statement, types::Type, util::prover_process::{Communicator, ProverBackend}
 };
 use std::{
     collections::HashMap,
@@ -174,6 +169,37 @@ fn game_instantiating_with_literal_works() {
         Expression::IntegerLiteral(1)
     );
 }
+
+#[test]
+fn package_empty_loop_works() {
+    let (name, pkg) = parse_file("EmptyLoop.pkg.ssp");
+    let k = "k".to_string();
+    let n = "n".to_string();
+    let h = "h".to_string();
+        assert_eq!(name, "EmptyLoop");
+        assert_eq!(pkg.params.len(), 1);
+        assert_eq!(pkg.params[0].0, "n");
+        assert_eq!(pkg.params[0].1, Type::Integer);
+        assert_eq!(pkg.oracles.len(), 2);
+        assert_eq!(pkg.oracles[0].sig.name, "Set");
+        assert_eq!(pkg.oracles[0].sig.tipe, Type::Empty);
+        assert_eq!(pkg.oracles[0].sig.args[0], (k, Type::Bits(n.clone())));
+        assert_eq!(pkg.oracles[0].sig.args[1], (h, Type::Bits(n)));
+        assert!(pkg.imports.is_empty());
+        assert!(matches!(&pkg.oracles[0].code.0[0], Statement::For(i, Expression::IntegerLiteral(1), Expression::Identifier(n), _,_)
+                if n.ident() == "n" && i.ident() == "i"
+        ));
+        match &pkg.oracles[0].code.0[0]{
+         Statement::For(i, 
+         Expression::IntegerLiteral(1), 
+         Expression::Identifier(n), _,_) => {
+            assert_eq!(i.ident(),"i");
+            assert_eq!(n.ident(),"n")
+        }
+        other => panic!("expected For, got {:?}", other)
+        }
+}
+
 
 /// This is a helper for transcripts. It can be cloned, and what is written in one clone can be
 /// read in all others. It is concurrency-safe. This can be passed into the Communicator, a simple
