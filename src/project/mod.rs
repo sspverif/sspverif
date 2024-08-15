@@ -291,7 +291,7 @@ impl Project {
     }
 }
 
-fn find_project_root() -> std::io::Result<std::path::PathBuf> {
+pub fn find_project_root() -> std::io::Result<std::path::PathBuf> {
     let mut dir = std::env::current_dir()?;
 
     loop {
