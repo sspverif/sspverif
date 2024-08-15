@@ -80,7 +80,7 @@ compose_decl_multi_inst = { kw_compose ~ "{" ~ compose_assign_body_list_multi_in
 
 
 compose_assign_body_list            = _{ (compose_assign_body ~  ","? )+ }
-compose_assign_body_list_multi_inst = _{ compose_assign_body_multi_inst+ }
+compose_assign_body_list_multi_inst = _{ (compose_assign_body_multi_inst ~ ","? )+ }
 
 compose_assign_body             = { identifier ~ ":" ~ "{" ~ compose_assign_list? ~ "}" }
 compose_assign_body_multi_inst  = { identifier ~ indices_ident? ~ ":" ~ "{" ~ compose_assign_list? ~ "}" }
