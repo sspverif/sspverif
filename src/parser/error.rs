@@ -144,6 +144,19 @@ pub struct UndefinedPackageError {
 }
 
 #[derive(Error, Diagnostic, Debug)]
+#[error("undefined oracle '{oracle_name}'")]
+#[diagnostic(code(ssbee::code::undefined_package))]
+pub struct UndefinedOracleError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this oracle is not defined")]
+    pub at: SourceSpan,
+
+    pub oracle_name: String,
+}
+
+#[derive(Error, Diagnostic, Debug)]
 #[error("undefined game '{game_name}'")]
 #[diagnostic(code(ssbee::code::undefined_game))]
 pub struct UndefinedGameError {
