@@ -303,14 +303,14 @@ fn format_code(ctx: &mut FormatContext, code_ast: Pair<Rule>) -> Result<(), proj
                 let oracle_name_ast = inner.next().unwrap();
                 let oracle_name_span = oracle_name_ast.as_span();
                 let oracle_name = oracle_name_ast.as_str();
-                let multi_instance = String::new();
+                let mut multi_instance = String::new();
                 let mut argstring = String::new();
 
                 for ast in inner {
                     match ast.as_rule() {
                         Rule::oracle_call_index => {
                             let index_expr_ast = ast.into_inner().next().unwrap();
-                            let multi_instance = format!("[{}]", format_expr(index_expr_ast)?);
+                            multi_instance = format!("[{}]", format_expr(index_expr_ast)?);
                         }
                         Rule::fn_call_arglist => {
                             let arglist: Vec<_> = ast
@@ -339,11 +339,11 @@ fn format_code(ctx: &mut FormatContext, code_ast: Pair<Rule>) -> Result<(), proj
                 let expr = format_expr(inner.next().unwrap())?;
                 let idents = list
                     .into_inner()
-                    .map(|(ident_name)| ident_name.to_string())
+                    .map(|(ident_name)| ident_name.as_str().to_string())
                     .collect::<Vec<_>>()
                     .join(", ");
 
-                ctx.push_line(&format!("(idents) <- parse {expr};"));
+                ctx.push_line(&format!("({idents}) <- parse {expr};"));
             }
             Rule::for_ => {
                 let mut parsed: Vec<Pair<Rule>> = stmt.into_inner().collect();
