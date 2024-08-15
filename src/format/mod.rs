@@ -7,52 +7,9 @@ use crate::types::Type;
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use pest::iterators::Pair;
 
-#[derive(Debug, Clone)]
-pub struct FormatContext<'a> {
-    pub file_name: &'a str,
-    pub file_content: &'a str,
+mod context;
 
-    pub indent_level: usize,
-    buffer: String,
-}
-
-impl<'a> FormatContext<'a> {
-    pub fn new(file_name: &'a str, file_content: &'a str) -> Self {
-        FormatContext {
-            file_name,
-            file_content,
-            indent_level: 0,
-            buffer: String::new(),
-        }
-    }
-
-    pub fn to_str(&self) -> &str {
-        &self.buffer
-    }
-
-    pub fn push_line(&mut self, line: &str) {
-        if line == "" {
-            self.buffer.push_str("\n");
-        } else {
-            let indent = std::iter::repeat("    ")
-                .take(self.indent_level)
-                .collect::<String>();
-            self.buffer.push_str(&format!("{indent}{line}\n"));
-        }
-    }
-
-    pub fn add_indent(&mut self) {
-        self.indent_level += 1
-    }
-
-    pub fn remove_indent(&mut self) {
-        self.indent_level = if self.indent_level > 0 {
-            self.indent_level - 1
-        } else {
-            0
-        }
-    }
-}
+use context::FormatContext;
 
 fn format_oracle_sig(
     ctx: &mut FormatContext,
