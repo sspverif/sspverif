@@ -597,16 +597,73 @@ fn format_pkg(ctx: &mut FormatContext, pkg_ast: Pair<Rule>) -> Result<(), projec
     Ok(())
 }
 
-fn format_game(ctx: &mut FormatContext, pkg_ast: Pair<Rule>) -> Result<(), project::error::Error> {
-    let mut inner = pkg_ast.into_inner();
-    let pkg_name = inner.next().unwrap().as_str();
-    let spec = inner.next().unwrap();
+fn format_compose_rule(
+    ctx: &mut FormatContext,
+    compose_rule: &Pair<Rule>,
+) -> Result<(), project::error::Error> {
+    match compose_rule.as_rule() {
+        Rule::compose_decl | Rule::compose_decl_multi_inst => {
+            let mut inner = compose_rule.clone().into_inner();
+            for compblock in inner {
+                let mut compblock = compblock.into_inner();
+                let importer = compblock.next().unwrap().as_str();
+                let indices = if compblock.peek().unwrap().as_rule() == Rule::indices_ident {
+                    let indices = compblock.next().unwrap();
+                    &format!(
+                        "[{}]",
+                        indices
+                            .into_inner()
+                            .map(|x| { x.as_str() })
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                } else {
+                    ""
+                };
 
-    ctx.push_line(&format!("composition {pkg_name} {{"));
-    ctx.add_indent();
+                let imports = compblock.map(|pair| {
+                    let mut pairs = pair.into_inner();
+                    let with_indices = if pairs.peek().unwrap().as_rule()
+                        == Rule::compose_assign_modifier_with_index
+                    {
+                        Ok::<String,project::error::Error>(format!(
+                            "with index [{}] ",
+                            pairs
+                                .next()
+                                .unwrap()
+                                .into_inner()
+                                .next()
+                                .unwrap()
+                                .into_inner()
+                                .map(|x| { format_expr(x) })
+                                .collect::<Result<Vec<_>,_>>()?
+                                .join(", ")
+                        ))
+                    } else {
+                        Ok::<String,project::error::Error>(String::new())
+                    }?;
+                    let oracle = pairs.next().unwrap().as_str();
+                    let package = pairs.next().unwrap().as_str();
+                    Ok::<(String, &str, &str),project::error::Error>((with_indices, oracle, package))
+                }).collect::<Result<Vec<_>,_>>()?;
+                ctx.push_line(&format!("{importer}{indices}: {{"));
+                ctx.add_indent();
+                for (with_indices, oracle, package) in imports {
+                    ctx.push_line(&format!("{with_indices}{oracle}: {package},"));
+                }
+                ctx.remove_indent();
+                ctx.push_line("},");
+            }
+        }
+        _ => unreachable!(),
+    }
+    Ok(())
+}
 
-    let specs: Vec<_> = spec.into_inner().collect();
-
+fn format_game_spec(
+    ctx: &mut FormatContext,
+    specs: &Vec<Pair<Rule>>,
+) -> Result<(), project::error::Error> {
     let const_rules: Vec<_> = specs
         .iter()
         .filter(|x| matches!(x.as_rule(), Rule::const_decl))
@@ -614,7 +671,12 @@ fn format_game(ctx: &mut FormatContext, pkg_ast: Pair<Rule>) -> Result<(), proje
 
     let compose_rules: Vec<_> = specs
         .iter()
-        .filter(|x| matches!(x.as_rule(), Rule::compose_decl))
+        .filter(|x| {
+            matches!(
+                x.as_rule(),
+                Rule::compose_decl | Rule::compose_decl_multi_inst
+            )
+        })
         .collect();
 
     for const_rule in const_rules {
@@ -624,12 +686,29 @@ fn format_game(ctx: &mut FormatContext, pkg_ast: Pair<Rule>) -> Result<(), proje
         ctx.push_line(&format!("const {varname}: {vartype};"))
     }
 
-    for spec in &specs {
+    for spec in specs {
         match spec.as_rule() {
             Rule::const_decl => { /* handled separately */ }
-            // Rule::game_for => {
-            //     unimplemented!("nope")
-            // }
+            Rule::game_for => {
+                let mut parsed: Vec<Pair<Rule>> = spec.clone().into_inner().collect::<Vec<_>>();
+                let decl_var_name = parsed[0].as_str();
+                let lower_bound = format_expr(parsed.remove(1))?;
+                let lower_bound_type = parsed[1].as_str();
+                let bound_var_name = parsed[2].as_str();
+                let upper_bound_type = parsed[3].as_str();
+                let upper_bound = format_expr(parsed.remove(4))?;
+                let loopvar = decl_var_name.to_string();
+
+                ctx.push_line(&format!("for {loopvar}: {lower_bound} {lower_bound_type} {loopvar} {upper_bound_type} {upper_bound} {{"));
+                ctx.add_indent();
+
+                let content = parsed.remove(4);
+                format_game_spec(ctx, &content.into_inner().collect())?;
+
+                ctx.remove_indent();
+
+                ctx.push_line("}");
+            }
             Rule::instance_decl => {
                 ctx.push_line("");
                 let mut inner = spec.clone().into_inner();
@@ -643,6 +722,7 @@ fn format_game(ctx: &mut FormatContext, pkg_ast: Pair<Rule>) -> Result<(), proje
                     let gamename = inner.next().unwrap().as_str();
                     let indices = results.join(", ");
                     ctx.push_line(&format!("instance {instname}[{indices}] = {gamename} {{"));
+                    ctx.add_indent();
                 } else {
                     let gamename = next.as_str();
                     ctx.push_line(&format!("instance {instname} = {gamename} {{"));
@@ -700,7 +780,9 @@ fn format_game(ctx: &mut FormatContext, pkg_ast: Pair<Rule>) -> Result<(), proje
                 ctx.push_line("}");
             }
             Rule::compose_decl => { /* handled separately */ }
+            Rule::compose_decl_multi_inst => { /* handled separately */ }
             _ => {
+                println!("{}", ctx.to_str());
                 unreachable!("{:?}", spec)
             }
         }
@@ -711,29 +793,25 @@ fn format_game(ctx: &mut FormatContext, pkg_ast: Pair<Rule>) -> Result<(), proje
         ctx.add_indent();
 
         for compose_rule in compose_rules {
-            let mut inner = compose_rule.clone().into_inner();
-            for compblock in inner {
-                let mut compblock = compblock.into_inner();
-                let importer = compblock.next().unwrap().as_str();
-                let imports = compblock.map(|pair| {
-                    let mut pairs = pair.into_inner();
-                    let oracle = pairs.next().unwrap().as_str();
-                    let package = pairs.next().unwrap().as_str();
-                    (oracle, package)
-                });
-                ctx.push_line(&format!("{}: {{", importer));
-                ctx.add_indent();
-                for (oracle, package) in imports {
-                    ctx.push_line(&format!("{}: {},", oracle, package));
-                }
-                ctx.remove_indent();
-                ctx.push_line("},");
-            }
+            format_compose_rule(ctx, compose_rule)?;
         }
 
         ctx.remove_indent();
         ctx.push_line("}");
     }
+    Ok(())
+}
+
+fn format_game(ctx: &mut FormatContext, pkg_ast: Pair<Rule>) -> Result<(), project::error::Error> {
+    let mut inner = pkg_ast.into_inner();
+    let pkg_name = inner.next().unwrap().as_str();
+    let spec = inner.next().unwrap();
+
+    ctx.push_line(&format!("composition {pkg_name} {{"));
+    ctx.add_indent();
+
+    let specs: Vec<_> = spec.into_inner().collect();
+    format_game_spec(ctx, &specs)?;
 
     ctx.remove_indent();
     ctx.push_line("}");
