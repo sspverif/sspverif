@@ -1,0 +1,19 @@
+package EmptyLoopEndNonIntegerFails {
+    params {
+      n: Integer,
+      zeron: Bits(n)
+    }
+    
+    state {
+       K: Table(Bits(n), Bits(n)),
+    }
+
+    oracle Set(k: Bits(n), h: Bits(n))  {
+        for i: 0 <= i <= zeron {
+        }
+    }
+    
+    oracle Get(h: Bits(n)) -> Bits(n) {
+        return  Unwrap(K[h]);
+    }
+}
