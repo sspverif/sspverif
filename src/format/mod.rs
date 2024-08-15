@@ -422,8 +422,16 @@ fn format_import_oracles(
 
                 let args = args
                     .into_inner()
-                    .map(|arg| arg.as_str().to_owned())
-                    .collect::<Vec<String>>()
+                    .next()
+                    .unwrap()
+                    .into_inner()
+                    .map(|arg| {
+                        let mut inner = arg.into_inner();
+                        let arg = inner.next().unwrap().as_str();
+                        let tipe = format_type(inner.next().unwrap())?;
+                        Ok::<String, project::error::Error>(format!("{arg}: {tipe}"))
+                    })
+                    .collect::<Result<Vec<String>, _>>()?
                     .join(", ");
                 let return_type = inner.next();
                 match return_type {
@@ -711,12 +719,12 @@ fn format_game(ctx: &mut FormatContext, pkg_ast: Pair<Rule>) -> Result<(), proje
 }
 
 pub fn format_file(file: &std::path::PathBuf) -> Result<(), project::error::Error> {
-	//println!("{:?}", file);
+    //println!("{:?}", file);
     if file.is_dir() {
         for file in file.read_dir().unwrap() {
-			format_file(&file?.path())?;
-		}
-		Ok(())
+            format_file(&file?.path())?;
+        }
+        Ok(())
     } else {
         let file_content = std::fs::read_to_string(file)?;
 

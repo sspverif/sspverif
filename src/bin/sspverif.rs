@@ -199,8 +199,8 @@ fn format(f: &Format) -> Result<(), project::error::Error> {
     if let Some(input) = &f.input {
         sspverif::format::format_file(input)?;
     } else {
-		let root = crate::project::find_project_root();
-		sspverif::format::format_file(&root?)?;
+        let root = crate::project::find_project_root();
+        sspverif::format::format_file(&root?)?;
     }
     Ok(())
 }
