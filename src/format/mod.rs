@@ -444,7 +444,7 @@ fn format_import_oracles(
                 }
             }
             Rule::import_oracles_for => {
-				let mut parsed: Vec<Pair<Rule>> = entry.into_inner().collect();
+                let mut parsed: Vec<Pair<Rule>> = entry.into_inner().collect();
                 let decl_var_name = parsed[0].as_str();
                 let lower_bound = format_expr(parsed.remove(1))?;
                 let lower_bound_type = parsed[1].as_str();
@@ -460,7 +460,6 @@ fn format_import_oracles(
 
                 ctx.remove_indent();
                 ctx.push_line("}");
-
             }
             _ => {
                 unreachable!("")
