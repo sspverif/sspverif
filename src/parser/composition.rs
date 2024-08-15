@@ -1,9 +1,9 @@
 use super::{
     common::*,
     error::{
-        DuplicatePackageParameterDefinitionError, MissingPackageParameterDefinitionError,
-        NoSuchPackageParameterError, NoSuchTypeError, UndefinedPackageError,
-        UndefinedPackageInstanceError, OracleMissingError
+        DuplicatePackageParameterDefinitionError, MissingEdgeForImportedOracleError,
+        MissingPackageParameterDefinitionError, NoSuchPackageParameterError, NoSuchTypeError,
+        UndefinedPackageError, UndefinedPackageInstanceError,
     },
     package::{handle_expression, ForComp, MultiInstanceIndices, ParsePackageError},
     ParseContext, Rule,
@@ -28,7 +28,10 @@ use crate::{
 };
 use itertools::Itertools as _;
 use miette::{Diagnostic, NamedSource};
-use pest::iterators::{Pair, Pairs};
+use pest::{
+    iterators::{Pair, Pairs},
+    Span,
+};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::iter::FromIterator as _;
@@ -46,8 +49,8 @@ pub struct ParseGameContext<'a> {
     pub consts: HashMap<String, Type>,
     pub types: Vec<String>,
 
-    pub instances: Vec<PackageInstance>,
-    pub instances_table: HashMap<String, (usize, PackageInstance)>,
+    pub instances: Vec<(PackageInstance, Span<'a>)>,
+    pub instances_table: HashMap<String, (usize, PackageInstance, Span<'a>)>,
 
     pub edges: Vec<Edge>,
     pub exports: Vec<Export>,
@@ -115,7 +118,7 @@ impl<'a> ParseGameContext<'a> {
         Composition {
             name: self.game_name.to_string(),
             consts,
-            pkgs: self.instances,
+            pkgs: self.instances.into_iter().map(|(inst, _)| inst).collect(),
             edges: self.edges,
             exports: self.exports,
             multi_inst_edges: self.multi_inst_edges,
@@ -131,11 +134,11 @@ impl<'a> ParseGameContext<'a> {
     }
     // TODO: check dupes here?
 
-    fn add_pkg_instance(&mut self, pkg_inst: PackageInstance) {
+    fn add_pkg_instance(&mut self, pkg_inst: PackageInstance, span: Span<'a>) {
         let offset = self.instances.len();
-        self.instances.push(pkg_inst.clone());
+        self.instances.push((pkg_inst.clone(), span));
         self.instances_table
-            .insert(pkg_inst.name.clone(), (offset, pkg_inst));
+            .insert(pkg_inst.name.clone(), (offset, pkg_inst, span));
     }
 
     fn has_pkg_instance(&self, name: &str) -> bool {
@@ -144,7 +147,7 @@ impl<'a> ParseGameContext<'a> {
     fn get_pkg_instance(&self, name: &str) -> Option<(usize, &PackageInstance)> {
         self.instances_table
             .get(name)
-            .map(|(offset, pkg_inst)| (*offset, pkg_inst))
+            .map(|(offset, pkg_inst, _)| (*offset, pkg_inst))
     }
 
     // TODO: check dupes here?
@@ -207,7 +210,7 @@ pub enum ParseGameError {
 
     #[diagnostic(transparent)]
     #[error(transparent)]
-    OracleMissing(#[from] OracleMissingError),
+    MissingEdgeForImportedOracle(#[from] MissingEdgeForImportedOracleError),
 }
 
 pub fn handle_composition(
@@ -230,9 +233,9 @@ pub fn handle_composition(
 
 /// Parses the main body of a game (aka composition).
 /// This function takes ownership of the context because it needs to move all the information stored in there into the game.
-pub fn handle_comp_spec_list(
-    mut ctx: ParseGameContext,
-    ast: Pair<Rule>,
+pub fn handle_comp_spec_list<'a>(
+    mut ctx: ParseGameContext<'a>,
+    ast: Pair<'a, Rule>,
 ) -> Result<Composition, ParseGameError> {
     for comp_spec in ast.into_inner() {
         match comp_spec.as_rule() {
@@ -262,6 +265,30 @@ pub fn handle_comp_spec_list(
             Rule::compose_decl => handle_compose_assign_body_list(&mut ctx, comp_spec)?,
             _ => {
                 unreachable!();
+            }
+        }
+    }
+
+    // Check that all imported oracles have been assigned in the compositions
+    // This is just the single-instance case. The general case needs help from the smt solver
+    for (offset, (inst, inst_span)) in ctx.instances.iter().enumerate() {
+        for (import, _) in &inst.pkg.imports {
+            let edge_exists = ctx.edges.iter().any(|edge| {
+                matches!(edge, Edge(edge_src_offset, _, OracleSig {
+                    name: edge_oracle_name,
+                    ..
+                }) if *edge_src_offset == offset && *edge_oracle_name == import.name)
+            });
+
+            if !edge_exists {
+                return Err(MissingEdgeForImportedOracleError {
+                    source_code: ctx.named_source(),
+                    pkg_inst_name: inst.name.clone(),
+                    pkg_name: inst.pkg.name.clone(),
+                    oracle_name: import.name.clone(),
+                    at: (inst_span.start()..inst_span.end()).into(),
+                }
+                .into());
             }
         }
     }
@@ -364,9 +391,9 @@ impl crate::error::LocationError for ParseGameError {
 }
 */
 
-pub fn handle_for_loop_body(
-    ctx: &mut ParseGameContext,
-    ast: Pair<Rule>,
+pub fn handle_for_loop_body<'a>(
+    ctx: &mut ParseGameContext<'a>,
+    ast: Pair<'a, Rule>,
 ) -> Result<(), ParseGameError> {
     for comp_spec in ast.into_inner() {
         match comp_spec.as_rule() {
@@ -651,7 +678,10 @@ fn handle_edges_compose_assign_list_multi_inst(
     Ok(edges)
 }
 
-pub fn handle_for_loop(ctx: &mut ParseGameContext, ast: Pair<Rule>) -> Result<(), ParseGameError> {
+pub fn handle_for_loop<'a>(
+    ctx: &mut ParseGameContext<'a>,
+    ast: Pair<'a, Rule>,
+) -> Result<(), ParseGameError> {
     let mut parsed: Vec<Pair<Rule>> = ast.into_inner().collect();
     let decl_var_name = parsed[0].as_str();
     let lower_bound = handle_expression(&ctx.parse_ctx(), parsed.remove(1), Some(&Type::Integer))?;
@@ -787,10 +817,11 @@ pub fn handle_instance_assign_list(
     Ok((params, types))
 }
 
-pub fn handle_instance_decl_multi_inst(
-    ctx: &mut ParseGameContext,
-    ast: Pair<Rule>,
+pub fn handle_instance_decl_multi_inst<'a>(
+    ctx: &mut ParseGameContext<'a>,
+    ast: Pair<'a, Rule>,
 ) -> Result<(), ParseGameError> {
+    let span = ast.as_span();
     let mut inner = ast.into_inner();
     let inst_name = inner.next().unwrap().as_str();
 
@@ -868,7 +899,7 @@ pub fn handle_instance_decl_multi_inst(
         multi_instance_indices,
     };
 
-    ctx.add_pkg_instance(inst);
+    ctx.add_pkg_instance(inst, span);
 
     /*
         let resolved_inst = match ResolveTypesPackageInstanceTransform.transform_package_instance(&inst)
@@ -883,9 +914,9 @@ pub fn handle_instance_decl_multi_inst(
     Ok(())
 }
 
-pub fn handle_instance_decl(
-    ctx: &mut ParseGameContext,
-    ast: Pair<Rule>,
+pub fn handle_instance_decl<'a>(
+    ctx: &mut ParseGameContext<'a>,
+    ast: Pair<'a, Rule>,
 ) -> Result<(), ParseGameError> {
     debug_assert_matches!(ast.as_rule(), Rule::instance_decl);
     let span = ast.as_span();
@@ -1001,7 +1032,7 @@ pub fn handle_instance_decl(
         param_list,
         type_list,
     );
-    ctx.add_pkg_instance(pkg_inst);
+    ctx.add_pkg_instance(pkg_inst, span);
 
     /*
         match ResolveTypesPackageInstanceTransform.transform_package_instance(&pkg_inst) {

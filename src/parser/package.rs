@@ -740,7 +740,9 @@ pub fn handle_code(
         .map(|stmt| {
             let span = stmt.as_span();
             let source_span = SourceSpan::from(span.start()..span.end());
-            //let file_pos = FilePosition::from_span(ctx.file_name, span);
+
+            // TODO: check that we return in all cases (so we know the code we pass to the
+            //       transforms is known to be valid)
 
             let stmt = match stmt.as_rule() {
                 // assign | return_stmt | abort | ite

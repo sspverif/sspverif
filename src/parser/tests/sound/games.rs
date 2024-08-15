@@ -1,7 +1,7 @@
 use crate::{
     parser::{
         composition::ParseGameError,
-        error::TypeMismatchError,
+        error::{MissingEdgeForImportedOracleError, TypeMismatchError},
         package::ParseExpressionError,
         tests::{games, packages},
     },
@@ -37,10 +37,9 @@ fn missing_game_params_block() {
     let pkg_map = HashMap::from_iter(vec![(name, pkg.clone())]);
     let err = games::parse_file_fails("small_noparams.ssp", &pkg_map);
 
-    // TODO: figure out what error this should be
-
     let report = miette::Report::new(err);
     println!("{report:?}");
+    todo!("figure out what error this should be");
 }
 #[test]
 fn missing_game_empty_block() {
@@ -48,10 +47,9 @@ fn missing_game_empty_block() {
     let pkg_map = HashMap::from_iter(vec![(name, pkg.clone())]);
     let err = games::parse_file_fails("small_emptyparams.ssp", &pkg_map);
 
-    // TODO: figure out what error this should be
-
     let report = miette::Report::new(err);
     println!("{report:?}");
+    todo!("figure out what error this should be");
 }
 
 #[test]
@@ -68,11 +66,24 @@ fn param_wrong_type() {
 }
 
 #[test]
-fn oracle_missing() {
+fn oracle_missing_edge_for_imported_oracle() {
     let pkgs = packages::parse_files(&["PRF.pkg.ssp", "KeyReal.pkg.ssp", "Enc.pkg.ssp"]);
     let err = games::parse_file_fails("Game-missing-edge-should-fail.comp.ssp", &pkgs);
 
-    // TODO: figure out what error this should be, see OracleMissingError 
+    assert!(
+        matches!(
+            &err,
+            ParseGameError::MissingEdgeForImportedOracle(MissingEdgeForImportedOracleError {
+                pkg_inst_name,
+                pkg_name,
+                oracle_name,
+                ..
+            }) if pkg_inst_name == "enc" && pkg_name == "Enc" && oracle_name == "Get"
+        ),
+        "got instead:\n{err:?}",
+        //err = err,
+        err = miette::Report::new(err)
+    );
 
     let report = miette::Report::new(err);
     println!("{report:?}");
@@ -83,10 +94,9 @@ fn oracle_imported_twice() {
     let pkgs = packages::parse_files(&["PRF.pkg.ssp", "KeyReal.pkg.ssp", "Enc.pkg.ssp"]);
     let err = games::parse_file_fails("Game-too-many-edges-left-should-fail.comp.ssp", &pkgs);
 
-    // TODO: figure out what error this should be, error type seems to be still missing
-
     let report = miette::Report::new(err);
     println!("{report:?}");
+    todo!("figure out what error this should be");
 }
 
 #[test]
@@ -94,8 +104,8 @@ fn oracle_imported_but_not_exported() {
     let pkgs = packages::parse_files(&["PRF.pkg.ssp", "KeyReal.pkg.ssp", "Enc.pkg.ssp"]);
     let err = games::parse_file_fails("Game-too-many-edges-right-should-fail.comp.ssp", &pkgs);
 
-    // TODO: figure out what error this should be, error type seems to be still missing
-
     let report = miette::Report::new(err);
     println!("{report:?}");
+    todo!("figure out what error this should be");
 }
+
