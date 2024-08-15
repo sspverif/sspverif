@@ -505,9 +505,7 @@ fn handle_export_compose_assign_list_multi_inst(
         let mut assignment = assignment.into_inner();
 
         let first = assignment.peek().unwrap();
-
         let (modifier_ast, oracle_name_ast, dst_pkg_inst_name_ast) = match first.as_rule() {
-            // no modifier, just two identifiers
             Rule::identifier => {
                 let oracle_name = assignment.next().unwrap();
                 let dst_inst_name = assignment.next().unwrap();
@@ -538,44 +536,6 @@ fn handle_export_compose_assign_list_multi_inst(
                     .collect()
             })
             .transpose()?;
-
-        /*
-        let mut oracle_name = None;
-        let mut dst_inst_name = None;
-        let mut dst_instance_idx = vec![];
-        let span = assignment.as_span();
-        for piece in assignment.into_inner() {
-            match piece.as_rule() {
-                Rule::identifier if oracle_name.is_none() => {
-                    oracle_name = Some(piece.as_str());
-                }
-                Rule::identifier if dst_inst_name.is_none() => {
-                    if !ctx.has_pkg_instance(piece.as_str()) {
-                        let span = piece.as_span();
-                        return Err(UndefinedPackageInstanceError {
-                            source_code: ctx.named_source(),
-                            at: (span.start()..span.end()).into(),
-                            pkg_inst_name: piece.to_string(),
-                            in_game: ctx.game_name.to_string(),
-                        }
-                        .into());
-                    }
-
-                    dst_inst_name = Some(piece.as_str());
-                }
-                Rule::compose_assign_modifier_with_index => dst_instance_idx.append(
-                    &mut piece
-                        .into_inner()
-                        .next()
-                        .unwrap()
-                        .into_inner()
-                        .map(|e| handle_expression(&ctx.parse_ctx(), e, Some(&Type::Integer)))
-                        .collect::<Result<_, _>>()?,
-                ),
-                _ => unreachable!(""),
-            }
-        }
-        */
 
         let (dst_offset, dst_inst) =
             ctx.get_pkg_instance(dst_pkg_inst_name)

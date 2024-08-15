@@ -3,7 +3,7 @@ use crate::{
         composition::ParseGameError,
         error::{
             MissingEdgeForImportedOracleError, MissingPackageParameterDefinitionError,
-            TypeMismatchError,
+            TypeMismatchError, UndefinedOracleError,
         },
         package::ParseExpressionError,
         tests::{games, packages},
@@ -145,8 +145,21 @@ fn oracle_imported_but_not_exported() {
     let pkgs = packages::parse_files(&["PRF.pkg.ssp", "KeyReal.pkg.ssp", "Enc.pkg.ssp"]);
     let err = games::parse_file_fails("Game-too-many-edges-right-should-fail.comp.ssp", &pkgs);
 
+    assert!(
+        matches!(
+            &err,
+            ParseGameError::UndefinedOracle(UndefinedOracleError {
+                source_code,
+                at,
+                oracle_name
+            }) if oracle_name == "Enc" && &source_code.inner()[at.offset()..(at.offset()+at.len())] == "Enc"
+        ),
+        "got instead:\n{err:?}",
+        //err = err,
+        err = miette::Report::new(err)
+    );
+
     let report = miette::Report::new(err);
     println!("{report:?}");
-    todo!("figure out what error this should be");
 }
 
