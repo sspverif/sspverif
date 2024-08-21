@@ -827,6 +827,7 @@ pub fn format_file(file: &std::path::PathBuf) -> Result<(), project::error::Erro
         Ok(())
     } else {
         let file_content = std::fs::read_to_string(file)?;
+        let handled = false;
 
         let absname = std::path::absolute(file)?;
         let dirname = absname.parent().unwrap();
@@ -837,19 +838,24 @@ pub fn format_file(file: &std::path::PathBuf) -> Result<(), project::error::Erro
             let mut ast =
                 SspParser::parse_package(&file_content).map_err(|e| (file.to_str().unwrap(), e))?;
             format_pkg(&mut ctx, ast.next().unwrap())?;
+            handled = true;
         }
         if ctx.is_game() {
             let mut ast = SspParser::parse_composition(&file_content)
                 .map_err(|e| (file.to_str().unwrap(), e))?;
             format_game(&mut ctx, ast.next().unwrap())?;
+            handled = true;
         }
 
-        write!(target, "{}", ctx.to_str())?;
 
-        match target.persist(file) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e.error),
-        }?;
+        if handled {
+            write!(target, "{}", ctx.to_str())?;
+
+            match target.persist(file) {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e.error),
+            }?;
+        }
         Ok(())
     }
 }
