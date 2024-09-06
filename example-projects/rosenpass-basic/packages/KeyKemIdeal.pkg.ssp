@@ -1,0 +1,27 @@
+package SKKemIdeal {
+  params {
+    n_sk: Integer,
+    n_pk: Integer,
+
+    keygen: fn Bits(n_sk) -> Bits(n_pk)
+  }
+
+  state {
+    T: Table(Bits(n_pk), (Bits(n_sk), Bool)),
+  }
+
+  oracle Set(sk: Bits(n_sk), hon: Bool) -> Bits(n_pk) {
+    if hon {
+      sk <-$ Bits(n_sk);
+    }
+
+    pk <- keygen(sk);
+    assert (T[pk] == None);
+    T[pk] <- Some((sk, hon));
+    return pk;
+  }
+
+  oracle Get(pk: Bits(n_pk)) -> (Bits(n_sk), Bool) {
+    return Unwrap(T[pk]);
+  }
+}

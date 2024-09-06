@@ -1,0 +1,25 @@
+package RandKem {
+  params {
+    n_rand: Integer,
+  }
+
+  state {
+    T: Table(Integer, (Bits(n_rand), Bool)),
+  }
+
+  oracle Corrupt(i: Integer, val: Bits(n_rand)) {
+    assert (T[i] == None);
+    T[i] <- (Some(val), false);
+    return;
+  }
+
+  oracle GetRand(i: Integer) -> (Bits(n_sk), Bool) {
+    if T[i] == None {
+      r <-$ Bits(n_rand);
+      T[i] <- (Some(r), true);
+    }
+
+    return Unwrap(T[i])
+  }
+}
+
