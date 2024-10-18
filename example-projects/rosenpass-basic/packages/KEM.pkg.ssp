@@ -1,24 +1,31 @@
 package KEM {
   params {
-    n_sk: Integer,
-    n_pk: Integer,
-    n_ct: Integer,
-    n_ss: Integer,
+    sk_len: Integer,
+    pk_len: Integer,
+    ct_len: Integer,
+    shk_len: Integer,
 
-    f_encaps: fn (Bits(n_rand), Bits(n_pk)) -> Bits(n_ss),
+    encaps: fn (Bits(n_rand), Bits(pk_len)) -> (Bits(shk_len), Bits(ct_len)),
   }
 
-  oracle Encaps(i_rand: Integer, pk: Bits(n_pk)) -> Bits(n_ct) {
+  import oracles {
+    Set(key_id: Integer, key: Bits(key_len), is_uncorrupted: Bool),
+    Get(pk: Bits(pk_len)) -> (Bits(sk_len), Bool),
+    GetRand(key_id: Integer) -> (Bits(sk_len), Bool),
+  }
+
+  oracle Encaps(key_id: Integer, pk: Bits(pk_len)) -> Bits(ct_len) {
     get <-invoke Get(pk);
-    (_, hon_sk) <- parse get;
+    (_, sk_is_honest) <-parse get;
 
-    getRand <-invoke GetRand(i_rand);
-    (rand, hon_rand) <- parse getRand;
+    getRand <-invoke GetRand(key_id);
+    (coins, coins_are_honest) <-parse getRand;
 
-    (k, ct) <- parse encaps(rand, pk);
+    (k, ct) <-parse encaps(coins, pk);
 
-    hon <- (hon_sk and hon_rand);
-    _ <- invoke Set((ct, pk), hon, k);
+    hon <- (sk_is_honest and coins_are_honest);
+    /* TODO this is the Set from RandomKeysWithKeyID, not from AsymmetricKeys */
+    _ <-invoke Set((ct, pk), hon, k);
 
     return ct;
   }
