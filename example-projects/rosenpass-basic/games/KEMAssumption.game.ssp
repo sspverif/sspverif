@@ -1,0 +1,61 @@
+composition KemAssumption {
+  const kem_sk_len: Integer;
+  const kem_pk_len: Integer;
+  const kem_ct_len: Integer;
+  const kem_shk_len: Integer;
+  const kem_rand_len: Integer;
+
+  const is_ideal: Bool;
+
+  const encaps: fn (Bits(n_rand), Bits(pk_len)) -> (Bits(shk_len), Bits(ct_len));
+  const keygen: fn Bits(sk_len) -> Bits(pk_len);
+
+  instance kem = KEM {
+    params {
+      sk_len: kem_sk_len,
+      pk_len: kem_pk_len,
+      ct_len: kem_ct_len,
+      shk_len: kem_shk_len,
+
+      encaps: encaps,
+    }
+  }
+
+  instance asym_keys = AsymmetricKeys {
+    params {
+      is_ideal: true,
+
+      sk_len: kem_sk_len,
+      pk_len: kem_pk_len,
+
+      keygen: keygen,
+    }
+  }
+
+  instance kem_rand = RandomKeyWithKeyID {
+    params {
+      is_ideal: true,
+      key_len: kem_rand_len,
+    }
+  }
+
+  /*
+   * instance output = SymKey {
+   *   params {
+   *     ...
+   *   }
+   * }
+   */
+
+  compose {
+    adversary: {
+      Set: asym_keys,
+      /* Get: output */
+    },
+    kem: {
+      Get: asym_keys,
+      GetRand: kem_rand,
+      /* Set: output */
+    }
+  }
+}

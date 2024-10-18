@@ -31,8 +31,7 @@ proof Modularize {
     }
 
     gamehops {
-    equivalence modprfreal monprfreal 
-        {
+      equivalence modprfreal monprfreal {
             EVAL: 
             {
                 invariant: [
