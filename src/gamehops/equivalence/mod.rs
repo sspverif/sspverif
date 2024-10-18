@@ -1,15 +1,20 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::iter::FromIterator;
+use std::ops::Deref;
 
+use crate::expressions::Expression;
+use crate::identifier::game_ident::GameConstIdentifier;
+use crate::identifier::proof_ident::{ProofConstIdentifier, ProofIdentifier};
+use crate::identifier::Identifier;
 use crate::util::resolver::Named;
 use crate::writers::smt::contexts::GameInstanceContext;
 use crate::writers::smt::declare::declare_const;
-use crate::writers::smt::partials::SmtMatch;
+use crate::writers::smt::partials::SmtDefineFunction;
 use crate::writers::smt::patterns::oracle_args::{
     OldNewOracleArgPattern as _, UnitOracleArgPattern as _,
 };
-use crate::writers::smt::patterns::ReturnIsAbortConst;
+use crate::writers::smt::patterns::{ReturnIsAbortConst, SmtDefineFun};
 use crate::writers::smt::sorts::SmtBool;
 use crate::{
     hacks,
@@ -41,6 +46,7 @@ pub mod error;
 mod verify_fn;
 
 use error::{Error, Result};
+use itertools::Itertools;
 pub use verify_fn::verify;
 
 struct EquivalenceContext<'a> {
@@ -68,6 +74,58 @@ impl<'a> EquivalenceContext<'a> {
 
         for decl in base_declarations {
             comm.write_smt(decl)?
+        }
+
+        Ok(())
+    }
+
+    fn emit_proof_paramfuncs(&self, comm: &mut Communicator) -> Result<()> {
+        fn get_fn<T: Clone>(arg: &(T, Type)) -> Option<(T, Vec<Type>, Type)> {
+            let (other, ty) = arg;
+            match ty {
+                Type::Fn(args, ret) => Some((other.clone(), args.to_vec(), *ret.clone())),
+                _ => None,
+            }
+        }
+
+        let funcs = self.proof.consts.iter().filter_map(get_fn);
+
+        for (func_name, arg_types, ret_type) in funcs {
+            let arg_types: SmtExpr = arg_types
+                .into_iter()
+                .map(|tipe| tipe.into())
+                .collect::<Vec<SmtExpr>>()
+                .into();
+
+            let smt = (
+                "declare-fun",
+                format!("<<func-{func_name}>>"),
+                arg_types,
+                ret_type,
+            );
+            comm.write_smt(smt)?;
+        }
+        Ok(())
+    }
+
+    fn emit_game_inst_paramfuncs(&self, comm: &mut Communicator) -> Result<()> {
+        for gctx in [self.left_game_ctx(), self.right_game_ctx()] {
+            for fun_def in gctx.smt_define_param_functions() {
+                comm.write_smt(fun_def)?;
+            }
+        }
+
+        Ok(())
+    }
+    fn emit_pkg_inst_paramfuncs(&self, comm: &mut Communicator) -> Result<()> {
+        for gctx in [self.left_game_ctx(), self.right_game_ctx()] {
+            for (i, _pkg_inst) in gctx.game().pkgs.iter().enumerate() {
+                let pctx = gctx.pkg_inst_ctx_by_offs(i).unwrap();
+
+                for fun_def in pctx.smt_define_param_functions() {
+                    comm.write_smt(fun_def)?;
+                }
+            }
         }
 
         Ok(())

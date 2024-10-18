@@ -71,11 +71,6 @@ impl PackageInstance {
                 &types,
             );
 
-        let params_as_ident: Vec<(Identifier, Expression)> = params
-            .iter()
-            .map(|(ident, expr)| (ident.clone().into(), expr.clone()))
-            .collect();
-
         let new_oracles = pkg
             .oracles
             .iter()
@@ -89,8 +84,6 @@ impl PackageInstance {
             .collect();
 
         let pkg = Package {
-            types: vec![],
-            params: vec![],
             oracles: new_oracles,
             split_oracles: new_split_oracles,
             ..pkg.clone()
@@ -113,8 +106,6 @@ impl PackageInstance {
 }
 
 pub(crate) mod instantiate {
-    use std::marker::PhantomData;
-
     use crate::{
         identifier::{
             game_ident::{GameConstIdentifier, GameIdentInstanciationInfo, GameIdentifier},
@@ -370,6 +361,8 @@ pub(crate) mod instantiate {
                 (src, Expression::Identifier(ident)) => {
                     Expression::Identifier(self.rewrite_identifier(ident))
                 }
+
+                // XXX: Are we sure these should all be unreachable???
                 (
                     InstantiationSource::Package { const_assignments },
                     Expression::Identifier(Identifier::PackageIdentifier(
@@ -448,6 +441,9 @@ pub(crate) mod instantiate {
                 // can only happen in oracle code, i.e. package code
                 (_, Expression::TableAccess(ident, expr)) => {
                     Expression::TableAccess(self.rewrite_identifier(ident), expr)
+                }
+                (_, Expression::FnCall(ident, args)) => {
+                    Expression::FnCall(self.rewrite_identifier(ident), args)
                 }
 
                 (_, expr) => expr,

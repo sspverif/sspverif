@@ -22,6 +22,7 @@ pub fn verify(eq: &Equivalence, proof: &Proof, mut prover: Communicator) -> Resu
     std::thread::sleep(std::time::Duration::from_millis(20));
 
     eqctx.emit_base_declarations(&mut prover)?;
+    eqctx.emit_proof_paramfuncs(&mut prover)?;
     eqctx.emit_game_definitions(&mut prover)?;
     eqctx.emit_constant_declarations(&mut prover)?;
 

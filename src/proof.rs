@@ -1,7 +1,7 @@
 use crate::{
     expressions::Expression,
     identifier::game_ident::GameConstIdentifier,
-    package::{Composition, Package},
+    package::{Composition, Package, PackageInstance},
     packageinstance::instantiate::InstantiationContext,
     types::Type,
     util::resolver::{Resolver, SliceResolver},
@@ -17,14 +17,6 @@ pub(crate) struct GameInstance {
     pub(crate) game: Composition,
     pub(crate) types: Vec<(String, Type)>,
     pub(crate) consts: Vec<(GameConstIdentifier, Expression)>,
-}
-
-impl GameInstance {
-    pub fn params(&self) -> impl Iterator<Item = (&str, &Expression)> {
-        self.consts
-            .iter()
-            .map(|(name, expr)| (name.name.as_str(), expr))
-    }
 }
 
 impl_Named!(GameInstance);
@@ -63,8 +55,6 @@ mod instantiate {
             .collect();
 
         let pkg = Package {
-            types: vec![],
-            params: vec![],
             oracles: new_oracles,
             split_oracles: new_split_oracles,
             ..pkg_inst.pkg.clone()
@@ -108,7 +98,6 @@ impl GameInstance {
         let game = Composition {
             name: game.name.clone(),
             pkgs: new_pkg_instances,
-            consts: vec![],
 
             ..game
         };

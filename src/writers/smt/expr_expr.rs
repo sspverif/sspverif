@@ -1,5 +1,6 @@
 use super::exprs::SmtExpr;
 use crate::expressions::Expression;
+use crate::identifier::pkg_ident::{PackageConstIdentifier, PackageIdentifier};
 use crate::identifier::Identifier;
 use crate::types::Type;
 
@@ -159,7 +160,18 @@ impl From<Expression> for SmtExpr {
             }
              */
             Expression::FnCall(id, exprs) => {
-                let mut call = vec![SmtExpr::Atom(id.ident())];
+                let Identifier::PackageIdentifier(PackageIdentifier::Const(
+                    PackageConstIdentifier {
+                        proof_name: Some(proof_name),
+                        ..
+                    },
+                )) = id
+                else {
+                    unreachable!("{id:#?}")
+                };
+
+                let func_name = format!("<<func-{proof_name}>>");
+                let mut call = vec![SmtExpr::Atom(func_name)];
 
                 for expr in exprs {
                     call.push(expr.into());
