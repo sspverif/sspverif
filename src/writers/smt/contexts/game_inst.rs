@@ -1,7 +1,7 @@
 use crate::{
     expressions::Expression,
     identifier::{game_ident::GameConstIdentifier, Identifier},
-    package::{Composition, Export, SplitExport},
+    package::{Composition, Export, PackageInstance, SplitExport},
     proof::GameInstance,
     transforms::samplify::SampleInfo,
     types::Type,
@@ -21,6 +21,10 @@ use super::{GameInstanceContext, OracleContext, PackageInstanceContext, SplitOra
 impl<'a> GameInstanceContext<'a> {
     pub(crate) fn new(game_inst: &'a GameInstance) -> Self {
         GameInstanceContext { game_inst }
+    }
+
+    pub(crate) fn pkg_inst_contexts(&self) -> impl Iterator<Item = PackageInstanceContext> {
+        (0..self.game().pkgs.len()).map(|i| self.pkg_inst_ctx_by_offs(i).unwrap())
     }
 
     pub(crate) fn game_inst(&self) -> &'a GameInstance {

@@ -108,29 +108,6 @@ impl<'a> EquivalenceContext<'a> {
         Ok(())
     }
 
-    fn emit_game_inst_paramfuncs(&self, comm: &mut Communicator) -> Result<()> {
-        for gctx in [self.left_game_ctx(), self.right_game_ctx()] {
-            for fun_def in gctx.smt_define_param_functions() {
-                comm.write_smt(fun_def)?;
-            }
-        }
-
-        Ok(())
-    }
-    fn emit_pkg_inst_paramfuncs(&self, comm: &mut Communicator) -> Result<()> {
-        for gctx in [self.left_game_ctx(), self.right_game_ctx()] {
-            for (i, _pkg_inst) in gctx.game().pkgs.iter().enumerate() {
-                let pctx = gctx.pkg_inst_ctx_by_offs(i).unwrap();
-
-                for fun_def in pctx.smt_define_param_functions() {
-                    comm.write_smt(fun_def)?;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     fn emit_game_definitions(&self, comm: &mut Communicator) -> Result<()> {
         let instance_resolver = SliceResolver(self.proof.instances());
         let left = instance_resolver

@@ -103,17 +103,32 @@ impl Composition {
             .collect()
     }
 
+    /// Topologically sorts the package instances in the game, such that rightmost games (i.e.
+    /// those who don't import oracles themselves) come first.
+    /// We need to do this because when defining the oracle code functions, the called functions
+    /// need to be defined by the time we call them.
     pub fn ordered_pkgs(&self) -> Vec<PackageInstance> {
         let mut result = Vec::new();
         let mut added_pkgs = vec![false; self.pkgs.len()];
 
         while result.len() < self.pkgs.len() {
-            let mut candidates = vec![true; self.pkgs.len()];
-            for Edge(from, to, _) in &self.edges {
-                if !added_pkgs[*to] {
-                    candidates[*from] = false;
-                }
-            }
+            // one flag per package instance.
+            // `true` means its dependencies are satisfied (i.e. all the oracles it imports have
+            // already been added to `result`).
+            // `false` means that the package instance imports an oracle that is wired up with a
+            // package instance that hasn't been added to result yet.
+            let candidates: Vec<_> = self
+                .pkgs
+                .iter()
+                .enumerate()
+                .map(|(pkg_inst_offs, _)| {
+                    // whether there an edge from this package instance to a package instance that
+                    // has not been added yet
+                    self.edges
+                        .iter()
+                        .any(|Edge(from, to, _)| pkg_inst_offs == *from && !added_pkgs[*to])
+                })
+                .collect();
             for i in 0..self.pkgs.len() {
                 if !added_pkgs[i] && candidates[i] {
                     result.push(self.pkgs[i].clone());

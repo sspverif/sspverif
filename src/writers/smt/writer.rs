@@ -1160,7 +1160,7 @@ impl<'a> CompositionSmtWriter<'a> {
             .into()
     }
 
-    fn smt_pkg_code(&self, inst: &PackageInstance) -> Vec<SmtExpr> {
+    fn smt_oracle_code(&self, inst: &PackageInstance) -> Vec<SmtExpr> {
         inst.pkg
             .oracles
             .iter()
@@ -1168,7 +1168,7 @@ impl<'a> CompositionSmtWriter<'a> {
             .collect()
     }
 
-    fn smt_composition_code(&self) -> Vec<SmtExpr> {
+    fn smt_oracle_functions(&self) -> Vec<SmtExpr> {
         let game_inst_ctx = self.context();
         let game_inst_name = game_inst_ctx.game_inst().name();
         let game_name = game_inst_ctx.game().name();
@@ -1176,7 +1176,9 @@ impl<'a> CompositionSmtWriter<'a> {
             "Game instance {game_inst_name} of game {game_name}\n",
         ))];
         let ordered_pkgs = game_inst_ctx.game().ordered_pkgs();
-        let code = ordered_pkgs.iter().flat_map(|inst| self.smt_pkg_code(inst));
+        let code = ordered_pkgs
+            .iter()
+            .flat_map(|inst| self.smt_oracle_code(inst));
 
         comment.into_iter().chain(code).collect()
     }
@@ -1192,8 +1194,9 @@ impl<'a> CompositionSmtWriter<'a> {
             .filter(|(_, tipe)| matches!(tipe, Type::Fn(_, _)));
         let _comp_name = game.name();
 
-        let mut funcs = vec![];
+        let mut funcs: Vec<SmtExpr> = vec![];
 
+        // prepare the proof-level function declarations
         for (name, tipe) in fns {
             let (arg_types, ret_type) = if let Type::Fn(arg_types, ret_type) = tipe {
                 (arg_types, ret_type)
@@ -1215,9 +1218,27 @@ impl<'a> CompositionSmtWriter<'a> {
                     (**ret_type).clone(),
                 )
                     .into(),
-            )
+            );
         }
+        // sort them for deterministic output
         funcs.sort();
+
+        // add the game instance level functions
+        funcs.extend(
+            game_inst_ctx
+                .smt_define_param_functions()
+                .into_iter()
+                .map(|x| x.into()),
+        );
+
+        // add the package instance level functions
+        funcs.extend(
+            game_inst_ctx
+                .pkg_inst_contexts()
+                .flat_map(|pkg_inst_ctx| pkg_inst_ctx.smt_define_param_functions())
+                .map(|x| x.into()),
+        );
+
         funcs
     }
 
@@ -1342,13 +1363,13 @@ impl<'a> CompositionSmtWriter<'a> {
         let rand = self.smt_composition_randomness();
         let paramfuncs = self.smt_composition_paramfuncs();
         let datatypes = self.smt_datatypes();
-        let code = self.smt_composition_code();
+        let oracle_funs = self.smt_oracle_functions();
         let partial_stuff = self.smt_composition_partial_stuff();
 
         rand.into_iter()
             .chain(paramfuncs)
             .chain(datatypes)
-            .chain(code)
+            .chain(oracle_funs)
             .chain(partial_stuff)
             .collect()
     }
