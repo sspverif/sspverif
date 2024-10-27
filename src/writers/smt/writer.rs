@@ -1185,61 +1185,23 @@ impl<'a> CompositionSmtWriter<'a> {
 
     fn smt_composition_paramfuncs(&self) -> Vec<SmtExpr> {
         let game_inst_ctx = self.context();
-        let game_inst = game_inst_ctx.game_inst();
-        let game_inst_name = game_inst.name();
-        let game = game_inst_ctx.game();
-        let fns = game
-            .consts
-            .iter()
-            .filter(|(_, tipe)| matches!(tipe, Type::Fn(_, _)));
-        let _comp_name = game.name();
 
-        let mut funcs: Vec<SmtExpr> = vec![];
-
-        // prepare the proof-level function declarations
-        for (name, tipe) in fns {
-            let (arg_types, ret_type) = if let Type::Fn(arg_types, ret_type) = tipe {
-                (arg_types, ret_type)
-            } else {
-                unreachable!()
-            };
-
-            let arg_types: SmtExpr = arg_types
-                .iter()
-                .map(|tipe| tipe.clone().into())
-                .collect::<Vec<SmtExpr>>()
-                .into();
-
-            funcs.push(
-                (
-                    "declare-fun",
-                    format!("__func-{game_inst_name}-{name}"),
-                    arg_types,
-                    (**ret_type).clone(),
-                )
-                    .into(),
-            );
-        }
-        // sort them for deterministic output
-        funcs.sort();
-
-        // add the game instance level functions
-        funcs.extend(
-            game_inst_ctx
-                .smt_define_param_functions()
-                .into_iter()
-                .map(|x| x.into()),
-        );
-
-        // add the package instance level functions
-        funcs.extend(
-            game_inst_ctx
-                .pkg_inst_contexts()
-                .flat_map(|pkg_inst_ctx| pkg_inst_ctx.smt_define_param_functions())
-                .map(|x| x.into()),
-        );
-
-        funcs
+        None.into_iter()
+            .chain(
+                // add the game instance level functions
+                game_inst_ctx
+                    .smt_define_param_functions()
+                    .into_iter()
+                    .map(|x| x.into()),
+            )
+            .chain(
+                // add the package instance level functions
+                game_inst_ctx
+                    .pkg_inst_contexts()
+                    .flat_map(|pkg_inst_ctx| pkg_inst_ctx.smt_define_param_functions())
+                    .map(|x| x.into()),
+            )
+            .collect()
     }
 
     fn smt_composition_randomness(&mut self) -> Vec<SmtExpr> {
