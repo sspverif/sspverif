@@ -5,7 +5,9 @@ use crate::{
     writers::smt::{
         exprs::SmtExpr,
         patterns::{
-            self, instance_names::encode_params, oracle_args::OracleArgPattern as _,
+            self,
+            instance_names::{encode_params, only_non_function_expression},
+            oracle_args::OracleArgPattern as _,
             DatastructurePattern as _, FunctionPattern, IntermediateStatePattern,
             PartialReturnPattern, PartialReturnSort,
         },
@@ -22,16 +24,6 @@ pub struct DispatchOraclePattern<'a> {
     pub oracle_sig: &'a OracleSig,
 }
 
-impl<'a> DispatchOraclePattern<'a> {
-    fn game_expr_params(&self) -> impl Iterator<Item = &Expression> {
-        self.game_params.iter().map(|(_, expr)| expr)
-    }
-
-    fn pkg_expr_params(&self) -> impl Iterator<Item = &Expression> {
-        self.pkg_params.iter().map(|(_, expr)| expr)
-    }
-}
-
 impl<'a> FunctionPattern for DispatchOraclePattern<'a> {
     type ReturnSort = PartialReturnSort<'a>;
     fn function_name(&self) -> String {
@@ -42,8 +34,8 @@ impl<'a> FunctionPattern for DispatchOraclePattern<'a> {
             ..
         } = self;
 
-        let game_params = encode_params(self.game_expr_params());
-        let pkg_params = encode_params(self.pkg_expr_params());
+        let game_params = encode_params(only_non_function_expression(self.game_params));
+        let pkg_params = encode_params(only_non_function_expression(self.pkg_params));
 
         let oracle_name = &oracle_sig.name;
         format!("oracle-{game_name}-{game_params}-{pkg_name}-{pkg_params}-{oracle_name}")

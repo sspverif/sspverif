@@ -1,11 +1,18 @@
 use std::borrow::Borrow;
 
-use crate::{expressions::Expression, writers::smt::exprs::SmtExpr};
+use crate::{expressions::Expression, types::Type, writers::smt::exprs::SmtExpr};
 
-pub fn only_expression<'a, T: 'a, I: IntoIterator<Item = &'a (T, Expression)>>(
+pub fn only_non_function_expression<'a, T: 'a, I: IntoIterator<Item = &'a (T, Expression)>>(
     iter: I,
 ) -> impl Iterator<Item = &'a Expression> {
-    iter.into_iter().map(|(_, expr)| expr)
+    iter.into_iter()
+        .filter_map(|(_, expr)| match expr.get_type() {
+            Type::Fn(_, _) => None,
+            ty => {
+                println!("including expression {expr:?} of type {ty:?} in param list");
+                Some(expr)
+            }
+        })
 }
 
 pub fn encode_params<'a, I>(params_iter: I) -> String

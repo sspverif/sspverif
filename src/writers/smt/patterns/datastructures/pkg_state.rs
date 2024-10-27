@@ -4,7 +4,7 @@ use crate::{
     package::Package,
     types::Type,
     writers::smt::{
-        patterns::instance_names::{encode_params, only_expression},
+        patterns::instance_names::{encode_params, only_non_function_expression},
         sorts::SmtPlainSort,
     },
 };
@@ -23,7 +23,7 @@ impl<'a> PackageStatePattern<'a> {
         if self.params.is_empty() {
             pkg_name.to_string()
         } else {
-            let encoded_params = encode_params(only_expression(self.params));
+            let encoded_params = encode_params(only_non_function_expression(self.params));
             format!("{pkg_name}-{encoded_params}")
         }
     }
@@ -49,7 +49,7 @@ impl<'a> SmtPlainSort for PackageStateSort<'a> {
         let camel_case = PackageStatePattern::CAMEL_CASE;
         let Self { pkg_name, params } = self;
 
-        let encoded_params = encode_params(only_expression(*params));
+        let encoded_params = encode_params(only_non_function_expression(*params));
 
         format!("<{camel_case}_{pkg_name}_{encoded_params}>")
     }
@@ -73,7 +73,7 @@ impl<'a> DatastructurePattern<'a> for PackageStatePattern<'a> {
     fn constructor_name(&self, _cons: &Self::Constructor) -> String {
         let kebab_case = Self::KEBAB_CASE;
         let Self { pkg_name, params } = self;
-        let encoded_params = encode_params(only_expression(*params));
+        let encoded_params = encode_params(only_non_function_expression(*params));
 
         format!("<mk-{kebab_case}-{pkg_name}-{encoded_params}>")
     }
@@ -81,7 +81,7 @@ impl<'a> DatastructurePattern<'a> for PackageStatePattern<'a> {
     fn selector_name(&self, sel: &Self::Selector) -> String {
         let kebab_case = Self::KEBAB_CASE;
         let Self { pkg_name, params } = self;
-        let encoded_params = encode_params(only_expression(*params));
+        let encoded_params = encode_params(only_non_function_expression(*params));
 
         let PackageStateSelector {
             name: field_name, ..

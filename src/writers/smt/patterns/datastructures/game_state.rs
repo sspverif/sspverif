@@ -8,7 +8,7 @@ use crate::{
     writers::smt::{
         exprs::SmtExpr,
         patterns::{
-            instance_names::{encode_params, only_expression},
+            instance_names::{encode_params, only_non_function_expression},
             DatastructurePattern, DatastructureSpec, PackageStatePattern,
         },
         sorts::SmtPlainSort,
@@ -20,12 +20,6 @@ use super::PackageStateSort;
 pub struct GameStatePattern<'a> {
     pub game_name: &'a str,
     pub params: &'a [(GameConstIdentifier, Expression)],
-}
-
-impl<'a> GameStatePattern<'a> {
-    fn expr_params(&self) -> impl Iterator<Item = &Expression> {
-        self.params.iter().map(|(_, expr)| expr)
-    }
 }
 
 #[derive(PartialEq, Eq)]
@@ -53,7 +47,7 @@ impl<'a> SmtPlainSort for GameStateSort<'a> {
     fn sort_name(&self) -> String {
         let Self { game_name, params } = self;
         let camel_case = <GameStatePattern as DatastructurePattern>::CAMEL_CASE;
-        let encoded_params = encode_params(only_expression(*params));
+        let encoded_params = encode_params(only_non_function_expression(*params));
 
         format!("<{camel_case}_{game_name}_{encoded_params}>")
     }
@@ -80,7 +74,7 @@ impl<'a> DatastructurePattern<'a> for GameStatePattern<'a> {
     fn constructor_name(&self, _cons: &Self::Constructor) -> String {
         let kebab_case = Self::KEBAB_CASE;
         let Self { game_name, .. } = self;
-        let encoded_params = encode_params(self.expr_params());
+        let encoded_params = encode_params(only_non_function_expression(self.params));
 
         format!("<mk-{kebab_case}-{game_name}-{encoded_params}>")
     }
@@ -88,7 +82,7 @@ impl<'a> DatastructurePattern<'a> for GameStatePattern<'a> {
     fn selector_name(&self, sel: &Self::Selector) -> String {
         let kebab_case = Self::KEBAB_CASE;
         let Self { game_name, .. } = self;
-        let encoded_params = encode_params(self.expr_params());
+        let encoded_params = encode_params(only_non_function_expression(self.params));
 
         let (kind_name, field_name) = match sel {
             GameStateSelector::PackageInstance { pkg_inst_name, .. } => {

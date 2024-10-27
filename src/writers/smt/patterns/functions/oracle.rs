@@ -5,7 +5,9 @@ use crate::{
     writers::smt::{
         exprs::SmtExpr,
         patterns::{
-            self, instance_names::encode_params, oracle_args::OracleArgPattern as _,
+            self,
+            instance_names::{encode_params, only_non_function_expression},
+            oracle_args::OracleArgPattern as _,
             DatastructurePattern as _, FunctionPattern, ReturnPattern, ReturnSort,
         },
     },
@@ -23,12 +25,6 @@ pub struct OraclePattern<'a> {
     pub pkg_params: &'a [(PackageConstIdentifier, Expression)],
 }
 
-impl<'a> OraclePattern<'a> {
-    fn pkg_expr_params(&self) -> impl Iterator<Item = &Expression> {
-        self.pkg_params.iter().map(|(_, expr)| expr)
-    }
-}
-
 impl<'a> FunctionPattern for OraclePattern<'a> {
     type ReturnSort = ReturnSort<'a>;
 
@@ -40,8 +36,8 @@ impl<'a> FunctionPattern for OraclePattern<'a> {
             ..
         } = self;
 
-        let encoded_game_params = encode_params(self.pkg_expr_params());
-        let encoded_pkg_params = encode_params(self.pkg_expr_params());
+        let encoded_game_params = encode_params(only_non_function_expression(self.game_params));
+        let encoded_pkg_params = encode_params(only_non_function_expression(self.pkg_params));
 
         format!("<oracle-{game_name}-{encoded_game_params}-{pkg_name}-{encoded_pkg_params}-{oracle_name}>")
     }

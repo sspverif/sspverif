@@ -5,7 +5,7 @@ use crate::{
     writers::smt::{
         exprs::SmtExpr,
         patterns::{
-            instance_names::{encode_params, only_expression},
+            instance_names::{encode_params, only_non_function_expression},
             DatastructurePattern as _, FunctionPattern, PartialReturnPattern, PartialReturnSort,
         },
     },
@@ -33,8 +33,8 @@ impl<'a> FunctionPattern for PartialOraclePattern<'a> {
             pkg_params,
         } = self;
 
-        let game_params = encode_params(only_expression(*game_params));
-        let pkg_params = encode_params(only_expression(*pkg_params));
+        let game_params = encode_params(only_non_function_expression(*game_params));
+        let pkg_params = encode_params(only_non_function_expression(*pkg_params));
 
         let path = split_path.smt_name();
         format!("<oracle-{game_name}-{game_params}-{pkg_name}-{pkg_params}-{oracle_name}-{path}>")

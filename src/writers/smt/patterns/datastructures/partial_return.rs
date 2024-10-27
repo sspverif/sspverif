@@ -2,7 +2,7 @@ use super::{DatastructurePattern, DatastructureSpec};
 use crate::expressions::Expression;
 use crate::identifier::game_ident::GameConstIdentifier;
 use crate::identifier::pkg_ident::PackageConstIdentifier;
-use crate::writers::smt::patterns::instance_names::{encode_params, only_expression};
+use crate::writers::smt::patterns::instance_names::{encode_params, only_non_function_expression};
 use crate::writers::smt::{exprs::SmtExpr, sorts::SmtPlainSort};
 
 pub struct PartialReturnPattern<'a> {
@@ -35,8 +35,8 @@ impl<'a> SmtPlainSort for PartialReturnSort<'a> {
             oracle_name,
         } = self;
 
-        let pkg_params = encode_params(only_expression(*pkg_params));
-        let game_params = encode_params(only_expression(*game_params));
+        let pkg_params = encode_params(only_non_function_expression(*pkg_params));
+        let game_params = encode_params(only_non_function_expression(*game_params));
 
         format!("<{camel_case}_{game_name}_{game_params}_{pkg_name}_{pkg_params}_{oracle_name}>")
     }
@@ -90,8 +90,8 @@ impl<'a> DatastructurePattern<'a> for PartialReturnPattern<'a> {
             oracle_name,
         } = self;
 
-        let pkg_params = encode_params(only_expression(*pkg_params));
-        let game_params = encode_params(only_expression(*game_params));
+        let pkg_params = encode_params(only_non_function_expression(*pkg_params));
+        let game_params = encode_params(only_non_function_expression(*game_params));
 
         let cons_name = match cons {
             PartialReturnConstructor::Return => kebab_case,
@@ -111,8 +111,8 @@ impl<'a> DatastructurePattern<'a> for PartialReturnPattern<'a> {
             oracle_name,
         } = self;
 
-        let pkg_params = encode_params(only_expression(*pkg_params));
-        let game_params = encode_params(only_expression(*game_params));
+        let pkg_params = encode_params(only_non_function_expression(*pkg_params));
+        let game_params = encode_params(only_non_function_expression(*game_params));
 
         let field_name = match sel {
             PartialReturnSelector::GameState => "game-state",
