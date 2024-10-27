@@ -8,9 +8,7 @@ use crate::types::Type;
 
 impl From<Expression> for SmtExpr {
     fn from(expr: Expression) -> SmtExpr {
-        let expr_string = format!("{expr:?}");
-        //eprintln!("DEBUG expr->smt: {expr:?}");
-        let out = match expr {
+        match expr {
             Expression::EmptyTable(t) => {
                 if let Type::Table(idxtipe, valtipe) = t {
                     (
@@ -255,8 +253,6 @@ impl From<Expression> for SmtExpr {
             _ => {
                 panic!("not implemented: {:?}", expr);
             }
-        };
-        println!("rewriting to expression from {expr_string} to {out:?}");
-        out
+        }
     }
 }
