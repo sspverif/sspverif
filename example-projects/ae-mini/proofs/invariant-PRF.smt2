@@ -25,8 +25,8 @@
 (= ctr-mon ctr-mod)
 (= ctr-mon icr-mod)
 (= ctr-mon icr-mod)
-(= id-left  1)
-(= id-right 1)
+(= id-mon  1)
+(= id-mod 1)
 )
 )
 
