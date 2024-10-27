@@ -11,24 +11,30 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define-fun
-    randomness-mapping-PRF
-    (
-        (ctr-mon     Int)
-        (ctr-mod     Int) 
-        (id-mon      Int)
-        (id-mod      Int) 
-        (icr-mon     Int)
-        (icr-mod     Int)
-    )
-    Bool
-(and
-(= ctr-mon ctr-mod)
-(= ctr-mon icr-mod)
-(= ctr-mon icr-mod)
-(= id-mon  1)
-(= id-mod 1)
-)
-)
+  randomness-mapping-PRF
+  ((ctr-mon     Int)
+   (ctr-mod     Int)
+   (id-mon      Int)
+   (id-mod      Int)
+   (icr-mon     Int)
+   (icr-mod     Int))
+  Bool
+  (and  (= ctr-mon ctr-mod)
+        (= ctr-mon icr-mod)
+        (= ctr-mon icr-mod)
+        (= id-mon  1)
+        (= id-mod  1)))
+
+(define-fun
+  randomness-mapping-Eval
+  ((ctr-mon     Int)
+   (ctr-mod     Int)
+   (id-mon      Int)
+   (id-mod      Int)
+   (icr-mon     Int)
+   (icr-mod     Int))
+  Bool
+  false)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
@@ -37,29 +43,31 @@
 ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define-fun invariant-PRF      (
-        (state-mod  <GameState_Modprfreal_<$<!n!>$>> )
-        (state-mon  <GameState_Monprfreal_<$<!n!>$>>)
-)
-    Bool
-    (let
+(define-fun
+  invariant-PRF
+  ( (state-mod  <GameState_Modprfreal_<$<!n!>$>> )
+    (state-mon  <GameState_Monprfreal_<$<!n!>$>>))
+  Bool
+  (let
+    ( ; getting ltk, table K and rand couners out of state
+      (ltk-mod (<state-modPRF-<$<!n!>$>-ltk>     (<game-Modprfreal-<$<!n!>$>-pkgstate-mod_prf> state-mod)))
+      (  K-mod (<state-KeyReal-<$<!n!>$>-K>      (<game-Modprfreal-<$<!n!>$>-pkgstate-key> state-mod)))
+      (ctr-mod (<game-Modprfreal-<$<!n!>$>-rand-1> state-mod))
+      (ltk-mon (<state-PRFReal-<$<!n!>$>-ltk>    (<game-Monprfreal-<$<!n!>$>-pkgstate-prf> state-mon)))
+      (  K-mon (<state-ReductionPRF-<$<!n!>$>-K> (<game-Monprfreal-<$<!n!>$>-pkgstate-red> state-mon)))
+      (ctr-mon (<game-Monprfreal-<$<!n!>$>-rand-1> state-mon)))
 
-; getting ltk and table K out of state
-(
-(ltk-mod (<state-modPRF-<$<!n!>$>-ltk>     (<game-Modprfreal-<$<!n!>$>-pkgstate-mod_prf> state-mod)))
-(  K-mod (<state-KeyReal-<$<!n!>$>-K>      (<game-Modprfreal-<$<!n!>$>-pkgstate-key> state-mod)))
-(ltk-mon (<state-PRFReal-<$<!n!>$>-ltk>    (<game-Monprfreal-<$<!n!>$>-pkgstate-prf> state-mon)))
-(  K-mon (<state-ReductionPRF-<$<!n!>$>-K> (<game-Monprfreal-<$<!n!>$>-pkgstate-red> state-mon)))
-)
+    ; ltk are equal
+    ; K   are equal
+    ; randomness counters are equal
+    (and (= ltk-mod ltk-mon)
+         (= K-mod   K-mon)
+         (= ctr-mon ctr-mod))))
 
-; ltk are equal
-; K   are equal
-; randomness counters are equal
-
-(and
-(= ltk-mod ltk-mon)
-(= K-mod   K-mon)
-(= ctr-mon ctr-mod)
-)
-
-))
+;; for now just forward the call
+(define-fun
+  invariant-Eval
+  ( (state-mod  <GameState_Modprfreal_<$<!n!>$>> )
+    (state-mon  <GameState_Monprfreal_<$<!n!>$>>))
+  Bool
+  (invariant-PRF state-mod state-mon))
