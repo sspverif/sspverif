@@ -122,19 +122,30 @@ impl Composition {
                 .iter()
                 .enumerate()
                 .map(|(pkg_inst_offs, _)| {
-                    // whether there an edge from this package instance to a package instance that
-                    // has not been added yet
+                    // whether all edges that originate in the current package instance point to
+                    // package instances that have already been added
                     self.edges
                         .iter()
-                        .any(|Edge(from, to, _)| pkg_inst_offs == *from && !added_pkgs[*to])
+                        .filter(|Edge(from, _, _)| pkg_inst_offs == *from)
+                        .all(|Edge(_, to, _)| added_pkgs[*to])
                 })
                 .collect();
+
+            let mut made_progress = false;
+
             for i in 0..self.pkgs.len() {
                 if !added_pkgs[i] && candidates[i] {
                     result.push(self.pkgs[i].clone());
                     added_pkgs[i] = true;
+                    made_progress = true;
                 }
             }
+
+            // this can't happen in acyclig graphs, which is what we are delaing with here
+            assert!(
+                made_progress,
+                "error topologically sorting the package instance in the game"
+            );
         }
         result
     }
