@@ -92,7 +92,7 @@ impl<'a> EquivalenceContext<'a> {
 
             let smt = (
                 "declare-fun",
-                format!("<<func-{func_name}>>"),
+                format!("<<func-proof-{func_name}>>"),
                 arg_types,
                 ret_type,
             );
