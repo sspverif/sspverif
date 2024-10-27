@@ -1,7 +1,7 @@
 use crate::{
     expressions::Expression,
     identifier::{game_ident::GameConstIdentifier, Identifier},
-    package::{Composition, Export, PackageInstance, SplitExport},
+    package::{Composition, Export, SplitExport},
     proof::GameInstance,
     transforms::samplify::SampleInfo,
     types::Type,

@@ -1,11 +1,11 @@
 use std::fmt::Write;
-use std::fs::File;
 
 use crate::{
     gamehops::equivalence::error::{Error, Result},
     proof::{Equivalence, Proof},
     transforms::{proof_transforms::EquivalenceTransform, ProofTransform},
-    util::prover_process::{Communicator, ProverBackend, ProverResponse},
+    util::prover_process::{Communicator, ProverResponse},
+    writers::smt::exprs::SmtExpr,
 };
 
 use super::EquivalenceContext;
@@ -21,8 +21,14 @@ pub fn verify(eq: &Equivalence, proof: &Proof, mut prover: Communicator) -> Resu
 
     std::thread::sleep(std::time::Duration::from_millis(20));
 
+    prover.write_smt(SmtExpr::Comment("\n".to_string()))?;
+    prover.write_smt(SmtExpr::Comment("base declarations:\n".to_string()))?;
     eqctx.emit_base_declarations(&mut prover)?;
+    prover.write_smt(SmtExpr::Comment("\n".to_string()))?;
+    prover.write_smt(SmtExpr::Comment("proof param funcs:\n".to_string()))?;
     eqctx.emit_proof_paramfuncs(&mut prover)?;
+    prover.write_smt(SmtExpr::Comment("\n".to_string()))?;
+    prover.write_smt(SmtExpr::Comment("game definitions:\n".to_string()))?;
     eqctx.emit_game_definitions(&mut prover)?;
     eqctx.emit_constant_declarations(&mut prover)?;
 

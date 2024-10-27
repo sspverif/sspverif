@@ -3,11 +3,11 @@ use crate::transforms::samplify::SampleInfo;
 use crate::types::Type;
 use crate::writers::smt::patterns::oracle_args::OracleArgPattern;
 use crate::writers::smt::patterns::proof_constants::ReturnValueConst;
+use crate::writers::smt::patterns::FunctionPattern;
 use crate::writers::smt::patterns::{
     declare_datatype, oracle_args, DatastructurePattern, DispatchOraclePattern, OraclePattern,
     ReturnConstructor, ReturnPattern, ReturnSelector, ReturnValue, ReturnValueConstructor,
 };
-use crate::writers::smt::patterns::{proof_constants, FunctionPattern};
 
 use super::super::exprs::SmtExpr;
 use super::super::names;

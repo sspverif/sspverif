@@ -1,20 +1,14 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::iter::FromIterator;
-use std::ops::Deref;
 
-use crate::expressions::Expression;
-use crate::identifier::game_ident::GameConstIdentifier;
-use crate::identifier::proof_ident::{ProofConstIdentifier, ProofIdentifier};
-use crate::identifier::Identifier;
 use crate::util::resolver::Named;
 use crate::writers::smt::contexts::GameInstanceContext;
 use crate::writers::smt::declare::declare_const;
-use crate::writers::smt::partials::SmtDefineFunction;
 use crate::writers::smt::patterns::oracle_args::{
     OldNewOracleArgPattern as _, UnitOracleArgPattern as _,
 };
-use crate::writers::smt::patterns::{ReturnIsAbortConst, SmtDefineFun};
+use crate::writers::smt::patterns::ReturnIsAbortConst;
 use crate::writers::smt::sorts::SmtBool;
 use crate::{
     hacks,
@@ -46,7 +40,6 @@ pub mod error;
 mod verify_fn;
 
 use error::{Error, Result};
-use itertools::Itertools;
 pub use verify_fn::verify;
 
 struct EquivalenceContext<'a> {
