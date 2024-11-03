@@ -10,7 +10,6 @@ pub struct ValueArgPattern<'a> {
 }
 
 impl<'a> OracleArgPattern for ValueArgPattern<'a> {
-    type Sort = Type;
     type Variant = ();
 
     fn global_const_name(&self, game_inst_name: &str, _variant: &()) -> String {
@@ -27,7 +26,7 @@ impl<'a> OracleArgPattern for ValueArgPattern<'a> {
         self.arg_name.to_string()
     }
 
-    fn sort(&self) -> Self::Sort {
-        self.arg_ty.clone()
+    fn sort(&self) -> Sort {
+        self.arg_ty.clone().into()
     }
 }

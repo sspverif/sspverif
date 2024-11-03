@@ -1,8 +1,9 @@
 use crate::{
     expressions::Expression,
     identifier::{game_ident::GameConstIdentifier, pkg_ident::PackageConstIdentifier},
-    writers::smt::patterns::{
-        proof_constants::ConstantPattern, DatastructurePattern, ReturnPattern, ReturnSort,
+    writers::smt::{
+        patterns::{proof_constants::ConstantPattern, DatastructurePattern, ReturnPattern},
+        sorts::Sort,
     },
 };
 
@@ -19,8 +20,6 @@ pub struct ReturnConst<'a> {
 }
 
 impl<'a> ConstantPattern for ReturnConst<'a> {
-    type Sort = ReturnSort<'a>;
-
     fn name(&self) -> String {
         let Self {
             game_inst_name,
@@ -31,7 +30,7 @@ impl<'a> ConstantPattern for ReturnConst<'a> {
         format!("<return-{game_inst_name}-{oracle_name}>")
     }
 
-    fn sort(&self) -> Self::Sort {
+    fn sort(&self) -> Sort {
         ReturnPattern {
             game_name: self.game_name,
             game_params: self.game_params,
@@ -39,6 +38,6 @@ impl<'a> ConstantPattern for ReturnConst<'a> {
             pkg_params: self.pkg_params,
             oracle_name: self.oracle_name,
         }
-        .sort()
+        .sort(vec![])
     }
 }

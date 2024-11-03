@@ -6,7 +6,7 @@ use crate::{
             proof_constants::ConstantPattern, DatastructurePattern, ReturnValue,
             ReturnValueConstructor,
         },
-        sorts::SmtBool,
+        sorts::Sort,
     },
 };
 
@@ -19,8 +19,6 @@ pub struct ReturnIsAbortConst<'a> {
 }
 
 impl<'a> ConstantPattern for ReturnIsAbortConst<'a> {
-    type Sort = SmtBool;
-
     fn name(&self) -> String {
         let Self {
             game_inst_name,
@@ -31,8 +29,8 @@ impl<'a> ConstantPattern for ReturnIsAbortConst<'a> {
         format!("<return-is-abort-{game_inst_name}-{pkg_inst_name}-{oracle_name}>")
     }
 
-    fn sort(&self) -> Self::Sort {
-        SmtBool
+    fn sort(&self) -> Sort {
+        Sort::Bool
     }
 }
 

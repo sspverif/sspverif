@@ -3,11 +3,11 @@ use crate::{
     identifier::{game_ident::GameConstIdentifier, pkg_ident::PackageConstIdentifier},
     split::SplitPath,
     writers::smt::{
-        exprs::SmtExpr,
         patterns::{
             instance_names::{encode_params, only_non_function_expression},
-            DatastructurePattern as _, FunctionPattern, PartialReturnPattern, PartialReturnSort,
+            DatastructurePattern as _, FunctionPattern, PartialReturnPattern,
         },
+        sorts::Sort,
     },
 };
 
@@ -21,8 +21,6 @@ pub struct PartialOraclePattern<'a> {
 }
 
 impl<'a> FunctionPattern for PartialOraclePattern<'a> {
-    type ReturnSort = PartialReturnSort<'a>;
-
     fn function_name(&self) -> String {
         let PartialOraclePattern {
             game_name,
@@ -40,7 +38,7 @@ impl<'a> FunctionPattern for PartialOraclePattern<'a> {
         format!("<oracle-{game_name}-{game_params}-{pkg_name}-{pkg_params}-{oracle_name}-{path}>")
     }
 
-    fn function_args(&self) -> Vec<(String, SmtExpr)> {
+    fn function_args(&self) -> Vec<(String, Sort)> {
         todo!()
     }
 
@@ -48,7 +46,7 @@ impl<'a> FunctionPattern for PartialOraclePattern<'a> {
         todo!()
     }
 
-    fn function_return_sort(&self) -> PartialReturnSort<'a> {
+    fn function_return_sort(&self) -> Sort {
         let Self {
             game_name,
             game_params,
@@ -65,6 +63,6 @@ impl<'a> FunctionPattern for PartialOraclePattern<'a> {
             oracle_name,
         };
 
-        partial_return_pattern.sort()
+        partial_return_pattern.sort(vec![])
     }
 }

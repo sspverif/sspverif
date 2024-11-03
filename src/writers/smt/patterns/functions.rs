@@ -4,26 +4,26 @@ mod lemma;
 pub mod oracle;
 pub mod partial_oracle;
 
+pub mod relation;
+
 pub use dispatch_oracle::DispatchOraclePattern;
 pub use oracle::{OraclePattern, ORACLE_ARG_GAME_STATE, ORACLE_ARG_INTERMEDIATE_STATE};
 pub use partial_oracle::PartialOraclePattern;
 
-use crate::{writers::smt::exprs::SmtExpr, writers::smt::sorts::SmtSort};
+use crate::writers::smt::{exprs::SmtExpr, sorts::Sort};
 
 pub trait FunctionPattern {
-    type ReturnSort: SmtSort;
-
     fn function_name(&self) -> String;
-    fn function_args(&self) -> Vec<(String, SmtExpr)>;
+    fn function_args(&self) -> Vec<(String, Sort)>;
     fn function_args_count(&self) -> usize;
-    fn function_return_sort(&self) -> Self::ReturnSort;
+    fn function_return_sort(&self) -> Sort;
 
-    fn define_fun<B: Into<SmtExpr>>(&self, body: B) -> SmtDefineFun<B, Self::ReturnSort> {
+    fn define_fun<B: Into<SmtExpr>>(&self, body: B) -> SmtDefineFun<B> {
         SmtDefineFun {
             is_rec: false,
             name: self.function_name(),
             args: self.function_args(),
-            ty: self.function_return_sort(),
+            sort: self.function_return_sort(),
             body,
         }
     }
@@ -56,16 +56,16 @@ pub trait FunctionPattern {
 }
 
 #[derive(Debug)]
-pub struct SmtDefineFun<Body: Into<SmtExpr>, ReturnSort: SmtSort> {
+pub struct SmtDefineFun<Body: Into<SmtExpr>> {
     pub(crate) is_rec: bool,
     pub(crate) name: String,
-    pub(crate) args: Vec<(String, SmtExpr)>,
-    pub(crate) ty: ReturnSort,
+    pub(crate) args: Vec<(String, Sort)>,
+    pub(crate) sort: Sort,
     pub(crate) body: Body,
 }
 
-impl<Body: Into<SmtExpr>, ReturnSort: SmtSort> From<SmtDefineFun<Body, ReturnSort>> for SmtExpr {
-    fn from(value: SmtDefineFun<Body, ReturnSort>) -> Self {
+impl<Body: Into<SmtExpr>> From<SmtDefineFun<Body>> for SmtExpr {
+    fn from(value: SmtDefineFun<Body>) -> Self {
         let command_name = if value.is_rec {
             "define-fun-rec"
         } else {
@@ -82,7 +82,7 @@ impl<Body: Into<SmtExpr>, ReturnSort: SmtSort> From<SmtDefineFun<Body, ReturnSor
                     .map(|pair| -> SmtExpr { pair.into() })
                     .collect(),
             ),
-            value.ty,
+            value.sort,
             value.body,
         )
             .into()

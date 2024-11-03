@@ -5,12 +5,11 @@ use pest::iterators::Pair;
 
 use crate::{
     identifier::pkg_ident::PackageImportsLoopVarIdentifier,
-    package::Package,
     types::Type,
     writers::smt::{
         exprs::{SmtEq2, SmtExpr, SmtIte, SmtLt, SmtLte},
         patterns::FunctionPattern,
-        sorts::SmtInt,
+        sorts::Sort,
     },
 };
 
@@ -27,22 +26,20 @@ struct MultiplicityFunctionPattern {
 }
 
 impl FunctionPattern for MultiplicityFunctionPattern {
-    type ReturnSort = SmtInt;
-
     fn function_name(&self) -> String {
         format!("multiset-multiplicity-{name}", name = self.name)
     }
 
-    fn function_args(&self) -> Vec<(String, SmtExpr)> {
+    fn function_args(&self) -> Vec<(String, Sort)> {
         self.args
             .iter()
-            .map(|name| ((*name).to_string(), SmtInt.into()))
-            .chain(Some(("queryElem".to_string(), SmtInt.into())))
+            .map(|name| ((*name).to_string(), Sort::Int))
+            .chain(Some(("queryElem".to_string(), Sort::Int)))
             .collect()
     }
 
-    fn function_return_sort(&self) -> Self::ReturnSort {
-        SmtInt
+    fn function_return_sort(&self) -> Sort {
+        Sort::Int
     }
 
     fn function_args_count(&self) -> usize {

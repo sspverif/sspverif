@@ -120,7 +120,7 @@ impl<'a> GameInstanceContext<'a> {
             .datastructure_spec(&declare_info);
         let selector = GameStateSelector::PackageInstance {
             pkg_inst_name,
-            sort: pkg_ctx.pkg_state_pattern().sort(),
+            sort: pkg_ctx.pkg_state_pattern().sort(vec![]),
         };
 
         self.datastructure_game_state_pattern()
@@ -161,7 +161,7 @@ impl<'a> GameInstanceContext<'a> {
             .datastructure_spec(&declare_info);
         let pkgstate_selector = GameStateSelector::PackageInstance {
             pkg_inst_name: target_name,
-            sort: pkg_ctx.pkg_state_pattern().sort(),
+            sort: pkg_ctx.pkg_state_pattern().sort(vec![]),
         };
 
         self.datastructure_game_state_pattern().update(
@@ -219,7 +219,7 @@ impl<'a> GameInstanceContext<'a> {
     }
 
     // TODO: find a way to return an iterator here
-    pub(crate) fn smt_define_param_functions(&self) -> Vec<SmtDefineFun<Expression, Type>> {
+    pub(crate) fn smt_define_param_functions(&self) -> Vec<SmtDefineFun<Expression>> {
         /// looks up the constant assigment for constant with name `name` in game instance
         /// `game_inst`.
         fn get_assignment(
@@ -286,7 +286,7 @@ impl<'a> GameInstanceContext<'a> {
                     is_rec: false,
                     name: format!("<<func-game-{game_inst_name}-{func_name}>>"),
                     args: named_args,
-                    ty: *ret.clone(),
+                    sort: (*ret).into(),
                     body: proof_fn_call,
                 }
             })

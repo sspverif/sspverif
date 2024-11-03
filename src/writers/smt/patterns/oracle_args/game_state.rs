@@ -1,6 +1,9 @@
 use crate::{
-    expressions::Expression, identifier::game_ident::GameConstIdentifier,
-    writers::smt::patterns::GameStateSort,
+    expressions::Expression,
+    identifier::game_ident::GameConstIdentifier,
+    writers::smt::patterns::{
+        DatastructurePattern as _, GameStatePattern as GameStateDatatypePattern,
+    },
 };
 
 use super::*;
@@ -11,7 +14,6 @@ pub struct GameStatePattern<'a> {
 }
 
 impl<'a> OracleArgPattern for GameStatePattern<'a> {
-    type Sort = GameStateSort<'a>;
     type Variant = OldNewVariant;
 
     fn global_const_name(&self, game_inst_name: &str, variant: &OldNewVariant) -> String {
@@ -22,10 +24,11 @@ impl<'a> OracleArgPattern for GameStatePattern<'a> {
         "<game-state>".to_string()
     }
 
-    fn sort(&self) -> Self::Sort {
-        GameStateSort {
+    fn sort(&self) -> Sort {
+        GameStateDatatypePattern {
             game_name: self.game_name,
             params: self.game_params,
         }
+        .sort(vec![])
     }
 }

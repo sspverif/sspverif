@@ -3,14 +3,14 @@ use crate::{
     identifier::{game_ident::GameConstIdentifier, pkg_ident::PackageConstIdentifier},
     package::OracleSig,
     writers::smt::{
-        exprs::SmtExpr,
         patterns::{
             self,
             instance_names::{encode_params, only_non_function_expression},
             oracle_args::OracleArgPattern as _,
             DatastructurePattern as _, FunctionPattern, IntermediateStatePattern,
-            PartialReturnPattern, PartialReturnSort,
+            PartialReturnPattern,
         },
+        sorts::Sort,
     },
 };
 
@@ -25,7 +25,6 @@ pub struct DispatchOraclePattern<'a> {
 }
 
 impl<'a> FunctionPattern for DispatchOraclePattern<'a> {
-    type ReturnSort = PartialReturnSort<'a>;
     fn function_name(&self) -> String {
         let Self {
             game_name,
@@ -41,7 +40,7 @@ impl<'a> FunctionPattern for DispatchOraclePattern<'a> {
         format!("oracle-{game_name}-{game_params}-{pkg_name}-{pkg_params}-{oracle_name}")
     }
 
-    fn function_args(&self) -> Vec<(String, SmtExpr)> {
+    fn function_args(&self) -> Vec<(String, Sort)> {
         let DispatchOraclePattern {
             oracle_sig:
                 OracleSig {
@@ -77,7 +76,7 @@ impl<'a> FunctionPattern for DispatchOraclePattern<'a> {
             game_const_pair,
             (
                 ORACLE_ARG_INTERMEDIATE_STATE.to_string(),
-                intermediate_state_pattern.sort().into(),
+                intermediate_state_pattern.sort(vec![]).into(),
             ),
         ]
         .into_iter()
@@ -90,7 +89,7 @@ impl<'a> FunctionPattern for DispatchOraclePattern<'a> {
         .collect()
     }
 
-    fn function_return_sort(&self) -> PartialReturnSort<'a> {
+    fn function_return_sort(&self) -> Sort {
         let Self {
             game_name,
             game_params,
@@ -108,7 +107,7 @@ impl<'a> FunctionPattern for DispatchOraclePattern<'a> {
             oracle_name: &oracle_sig.name,
         };
 
-        partial_return_pattern.sort()
+        partial_return_pattern.sort(vec![])
     }
 
     fn function_args_count(&self) -> usize {

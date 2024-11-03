@@ -45,20 +45,18 @@
 
 use crate::{
     types::Type,
-    writers::smt::{exprs::SmtExpr, sorts::SmtSort},
+    writers::smt::{exprs::SmtExpr, sorts::Sort},
 };
 
 use super::{
-    DatastructurePattern, GameStatePattern as GameStateDataStructurePattern, GameStateSort,
-    PackageStatePattern, PackageStateSort,
+    DatastructurePattern, GameStatePattern as GameStateDataStructurePattern, PackageStatePattern,
 };
 
 pub trait VariablePattern {
     type SpecInfo;
-    type Sort: SmtSort;
 
     fn name(&self) -> String;
-    fn sort(&self, spec: &Self::SpecInfo) -> Self::Sort;
+    fn sort(&self, spec: &Self::SpecInfo) -> Sort;
 
     fn name_sort_tuple(&self, spec: &Self::SpecInfo) -> (String, SmtExpr) {
         (self.name(), self.sort(spec).into())
@@ -91,14 +89,13 @@ pub struct SelfStatePattern;
 
 impl<'a> VariablePattern for &'a SelfStatePattern {
     type SpecInfo = PackageStatePattern<'a>;
-    type Sort = PackageStateSort<'a>;
 
     fn name(&self) -> String {
         "<pkg-state>".to_string()
     }
 
-    fn sort(&self, spec_info: &Self::SpecInfo) -> Self::Sort {
-        spec_info.sort()
+    fn sort(&self, spec_info: &Self::SpecInfo) -> Sort {
+        spec_info.sort(vec![])
     }
 }
 
@@ -106,14 +103,13 @@ pub struct GameStatePattern;
 
 impl<'a> VariablePattern for &'a GameStatePattern {
     type SpecInfo = GameStateDataStructurePattern<'a>;
-    type Sort = GameStateSort<'a>;
 
     fn name(&self) -> String {
         "<game-state>".to_string()
     }
 
-    fn sort(&self, spec_info: &Self::SpecInfo) -> Self::Sort {
-        spec_info.sort()
+    fn sort(&self, spec_info: &Self::SpecInfo) -> Sort {
+        spec_info.sort(vec![])
     }
 }
 
@@ -121,13 +117,12 @@ pub struct LocalVariablePattern<'a>(&'a str);
 
 impl<'a> VariablePattern for LocalVariablePattern<'a> {
     type SpecInfo = Type;
-    type Sort = Type;
 
     fn name(&self) -> String {
         self.0.to_string()
     }
 
-    fn sort(&self, spec: &Self::SpecInfo) -> Self::Sort {
-        spec.clone()
+    fn sort(&self, spec: &Self::SpecInfo) -> Sort {
+        spec.clone().into()
     }
 }

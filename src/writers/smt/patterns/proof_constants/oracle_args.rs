@@ -1,6 +1,6 @@
 use crate::{
-    expressions::Expression, identifier::game_ident::GameConstIdentifier, types::Type,
-    writers::smt::patterns::proof_constants::ConstantPattern,
+    types::Type,
+    writers::smt::{patterns::proof_constants::ConstantPattern, sorts::Sort},
 };
 
 #[derive(Clone, Debug)]
@@ -11,8 +11,6 @@ pub struct OracleArgs<'a> {
 }
 
 impl<'a> ConstantPattern for OracleArgs<'a> {
-    type Sort = Type;
-
     fn name(&self) -> String {
         let Self {
             oracle_name,
@@ -23,7 +21,7 @@ impl<'a> ConstantPattern for OracleArgs<'a> {
         format!("<arg-{oracle_name}-{arg_name}>")
     }
 
-    fn sort(&self) -> Self::Sort {
-        self.arg_type.clone()
+    fn sort(&self) -> Sort {
+        self.arg_type.clone().into()
     }
 }

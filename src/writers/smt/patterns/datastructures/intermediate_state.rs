@@ -8,7 +8,6 @@ use crate::{
         exprs::{SmtExpr, SmtLet},
         partials::{PartialStep, PartialsDatatype},
         patterns::instance_names::{encode_params, only_non_function_expression},
-        sorts::SmtPlainSort,
     },
 };
 
@@ -34,30 +33,6 @@ pub enum IntermediateStateSelector<'a> {
     Local(&'a SplitPath, &'a str, &'a Type),
     Child(&'a SplitPath),
     Return(&'a Type),
-}
-
-pub struct IntermediateStateSort<'a> {
-    pub pkg_name: &'a str,
-    pub params: &'a [(PackageConstIdentifier, Expression)],
-    pub oracle_name: &'a str,
-}
-
-use crate::impl_Into_for_PlainSort;
-impl_Into_for_PlainSort!('a, IntermediateStateSort<'a>);
-
-impl<'a> SmtPlainSort for IntermediateStateSort<'a> {
-    fn sort_name(&self) -> String {
-        let Self {
-            pkg_name,
-            params,
-            oracle_name,
-        } = self;
-        let camel_case = IntermediateStatePattern::CAMEL_CASE;
-
-        let params = encode_params(only_non_function_expression(*params));
-
-        format!("{camel_case}-{pkg_name}-{params}-{oracle_name}")
-    }
 }
 
 impl SplitPath {
@@ -173,24 +148,22 @@ impl<'a> DatastructurePattern<'a> for IntermediateStatePattern<'a> {
     type Constructor = IntermediateStateConstructor<'a>;
     type Selector = IntermediateStateSelector<'a>;
     type DeclareInfo = PartialsDatatype;
-    type Sort = IntermediateStateSort<'a>;
 
     const CAMEL_CASE: &'static str = "IntermediateState";
 
     const KEBAB_CASE: &'static str = "intermediate-state";
 
-    fn sort(&self) -> IntermediateStateSort<'a> {
+    fn sort_name(&self) -> String {
+        let camel_case = IntermediateStatePattern::CAMEL_CASE;
         let Self {
             pkg_name,
-            oracle_name,
             params,
-            ..
+            oracle_name,
         } = self;
-        IntermediateStateSort {
-            pkg_name,
-            oracle_name,
-            params,
-        }
+
+        let params = encode_params(only_non_function_expression(*params));
+
+        format!("{camel_case}-{pkg_name}-{params}-{oracle_name}")
     }
 
     fn constructor_name(&self, cons: &Self::Constructor) -> String {
@@ -257,7 +230,7 @@ impl<'a> DatastructurePattern<'a> for IntermediateStatePattern<'a> {
     fn selector_sort(&self, sel: &Self::Selector) -> SmtExpr {
         match sel {
             IntermediateStateSelector::LoopVar(_, _) => Type::Integer.into(),
-            IntermediateStateSelector::Child(_) => self.sort().sort_name().into(),
+            IntermediateStateSelector::Child(_) => self.sort(vec![]).into(),
             IntermediateStateSelector::Arg(_, _, tipe)
             | IntermediateStateSelector::Local(_, _, tipe)
             | IntermediateStateSelector::Return(tipe) => SmtExpr::from(*tipe),

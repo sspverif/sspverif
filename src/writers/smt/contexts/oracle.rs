@@ -103,6 +103,7 @@ impl<'a> OracleContext<'a> {
             game_name: self.game_inst_ctx().game().name(),
         }
     }
+
     pub(crate) fn oracle_arg_game_state_pattern(&self) -> oracle_args::GameStatePattern {
         oracle_args::GameStatePattern {
             game_name: self.game_inst_ctx().game().name(),
@@ -164,9 +165,12 @@ impl<'a> OracleContext<'a> {
         let value_smt: SmtExpr = value.into();
 
         let return_value = return_value_pattern
-            .call_constructor(&return_value_spec, &ReturnValueConstructor::Return, |_| {
-                Some(value_smt.clone())
-            })
+            .call_constructor(
+                &return_value_spec,
+                vec![return_type.clone().into()],
+                &ReturnValueConstructor::Return,
+                |_| Some(value_smt.clone()),
+            )
             .unwrap();
 
         let return_pattern = self.return_pattern();
@@ -176,17 +180,22 @@ impl<'a> OracleContext<'a> {
         let state_smt: SmtExpr = state.into();
 
         return_pattern
-            .call_constructor(&return_spec, &ReturnConstructor, |sel: &ReturnSelector| {
-                Some(match sel {
-                    ReturnSelector::GameState => state_smt.clone(),
-                    ReturnSelector::ReturnValueOrAbort {
-                        return_type: spec_return_type,
-                    } => {
-                        assert_eq!(*spec_return_type, return_type);
-                        return_value.clone()
-                    }
-                })
-            })
+            .call_constructor(
+                &return_spec,
+                vec![return_type.clone().into()],
+                &ReturnConstructor,
+                |sel: &ReturnSelector| {
+                    Some(match sel {
+                        ReturnSelector::GameState => state_smt.clone(),
+                        ReturnSelector::ReturnValueOrAbort {
+                            return_type: spec_return_type,
+                        } => {
+                            assert_eq!(*spec_return_type, return_type);
+                            return_value.clone()
+                        }
+                    })
+                },
+            )
             .unwrap()
     }
 
@@ -223,10 +232,16 @@ impl<'a> OracleContext<'a> {
     }
 
     pub(crate) fn smt_construct_abort_return_value(&self) -> SmtExpr {
+        let return_type = self.return_type();
         let pattern = self.return_value_pattern();
         let spec = pattern.datastructure_spec(&());
         pattern
-            .call_constructor(&spec, &ReturnValueConstructor::Abort, |_| None)
+            .call_constructor(
+                &spec,
+                vec![return_type.clone().into()],
+                &ReturnValueConstructor::Abort,
+                |_| None,
+            )
             .unwrap()
     }
 
@@ -317,6 +332,7 @@ impl<'a> GenericOracleContext for OracleContext<'a> {
         let abort = return_value_pattern
             .call_constructor(
                 &return_value_spec,
+                vec![return_type.clone().into()],
                 &ReturnValueConstructor::Abort,
                 |_| unreachable!(),
             )
@@ -328,12 +344,17 @@ impl<'a> GenericOracleContext for OracleContext<'a> {
 
         let game_state = game_state.into();
         return_pattern
-            .call_constructor(&return_spec, &ReturnConstructor, |sel: &ReturnSelector| {
-                Some(match sel {
-                    ReturnSelector::GameState => game_state.clone(),
-                    ReturnSelector::ReturnValueOrAbort { .. } => abort.clone(),
-                })
-            })
+            .call_constructor(
+                &return_spec,
+                vec![return_type.clone().into()],
+                &ReturnConstructor,
+                |sel: &ReturnSelector| {
+                    Some(match sel {
+                        ReturnSelector::GameState => game_state.clone(),
+                        ReturnSelector::ReturnValueOrAbort { .. } => abort.clone(),
+                    })
+                },
+            )
             .unwrap()
     }
 

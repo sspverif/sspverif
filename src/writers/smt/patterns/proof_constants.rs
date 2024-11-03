@@ -1,8 +1,4 @@
-use crate::writers::smt::{
-    declare,
-    exprs::{SmtAssert, SmtEq2, SmtExpr},
-    sorts::SmtSort,
-};
+use crate::writers::smt::{declare, exprs::SmtExpr, sorts::Sort};
 
 mod oracle_args;
 
@@ -21,10 +17,8 @@ pub(crate) use return_value::*;
 pub(crate) use state_intermediate::*;
 
 pub trait ConstantPattern {
-    type Sort: SmtSort;
-
     fn name(&self) -> String;
-    fn sort(&self) -> Self::Sort;
+    fn sort(&self) -> Sort;
 
     fn declare(&self) -> SmtExpr {
         declare::declare_const(self.name(), self.sort())

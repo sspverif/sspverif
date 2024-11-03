@@ -4,12 +4,10 @@ use crate::{
     writers::smt::{
         exprs::SmtExpr,
         patterns::{
-            const_mapping::define_fun,
-            declare_datatype,
-            game_consts::{GameConstsSelector, GameConstsSort},
-            pkg_consts::{PackageConstsSelector, PackageConstsSort},
-            pkg_state::PackageStateSelector,
+            const_mapping::define_fun, declare_datatype, game_consts::GameConstsSelector,
+            pkg_consts::PackageConstsSelector, pkg_state::PackageStateSelector,
         },
+        sorts::Sort,
     },
 };
 
@@ -76,10 +74,18 @@ fn test_const_datatypes_eq_small_small() {
     // takes a single argument as described here
     assert_eq!(args.len(), 1);
     assert_eq!(args[0].0, "<game-consts>");
-    assert_eq!(args[0].1, GameConstsSort { game_name }.into());
+    assert_eq!(args[0].1, game_const_pattern.sort(vec![]));
+    assert_eq!(
+        args[0].1,
+        Sort::Other(format!("<GameConsts_{game_name}>"), vec![]),
+    );
 
     // returns a package const
-    assert_eq!(mapping.ty, PackageConstsSort { pkg_name });
+    assert_eq!(mapping.sort, pkg_const_pattern.sort(vec![]));
+    assert_eq!(
+        mapping.sort,
+        Sort::Other(format!("<PackageConsts_{pkg_name}>"), vec![]),
+    );
 
     let bindings = &mapping.body.bindings;
     assert_eq!(bindings.len(), 1);
@@ -139,10 +145,18 @@ fn test_const_datatypes_remap_consts() {
     // takes a single argument as described here
     assert_eq!(args.len(), 1);
     assert_eq!(args[0].0, "<game-consts>");
-    assert_eq!(args[0].1, GameConstsSort { game_name }.into());
+    assert_eq!(args[0].1, game_const_pattern.sort(vec![]));
+    assert_eq!(
+        SmtExpr::Atom(format!("<GameConsts_{game_name}>")),
+        args[0].1.clone().into(),
+    );
 
     // returns a package const
-    assert_eq!(mapping.ty, PackageConstsSort { pkg_name });
+    assert_eq!(mapping.sort, pkg_const_pattern.sort(vec![]));
+    assert_eq!(
+        mapping.sort,
+        Sort::Other(format!("<PackageConsts_{pkg_name}>"), vec![]),
+    );
 
     let bindings = &mapping.body.bindings;
 
@@ -197,7 +211,7 @@ fn test_state_datatypes_remap_consts() {
 
     assert_eq!(
         pkg_state_pattern.constructor_name(&()),
-        "<mk-state-PRF-<$<!n!><!prf!>$>>"
+        "<mk-state-PRF-<$<!n!>$>>"
     );
 
     // check key package instance

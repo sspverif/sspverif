@@ -1,4 +1,6 @@
-use crate::writers::smt::patterns::game_consts::GameConstsSort;
+use crate::writers::smt::patterns::{
+    game_consts::GameConstsPattern as GameConstsDatatypePattern, DatastructurePattern as _,
+};
 
 use super::*;
 
@@ -7,7 +9,6 @@ pub struct GameConstsPattern<'a> {
 }
 
 impl<'a> OracleArgPattern for GameConstsPattern<'a> {
-    type Sort = GameConstsSort<'a>;
     type Variant = ();
 
     fn global_const_name(&self, game_inst_name: &str, _variant: &()) -> String {
@@ -18,9 +19,10 @@ impl<'a> OracleArgPattern for GameConstsPattern<'a> {
         "<game-consts>".to_string()
     }
 
-    fn sort(&self) -> Self::Sort {
-        GameConstsSort {
+    fn sort(&self) -> Sort {
+        GameConstsDatatypePattern {
             game_name: self.game_name,
         }
+        .sort(vec![])
     }
 }

@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::types::Type;
 
-use super::sorts::SmtSort;
+use super::sorts::Sort;
 
 pub(crate) fn smt_to_string<T: Into<SmtExpr>>(t: T) -> String {
     t.into().to_string()
@@ -342,8 +342,8 @@ where
     }
 }
 
-impl<T: Into<SmtExpr>, S: SmtSort> From<SmtAs<T, S>> for SmtExpr {
-    fn from(smtas: SmtAs<T, S>) -> Self {
+impl<T: Into<SmtExpr>> From<SmtAs<T>> for SmtExpr {
+    fn from(smtas: SmtAs<T>) -> Self {
         ("as", smtas.term, smtas.sort).into()
     }
 }
@@ -366,9 +366,9 @@ where
     pub(crate) rhs: R,
 }
 
-pub(crate) struct SmtAs<T: Into<SmtExpr>, S: SmtSort> {
+pub(crate) struct SmtAs<T: Into<SmtExpr>> {
     pub(crate) term: T,
-    pub(crate) sort: S,
+    pub(crate) sort: Sort,
 }
 
 pub(crate) struct SmtIte<C, T, E>

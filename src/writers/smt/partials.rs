@@ -98,34 +98,6 @@ impl PartialStep {
 
 use super::patterns::*;
 
-pub struct SmtDefineFunction<B: Into<SmtExpr>> {
-    name: String,
-    args: Vec<(String, SmtExpr)>,
-    ret_sort: SmtExpr,
-    body: B,
-}
-
-impl<B: Into<SmtExpr>> From<SmtDefineFunction<B>> for SmtExpr {
-    fn from(val: SmtDefineFunction<B>) -> Self {
-        (
-            "define-fun",
-            val.name,
-            {
-                let args: Vec<_> = val
-                    .args
-                    .into_iter()
-                    .map(|arg_spec| arg_spec.into())
-                    .collect();
-
-                SmtExpr::List(args)
-            },
-            val.ret_sort,
-            val.body,
-        )
-            .into()
-    }
-}
-
 impl<'a> PackageInstanceContext<'a> {
     pub fn check_args_are_honest<B: Into<SmtExpr>>(
         &self,
@@ -221,10 +193,11 @@ impl<'a> PackageInstanceContext<'a> {
             },
         );
 
-        SmtDefineFunction {
+        SmtDefineFun {
             name: function_pattern.function_name(),
+            is_rec: false,
             args: function_pattern.function_args(),
-            ret_sort: function_pattern.function_return_sort().into(),
+            sort: function_pattern.function_return_sort(),
             body: match_expr,
         }
         .into()

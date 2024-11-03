@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::writers::smt::declare;
 use crate::writers::smt::exprs::SmtExpr;
-use crate::writers::smt::sorts::SmtSort;
+use crate::writers::smt::sorts::Sort;
 
 mod game_consts;
 mod game_state;
@@ -27,12 +27,11 @@ impl Display for OldNewVariant {
 }
 
 pub trait OracleArgPattern {
-    type Sort: SmtSort;
     type Variant;
 
     fn global_const_name(&self, game_inst_name: &str, variant: &Self::Variant) -> String;
     fn local_arg_name(&self) -> String;
-    fn sort(&self) -> Self::Sort;
+    fn sort(&self) -> Sort;
 
     fn declare(&self, game_inst_name: &str, variant: &Self::Variant) -> SmtExpr {
         declare::declare_const(self.global_const_name(game_inst_name, variant), self.sort())

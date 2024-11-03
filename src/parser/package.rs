@@ -27,7 +27,7 @@ use crate::{
     writers::smt::{
         declare::declare_const,
         exprs::{SmtAnd, SmtAssert, SmtEq2, SmtExpr, SmtIte, SmtLt, SmtLte, SmtNot},
-        sorts::SmtInt,
+        sorts::Sort,
     },
 };
 
@@ -705,18 +705,22 @@ pub fn handle_expression(
         let got = expr.get_type();
         let at: SourceSpan = (span.start()..span.end()).into();
 
-        if expected != &got {
-            if !(*expected == Type::Maybe(Box::new(Type::Unknown)) && matches!(got, Type::Maybe(_)))
-            {
-                let expected = expected.clone();
+        let expecting_unknown_maybe = *expected == Type::Maybe(Box::new(Type::Unknown));
+        let got_a_maybe = matches!(got, Type::Maybe(_));
 
-                return Err(ParseExpressionError::TypeMismatch(TypeMismatchError {
-                    at,
-                    expected,
-                    got,
-                    source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
-                }));
-            }
+        // we allow a mismatch if we don't know what the type in the maybe is, and got some kind of
+        // maybe. This is effectively a form of type inference.
+        let allow_mismatch = expecting_unknown_maybe && got_a_maybe;
+
+        if *expected != got && !allow_mismatch {
+            let expected = expected.clone();
+
+            return Err(ParseExpressionError::TypeMismatch(TypeMismatchError {
+                at,
+                expected,
+                got,
+                source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
+            }));
         }
     }
 
@@ -938,7 +942,7 @@ pub fn handle_code(
 
                     let ty_value_with_maybe = Type::Maybe(ty_value_without_maybe.clone());
 
-                    let index = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), Some(&*ty_key))?;
+                    let index = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), Some(ty_key))?;
                     let expr = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), Some(&ty_value_with_maybe))?;
 
                     let expected_type = match expr.get_type() {
@@ -1324,7 +1328,7 @@ impl MultiInstanceIndicesGroup {
     ) -> Vec<SmtExpr> {
         let declares: Vec<_> = consts
             .iter()
-            .map(|const_name| declare_const(*const_name, SmtInt))
+            .map(|const_name| declare_const(*const_name, Sort::Int))
             .collect();
 
         let predicate = self.smt_totality_check_function(varname);

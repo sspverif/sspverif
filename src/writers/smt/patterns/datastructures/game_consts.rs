@@ -1,11 +1,9 @@
 use crate::{
-    impl_Into_for_PlainSort,
     package::Composition,
     types::Type,
     writers::smt::{
         exprs::{SmtExpr, SmtLet},
         patterns::{DatastructurePattern, DatastructureSpec},
-        sorts::SmtPlainSort,
     },
 };
 
@@ -20,23 +18,7 @@ pub struct GameConstsSelector<'a> {
     pub(crate) ty: &'a Type,
 }
 
-#[derive(Debug, Clone)]
-pub struct GameConstsSort<'a> {
-    pub game_name: &'a str,
-}
-
-impl<'a> SmtPlainSort for GameConstsSort<'a> {
-    fn sort_name(&self) -> String {
-        let game_name = self.game_name;
-        format!("<GameConsts-{game_name}>")
-    }
-}
-
-impl_Into_for_PlainSort!('a, GameConstsSort<'a>);
-
 impl<'a> DatastructurePattern<'a> for GameConstsPattern<'a> {
-    type Sort = GameConstsSort<'a>;
-
     type Constructor = ();
 
     type Selector = GameConstsSelector<'a>;
@@ -47,10 +29,10 @@ impl<'a> DatastructurePattern<'a> for GameConstsPattern<'a> {
 
     const KEBAB_CASE: &'static str = "game-consts";
 
-    fn sort(&self) -> Self::Sort {
-        GameConstsSort {
-            game_name: self.game_name,
-        }
+    fn sort_name(&self) -> String {
+        let camel_case = Self::CAMEL_CASE;
+        let game_name = self.game_name;
+        format!("<{camel_case}_{game_name}>")
     }
 
     fn constructor_name(&self, _cons: &Self::Constructor) -> String {

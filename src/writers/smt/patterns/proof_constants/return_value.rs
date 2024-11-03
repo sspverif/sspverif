@@ -1,6 +1,6 @@
 use crate::{
     types::Type,
-    writers::smt::{patterns::proof_constants::ConstantPattern, sorts::SmtReturnValue},
+    writers::smt::{patterns::proof_constants::ConstantPattern, sorts::Sort},
 };
 
 pub struct ReturnValueConst<'a> {
@@ -11,8 +11,6 @@ pub struct ReturnValueConst<'a> {
 }
 
 impl<'a> ConstantPattern for ReturnValueConst<'a> {
-    type Sort = SmtReturnValue<Type>;
-
     fn name(&self) -> String {
         let Self {
             game_inst_name,
@@ -23,8 +21,8 @@ impl<'a> ConstantPattern for ReturnValueConst<'a> {
         format!("return-value-{game_inst_name}-{pkg_inst_name}-{oracle_name}")
     }
 
-    fn sort(&self) -> Self::Sort {
-        let inner_sort = self.tipe.clone();
-        SmtReturnValue { inner_sort }
+    fn sort(&self) -> Sort {
+        let inner_sort = self.tipe.clone().into();
+        Sort::Other("ReturnValue".to_string(), vec![inner_sort])
     }
 }

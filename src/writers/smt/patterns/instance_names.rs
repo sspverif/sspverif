@@ -8,10 +8,7 @@ pub fn only_non_function_expression<'a, T: 'a, I: IntoIterator<Item = &'a (T, Ex
     iter.into_iter()
         .filter_map(|(_, expr)| match expr.get_type() {
             Type::Fn(_, _) => None,
-            ty => {
-                println!("including expression {expr:?} of type {ty:?} in param list");
-                Some(expr)
-            }
+            _ => Some(expr),
         })
 }
 

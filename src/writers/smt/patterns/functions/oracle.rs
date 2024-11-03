@@ -3,13 +3,13 @@ use crate::{
     identifier::{game_ident::GameConstIdentifier, pkg_ident::PackageConstIdentifier},
     types::Type,
     writers::smt::{
-        exprs::SmtExpr,
         patterns::{
             self,
             instance_names::{encode_params, only_non_function_expression},
             oracle_args::OracleArgPattern as _,
-            DatastructurePattern as _, FunctionPattern, ReturnPattern, ReturnSort,
+            DatastructurePattern as _, FunctionPattern, ReturnPattern,
         },
+        sorts::Sort,
     },
 };
 
@@ -26,8 +26,6 @@ pub struct OraclePattern<'a> {
 }
 
 impl<'a> FunctionPattern for OraclePattern<'a> {
-    type ReturnSort = ReturnSort<'a>;
-
     fn function_name(&self) -> String {
         let Self {
             game_name,
@@ -42,7 +40,7 @@ impl<'a> FunctionPattern for OraclePattern<'a> {
         format!("<oracle-{game_name}-{encoded_game_params}-{pkg_name}-{encoded_pkg_params}-{oracle_name}>")
     }
 
-    fn function_args(&self) -> Vec<(String, SmtExpr)> {
+    fn function_args(&self) -> Vec<(String, Sort)> {
         let Self {
             game_name,
             game_params,
@@ -57,8 +55,8 @@ impl<'a> FunctionPattern for OraclePattern<'a> {
 
         let game_consts = patterns::oracle_args::GameConstsPattern { game_name };
 
-        let game_state_pair = (game_state.local_arg_name(), game_state.sort().into());
-        let game_const_pair = (game_consts.local_arg_name(), game_consts.sort().into());
+        let game_state_pair = (game_state.local_arg_name(), game_state.sort());
+        let game_const_pair = (game_consts.local_arg_name(), game_consts.sort());
 
         vec![game_state_pair, game_const_pair]
             .into_iter()
@@ -76,7 +74,7 @@ impl<'a> FunctionPattern for OraclePattern<'a> {
         2 + self.oracle_args.len()
     }
 
-    fn function_return_sort(&self) -> ReturnSort<'a> {
+    fn function_return_sort(&self) -> Sort {
         let Self {
             game_name,
             pkg_name,
@@ -93,6 +91,6 @@ impl<'a> FunctionPattern for OraclePattern<'a> {
             game_params,
             pkg_params,
         }
-        .sort()
+        .sort(vec![])
     }
 }

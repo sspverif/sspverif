@@ -2,9 +2,8 @@ use crate::{
     expressions::Expression,
     identifier::game_ident::GameConstIdentifier,
     writers::smt::{
-        exprs::SmtExpr,
         patterns::{FunctionPattern, GameStatePattern},
-        sorts::SmtBool,
+        sorts::Sort,
     },
 };
 
@@ -21,8 +20,6 @@ struct LemmaFunction<'a> {
 }
 
 impl<'a> FunctionPattern for LemmaFunction<'a> {
-    type ReturnSort = SmtBool;
-
     fn function_name(&self) -> String {
         let Self {
             left_game_inst_name,
@@ -33,16 +30,16 @@ impl<'a> FunctionPattern for LemmaFunction<'a> {
         format!("lemma-auto-{left_game_inst_name}-{right_game_inst_name}-{oracle_name}")
     }
 
-    fn function_args(&self) -> Vec<(String, SmtExpr)> {
+    fn function_args(&self) -> Vec<(String, Sort)> {
         let _state_left_pattern = GameStatePattern {
             game_name: self.left_game_name,
             params: self.left_game_params,
         };
-        vec![]
+        todo!()
     }
 
-    fn function_return_sort(&self) -> Self::ReturnSort {
-        todo!()
+    fn function_return_sort(&self) -> Sort {
+        Sort::Bool
     }
 
     fn function_args_count(&self) -> usize {

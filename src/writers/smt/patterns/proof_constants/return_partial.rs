@@ -1,9 +1,9 @@
 use crate::{
     expressions::Expression,
     identifier::{game_ident::GameConstIdentifier, pkg_ident::PackageConstIdentifier},
-    writers::smt::patterns::{
-        proof_constants::ConstantPattern, DatastructurePattern, PartialReturnPattern,
-        PartialReturnSort,
+    writers::smt::{
+        patterns::{proof_constants::ConstantPattern, DatastructurePattern, PartialReturnPattern},
+        sorts::Sort,
     },
 };
 
@@ -18,8 +18,6 @@ pub struct PartialReturnConst<'a> {
 }
 
 impl<'a> ConstantPattern for PartialReturnConst<'a> {
-    type Sort = PartialReturnSort<'a>;
-
     fn name(&self) -> String {
         let Self {
             game_inst_name,
@@ -30,7 +28,7 @@ impl<'a> ConstantPattern for PartialReturnConst<'a> {
         format!("<partial-return-{game_inst_name}-{pkg_inst_name}-{oracle_name}>")
     }
 
-    fn sort(&self) -> Self::Sort {
+    fn sort(&self) -> Sort {
         let Self {
             oracle_name,
             game_name,
@@ -47,6 +45,6 @@ impl<'a> ConstantPattern for PartialReturnConst<'a> {
             pkg_params,
             oracle_name,
         }
-        .sort()
+        .sort(vec![])
     }
 }

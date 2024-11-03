@@ -2,7 +2,7 @@ use crate::{
     types::Type,
     writers::smt::{
         exprs::{SmtAs, SmtExpr},
-        sorts::SmtReturnValue,
+        sorts::Sort,
     },
 };
 
@@ -29,8 +29,6 @@ impl<'a> ReturnValue<'a> {
 }
 
 impl<'a> DatastructurePattern<'a> for ReturnValue<'a> {
-    type Sort = SmtReturnValue<Type>;
-
     type Constructor = ReturnValueConstructor;
 
     type Selector = ReturnValueSelector;
@@ -41,10 +39,12 @@ impl<'a> DatastructurePattern<'a> for ReturnValue<'a> {
 
     const KEBAB_CASE: &'static str = "return-value";
 
-    fn sort(&self) -> Self::Sort {
-        SmtReturnValue {
-            inner_sort: self.inner_type.clone(),
-        }
+    fn sort_name(&self) -> String {
+        "ReturnValue".to_string()
+    }
+
+    fn sort_par_count(&self) -> usize {
+        1
     }
 
     fn constructor_name(&self, cons: &Self::Constructor) -> String {
@@ -82,6 +82,7 @@ impl<'a> DatastructurePattern<'a> for ReturnValue<'a> {
     fn call_constructor<F>(
         &self,
         spec: &DatastructureSpec<'a, Self>,
+        type_parameters: Vec<Sort>,
         con: &Self::Constructor,
         mut f: F,
     ) -> Option<SmtExpr>
@@ -92,7 +93,7 @@ impl<'a> DatastructurePattern<'a> for ReturnValue<'a> {
             return Some(
                 SmtAs {
                     term: "mk-abort",
-                    sort: self.sort(),
+                    sort: self.sort(type_parameters),
                 }
                 .into(),
             );

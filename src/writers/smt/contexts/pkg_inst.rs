@@ -197,7 +197,7 @@ impl<'a> PackageInstanceContext<'a> {
         let pkg_state_pattern = self.pkg_state_pattern();
         let pkg_state_spec = pkg_state_pattern.datastructure_spec(pkg);
 
-        pkg_state_pattern.call_constructor(&pkg_state_spec, &(), |sel| {
+        pkg_state_pattern.call_constructor(&pkg_state_spec, vec![], &(), |sel| {
             let PackageStateSelector { name, ty } = *sel;
             Some(
                 Identifier::PackageIdentifier(PackageIdentifier::State(PackageStateIdentifier {
@@ -215,7 +215,7 @@ impl<'a> PackageInstanceContext<'a> {
     }
 
     // TODO: find a way to return an iterator here
-    pub(crate) fn smt_define_param_functions(&self) -> Vec<SmtDefineFun<Expression, Type>> {
+    pub(crate) fn smt_define_param_functions(&self) -> Vec<SmtDefineFun<Expression>> {
         /// looks up the constant assigment for constant with name `name` in game instance
         /// `game_inst`.
         fn get_assignment(
@@ -283,7 +283,7 @@ impl<'a> PackageInstanceContext<'a> {
                     is_rec: false,
                     name: format!("<<func-pkg-{game_inst_name}-{pkg_inst_name}-{func_name}>>"),
                     args: named_args,
-                    ty: *ret.clone(),
+                    sort: (*ret).into(),
                     body: proof_fn_call,
                 }
             })

@@ -1,9 +1,12 @@
 use crate::{
     expressions::Expression,
     identifier::pkg_ident::PackageConstIdentifier,
-    writers::smt::patterns::{
-        datastructures::IntermediateStatePattern, proof_constants::ConstantPattern,
-        DatastructurePattern, IntermediateStateSort,
+    writers::smt::{
+        patterns::{
+            datastructures::IntermediateStatePattern, proof_constants::ConstantPattern,
+            DatastructurePattern,
+        },
+        sorts::Sort,
     },
 };
 
@@ -17,8 +20,6 @@ pub struct IntermediateStateConst<'a> {
 }
 
 impl<'a> ConstantPattern for IntermediateStateConst<'a> {
-    type Sort = IntermediateStateSort<'a>;
-
     fn name(&self) -> String {
         let Self {
             game_inst_name,
@@ -30,7 +31,7 @@ impl<'a> ConstantPattern for IntermediateStateConst<'a> {
         format!("<intermediate-state-{game_inst_name}-{oracle_name}-{variant}>")
     }
 
-    fn sort(&self) -> Self::Sort {
+    fn sort(&self) -> Sort {
         let Self {
             pkg_name,
             pkg_params,
@@ -43,6 +44,6 @@ impl<'a> ConstantPattern for IntermediateStateConst<'a> {
             params: pkg_params,
             oracle_name,
         }
-        .sort()
+        .sort(vec![])
     }
 }

@@ -1,4 +1,7 @@
-use super::exprs::{SmtExpr, SmtWrap};
+use super::{
+    exprs::{SmtExpr, SmtWrap},
+    sorts::Sort,
+};
 
 pub fn declare_single_constructor_datatype(
     sort_name: &str,
@@ -37,6 +40,6 @@ pub fn declare_datatype(
         .into()
 }
 
-pub fn declare_const<N: Into<SmtExpr>, S: Into<SmtExpr>>(const_name: N, sort: S) -> SmtExpr {
+pub fn declare_const<N: Into<SmtExpr>>(const_name: N, sort: Sort) -> SmtExpr {
     ("declare-const", const_name, sort).into()
 }

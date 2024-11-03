@@ -1,11 +1,7 @@
 use crate::{
-    impl_Into_for_PlainSort,
     package::Package,
     types::Type,
-    writers::smt::{
-        patterns::{DatastructurePattern, DatastructureSpec},
-        sorts::SmtPlainSort,
-    },
+    writers::smt::patterns::{DatastructurePattern, DatastructureSpec},
 };
 
 #[derive(Debug)]
@@ -19,23 +15,7 @@ pub struct PackageConstsSelector<'a> {
     pub(crate) ty: &'a Type,
 }
 
-#[derive(Debug, PartialEq)]
-pub struct PackageConstsSort<'a> {
-    pub pkg_name: &'a str,
-}
-
-impl<'a> SmtPlainSort for PackageConstsSort<'a> {
-    fn sort_name(&self) -> String {
-        let pkg_name = self.pkg_name;
-        format!("<PackageConsts-{pkg_name}>")
-    }
-}
-
-impl_Into_for_PlainSort!('a, PackageConstsSort<'a>);
-
 impl<'a> DatastructurePattern<'a> for PackageConstsPattern<'a> {
-    type Sort = PackageConstsSort<'a>;
-
     type Constructor = ();
 
     type Selector = PackageConstsSelector<'a>;
@@ -46,10 +26,10 @@ impl<'a> DatastructurePattern<'a> for PackageConstsPattern<'a> {
 
     const KEBAB_CASE: &'static str = "pkg-consts";
 
-    fn sort(&self) -> Self::Sort {
-        PackageConstsSort {
-            pkg_name: self.pkg_name,
-        }
+    fn sort_name(&self) -> String {
+        let camel_case = Self::CAMEL_CASE;
+        let pkg_name = self.pkg_name;
+        format!("<{camel_case}_{pkg_name}>")
     }
 
     fn constructor_name(&self, _cons: &Self::Constructor) -> String {

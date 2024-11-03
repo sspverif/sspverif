@@ -3,11 +3,12 @@ use crate::{
     writers::smt::{
         exprs::{SmtExpr, SmtLet},
         patterns::{
-            datastructures::{game_consts::GameConstsSort, pkg_consts::PackageConstsSort},
             game_consts::bind_game_consts,
+            oracle_args::{GameConstsPattern, OracleArgPattern as _},
             pkg_consts::PackageConstsPattern,
             DatastructurePattern, FunctionPattern,
         },
+        sorts::Sort,
     },
 };
 
@@ -20,8 +21,6 @@ pub struct ConstMappingFunction<'a> {
 }
 
 impl<'a> FunctionPattern for ConstMappingFunction<'a> {
-    type ReturnSort = PackageConstsSort<'a>;
-
     fn function_name(&self) -> String {
         let Self {
             game_name,
@@ -32,20 +31,18 @@ impl<'a> FunctionPattern for ConstMappingFunction<'a> {
         format!("<pkg-consts-{game_name}-{pkg_inst_name}>")
     }
 
-    fn function_args(&self) -> Vec<(String, SmtExpr)> {
-        vec![(
-            "<game-consts>".to_string(),
-            GameConstsSort {
-                game_name: self.game_name,
-            }
-            .into(),
-        )]
+    fn function_args(&self) -> Vec<(String, Sort)> {
+        let game_consts_pattern = GameConstsPattern {
+            game_name: self.game_name,
+        };
+        vec![("<game-consts>".to_string(), game_consts_pattern.sort())]
     }
 
-    fn function_return_sort(&self) -> Self::ReturnSort {
-        PackageConstsSort {
+    fn function_return_sort(&self) -> Sort {
+        PackageConstsPattern {
             pkg_name: self.pkg_name,
         }
+        .sort(vec![])
     }
 
     fn function_args_count(&self) -> usize {
@@ -57,7 +54,7 @@ pub fn define_fun<'a>(
     game: &'a Composition,
     pkg: &'a Package,
     pkg_inst_name: &'a str,
-) -> Option<SmtDefineFun<SmtLet<SmtExpr>, PackageConstsSort<'a>>> {
+) -> Option<SmtDefineFun<SmtLet<SmtExpr>>> {
     let pkg_inst = game
         .pkgs
         .iter()
@@ -83,7 +80,7 @@ pub fn define_fun<'a>(
             game,
             &"<game-consts>".into(),
             pkg_consts
-                .call_constructor(&pkg_consts_spec, &(), |sel| {
+                .call_constructor(&pkg_consts_spec, vec![], &(), |sel| {
                     pkg_inst
                         .params
                         .iter()

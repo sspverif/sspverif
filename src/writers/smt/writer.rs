@@ -491,6 +491,7 @@ impl<'a> CompositionSmtWriter<'a> {
         pattern
             .call_constructor(
                 &spec,
+                vec![],
                 &IntermediateStateConstructor::OracleState(path),
                 |sel| {
                     Some(match sel {
@@ -567,7 +568,12 @@ impl<'a> CompositionSmtWriter<'a> {
                 };
                 let spec = partial_return_pattern.datastructure_spec(&());
                 partial_return_pattern
-                    .call_constructor(&spec, &PartialReturnConstructor::Abort, |_| unreachable!())
+                    .call_constructor(
+                        &spec,
+                        vec![],
+                        &PartialReturnConstructor::Abort,
+                        |_| unreachable!(),
+                    )
                     .unwrap()
             }
             Statement::Return(None, _) => {
@@ -581,7 +587,7 @@ impl<'a> CompositionSmtWriter<'a> {
 
                 let spec = partial_return_pattern.datastructure_spec(&());
                 partial_return_pattern
-                    .call_constructor(&spec, &PartialReturnConstructor::Return, |sel| {
+                    .call_constructor(&spec, vec![], &PartialReturnConstructor::Return, |sel| {
                         Some(match sel {
                             patterns::PartialReturnSelector::GameState => "__global_state".into(),
                             patterns::PartialReturnSelector::IntermediateState => {
@@ -591,6 +597,7 @@ impl<'a> CompositionSmtWriter<'a> {
                                 ipattern
                                     .call_constructor(
                                         &ispec,
+                                        vec![],
                                         &IntermediateStateConstructor::End,
                                         |sel| {
                                             Some(match sel {
@@ -944,7 +951,7 @@ impl<'a> CompositionSmtWriter<'a> {
                     lhs: *inner.clone(),
                     rhs: SmtAs {
                         term: "mk-none",
-                        sort: Type::Maybe(Box::new(t)),
+                        sort: Type::Maybe(Box::new(t)).into(),
                     },
                 },
                 then: oracle_ctx.smt_construct_abort(&GameStatePattern),
@@ -1105,7 +1112,7 @@ impl<'a> CompositionSmtWriter<'a> {
                 .into(),
             (
                 "__intermediate_state",
-                split_oracle_ctx.intermediate_state_pattern().sort(),
+                split_oracle_ctx.intermediate_state_pattern().sort(vec![]),
             )
                 .into(),
         ];
