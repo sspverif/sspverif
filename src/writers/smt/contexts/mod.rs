@@ -1,5 +1,5 @@
 use crate::{
-    proof::GameInstance,
+    proof::{Equivalence, GameInstance, Proof},
     transforms::samplify::SampleInfo,
     types::Type,
     writers::smt::{exprs::SmtExpr, names},
@@ -16,10 +16,16 @@ impl GlobalContext {
 }
 
 //mod game;
+mod equivalence;
 mod game_inst;
 mod oracle;
 mod pkg_inst;
 mod split_oracle;
+
+struct EquivalenceContext<'a> {
+    proof: &'a Proof,
+    equivalence: &'a Equivalence,
+}
 
 #[derive(Clone, Debug, Copy)]
 pub struct GameInstanceContext<'a> {
