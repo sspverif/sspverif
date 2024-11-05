@@ -43,7 +43,7 @@ impl<'a> GameInstanceContext<'a> {
         self.game_inst().name()
     }
 
-    pub(crate) fn game_params(&self) -> &[(GameConstIdentifier, Expression)] {
+    pub(crate) fn game_params(&self) -> &'a [(GameConstIdentifier, Expression)] {
         self.game_inst().consts.as_slice()
     }
 }
@@ -57,8 +57,8 @@ impl<'a> GameInstanceContext<'a> {
         }
     }
 
-    pub(crate) fn datastructure_game_state_pattern(&self) -> GameStatePattern {
-        let game_name = self.game_inst.game_name();
+    pub(crate) fn datastructure_game_state_pattern(&self) -> GameStatePattern<'a> {
+        let game_name = self.game_name();
         let params = &self.game_inst.consts;
 
         GameStatePattern { game_name, params }
@@ -334,7 +334,7 @@ impl<'a> GameInstanceContext<'a> {
             .game()
             .exports
             .iter()
-            .find(|Export(_inst_offs, osig)| osig.name == oracle_name)?;
+            .find(|Export(_, osig)| osig.name == oracle_name)?;
 
         let inst_ctx = PackageInstanceContext {
             game_ctx: self.clone(),

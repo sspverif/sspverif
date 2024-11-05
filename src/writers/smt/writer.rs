@@ -681,7 +681,7 @@ impl<'a> CompositionSmtWriter<'a> {
         oracle_ctx.smt_construct_return(new_game_state, expr.clone())
     }
 
-    fn smt_build_abort<OCTX: GenericOracleContext>(&self, oracle_ctx: &OCTX) -> SmtExpr {
+    fn smt_build_abort<OCTX: GenericOracleContext<'a>>(&self, oracle_ctx: &OCTX) -> SmtExpr {
         let new_game_state = oracle_ctx.smt_write_back_state(self.sample_info);
         let game_inst_ctx = oracle_ctx.game_inst_ctx();
         let pkg_inst = oracle_ctx.pkg_inst_ctx().pkg_inst();
@@ -726,7 +726,7 @@ impl<'a> CompositionSmtWriter<'a> {
      *
      */
 
-    fn smt_build_sample<OCTX: GenericOracleContext>(
+    fn smt_build_sample<OCTX: GenericOracleContext<'a>>(
         &self,
         oracle_ctx: &OCTX,
         result: SmtExpr,
@@ -782,7 +782,7 @@ impl<'a> CompositionSmtWriter<'a> {
         .into()
     }
 
-    fn smt_build_parse<OCTX: GenericOracleContext>(
+    fn smt_build_parse<OCTX: GenericOracleContext<'a>>(
         &self,
         _oracle_ctx: &OCTX,
         result: SmtExpr,
@@ -812,7 +812,7 @@ impl<'a> CompositionSmtWriter<'a> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn smt_build_invoke<OCTX: GenericOracleContext>(
+    fn smt_build_invoke<OCTX: GenericOracleContext<'a>>(
         &self,
         this_oracle_ctx: &OCTX,
         body: SmtExpr,
@@ -909,7 +909,7 @@ impl<'a> CompositionSmtWriter<'a> {
         }
     }
 
-    fn smt_build_assign<OCTX: GenericOracleContext>(
+    fn smt_build_assign<OCTX: GenericOracleContext<'a>>(
         &self,
         oracle_ctx: &OCTX,
         result: SmtExpr,

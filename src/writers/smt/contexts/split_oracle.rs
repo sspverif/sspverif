@@ -119,8 +119,8 @@ impl<'a> SplitOracleContext<'a> {
     }
 }
 
-impl<'a> GenericOracleContext for SplitOracleContext<'a> {
-    fn game_inst_ctx(&self) -> GameInstanceContext {
+impl<'a> GenericOracleContext<'a> for SplitOracleContext<'a> {
+    fn game_inst_ctx(&self) -> GameInstanceContext<'a> {
         self.game_inst_ctx()
     }
 
@@ -128,15 +128,15 @@ impl<'a> GenericOracleContext for SplitOracleContext<'a> {
         self.pkg_inst_ctx()
     }
 
-    fn oracle_name(&self) -> &str {
+    fn oracle_name(&self) -> &'a str {
         &self.oracle_def().sig.name
     }
 
-    fn oracle_args(&self) -> &[(String, Type)] {
+    fn oracle_args(&self) -> &'a [(String, Type)] {
         &self.oracle_def().sig.args
     }
 
-    fn oracle_return_type(&self) -> &crate::types::Type {
+    fn oracle_return_type(&self) -> &'a crate::types::Type {
         &self.oracle_def().sig.tipe
     }
 

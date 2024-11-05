@@ -1,4 +1,4 @@
-use crate::package::OracleDef;
+use crate::package::{OracleDef, OracleSig};
 use crate::transforms::samplify::SampleInfo;
 use crate::types::Type;
 use crate::writers::smt::patterns::oracle_args::OracleArgPattern;
@@ -16,17 +16,16 @@ use super::{GameInstanceContext, GenericOracleContext, OracleContext, PackageIns
 
 // Patterns
 impl<'a> OracleContext<'a> {
-    pub(crate) fn oracle_pattern(&'a self) -> OraclePattern<'a> {
-        let game_inst = &self.game_inst_context.game_inst;
-        let pkg_inst = &game_inst.game().pkgs[self.pkg_inst_offs];
+    pub(crate) fn oracle_pattern(&self) -> OraclePattern<'a> {
+        let gctx: GameInstanceContext<'a> = self.game_inst_ctx();
+        let pctx: PackageInstanceContext<'a> = self.pkg_inst_ctx();
 
-        let game_name = self.game_inst_context.game_inst().game_name();
-        let pkg_name = self.pkg_inst_ctx().pkg_name();
-        let oracle_name = self.oracle_name();
-        let oracle_args = self.oracle_args();
-
-        let game_params = &game_inst.consts;
-        let pkg_params = &pkg_inst.params;
+        let game_name: &'a _ = gctx.game_name();
+        let pkg_name: &'a _ = pctx.pkg_name();
+        let oracle_name: &'a _ = self.oracle_name();
+        let oracle_args: &'a _ = self.oracle_args();
+        let game_params: &'a _ = gctx.game_params();
+        let pkg_params: &'a _ = pctx.pkg_params();
 
         OraclePattern {
             game_name,
@@ -38,16 +37,15 @@ impl<'a> OracleContext<'a> {
         }
     }
 
-    pub(crate) fn dispatch_oracle_pattern(&'a self) -> DispatchOraclePattern<'a> {
-        let game_inst = &self.game_inst_context.game_inst;
-        let pkg_inst = &game_inst.game().pkgs[self.pkg_inst_offs];
+    pub(crate) fn dispatch_oracle_pattern(&self) -> DispatchOraclePattern<'a> {
+        let gctx: GameInstanceContext<'a> = self.game_inst_ctx();
+        let pctx: PackageInstanceContext<'a> = self.pkg_inst_ctx();
 
-        let game_name = self.game_inst_context.game_inst().game_name();
-        let pkg_name = self.pkg_inst_ctx().pkg_name();
-        let oracle_sig = &self.oracle_def().sig;
-
-        let game_params = &game_inst.consts;
-        let pkg_params = &pkg_inst.params;
+        let game_name: &'a _ = gctx.game_name();
+        let pkg_name: &'a _ = pctx.pkg_name();
+        let oracle_sig: &'a _ = self.oracle_sig();
+        let game_params: &'a _ = gctx.game_params();
+        let pkg_params: &'a _ = pctx.pkg_params();
 
         DispatchOraclePattern {
             game_name,
@@ -58,16 +56,15 @@ impl<'a> OracleContext<'a> {
         }
     }
 
-    pub(crate) fn return_pattern(&self) -> ReturnPattern {
-        let game_inst = &self.game_inst_context.game_inst;
-        let pkg_inst = &game_inst.game().pkgs[self.pkg_inst_offs];
+    pub(crate) fn return_pattern(&self) -> ReturnPattern<'a> {
+        let gctx: GameInstanceContext<'a> = self.game_inst_ctx();
+        let pctx: PackageInstanceContext<'a> = self.pkg_inst_ctx();
 
-        let game_name = self.game_inst_context.game_inst().game_name();
-        let pkg_name = self.pkg_inst_ctx().pkg_name();
-        let oracle_name = self.oracle_name();
-
-        let game_params = &game_inst.consts;
-        let pkg_params = &pkg_inst.params;
+        let game_name: &'a _ = gctx.game_name();
+        let pkg_name: &'a _ = pctx.pkg_name();
+        let oracle_name: &'a _ = self.oracle_name();
+        let game_params: &'a _ = gctx.game_params();
+        let pkg_params: &'a _ = pctx.pkg_params();
 
         ReturnPattern {
             game_name,
@@ -124,6 +121,13 @@ impl<'a> OracleContext<'a> {
         &self.game_inst_context.game_inst.game().pkgs[self.pkg_inst_offs]
             .pkg
             .oracles[self.oracle_offs]
+    }
+
+    pub(crate) fn oracle_sig(&self) -> &'a OracleSig {
+        &self.game_inst_context.game_inst.game().pkgs[self.pkg_inst_offs]
+            .pkg
+            .oracles[self.oracle_offs]
+            .sig
     }
 }
 // SMT Code Generation
@@ -285,27 +289,28 @@ impl<'a> OracleContext<'a> {
 }
 
 // Contexts
-impl<'a> GenericOracleContext for OracleContext<'a> {
+impl<'a> GenericOracleContext<'a> for OracleContext<'a> {
     fn game_inst_ctx(&self) -> GameInstanceContext<'a> {
-        self.game_inst_context.clone()
+        self.game_inst_context
     }
 
     fn pkg_inst_ctx(&self) -> PackageInstanceContext<'a> {
         PackageInstanceContext {
-            game_ctx: self.game_inst_context.clone(),
+            game_ctx: self.game_inst_context,
             inst_offs: self.pkg_inst_offs,
         }
     }
 
     fn oracle_name(&self) -> &'a str {
-        &self.oracle_def().sig.name
+        let oracle_def: &'a _ = self.oracle_def();
+        &oracle_def.sig.name
     }
 
     fn oracle_args(&self) -> &'a [(String, Type)] {
         &self.oracle_def().sig.args
     }
 
-    fn oracle_return_type(&self) -> &Type {
+    fn oracle_return_type(&self) -> &'a Type {
         &self.oracle_def().sig.tipe
     }
 
