@@ -9,7 +9,7 @@ use crate::writers::smt::patterns::oracle_args::{
     OldNewOracleArgPattern as _, UnitOracleArgPattern as _,
 };
 use crate::writers::smt::patterns::ReturnIsAbortConst;
-use crate::writers::smt::sorts::SmtBool;
+use crate::writers::smt::sorts::Sort;
 use crate::{
     hacks,
     package::{Export, OracleSig, SplitExport},
@@ -381,7 +381,7 @@ impl<'a> EquivalenceContext<'a> {
                 for (arg_name, arg_type) in &sig.args {
                     out.push(declare::declare_const(
                         orcl_ctx.smt_arg_name(arg_name),
-                        arg_type,
+                        arg_type.clone().into(),
                     ));
                 }
             }
@@ -396,7 +396,7 @@ impl<'a> EquivalenceContext<'a> {
                 for (arg_name, arg_type) in &sig.args {
                     out.push(declare::declare_const(
                         orcl_ctx.smt_arg_name(arg_name),
-                        arg_type,
+                        arg_type.clone().into(),
                     ));
                 }
             }
@@ -416,7 +416,7 @@ impl<'a> EquivalenceContext<'a> {
                 for (arg_name, arg_type) in &sig.args {
                     out.push(declare::declare_const(
                         orcl_ctx.smt_arg_name(arg_name),
-                        arg_type,
+                        arg_type.clone().into(),
                     ));
                 }
             }
@@ -533,7 +533,7 @@ impl<'a> EquivalenceContext<'a> {
         ];
 
         for (name, value) in consts {
-            let declare = declare_const(name, SmtBool);
+            let declare = declare_const(name, Sort::Bool);
             let constrain = SmtAssert(SmtEq2 {
                 lhs: name,
                 rhs: value,
@@ -1565,8 +1565,8 @@ fn build_rands(
             let randctr_name = format!("randctr-{game_inst_name}-{sample_id}");
             let randval_name = format!("randval-{game_inst_name}-{sample_id}");
 
-            let decl_randctr = declare::declare_const(randctr_name.clone(), Type::Integer);
-            let decl_randval = declare::declare_const(randval_name.clone(), tipe);
+            let decl_randctr = declare::declare_const(randctr_name.clone(), Sort::Int);
+            let decl_randval = declare::declare_const(randval_name.clone(), tipe.clone().into());
 
             // pull randomness counter for given sample_id out of the gamestate
             let randctr = gctx
