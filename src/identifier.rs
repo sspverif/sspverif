@@ -1,3 +1,6 @@
+use game_ident::{GameIdentInstanciationInfo, GameIdentifier};
+use proof_ident::ProofIdentInstanciationInfo;
+
 use crate::{expressions::Expression, parser::package::ForComp, types::Type};
 
 use self::{
@@ -25,6 +28,18 @@ impl From<GameConstIdentifier> for Identifier {
 impl From<PackageOracleCodeLoopVarIdentifier> for Identifier {
     fn from(value: PackageOracleCodeLoopVarIdentifier) -> Self {
         Identifier::PackageIdentifier(PackageIdentifier::CodeLoopVar(value))
+    }
+}
+
+impl From<PackageIdentifier> for Identifier {
+    fn from(value: PackageIdentifier) -> Self {
+        Identifier::PackageIdentifier(value)
+    }
+}
+
+impl From<GameIdentifier> for Identifier {
+    fn from(value: GameIdentifier) -> Self {
+        Identifier::GameIdentifier(value)
     }
 }
 
@@ -82,6 +97,44 @@ pub mod pkg_ident {
                 PackageIdentifier::OracleImport(oracle_import) => &mut oracle_import.return_type,
                 PackageIdentifier::ImportsLoopVar(_) | PackageIdentifier::CodeLoopVar(_) => {
                     panic!("cannot provide a mutable reference to the type of a loopvar")
+                }
+            }
+        }
+
+        pub(crate) fn set_pkg_inst_info(&mut self, pkg_inst_name: String, game_name: String) {
+            match self {
+                PackageIdentifier::Const(id) => id.set_pkg_inst_info(pkg_inst_name, game_name),
+                PackageIdentifier::State(id) => id.set_pkg_inst_info(pkg_inst_name, game_name),
+                PackageIdentifier::Local(id) => id.set_pkg_inst_info(pkg_inst_name, game_name),
+                PackageIdentifier::OracleImport(id) => {
+                    id.set_pkg_inst_info(pkg_inst_name, game_name)
+                }
+                PackageIdentifier::OracleArg(id) => id.set_pkg_inst_info(pkg_inst_name, game_name),
+                PackageIdentifier::ImportsLoopVar(id) => {
+                    id.set_pkg_inst_info(pkg_inst_name, game_name)
+                }
+                PackageIdentifier::CodeLoopVar(id) => {
+                    id.set_pkg_inst_info(pkg_inst_name, game_name)
+                }
+            }
+        }
+
+        pub(crate) fn set_game_inst_info(&mut self, game_inst_name: String, proof_name: String) {
+            match self {
+                PackageIdentifier::Const(id) => id.set_game_inst_info(game_inst_name, proof_name),
+                PackageIdentifier::State(id) => id.set_game_inst_info(game_inst_name, proof_name),
+                PackageIdentifier::Local(id) => id.set_game_inst_info(game_inst_name, proof_name),
+                PackageIdentifier::OracleImport(id) => {
+                    id.set_game_inst_info(game_inst_name, proof_name)
+                }
+                PackageIdentifier::OracleArg(id) => {
+                    id.set_game_inst_info(game_inst_name, proof_name)
+                }
+                PackageIdentifier::ImportsLoopVar(id) => {
+                    id.set_game_inst_info(game_inst_name, proof_name)
+                }
+                PackageIdentifier::CodeLoopVar(id) => {
+                    id.set_game_inst_info(game_inst_name, proof_name)
                 }
             }
         }
@@ -157,6 +210,30 @@ pub mod pkg_ident {
         fn from(value: PackageStateIdentifier) -> Self {
             Identifier::PackageIdentifier(PackageIdentifier::State(value))
         }
+    }
+
+    macro_rules! impl_set_inst_info {
+        ($idtype:ty) => {
+            impl $idtype {
+                pub(crate) fn set_pkg_inst_info(
+                    &mut self,
+                    pkg_inst_name: String,
+                    game_name: String,
+                ) {
+                    self.pkg_inst_name = Some(pkg_inst_name);
+                    self.game_name = Some(game_name);
+                }
+
+                pub(crate) fn set_game_inst_info(
+                    &mut self,
+                    game_inst_name: String,
+                    proof_name: String,
+                ) {
+                    self.game_inst_name = Some(game_inst_name);
+                    self.proof_name = Some(proof_name);
+                }
+            }
+        };
     }
 
     impl PackageStateIdentifier {
@@ -238,6 +315,14 @@ pub mod pkg_ident {
         pub game_inst_name: Option<String>,
         pub proof_name: Option<String>,
     }
+
+    impl_set_inst_info!(PackageConstIdentifier);
+    impl_set_inst_info!(PackageStateIdentifier);
+    impl_set_inst_info!(PackageLocalIdentifier);
+    impl_set_inst_info!(PackageOracleArgIdentifier);
+    impl_set_inst_info!(PackageOracleImportIdentifier);
+    impl_set_inst_info!(PackageImportsLoopVarIdentifier);
+    impl_set_inst_info!(PackageOracleCodeLoopVarIdentifier);
 }
 
 /*
@@ -311,6 +396,27 @@ pub mod game_ident {
         }
     }
 
+    impl GameIdentifier {
+        pub(crate) fn set_game_inst_info(&mut self, game_inst_name: String, proof_name: String) {
+            match self {
+                GameIdentifier::Const(id) => id.set_game_inst_info(game_inst_name, proof_name),
+                GameIdentifier::LoopVar(id) => id.set_game_inst_info(game_inst_name, proof_name),
+            }
+        }
+    }
+    impl GameConstIdentifier {
+        pub(crate) fn set_game_inst_info(&mut self, game_inst_name: String, proof_name: String) {
+            self.game_inst_name = Some(game_inst_name);
+            self.proof_name = Some(proof_name);
+        }
+    }
+    impl GameLoopVarIdentifier {
+        pub(crate) fn set_game_inst_info(&mut self, game_inst_name: String, proof_name: String) {
+            self.game_inst_name = Some(game_inst_name);
+            self.proof_name = Some(proof_name);
+        }
+    }
+
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
     pub struct GameIdentInstanciationInfo {
         pub lower: PackageConstIdentifier,
@@ -322,6 +428,8 @@ pub mod game_ident {
         pub game_name: String,
         pub name: String,
         pub tipe: crate::types::Type,
+        pub game_inst_name: Option<String>,
+        pub proof_name: Option<String>,
         pub inst_info: Option<GameIdentInstanciationInfo>,
     }
 
@@ -469,6 +577,42 @@ impl Identifier {
             Identifier::PackageIdentifier(pkg_ident) => pkg_ident.ident(),
             Identifier::GameIdentifier(game_ident) => game_ident.ident(),
             Identifier::ProofIdentifier(proof_ident) => proof_ident.ident(),
+        }
+    }
+
+    pub(crate) fn set_pkg_inst_info(&mut self, pkg_inst_name: String, game_name: String) {
+        match self {
+            Identifier::PackageIdentifier(id) => id.set_pkg_inst_info(pkg_inst_name, game_name),
+            Identifier::GameIdentifier(_) => {}
+            Identifier::ProofIdentifier(_) => {}
+            Identifier::Generated(_, _) => {}
+        }
+    }
+
+    pub(crate) fn set_game_inst_info(&mut self, game_inst_name: String, proof_name: String) {
+        match self {
+            Identifier::PackageIdentifier(id) => id.set_game_inst_info(game_inst_name, proof_name),
+            Identifier::GameIdentifier(id) => id.set_game_inst_info(game_inst_name, proof_name),
+            Identifier::ProofIdentifier(_) => {}
+            Identifier::Generated(_, _) => {}
+        }
+    }
+
+    pub(crate) fn with_instance_info(
+        &mut self,
+        game_ident_inst_info: Option<GameIdentInstanciationInfo>,
+        proof_ident_inst_info: Option<ProofIdentInstanciationInfo>,
+    ) -> Self {
+        match (self, game_ident_inst_info, proof_ident_inst_info) {
+            (ident @ Identifier::PackageIdentifier(_), _, _) => ident.clone(),
+            (ident @ Identifier::Generated(_, _), _, _) => ident.clone(),
+            (Identifier::GameIdentifier(game_ident), Some(inst_info), None) => {
+                Identifier::GameIdentifier(game_ident.clone().with_instance_info(inst_info))
+            }
+            (Identifier::ProofIdentifier(proof_ident), None, Some(inst_info)) => {
+                Identifier::ProofIdentifier(proof_ident.clone().with_instance_info(inst_info))
+            }
+            (other, _, _) => unreachable!("{other:?}"),
         }
     }
 }

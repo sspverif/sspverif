@@ -1,7 +1,7 @@
 // These contain testdata
-mod games;
-mod packages;
-mod proofs;
+pub(crate) mod games;
+pub(crate) mod packages;
+pub(crate) mod proofs;
 
 // these contain tests:
 
@@ -12,6 +12,8 @@ mod complete;
 /// The sound module contains tests whether things that are not supposed to parse actually produce
 /// errors - and the right ones.
 mod sound;
+
+const TESTDATA_SSPCODE_PATH: &str = "testdata/ssp-code/";
 
 fn slice_source_span<'a>(
     source: &'a miette::NamedSource<String>,

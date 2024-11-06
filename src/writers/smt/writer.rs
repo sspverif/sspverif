@@ -19,16 +19,17 @@ use super::contexts::{
 use super::exprs::{SmtAs, SmtEq2};
 use super::names;
 use super::partials::PartialsDatatype;
+use super::patterns::oracle_args::{GameConstsPattern, OracleArgPattern};
 use super::patterns::{
-    declare_datatype, FunctionPattern, GlobalStatePattern, IntermediateStateConstructor,
-    IntermediateStatePattern, IntermediateStateSelector, OraclePattern, PartialOraclePattern,
-    ReturnValue, ReturnValueSelector, SelfStatePattern, VariablePattern,
+    declare_datatype, variables::GameStatePattern, variables::VariablePattern, FunctionPattern,
+    IntermediateStateConstructor, IntermediateStatePattern, IntermediateStateSelector,
+    PartialOraclePattern, ReturnValue, ReturnValueSelector,
 };
 
 use super::patterns;
 use patterns::DatastructurePattern;
 
-pub struct CompositionSmtWriter<'a> {
+pub(crate) struct CompositionSmtWriter<'a> {
     game_inst: &'a GameInstance,
 
     sample_info: &'a SampleInfo,
@@ -36,7 +37,7 @@ pub struct CompositionSmtWriter<'a> {
 }
 
 impl<'a> CompositionSmtWriter<'a> {
-    pub fn new(
+    pub(crate) fn new(
         game_inst: &'a GameInstance,
         sample_info: &'a SampleInfo,
         split_info: &'a SplitInfo,
@@ -56,7 +57,11 @@ impl<'a> CompositionSmtWriter<'a> {
         self.context().pkg_inst_ctx_by_name(inst_name)
     }
 
-    fn get_oracle_context(&self, inst_name: &str, oracle_name: &str) -> Option<OracleContext<'a>> {
+    fn this_normal_oracle_ctx(
+        &self,
+        inst_name: &str,
+        oracle_name: &str,
+    ) -> Option<OracleContext<'a>> {
         self.get_package_instance_context(inst_name)?
             .oracle_ctx_by_name(oracle_name)
     }
@@ -84,8 +89,14 @@ impl<'a> CompositionSmtWriter<'a> {
             .smt_declare_pkgstate()
     }
 
-    // build the (declare-datatype ...) expressions for all package states and the joint composition state
-    pub fn smt_composition_state(&self) -> Vec<SmtExpr> {
+    fn smt_pkg_consts(&self, inst: &PackageInstance) -> SmtExpr {
+        self.get_package_instance_context(&inst.name)
+            .unwrap()
+            .smt_declare_pkg_consts()
+    }
+
+    // build the (declare-datatype ...) expressions for all package consts and the joint composition consts
+    pub(crate) fn smt_datatypes_game_state(&self) -> Vec<SmtExpr> {
         let mut states: Vec<SmtExpr> = self
             .context()
             .game()
@@ -99,12 +110,19 @@ impl<'a> CompositionSmtWriter<'a> {
         states
     }
 
-    pub fn smt_sort_return(&self, inst_name: &str, oracle_name: &str) -> SmtExpr {
-        names::return_sort_name(&self.context().game().name, inst_name, oracle_name).into()
-    }
+    // build the (declare-datatype ...) expressions for all package states and the joint composition state
+    pub(crate) fn smt_datatypes_game_consts(&self) -> Vec<SmtExpr> {
+        let mut consts_decls: Vec<SmtExpr> = self
+            .context()
+            .game()
+            .pkgs
+            .iter()
+            .map(|pkg| self.smt_pkg_consts(pkg))
+            .collect();
 
-    pub fn smt_sort_composition_state(&self) -> SmtExpr {
-        names::gamestate_sort_name(&self.context().game().name).into()
+        consts_decls.push(self.context().smt_declare_game_consts());
+
+        consts_decls
     }
 
     fn smt_pkg_return(&self, inst: &PackageInstance) -> Vec<SmtExpr> {
@@ -121,7 +139,7 @@ impl<'a> CompositionSmtWriter<'a> {
             .collect()
     }
 
-    pub fn smt_composition_return(&self) -> Vec<SmtExpr> {
+    pub(crate) fn smt_datatypes_game_return(&self) -> Vec<SmtExpr> {
         self.context()
             .game()
             .pkgs
@@ -399,16 +417,15 @@ impl<'a> CompositionSmtWriter<'a> {
         oracle_ctx: &SplitOracleContext,
         path: &SplitPath,
     ) -> SmtExpr {
-        let game_inst_ctx = oracle_ctx.game_inst_ctx();
         let pkg_inst = oracle_ctx.pkg_inst_ctx().pkg_inst();
 
-        let game_inst_name = &game_inst_ctx.game_inst().name();
-        let pkg_inst_name = &pkg_inst.name;
+        let params = &pkg_inst.params;
+        let pkg_name = &pkg_inst.pkg.name;
         let oracle_name = oracle_ctx.oracle_name();
 
         let pattern = IntermediateStatePattern {
-            game_inst_name,
-            pkg_inst_name,
+            pkg_name,
+            params,
             oracle_name,
         };
 
@@ -474,6 +491,7 @@ impl<'a> CompositionSmtWriter<'a> {
         pattern
             .call_constructor(
                 &spec,
+                vec![],
                 &IntermediateStateConstructor::OracleState(path),
                 |sel| {
                     Some(match sel {
@@ -523,8 +541,12 @@ impl<'a> CompositionSmtWriter<'a> {
         let game_inst_ctx = oracle_ctx.game_inst_ctx();
         let pkg_inst = oracle_ctx.pkg_inst_ctx().pkg_inst();
 
-        let game_inst_name = game_inst_ctx.game_inst().name();
-        let pkg_inst_name = &pkg_inst.name;
+        let game_name = game_inst_ctx.game().name();
+        let game_params = &game_inst_ctx.game_inst().consts;
+
+        let pkg_name = &pkg_inst.pkg.name;
+        let pkg_params = &pkg_inst.params;
+
         let oracle_name = oracle_ctx.oracle_name();
 
         //("todo_build_innermost_split",).into();
@@ -538,25 +560,34 @@ impl<'a> CompositionSmtWriter<'a> {
             // this is probably wrong because we don't have any selectors, but maybe it's ok idk:
             Statement::Abort(_) => {
                 let partial_return_pattern = PartialReturnPattern {
-                    game_inst_name,
-                    pkg_inst_name,
+                    game_name,
+                    game_params,
+                    pkg_name,
+                    pkg_params,
                     oracle_name,
                 };
                 let spec = partial_return_pattern.datastructure_spec(&());
                 partial_return_pattern
-                    .call_constructor(&spec, &PartialReturnConstructor::Abort, |_| unreachable!())
+                    .call_constructor(
+                        &spec,
+                        vec![],
+                        &PartialReturnConstructor::Abort,
+                        |_| unreachable!(),
+                    )
                     .unwrap()
             }
             Statement::Return(None, _) => {
                 let partial_return_pattern = PartialReturnPattern {
-                    game_inst_name,
-                    pkg_inst_name,
+                    game_name,
+                    game_params,
+                    pkg_name,
+                    pkg_params,
                     oracle_name,
                 };
 
                 let spec = partial_return_pattern.datastructure_spec(&());
                 partial_return_pattern
-                    .call_constructor(&spec, &PartialReturnConstructor::Return, |sel| {
+                    .call_constructor(&spec, vec![], &PartialReturnConstructor::Return, |sel| {
                         Some(match sel {
                             patterns::PartialReturnSelector::GameState => "__global_state".into(),
                             patterns::PartialReturnSelector::IntermediateState => {
@@ -566,6 +597,7 @@ impl<'a> CompositionSmtWriter<'a> {
                                 ipattern
                                     .call_constructor(
                                         &ispec,
+                                        vec![],
                                         &IntermediateStateConstructor::End,
                                         |sel| {
                                             Some(match sel {
@@ -603,8 +635,8 @@ impl<'a> CompositionSmtWriter<'a> {
                         next_state
                     } else {
                         let constructor_name = IntermediateStatePattern {
-                            game_inst_name,
-                            pkg_inst_name,
+                            pkg_name,
+                            params: pkg_params,
                             oracle_name,
                         }
                         .constructor_name(&IntermediateStateConstructor::End);
@@ -620,41 +652,24 @@ impl<'a> CompositionSmtWriter<'a> {
                 // println!("{} -- {:#?}", split_path.smt_name(), this_entry);
 
                 let partial_return_pattern = PartialReturnPattern {
-                    game_inst_name,
-                    pkg_inst_name,
+                    game_name,
+                    game_params,
+                    pkg_name,
+                    pkg_params,
                     oracle_name,
                 };
 
                 let constructor_name =
                     partial_return_pattern.constructor_name(&PartialReturnConstructor::Return);
 
-                (constructor_name, "__global_state", next_state).into()
+                (constructor_name, "<game-state>", next_state).into()
             }
         }
     }
 
     fn smt_build_return_none_nonsplit(&self, oracle_ctx: &OracleContext) -> SmtExpr {
-        let game_inst_ctx = oracle_ctx.game_inst_ctx();
-        let pkg_inst = oracle_ctx.pkg_inst_ctx().pkg_inst();
-
-        let var_gamestate = &GlobalStatePattern;
-        oracle_ctx.smt_game_state();
-        let var_selfstate = names::var_selfstate_name();
-
-        let new_gamestate = game_inst_ctx
-            .smt_update_gamestate_pkgstate(
-                var_gamestate.name(),
-                self.sample_info,
-                &pkg_inst.name,
-                var_selfstate,
-            )
-            .unwrap();
-
-        SmtLet {
-            bindings: vec![(var_gamestate.name(), new_gamestate)],
-            body: oracle_ctx.smt_construct_return(var_gamestate, "mk-empty"),
-        }
-        .into()
+        let new_game_state = oracle_ctx.smt_write_back_state(self.sample_info);
+        oracle_ctx.smt_construct_return(new_game_state, "mk-empty")
     }
 
     fn smt_build_return_some_nonsplit(
@@ -662,45 +677,27 @@ impl<'a> CompositionSmtWriter<'a> {
         oracle_ctx: &OracleContext,
         expr: &Expression,
     ) -> SmtExpr {
+        let new_game_state = oracle_ctx.smt_write_back_state(self.sample_info);
+        oracle_ctx.smt_construct_return(new_game_state, expr.clone())
+    }
+
+    fn smt_build_abort<OCTX: GenericOracleContext<'a>>(&self, oracle_ctx: &OCTX) -> SmtExpr {
+        let new_game_state = oracle_ctx.smt_write_back_state(self.sample_info);
         let game_inst_ctx = oracle_ctx.game_inst_ctx();
         let pkg_inst = oracle_ctx.pkg_inst_ctx().pkg_inst();
 
-        let var_gamestates = names::var_globalstate_name();
-        let old_gamestate = oracle_ctx.smt_game_state();
-        let var_selfstate = names::var_selfstate_name();
-        let new_gamestate = game_inst_ctx
-            .smt_update_gamestate_pkgstate(
-                old_gamestate,
-                self.sample_info,
-                &pkg_inst.name,
-                var_selfstate,
-            )
-            .unwrap();
-
-        SmtLet {
-            bindings: vec![(names::var_globalstate_name(), new_gamestate)],
-            body: oracle_ctx.smt_construct_return(var_gamestates, expr.clone()),
-        }
-        .into()
-    }
-
-    fn smt_build_abort<OCTX: GenericOracleContext>(&self, oracle_ctx: &OCTX) -> SmtExpr {
-        let game_inst_ctx = oracle_ctx.game_inst_ctx();
-        let inst = oracle_ctx.pkg_inst_ctx().pkg_inst();
-
-        let var_gamestate = &GlobalStatePattern;
-        let var_selfstate = names::var_selfstate_name();
+        let var_gamestate = &GameStatePattern;
 
         let new_gamestate = game_inst_ctx
             .smt_update_gamestate_pkgstate(
                 var_gamestate,
                 self.sample_info,
-                &inst.name,
-                var_selfstate,
+                &pkg_inst.name,
+                new_game_state,
             )
             .unwrap();
 
-        let body = oracle_ctx.smt_construct_abort();
+        let body = oracle_ctx.smt_construct_abort(var_gamestate);
 
         SmtLet {
             bindings: vec![(var_gamestate.name(), new_gamestate)],
@@ -729,7 +726,7 @@ impl<'a> CompositionSmtWriter<'a> {
      *
      */
 
-    fn smt_build_sample<OCTX: GenericOracleContext>(
+    fn smt_build_sample<OCTX: GenericOracleContext<'a>>(
         &self,
         oracle_ctx: &OCTX,
         result: SmtExpr,
@@ -770,7 +767,7 @@ impl<'a> CompositionSmtWriter<'a> {
             .filter(|(x, _)| x != "_")
             .collect();
 
-        let var_gamestate = &GlobalStatePattern;
+        let var_gamestate = &GameStatePattern;
         let new_gamestate = game_inst_ctx
             .smt_increment_gamestate_rand(var_gamestate, self.sample_info, sample_id)
             .unwrap();
@@ -785,7 +782,7 @@ impl<'a> CompositionSmtWriter<'a> {
         .into()
     }
 
-    fn smt_build_parse<OCTX: GenericOracleContext>(
+    fn smt_build_parse<OCTX: GenericOracleContext<'a>>(
         &self,
         _oracle_ctx: &OCTX,
         result: SmtExpr,
@@ -814,59 +811,57 @@ impl<'a> CompositionSmtWriter<'a> {
         .into()
     }
 
-    fn smt_build_invoke<OCTX: GenericOracleContext>(
+    #[allow(clippy::too_many_arguments)]
+    fn smt_build_invoke<OCTX: GenericOracleContext<'a>>(
         &self,
-        oracle_ctx: &OCTX,
-        result: SmtExpr,
-        id: &Identifier,
+        this_oracle_ctx: &OCTX,
+        body: SmtExpr,
+        assignee_ident: &Identifier,
         opt_idx: &Option<Expression>,
-        name: &str,
+        called_oracle_name: &str,
         args: &[Expression],
-        target: &str,
+        target_pkg_inst_name: &str,
     ) -> SmtExpr {
-        let game_inst_ctx = self.context();
-        let pkg_inst = oracle_ctx.pkg_inst_ctx().pkg_inst();
-        let oracle_name = oracle_ctx.oracle_name();
+        let pkg_inst_ctx = this_oracle_ctx.pkg_inst_ctx();
+        let game_inst_ctx = pkg_inst_ctx.game_inst_ctx();
 
-        let _game_inst_name = game_inst_ctx.game_inst().name();
-        let _pkg_inst_name = &pkg_inst.name;
+        let pkg_inst = pkg_inst_ctx.pkg_inst();
+        let game_name = game_inst_ctx.game_name();
 
-        let called_oracle_context = self.get_oracle_context(target, name).unwrap();
-        let this_oracle_context = self
-            .get_oracle_context(&pkg_inst.name, oracle_name)
+        let called_oracle_context = self
+            .this_normal_oracle_ctx(target_pkg_inst_name, called_oracle_name)
             .unwrap();
 
-        let var_gamestate = &GlobalStatePattern;
-        let var_selfstate = &SelfStatePattern;
+        let var_gamestate = &GameStatePattern;
+        let var_gameconsts = GameConstsPattern { game_name };
 
-        let then_new_gamestate = game_inst_ctx
+        let updated_pkgstate = pkg_inst_ctx.smt_update_pkgstate_from_locals().unwrap();
+        let updated_game_state = game_inst_ctx
             .smt_update_gamestate_pkgstate(
                 var_gamestate,
                 self.sample_info,
                 &pkg_inst.name,
-                var_selfstate,
+                updated_pkgstate,
             )
             .unwrap();
 
-        let is_abort_body = SmtLet {
-            bindings: vec![(var_gamestate.name(), then_new_gamestate)],
-            body: this_oracle_context.smt_construct_abort(),
-        };
+        let abort_body = this_oracle_ctx.smt_construct_abort(updated_game_state);
 
         let let_bindings = vec![(
             var_gamestate.name(),
             called_oracle_context.smt_access_return_state(names::var_ret_name()),
         )];
 
-        let return_value_pattern = ReturnValue::new(oracle_ctx.oracle_return_type());
+        let return_value_pattern = ReturnValue::new(this_oracle_ctx.oracle_return_type());
         let return_value_spec = return_value_pattern.datastructure_spec(&());
 
-        let call_args: Vec<SmtExpr> = [SmtExpr::from(var_gamestate)]
-            .iter()
-            .cloned()
-            .chain(args.iter().map(|arg| arg.clone().into()))
-            .collect();
-        let call_result = called_oracle_context.oracle_pattern().call(&call_args);
+        let call_result = called_oracle_context
+            .smt_call_oracle_fn(
+                var_gamestate,
+                var_gameconsts.local_arg_name(),
+                args.iter().map(|expr| expr.clone().into()),
+            )
+            .unwrap();
 
         let smt_expr = SmtLet {
             bindings: vec![(names::var_ret_name(), call_result)],
@@ -874,15 +869,15 @@ impl<'a> CompositionSmtWriter<'a> {
                 cond: called_oracle_context.smt_access_return_is_abort(names::var_ret_name()),
                 then: SmtLet {
                     bindings: let_bindings.clone(),
-                    body: is_abort_body,
+                    body: abort_body,
                 },
                 els: SmtLet {
                     bindings: {
                         let mut bindings = let_bindings.clone();
 
-                        if id.ident() != "_" {
+                        if assignee_ident.ident() != "_" {
                             bindings.push((
-                                id.ident(),
+                                assignee_ident.ident(),
                                 return_value_pattern
                                     .access(
                                         &return_value_spec,
@@ -896,19 +891,25 @@ impl<'a> CompositionSmtWriter<'a> {
 
                         bindings
                     },
-                    body: result,
+                    body,
                 },
             },
         };
 
         if opt_idx.is_some() {
-            ("store", id.clone(), opt_idx.clone().unwrap(), smt_expr).into()
+            (
+                "store",
+                assignee_ident.clone(),
+                opt_idx.clone().unwrap(),
+                smt_expr,
+            )
+                .into()
         } else {
             smt_expr.into()
         }
     }
 
-    fn smt_build_assign<OCTX: GenericOracleContext>(
+    fn smt_build_assign<OCTX: GenericOracleContext<'a>>(
         &self,
         oracle_ctx: &OCTX,
         result: SmtExpr,
@@ -921,30 +922,15 @@ impl<'a> CompositionSmtWriter<'a> {
         //eprintln!(r#"DEBUG code_smt_helper Assign {expr:?} to identifier {ident:?}")"#);
 
         // first build the unwrap expression, if we have to
-        let outexpr = if let Expression::Unwrap(inner) = &expr {
+        let outexpr = if let Expression::Unwrap(inner) = expr {
             ("maybe-get", *inner.clone()).into()
         } else {
-            expr.clone().into() // TODO maybe this should be inner??
+            expr.clone().into()
         };
 
         // then build the table store smt expression, in case we have to
         let outexpr = if let Some(idx) = opt_idx {
-            let oldvalue: SmtExpr = match &ident {
-                // TODO: we got rid of this Identifier variant. Need to update to the new ones
-                //
-                // &Identifier::State(PackageState { name, .. }) => {
-                //     //assert_eq!(pkgname, inst_name, "failed assertion: in an oracle in instance {inst_name} I found a state identifier with {pkgname}. I assumed these would always be equal.");
-                //     oracle_ctx
-                //         .pkg_inst_ctx()
-                //         .smt_access_pkgstate(names::var_selfstate_name(), name)
-                //         .unwrap()
-                // }
-                //
-                Identifier::Generated(_, _) => ident.clone().into(),
-                _ => {
-                    unreachable!("")
-                }
-            };
+            let oldvalue: SmtExpr = ident.smt_identifier().into();
 
             ("store", oldvalue, idx.clone(), outexpr).into()
         } else {
@@ -952,55 +938,28 @@ impl<'a> CompositionSmtWriter<'a> {
         };
 
         // build the actual smt assignment
-        let smtout = match ident {
-            // TODO: we got rid of this Identifier variant. Need to update to the new ones
-            //
-            // Identifier::State(PackageState { name, .. }) => {
-            //     //assert_eq!(pkgname, inst_name, "failed assertion: in an oracle in instance {inst_name} I found a state identifier with {pkgname}. I assumed these would always be equal.");
-            //     SmtLet {
-            //         bindings: vec![(
-            //             names::var_selfstate_name(),
-            //             oracle_ctx
-            //                 .pkg_inst_ctx()
-            //                 .smt_update_pkgstate(names::var_selfstate_name(), name, outexpr)
-            //                 .unwrap()
-            //                 .into(),
-            //         )],
-            //         body: result,
-            //     }
-            // }
-            Identifier::Generated(name, _) => SmtLet {
-                bindings: vec![(name.clone(), outexpr)]
-                    .into_iter()
-                    .filter(|(name, _)| name != "_:")
-                    .collect(),
-                body: result,
-            },
-
-            _ => {
-                unreachable!("can't assign to {:#?}", ident)
-            }
-        };
+        let smtout = SmtLet {
+            bindings: vec![(ident.smt_identifier(), outexpr)],
+            body: { result },
+        }
+        .into();
 
         // if it's an unwrap, also wrap it with the unwrap check.
-        // TODO: are we sure we don't want to deconstruct `inner` here?
-        // it seems impossible to me that expr ever matches here,
-        // because above we make sure it's an Expression::Typed.
         if let Expression::Unwrap(inner) = expr {
             SmtIte {
                 cond: SmtEq2 {
                     lhs: *inner.clone(),
                     rhs: SmtAs {
                         term: "mk-none",
-                        sort: Type::Maybe(Box::new(t)),
+                        sort: Type::Maybe(Box::new(t)).into(),
                     },
                 },
-                then: oracle_ctx.smt_construct_abort(),
+                then: oracle_ctx.smt_construct_abort(&GameStatePattern),
                 els: smtout,
             }
             .into()
         } else {
-            smtout.into()
+            smtout
         }
     }
 
@@ -1096,46 +1055,53 @@ impl<'a> CompositionSmtWriter<'a> {
     */
 
     fn smt_define_nonsplit_oracle_fn(&self, inst: &PackageInstance, def: &OracleDef) -> SmtExpr {
-        let game_inst_ctx = self.context();
-        let _game_state_pattern = game_inst_ctx.game_state_pattern();
-        let var_globalstate = &GlobalStatePattern;
-        let var_selfstate = &SelfStatePattern;
-
-        let game_inst_name = game_inst_ctx.game_inst().name();
         let pkg_inst_name = &inst.name;
         let oracle_sig = &def.sig;
         let oracle_name = &oracle_sig.name;
 
-        let oracle_ctx = game_inst_ctx
+        let game_inst_ctx = self.context();
+        let pkg_inst_ctx = game_inst_ctx
             .pkg_inst_ctx_by_name(pkg_inst_name)
-            .expect("couldn't find package instance with name {inst_name}")
+            .expect("couldn't find package instance with name {inst_name}");
+        let octx = pkg_inst_ctx
             .oracle_ctx_by_name(oracle_name)
             .expect("couldn't find oracle with name {oracle_name}");
 
-        let oracle_pattern = OraclePattern {
-            game_inst_name,
-            pkg_inst_name,
-            oracle_name,
-            oracle_args: &oracle_sig.args,
-        };
+        let var_globalstate = &GameStatePattern;
+        let pkg_state = game_inst_ctx
+            .smt_access_gamestate_pkgstate(var_globalstate, pkg_inst_name)
+            .unwrap();
 
-        oracle_pattern.define_fun(SmtLet {
-            bindings: vec![(
-                var_selfstate.name(),
-                game_inst_ctx
-                    .smt_access_gamestate_pkgstate(var_globalstate.name(), pkg_inst_name)
-                    .unwrap(),
-            )],
-            body: self.smt_codeblock_nonsplit(&oracle_ctx, def.code.clone()),
-        })
+        let pkgstate_unpack_bindings = inst
+            .pkg
+            .state
+            .iter()
+            .map(|(name, _ty, _)| {
+                (
+                    name.clone(),
+                    pkg_inst_ctx
+                        .smt_access_pkgstate(pkg_state.clone(), name)
+                        .unwrap(),
+                )
+            })
+            .collect();
+
+        octx.oracle_pattern()
+            .define_fun(SmtLet {
+                bindings: pkgstate_unpack_bindings,
+                body: self.smt_codeblock_nonsplit(&octx, def.code.clone()),
+            })
+            .into()
     }
 
     fn smt_define_split_oracle_fn(&self, split_oracle_ctx: &SplitOracleContext) -> SmtExpr {
         let game_inst_ctx = self.context();
-        let game_inst_name = game_inst_ctx.game_inst().name();
         let game_name = game_inst_ctx.game().name();
+        let game_params = &game_inst_ctx.game_inst().consts;
         let def = split_oracle_ctx.oracle_def();
         let pkg_inst = split_oracle_ctx.pkg_inst_ctx().pkg_inst();
+        let pkg_name = &pkg_inst.pkg.name;
+        let pkg_params = &pkg_inst.params;
 
         let code = &def.code;
         let mut args = vec![
@@ -1146,7 +1112,7 @@ impl<'a> CompositionSmtWriter<'a> {
                 .into(),
             (
                 "__intermediate_state",
-                split_oracle_ctx.intermediate_state_pattern().sort(),
+                split_oracle_ctx.intermediate_state_pattern().sort(vec![]),
             )
                 .into(),
         ];
@@ -1163,8 +1129,10 @@ impl<'a> CompositionSmtWriter<'a> {
         let split_path = &split_oracle_ctx.oracle_def().sig.path;
 
         let partial_oracle_function_pattern = PartialOraclePattern {
-            game_inst_name,
-            pkg_inst_name,
+            game_name,
+            game_params,
+            pkg_name,
+            pkg_params,
             oracle_name,
             split_path,
         };
@@ -1199,7 +1167,7 @@ impl<'a> CompositionSmtWriter<'a> {
             .into()
     }
 
-    fn smt_pkg_code(&self, inst: &PackageInstance) -> Vec<SmtExpr> {
+    fn smt_oracle_code(&self, inst: &PackageInstance) -> Vec<SmtExpr> {
         inst.pkg
             .oracles
             .iter()
@@ -1207,7 +1175,7 @@ impl<'a> CompositionSmtWriter<'a> {
             .collect()
     }
 
-    fn smt_composition_code(&self) -> Vec<SmtExpr> {
+    fn smt_oracle_functions(&self) -> Vec<SmtExpr> {
         let game_inst_ctx = self.context();
         let game_inst_name = game_inst_ctx.game_inst().name();
         let game_name = game_inst_ctx.game().name();
@@ -1215,49 +1183,32 @@ impl<'a> CompositionSmtWriter<'a> {
             "Game instance {game_inst_name} of game {game_name}\n",
         ))];
         let ordered_pkgs = game_inst_ctx.game().ordered_pkgs();
-        let code = ordered_pkgs.iter().flat_map(|inst| self.smt_pkg_code(inst));
+        let code = ordered_pkgs
+            .iter()
+            .flat_map(|inst| self.smt_oracle_code(inst));
 
         comment.into_iter().chain(code).collect()
     }
 
     fn smt_composition_paramfuncs(&self) -> Vec<SmtExpr> {
         let game_inst_ctx = self.context();
-        let game_inst = game_inst_ctx.game_inst();
-        let game_inst_name = game_inst.name();
-        let game = game_inst_ctx.game();
-        let fns = game
-            .consts
-            .iter()
-            .filter(|(_, tipe)| matches!(tipe, Type::Fn(_, _)));
-        let _comp_name = game.name();
 
-        let mut funcs = vec![];
-
-        for (name, tipe) in fns {
-            let (arg_types, ret_type) = if let Type::Fn(arg_types, ret_type) = tipe {
-                (arg_types, ret_type)
-            } else {
-                unreachable!()
-            };
-
-            let arg_types: SmtExpr = arg_types
-                .iter()
-                .map(|tipe| tipe.clone().into())
-                .collect::<Vec<SmtExpr>>()
-                .into();
-
-            funcs.push(
-                (
-                    "declare-fun",
-                    format!("__func-{game_inst_name}-{name}"),
-                    arg_types,
-                    (**ret_type).clone(),
-                )
-                    .into(),
+        None.into_iter()
+            .chain(
+                // add the game instance level functions
+                game_inst_ctx
+                    .smt_define_param_functions()
+                    .into_iter()
+                    .map(|x| x.into()),
             )
-        }
-        funcs.sort();
-        funcs
+            .chain(
+                // add the package instance level functions
+                game_inst_ctx
+                    .pkg_inst_contexts()
+                    .flat_map(|pkg_inst_ctx| pkg_inst_ctx.smt_define_param_functions())
+                    .map(|x| x.into()),
+            )
+            .collect()
     }
 
     fn smt_composition_randomness(&mut self) -> Vec<SmtExpr> {
@@ -1290,11 +1241,9 @@ impl<'a> CompositionSmtWriter<'a> {
 
     fn smt_composition_partial_stuff(&self) -> Vec<SmtExpr> {
         let game_inst_ctx = self.context();
-        let game_inst = game_inst_ctx.game_inst();
         let game = game_inst_ctx.game();
 
         let partial_dtpes = into_partial_dtypes(self.split_info);
-        let game_inst_name = game_inst.name();
 
         let mut return_typedefs = vec![];
         let mut intermediate_state_typedefs = vec![];
@@ -1306,10 +1255,12 @@ impl<'a> CompositionSmtWriter<'a> {
             let oracle_name = &dtype.real_oracle_sig.name;
             let _game_name = &game.name;
             let pkg_inst_ctx = game_inst_ctx.pkg_inst_ctx_by_name(pkg_inst_name).unwrap();
+            let params = &pkg_inst_ctx.pkg_inst().params;
+            let pkg_name = &pkg_inst_ctx.pkg_inst().pkg.name;
 
             let intermediate_state_pattern = IntermediateStatePattern {
-                game_inst_name,
-                pkg_inst_name,
+                pkg_name,
+                params,
                 oracle_name,
             };
             let intermediate_state_spec = intermediate_state_pattern.datastructure_spec(dtype);
@@ -1350,17 +1301,26 @@ impl<'a> CompositionSmtWriter<'a> {
     }
 
     pub(crate) fn smt_declare_partial_return_datatype(&self, dtype: &PartialsDatatype) -> SmtExpr {
-        let game_inst_ctx = self.context();
-        let game_inst = game_inst_ctx.game_inst();
-        let _game = game_inst_ctx.game();
+        let PartialsDatatype { pkg_inst_name, .. } = dtype;
 
-        let game_inst_name = game_inst.name();
-        let pkg_inst_name = &dtype.pkg_inst_name;
+        let game_inst_ctx = self.context();
+        let pkg_inst_ctx = game_inst_ctx.pkg_inst_ctx_by_name(pkg_inst_name).unwrap();
+
+        let game_inst = game_inst_ctx.game_inst();
+        let pkg_inst = pkg_inst_ctx.pkg_inst();
+
+        let game_name = game_inst.game_name();
+        let game_params = &game_inst.consts;
+        let pkg_name = &pkg_inst.pkg.name;
+        let pkg_params = &pkg_inst.params;
+
         let oracle_name = &dtype.real_oracle_sig.name;
 
         let prp = patterns::PartialReturnPattern {
-            game_inst_name,
-            pkg_inst_name,
+            game_name,
+            game_params,
+            pkg_name,
+            pkg_params,
             oracle_name,
         };
 
@@ -1368,21 +1328,27 @@ impl<'a> CompositionSmtWriter<'a> {
         declare_datatype(&prp, &spec)
     }
 
-    pub fn smt_composition_all(&mut self) -> Vec<SmtExpr> {
+    pub(crate) fn smt_composition_all(&mut self) -> Vec<SmtExpr> {
         let rand = self.smt_composition_randomness();
         let paramfuncs = self.smt_composition_paramfuncs();
-        let state = self.smt_composition_state();
-        let ret = self.smt_composition_return();
-        let code = self.smt_composition_code();
+        let datatypes = self.smt_datatypes();
+        let oracle_funs = self.smt_oracle_functions();
         let partial_stuff = self.smt_composition_partial_stuff();
 
         rand.into_iter()
             .chain(paramfuncs)
-            .chain(state)
-            .chain(ret)
-            .chain(code)
+            .chain(datatypes)
+            .chain(oracle_funs)
             .chain(partial_stuff)
             .collect()
+    }
+
+    pub(crate) fn smt_datatypes(&self) -> impl Iterator<Item = SmtExpr> {
+        let state = self.smt_datatypes_game_state();
+        let consts = self.smt_datatypes_game_consts();
+        let ret = self.smt_datatypes_game_return();
+
+        None.into_iter().chain(state).chain(consts).chain(ret)
     }
 }
 

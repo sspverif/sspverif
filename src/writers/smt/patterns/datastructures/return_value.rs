@@ -1,8 +1,14 @@
-use crate::{types::Type, writers::smt::sorts::SmtReturnValue};
+use crate::{
+    types::Type,
+    writers::smt::{
+        exprs::{SmtAs, SmtExpr},
+        sorts::Sort,
+    },
+};
 
 use super::{DatastructurePattern, DatastructureSpec};
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ReturnValueConstructor {
     Return,
     Abort,
@@ -23,8 +29,6 @@ impl<'a> ReturnValue<'a> {
 }
 
 impl<'a> DatastructurePattern<'a> for ReturnValue<'a> {
-    type Sort = SmtReturnValue<Type>;
-
     type Constructor = ReturnValueConstructor;
 
     type Selector = ReturnValueSelector;
@@ -35,10 +39,12 @@ impl<'a> DatastructurePattern<'a> for ReturnValue<'a> {
 
     const KEBAB_CASE: &'static str = "return-value";
 
-    fn sort(&self) -> Self::Sort {
-        SmtReturnValue {
-            inner_sort: self.inner_type.clone(),
-        }
+    fn sort_name(&self) -> String {
+        "ReturnValue".to_string()
+    }
+
+    fn sort_par_count(&self) -> usize {
+        1
     }
 
     fn constructor_name(&self, cons: &Self::Constructor) -> String {
@@ -69,5 +75,43 @@ impl<'a> DatastructurePattern<'a> for ReturnValue<'a> {
 
     fn matchfield_name(&self, _sel: &Self::Selector) -> String {
         "returnvalue".to_string()
+    }
+
+    // we need to override the default implementation, because we have to wrap "mk-abort" in an
+    // `as`.
+    fn call_constructor<F>(
+        &self,
+        spec: &DatastructureSpec<'a, Self>,
+        type_parameters: Vec<Sort>,
+        con: &Self::Constructor,
+        mut f: F,
+    ) -> Option<SmtExpr>
+    where
+        F: FnMut(&Self::Selector) -> Option<SmtExpr>,
+    {
+        if *con == ReturnValueConstructor::Abort {
+            return Some(
+                SmtAs {
+                    term: "mk-abort",
+                    sort: self.sort(type_parameters),
+                }
+                .into(),
+            );
+        }
+
+        let (con, sels) = spec.0.iter().find(|(cur_con, _sels)| con == cur_con)?;
+
+        // smt-lib doesn't like parens around constructors without any fields/selectors
+        if sels.is_empty() {
+            return Some(self.constructor_name(con).into());
+        }
+
+        let mut call = Vec::with_capacity(sels.len() + 1);
+        call.push(self.constructor_name(con).into());
+        for sel in sels {
+            call.push(f(sel)?);
+        }
+
+        Some(SmtExpr::List(call))
     }
 }

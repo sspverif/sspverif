@@ -261,6 +261,8 @@ pub fn handle_comp_spec_list<'a>(
                             name: name.clone(),
                             tipe,
                             inst_info: None,
+                            game_inst_name: None,
+                            proof_name: None,
                         }
                         .into(),
                     ),
@@ -858,6 +860,7 @@ pub fn handle_instance_decl_multi_inst<'a>(
     let span = ast.as_span();
     let mut inner = ast.into_inner();
     let inst_name = inner.next().unwrap().as_str();
+    let game_name = ctx.game_name;
 
     let indices_ast = inner.next().unwrap();
     let indices = indices_ast
@@ -924,13 +927,14 @@ pub fn handle_instance_decl_multi_inst<'a>(
 
     let multi_instance_indices = MultiInstanceIndices::new(indices);
 
-    let inst = PackageInstance {
-        name: inst_name.to_owned(),
-        params: param_list,
-        types: type_list,
-        pkg: pkg.clone(),
+    let inst = PackageInstance::new(
+        inst_name,
+        game_name,
+        pkg,
         multi_instance_indices,
-    };
+        param_list,
+        type_list,
+    );
 
     ctx.add_pkg_instance(inst, span);
 
@@ -1001,25 +1005,7 @@ pub fn handle_instance_decl<'a>(
     // check that const param lists match
     let mut typed_params: Vec<_> = param_list
         .iter()
-        .map(|(pkg_param, comp_param)| match comp_param {
-            Expression::Identifier(id) => {
-                let maybe_type = ctx.get_const(id.ident_ref());
-
-                // TODO: return an error here
-                assert!(
-                    maybe_type.is_some(),
-                    "constant not specified: {} at {:?}",
-                    id.ident(),
-                    span
-                );
-                (pkg_param.ident(), maybe_type.unwrap().clone())
-            }
-            Expression::BooleanLiteral(_) => (pkg_param.ident(), Type::Boolean),
-            Expression::IntegerLiteral(_) => (pkg_param.ident(), Type::Integer),
-            otherwise => {
-                panic!("unhandled expression: {:?}", otherwise)
-            }
-        })
+        .map(|(pkg_param, expr)| (pkg_param.ident(), expr.get_type()))
         .collect();
     typed_params.sort();
 

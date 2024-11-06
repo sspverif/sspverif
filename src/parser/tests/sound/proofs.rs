@@ -363,7 +363,10 @@ fn fail_wrong_params_in_reduction_should_fail() {
         },
     ) = &err
     else {
-        panic!("expected a different error. got {:?}", err)
+        let err_str = format!("{err:#?}");
+        let report = miette::Report::new(err);
+
+        panic!("expected a different error. got {err_str}:\n{report:?}")
     };
 
     assert_eq!(left_pkg_inst_name, "enc");

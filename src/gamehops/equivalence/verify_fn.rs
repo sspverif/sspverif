@@ -1,11 +1,11 @@
 use std::fmt::Write;
-use std::fs::File;
 
 use crate::{
     gamehops::equivalence::error::{Error, Result},
     proof::{Equivalence, Proof},
     transforms::{proof_transforms::EquivalenceTransform, ProofTransform},
-    util::prover_process::{Communicator, ProverBackend, ProverResponse},
+    util::prover_process::{Communicator, ProverResponse},
+    writers::smt::exprs::SmtExpr,
 };
 
 use super::EquivalenceContext;
@@ -14,23 +14,34 @@ pub fn verify(eq: &Equivalence, proof: &Proof, mut prover: Communicator) -> Resu
     let (proof, auxs) = EquivalenceTransform.transform_proof(proof).unwrap();
 
     let eqctx = EquivalenceContext {
-        eq,
+        equivalence: eq,
         proof: &proof,
         auxs: &auxs,
     };
 
     std::thread::sleep(std::time::Duration::from_millis(20));
 
+    prover.write_smt(SmtExpr::Comment("\n".to_string()))?;
+    prover.write_smt(SmtExpr::Comment("base declarations:\n".to_string()))?;
     eqctx.emit_base_declarations(&mut prover)?;
+    prover.write_smt(SmtExpr::Comment("\n".to_string()))?;
+    prover.write_smt(SmtExpr::Comment("proof param funcs:\n".to_string()))?;
+    eqctx.emit_proof_paramfuncs(&mut prover)?;
+    prover.write_smt(SmtExpr::Comment("\n".to_string()))?;
+    prover.write_smt(SmtExpr::Comment("game definitions:\n".to_string()))?;
     eqctx.emit_game_definitions(&mut prover)?;
     eqctx.emit_constant_declarations(&mut prover)?;
 
     for oracle_sig in eqctx.oracle_sequence() {
         println!("verify: oracle:{oracle_sig:?}");
         write!(prover, "(push 1)").unwrap();
+        eqctx.emit_return_value_helpers(&mut prover, &oracle_sig.name)?;
         eqctx.emit_invariant(&mut prover, &oracle_sig.name)?;
 
-        for claim in eqctx.eq.proof_tree_by_oracle_name(&oracle_sig.name) {
+        for claim in eqctx
+            .equivalence
+            .proof_tree_by_oracle_name(&oracle_sig.name)
+        {
             write!(prover, "(push 1)").unwrap();
             eqctx.emit_claim_assert(&mut prover, &oracle_sig.name, &claim)?;
             match prover.check_sat()? {
@@ -54,7 +65,10 @@ pub fn verify(eq: &Equivalence, proof: &Proof, mut prover: Communicator) -> Resu
         write!(prover, "(push 1)").unwrap();
         eqctx.emit_invariant(&mut prover, &split_oracle_sig.name)?;
 
-        for claim in eqctx.eq.proof_tree_by_oracle_name(&split_oracle_sig.name) {
+        for claim in eqctx
+            .equivalence
+            .proof_tree_by_oracle_name(&split_oracle_sig.name)
+        {
             write!(prover, "(push 1)").unwrap();
             eqctx.emit_split_claim_assert(
                 &mut prover,

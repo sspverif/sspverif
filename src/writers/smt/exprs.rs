@@ -2,9 +2,9 @@ use std::fmt::Display;
 
 use crate::types::Type;
 
-use super::sorts::SmtSort;
+use super::sorts::Sort;
 
-pub fn smt_to_string<T: Into<SmtExpr>>(t: T) -> String {
+pub(crate) fn smt_to_string<T: Into<SmtExpr>>(t: T) -> String {
     t.into().to_string()
 }
 
@@ -342,109 +342,72 @@ where
     }
 }
 
-impl<T: Into<SmtExpr>, S: SmtSort> From<SmtAs<T, S>> for SmtExpr {
-    fn from(smtas: SmtAs<T, S>) -> Self {
+impl<T: Into<SmtExpr>> From<SmtAs<T>> for SmtExpr {
+    fn from(smtas: SmtAs<T>) -> Self {
         ("as", smtas.term, smtas.sort).into()
     }
 }
 
-impl From<SspSmtVar> for SmtExpr {
-    fn from(v: SspSmtVar) -> SmtExpr {
-        match v {
-            SspSmtVar::CompositionContext => "__global_state".into(),
-            SspSmtVar::ContextLength => "__state_length".into(),
-            SspSmtVar::SelfState => "__self_state".into(),
-            SspSmtVar::ReturnValue => "__ret".into(),
-            SspSmtVar::OracleReturnConstructor {
-                compname,
-                pkgname,
-                oname,
-            } => format!("mk-return-{}-{}-{}", compname, pkgname, oname).into(),
-            SspSmtVar::OracleAbort {
-                compname,
-                pkgname,
-                oname,
-            } => format!("mk-abort-{}-{}-{}", compname, pkgname, oname).into(),
-        }
-    }
-}
-
+#[derive(Debug)]
 pub struct SmtLet<B>
 where
     B: Into<SmtExpr>,
 {
-    pub bindings: Vec<(String, SmtExpr)>,
-    pub body: B,
+    pub(crate) bindings: Vec<(String, SmtExpr)>,
+    pub(crate) body: B,
 }
 
-pub struct SmtEq2<L, R>
+pub(crate) struct SmtEq2<L, R>
 where
     L: Into<SmtExpr>,
     R: Into<SmtExpr>,
 {
-    pub lhs: L,
-    pub rhs: R,
+    pub(crate) lhs: L,
+    pub(crate) rhs: R,
 }
 
-pub struct SmtAs<T: Into<SmtExpr>, S: SmtSort> {
-    pub term: T,
-    pub sort: S,
+pub(crate) struct SmtAs<T: Into<SmtExpr>> {
+    pub(crate) term: T,
+    pub(crate) sort: Sort,
 }
 
-pub struct SmtIte<C, T, E>
+pub(crate) struct SmtIte<C, T, E>
 where
     C: Into<SmtExpr>,
     T: Into<SmtExpr>,
     E: Into<SmtExpr>,
 {
-    pub cond: C,
-    pub then: T,
-    pub els: E,
+    pub(crate) cond: C,
+    pub(crate) then: T,
+    pub(crate) els: E,
 }
 
-pub struct SmtIs<C, E>
+pub(crate) struct SmtIs<C, E>
 where
     C: Into<String>,
     E: Into<SmtExpr>,
 {
-    pub con: C,
-    pub expr: E,
+    pub(crate) con: C,
+    pub(crate) expr: E,
 }
 
-pub struct SmtAssert<B: Into<SmtExpr>>(pub B);
+pub(crate) struct SmtAssert<B: Into<SmtExpr>>(pub B);
 
-pub struct SmtNot<V: Into<SmtExpr>>(pub V);
+pub(crate) struct SmtNot<V: Into<SmtExpr>>(pub V);
 
-pub struct SmtOr(pub Vec<SmtExpr>);
-pub struct SmtAnd(pub Vec<SmtExpr>);
+pub(crate) struct SmtOr(pub Vec<SmtExpr>);
+pub(crate) struct SmtAnd(pub Vec<SmtExpr>);
 
-pub struct SmtWrap<V: Into<SmtExpr>>(pub V);
+pub(crate) struct SmtWrap<V: Into<SmtExpr>>(pub V);
 
-pub struct SmtImplies<PRE, POST>(pub PRE, pub POST)
+pub(crate) struct SmtImplies<PRE, POST>(pub PRE, pub POST)
 where
     PRE: Into<SmtExpr>,
     POST: Into<SmtExpr>;
 
-pub enum SspSmtVar {
-    CompositionContext,
-    ContextLength,
-    SelfState,
-    ReturnValue,
-    OracleReturnConstructor {
-        compname: String,
-        pkgname: String,
-        oname: String,
-    },
-    OracleAbort {
-        compname: String,
-        pkgname: String,
-        oname: String,
-    },
-}
-
-pub struct SmtForall<B: Into<SmtExpr>> {
-    pub bindings: Vec<(String, SmtExpr)>,
-    pub body: B,
+pub(crate) struct SmtForall<B: Into<SmtExpr>> {
+    pub(crate) bindings: Vec<(String, SmtExpr)>,
+    pub(crate) body: B,
 }
 
 impl<B: Into<SmtExpr>> From<SmtForall<B>> for SmtExpr {
@@ -469,7 +432,7 @@ impl<B: Into<SmtExpr>> From<SmtForall<B>> for SmtExpr {
     }
 }
 
-pub struct SmtLt<L: Into<SmtExpr>, R: Into<SmtExpr>>(pub L, pub R);
+pub(crate) struct SmtLt<L: Into<SmtExpr>, R: Into<SmtExpr>>(pub L, pub R);
 
 impl<L: Into<SmtExpr>, R: Into<SmtExpr>> From<SmtLt<L, R>> for SmtExpr {
     fn from(val: SmtLt<L, R>) -> Self {
@@ -477,7 +440,7 @@ impl<L: Into<SmtExpr>, R: Into<SmtExpr>> From<SmtLt<L, R>> for SmtExpr {
     }
 }
 
-pub struct SmtGt<L: Into<SmtExpr>, R: Into<SmtExpr>>(pub L, pub R);
+pub(crate) struct SmtGt<L: Into<SmtExpr>, R: Into<SmtExpr>>(pub L, pub R);
 
 impl<L: Into<SmtExpr>, R: Into<SmtExpr>> From<SmtGt<L, R>> for SmtExpr {
     fn from(val: SmtGt<L, R>) -> Self {
@@ -485,7 +448,7 @@ impl<L: Into<SmtExpr>, R: Into<SmtExpr>> From<SmtGt<L, R>> for SmtExpr {
     }
 }
 
-pub struct SmtLte<L: Into<SmtExpr>, R: Into<SmtExpr>>(pub L, pub R);
+pub(crate) struct SmtLte<L: Into<SmtExpr>, R: Into<SmtExpr>>(pub L, pub R);
 
 impl<L: Into<SmtExpr>, R: Into<SmtExpr>> From<SmtLte<L, R>> for SmtExpr {
     fn from(val: SmtLte<L, R>) -> Self {
@@ -493,7 +456,7 @@ impl<L: Into<SmtExpr>, R: Into<SmtExpr>> From<SmtLte<L, R>> for SmtExpr {
     }
 }
 
-pub struct SmtGte<L: Into<SmtExpr>, R: Into<SmtExpr>>(pub L, pub R);
+pub(crate) struct SmtGte<L: Into<SmtExpr>, R: Into<SmtExpr>>(pub L, pub R);
 
 impl<L: Into<SmtExpr>, R: Into<SmtExpr>> From<SmtGte<L, R>> for SmtExpr {
     fn from(val: SmtGte<L, R>) -> Self {

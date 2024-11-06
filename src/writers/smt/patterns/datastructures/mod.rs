@@ -1,8 +1,10 @@
-mod game_state;
+pub mod game_consts;
+pub mod game_state;
 mod intermediate_state;
 mod normal_return;
 mod partial_return;
-mod pkg_state;
+pub mod pkg_consts;
+pub mod pkg_state;
 mod return_value;
 
 pub use game_state::*;
@@ -16,16 +18,13 @@ use crate::writers::smt::{
     declare::declare_datatype as base_declare_datatype,
     exprs::SmtExpr,
     partials::{SmtMatch, SmtMatchCase},
-    sorts::{SmtPlainSort, SmtSort},
+    sorts::Sort,
 };
 
 pub fn declare_datatype<'a, P: DatastructurePattern<'a>>(
     pattern: &P,
     spec: &DatastructureSpec<'a, P>,
-) -> SmtExpr
-where
-    P::Sort: SmtPlainSort,
-{
+) -> SmtExpr {
     let DatastructureSpec(constructors) = spec;
     let constructors = constructors.iter().map(|(con, sels)| {
         (
@@ -36,11 +35,10 @@ where
         )
     });
 
-    base_declare_datatype(&pattern.sort().sort_name(), constructors)
+    base_declare_datatype(&pattern.sort_name(), constructors)
 }
 
 pub trait DatastructurePattern<'a> {
-    type Sort: SmtSort;
     type Constructor: Eq;
     type Selector: Eq;
     type DeclareInfo;
@@ -48,7 +46,11 @@ pub trait DatastructurePattern<'a> {
     const CAMEL_CASE: &'static str;
     const KEBAB_CASE: &'static str;
 
-    fn sort(&self) -> Self::Sort;
+    fn sort_name(&self) -> String;
+    fn sort_par_count(&self) -> usize {
+        0
+    }
+
     fn constructor_name(&self, cons: &Self::Constructor) -> String;
     fn selector_name(&self, sel: &Self::Selector) -> String;
     fn selector_sort(&self, sel: &Self::Selector) -> SmtExpr;
@@ -68,6 +70,11 @@ pub trait DatastructurePattern<'a> {
     //
     //     base_declare_datatype(&self.sort().sort_name(), constructors)
     // }
+
+    fn sort(&self, type_parameters: Vec<Sort>) -> Sort {
+        debug_assert_eq!(type_parameters.len(), self.sort_par_count());
+        Sort::Other(self.sort_name(), type_parameters)
+    }
 
     fn access<S: Into<SmtExpr>>(
         &self,
@@ -118,7 +125,7 @@ pub trait DatastructurePattern<'a> {
 
     fn match_expr<E, F>(&self, expr: E, spec: &DatastructureSpec<'a, Self>, f: F) -> SmtExpr
     where
-        E: Clone + std::fmt::Debug + Into<SmtExpr>,
+        E: Into<SmtExpr>,
         F: Fn(&Self::Constructor) -> SmtExpr,
     {
         SmtMatch {
@@ -138,9 +145,11 @@ pub trait DatastructurePattern<'a> {
         .into()
     }
 
+    // NOTE: ReturnValue has a custom implementation! make sure to also update that
     fn call_constructor<F>(
         &self,
         spec: &DatastructureSpec<'a, Self>,
+        _type_parameters: Vec<Sort>,
         con: &Self::Constructor,
         mut f: F,
     ) -> Option<SmtExpr>
@@ -164,6 +173,7 @@ pub trait DatastructurePattern<'a> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct DatastructureSpec<'a, P: DatastructurePattern<'a> + ?Sized>(
     pub Vec<(P::Constructor, Vec<P::Selector>)>,
 );

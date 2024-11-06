@@ -45,19 +45,18 @@
 
 use crate::{
     types::Type,
-    writers::smt::{exprs::SmtExpr, sorts::SmtSort},
+    writers::smt::{exprs::SmtExpr, sorts::Sort},
 };
 
 use super::{
-    DatastructurePattern, GameStatePattern, GameStateSort, PackageStatePattern, PackageStateSort,
+    DatastructurePattern, GameStatePattern as GameStateDataStructurePattern, PackageStatePattern,
 };
 
 pub trait VariablePattern {
     type SpecInfo;
-    type Sort: SmtSort;
 
     fn name(&self) -> String;
-    fn sort(&self, spec: &Self::SpecInfo) -> Self::Sort;
+    fn sort(&self, spec: &Self::SpecInfo) -> Sort;
 
     fn name_sort_tuple(&self, spec: &Self::SpecInfo) -> (String, SmtExpr) {
         (self.name(), self.sort(spec).into())
@@ -68,7 +67,8 @@ macro_rules! impl_VariablePatternIntoSmtExpr {
     ($lifetime:lifetime, $type:ty) => {
         impl<$lifetime> From<$type> for $crate::writers::smt::exprs::SmtExpr {
             fn from(value: $type) -> Self {
-                <$type as $crate::writers::smt::patterns::VariablePattern>::name(&value).into()
+                <$type as $crate::writers::smt::patterns::variables::VariablePattern>::name(&value)
+                    .into()
             }
         }
     };
@@ -82,36 +82,34 @@ macro_rules! impl_VariablePatternIntoSmtExpr {
 }
 
 impl_VariablePatternIntoSmtExpr!('a, &'a SelfStatePattern);
-impl_VariablePatternIntoSmtExpr!('a, &'a GlobalStatePattern);
+impl_VariablePatternIntoSmtExpr!('a, &'a GameStatePattern);
 impl_VariablePatternIntoSmtExpr!('a, LocalVariablePattern<'a>);
 
 pub struct SelfStatePattern;
 
 impl<'a> VariablePattern for &'a SelfStatePattern {
     type SpecInfo = PackageStatePattern<'a>;
-    type Sort = PackageStateSort<'a>;
 
     fn name(&self) -> String {
-        "__self_state".to_string()
+        "<pkg-state>".to_string()
     }
 
-    fn sort(&self, spec_info: &Self::SpecInfo) -> Self::Sort {
-        spec_info.sort()
+    fn sort(&self, spec_info: &Self::SpecInfo) -> Sort {
+        spec_info.sort(vec![])
     }
 }
 
-pub struct GlobalStatePattern;
+pub struct GameStatePattern;
 
-impl<'a> VariablePattern for &'a GlobalStatePattern {
-    type SpecInfo = GameStatePattern<'a>;
-    type Sort = GameStateSort<'a>;
+impl<'a> VariablePattern for &'a GameStatePattern {
+    type SpecInfo = GameStateDataStructurePattern<'a>;
 
     fn name(&self) -> String {
-        "__global_state".to_string()
+        "<game-state>".to_string()
     }
 
-    fn sort(&self, spec_info: &Self::SpecInfo) -> Self::Sort {
-        spec_info.sort()
+    fn sort(&self, spec_info: &Self::SpecInfo) -> Sort {
+        spec_info.sort(vec![])
     }
 }
 
@@ -119,13 +117,12 @@ pub struct LocalVariablePattern<'a>(&'a str);
 
 impl<'a> VariablePattern for LocalVariablePattern<'a> {
     type SpecInfo = Type;
-    type Sort = Type;
 
     fn name(&self) -> String {
         self.0.to_string()
     }
 
-    fn sort(&self, spec: &Self::SpecInfo) -> Self::Sort {
-        spec.clone()
+    fn sort(&self, spec: &Self::SpecInfo) -> Sort {
+        spec.clone().into()
     }
 }

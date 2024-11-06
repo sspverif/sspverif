@@ -1,0 +1,16 @@
+composition SmallGame {
+    const m: Integer;
+
+    instance tiny_instance  = TinyPkg {
+        params {
+            n: (m + 1),
+        }
+    }
+
+    compose {
+      adversary: {
+        N: tiny_instance,
+      }
+    }
+}
+

@@ -103,23 +103,49 @@ impl Composition {
             .collect()
     }
 
+    /// Topologically sorts the package instances in the game, such that rightmost games (i.e.
+    /// those who don't import oracles themselves) come first.
+    /// We need to do this because when defining the oracle code functions, the called functions
+    /// need to be defined by the time we call them.
     pub fn ordered_pkgs(&self) -> Vec<PackageInstance> {
         let mut result = Vec::new();
         let mut added_pkgs = vec![false; self.pkgs.len()];
 
         while result.len() < self.pkgs.len() {
-            let mut candidates = vec![true; self.pkgs.len()];
-            for Edge(from, to, _) in &self.edges {
-                if !added_pkgs[*to] {
-                    candidates[*from] = false;
-                }
-            }
+            // one flag per package instance.
+            // `true` means its dependencies are satisfied (i.e. all the oracles it imports have
+            // already been added to `result`).
+            // `false` means that the package instance imports an oracle that is wired up with a
+            // package instance that hasn't been added to result yet.
+            let candidates: Vec<_> = self
+                .pkgs
+                .iter()
+                .enumerate()
+                .map(|(pkg_inst_offs, _)| {
+                    // whether all edges that originate in the current package instance point to
+                    // package instances that have already been added
+                    self.edges
+                        .iter()
+                        .filter(|Edge(from, _, _)| pkg_inst_offs == *from)
+                        .all(|Edge(_, to, _)| added_pkgs[*to])
+                })
+                .collect();
+
+            let mut made_progress = false;
+
             for i in 0..self.pkgs.len() {
                 if !added_pkgs[i] && candidates[i] {
                     result.push(self.pkgs[i].clone());
                     added_pkgs[i] = true;
+                    made_progress = true;
                 }
             }
+
+            // this can't happen in acyclig graphs, which is what we are delaing with here
+            assert!(
+                made_progress,
+                "error topologically sorting the package instance in the game"
+            );
         }
         result
     }

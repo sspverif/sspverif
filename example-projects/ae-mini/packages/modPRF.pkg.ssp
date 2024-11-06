@@ -1,7 +1,7 @@
 package modPRF {
     params {
         n: Integer,
-       /* prf: fn Bits(n), Bits(n)  -> Bits(n),*/
+      prf: fn Bits(n), Bits(n)  -> Bits(n),
     }
     
     state {
@@ -20,7 +20,7 @@ package modPRF {
 
         ltk_ <- Unwrap(ltk);
         
-        k <- h; /*prf(ltk_, h);*/
+        k <- prf(ltk_, h);
         _ <- invoke Set(k, h);
     } 
 }

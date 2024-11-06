@@ -25,7 +25,7 @@ use crate::{
     types::Type,
     util::{
         resolver::{Resolver, SliceResolver},
-        scope::{Declaration, Scope, Error as ScopeError},
+        scope::{Declaration, Error as ScopeError, Scope},
     },
 };
 
@@ -320,6 +320,9 @@ fn handle_instance_decl(
         .map(|(ident, expr)| (ident.clone(), expr.clone()))
         .collect();
 
+    println!("printing constant assignment in the parser:");
+    println!("  {consts_as_ident:#?}");
+
     let game_inst = GameInstance::new(
         game_inst_name,
         ctx.proof_name.to_string(),
@@ -360,6 +363,8 @@ fn handle_instance_assign_list(
                             name,
                             tipe: value.get_type(),
                             inst_info: None,
+                            game_inst_name: None,
+                            proof_name: None,
                         },
                         value,
                     )
@@ -1071,7 +1076,7 @@ fn next_str<'a>(ast: &'a mut Pairs<Rule>) -> &'a str {
 }
 
 fn package_instances_diff(
-    _ctx: &ParseProofContext,
+    ctx: &ParseProofContext,
     left_pkg_inst: &PackageInstance,
     left_game_inst: &GameInstance,
     right_pkg_inst: &PackageInstance,
@@ -1102,50 +1107,62 @@ fn package_instances_diff(
             ));
 
         // here we compare whether param_expr and other_param_expr match.
-        // problem: they have identifiers in them that contain things like game names
-        // we see two possible solutions:
+        // problem 1: they have identifiers in them that contain things like game names
+        // problem 2: we have the game identifiers here, but we need the proof identifiers,
+        //            because otherwise we just compare the name strings used in the game
+        //            and ignore the values assigned to the in game instantiation
         //
-        // - recurse over both expressions at the same time and compare every subexpression.
-        //   when we hit identifiers, compare everything except the problematic bits.
-        // - use Expression::map to find identifiers are redact some information in there, so
-        //   we can just compare the expressions
-        //
-        // the latter seems easier, so we'll go with that.
+        // we solve both problems using Expression::map, which both resolves the game identifiers
+        // to proof identifiers and redacts game- and package-specific information.
 
-        let redact_ident = |ident: Identifier| -> Identifier {
-            match ident {
-                Identifier::GameIdentifier(GameIdentifier::LoopVar(mut game_loopvar)) => {
-                    game_loopvar.game_inst_name = None;
-                    game_loopvar.proof_name = None;
-                    game_loopvar.inst_info = None;
-
-                    game_loopvar.into()
-                }
-                Identifier::ProofIdentifier(ProofIdentifier::Const(mut proof_const)) => {
-                    proof_const.inst_info = None;
-
-                    proof_const.into()
-                }
-                Identifier::ProofIdentifier(ProofIdentifier::LoopVar(mut proof_loopvar)) => {
-                    proof_loopvar.inst_info = None;
-
-                    proof_loopvar.into()
-                }
-                Identifier::GameIdentifier(GameIdentifier::Const(_)) => unreachable!(),
-                Identifier::PackageIdentifier(_) => unreachable!(),
-                Identifier::Generated(_, _) => unreachable!(),
-            }
-        };
-
-        let redact_expr = |expr: Expression| -> Expression {
+        fn resolve_and_redact_expr(
+            game_inst_const_mapping: &[(GameConstIdentifier, Expression)],
+            expr: Expression,
+        ) -> Expression {
             match expr {
-                Expression::Identifier(ident) => Expression::Identifier(redact_ident(ident)),
+                // redact game and package specific information from proof identifiers
+                Expression::Identifier(Identifier::ProofIdentifier(ProofIdentifier::Const(
+                    mut proof_const,
+                ))) => {
+                    proof_const.inst_info = None;
+                    Expression::Identifier(proof_const.into())
+                }
+                Expression::Identifier(Identifier::ProofIdentifier(ProofIdentifier::LoopVar(
+                    mut proof_loopvar,
+                ))) => {
+                    proof_loopvar.inst_info = None;
+                    Expression::Identifier(proof_loopvar.into())
+                }
+
+                // resolve game const identifiers
+                Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(
+                    ref game_const,
+                ))) => {
+                    let (_, assigned_expr) = game_inst_const_mapping
+                        .iter()
+                        .find(|(game_inst_param, _)| game_inst_param.name == game_const.name)
+                        // This should have been caught by the type checker, so we assume it can't
+                        // happen and panic
+                        .unwrap_or_else(|| panic!("couldn't find identifier {game_const:?} in const mapping {game_inst_const_mapping:?}"));
+
+                    assigned_expr.map(|expr| resolve_and_redact_expr(game_inst_const_mapping, expr))
+                }
+
+                // leave the rest
                 other => other,
             }
-        };
+        }
 
-        let redacted_left_param_expr = left_param_expr.map(redact_expr);
-        let redacted_right_param_expr = right_param_expr.map(redact_expr);
+        let redacted_left_param_expr =
+            left_param_expr.map(|expr| resolve_and_redact_expr(&left_game_inst.consts, expr));
+        let redacted_right_param_expr =
+            right_param_expr.map(|expr| resolve_and_redact_expr(&right_game_inst.consts, expr));
+
+        println!("comparing {}", param_ident.ident_ref());
+        println!("  left:  {left_param_expr:?}");
+        println!("   redacted:  {redacted_left_param_expr:?}");
+        println!("  right: {right_param_expr:?}");
+        println!("   redacted:  {redacted_right_param_expr:?}");
 
         if redacted_left_param_expr != redacted_right_param_expr {
             different_params.push((

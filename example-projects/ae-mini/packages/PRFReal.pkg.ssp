@@ -1,7 +1,7 @@
 package PRFReal {
     params {
         n: Integer,
-     /* prf: fn Bits(n), Bits(n) -> Bits(n),*/
+      prf: fn Bits(n), Bits(n) -> Bits(n),
     }
     
     state {
@@ -14,6 +14,6 @@ package PRFReal {
 	          ltk <- Some(ltk_);
         }       
 
-        return h; /* prf(Unwrap(ltk), h);*/
+        return  prf(Unwrap(ltk), h);
     } 
 }

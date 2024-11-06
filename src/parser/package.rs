@@ -27,7 +27,7 @@ use crate::{
     writers::smt::{
         declare::declare_const,
         exprs::{SmtAnd, SmtAssert, SmtEq2, SmtExpr, SmtIte, SmtLt, SmtLte, SmtNot},
-        sorts::SmtInt,
+        sorts::Sort,
     },
 };
 
@@ -444,8 +444,22 @@ pub fn handle_expression(
             Expression::None(tipe)
         }
 
-        Rule::expr_untyped_none => {
-            if let Some(expected_type) = expected_type {
+        Rule::expr_untyped_none => match expected_type {
+            None => {
+                return Err(UntypedNoneTypeInferenceError {
+                    source_code: ctx.named_source(),
+                    at: (span.start()..span.end()).into(),
+                }
+                .into());
+            }
+            Some(Type::Maybe(t)) if matches!(**t, Type::Unknown) => {
+                return Err(UntypedNoneTypeInferenceError {
+                    source_code: ctx.named_source(),
+                    at: (span.start()..span.end()).into(),
+                }
+                .into());
+            }
+            Some(expected_type) => {
                 let Type::Maybe(inner_type) = expected_type else {
                     return Err(TypeMismatchError {
                         source_code: ctx.named_source(),
@@ -456,14 +470,8 @@ pub fn handle_expression(
                     .into());
                 };
                 Expression::None(*inner_type.clone())
-            } else {
-                return Err(UntypedNoneTypeInferenceError {
-                    source_code: ctx.named_source(),
-                    at: (span.start()..span.end()).into(),
-                }
-                .into());
             }
-        }
+        },
 
         Rule::expr_some => {
             // make sure the expected type is a maybe.
@@ -481,7 +489,11 @@ pub fn handle_expression(
                     }
                     .into());
                 };
-                Some(*ty.clone())
+                if **ty == Type::Unknown {
+                    None
+                } else {
+                    Some(*ty.clone())
+                }
             } else {
                 None
             };
@@ -494,8 +506,11 @@ pub fn handle_expression(
             Expression::Some(Box::new(expr))
         }
         Rule::expr_unwrap => {
-            let expected_type: Option<Type> =
-                expected_type.map(|ty| Type::Maybe(Box::new(ty.clone())));
+            let expected_type: Option<Type> = if let Some(ty) = expected_type {
+                Some(Type::Maybe(Box::new(ty.clone())))
+            } else {
+                Some(Type::Maybe(Box::new(Type::Unknown)))
+            };
             let expr = handle_expression(
                 ctx,
                 ast.into_inner().next().unwrap(),
@@ -531,7 +546,9 @@ pub fn handle_expression(
             let idx_expr = handle_expression(ctx, inner.next().unwrap(), Some(&*idx_type))?;
 
             if let Some(expected_type) = expected_type {
-                if expected_type != &Type::Maybe(val_type.clone()) {
+                if *expected_type != Type::Maybe(Box::new(Type::Unknown))
+                    && expected_type != &Type::Maybe(val_type.clone())
+                {
                     return Err(ParseExpressionError::TypeMismatch(TypeMismatchError {
                         at: (expr_span.start()..expr_span.end()).into(),
                         expected: expected_type.clone(),
@@ -688,7 +705,14 @@ pub fn handle_expression(
         let got = expr.get_type();
         let at: SourceSpan = (span.start()..span.end()).into();
 
-        if expected != &got {
+        let expecting_unknown_maybe = *expected == Type::Maybe(Box::new(Type::Unknown));
+        let got_a_maybe = matches!(got, Type::Maybe(_));
+
+        // we allow a mismatch if we don't know what the type in the maybe is, and got some kind of
+        // maybe. This is effectively a form of type inference.
+        let allow_mismatch = expecting_unknown_maybe && got_a_maybe;
+
+        if *expected != got && !allow_mismatch {
             let expected = expected.clone();
 
             return Err(ParseExpressionError::TypeMismatch(TypeMismatchError {
@@ -918,7 +942,7 @@ pub fn handle_code(
 
                     let ty_value_with_maybe = Type::Maybe(ty_value_without_maybe.clone());
 
-                    let index = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), Some(&*ty_key))?;
+                    let index = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), Some(ty_key))?;
                     let expr = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), Some(&ty_value_with_maybe))?;
 
                     let expected_type = match expr.get_type() {
@@ -1018,7 +1042,7 @@ pub fn handle_code(
                         ctx,
                         target_ident_name_ast,
                         oracle_name,
-                        expected_type,
+                        expected_type.clone(),
                     )
                     ?;
 
@@ -1029,7 +1053,7 @@ pub fn handle_code(
                         name: oracle_name.to_owned(),
                         args,
                         target_inst_name: None,
-                        tipe: None,
+                        tipe: Some(expected_type),
                         file_pos: source_span,
                     }
                 }
@@ -1304,7 +1328,7 @@ impl MultiInstanceIndicesGroup {
     ) -> Vec<SmtExpr> {
         let declares: Vec<_> = consts
             .iter()
-            .map(|const_name| declare_const(*const_name, SmtInt))
+            .map(|const_name| declare_const(*const_name, Sort::Int))
             .collect();
 
         let predicate = self.smt_totality_check_function(varname);

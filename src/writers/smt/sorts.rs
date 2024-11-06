@@ -2,92 +2,70 @@ use crate::types::Type;
 
 use super::exprs::SmtExpr;
 
-pub trait SmtSort: Into<SmtExpr> {}
-
-impl SmtSort for Type {}
-
-pub trait SmtPlainSort: SmtSort {
-    fn sort_name(&self) -> String;
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum Sort {
+    Int,
+    Bool,
+    String,
+    Array(Box<(Self, Self)>),
+    Parameter(String),
+    Other(String, Vec<Self>), /* TODO: sheould we put the datatype spec here? */
 }
 
-#[macro_export]
-macro_rules! impl_Into_for_PlainSort {
-    ($a:lifetime, $plain_sort:ty) => {
-        impl<$a> From<$plain_sort> for $crate::writers::smt::exprs::SmtExpr {
-            fn from(value: $plain_sort) -> $crate::writers::smt::exprs::SmtExpr {
-                value.sort_name().into()
+impl From<Type> for Sort {
+    fn from(value: Type) -> Self {
+        match value {
+            Type::Bits(length) => {
+                // TODO make sure we define this somewhere
+                Sort::Other(format!("Bits_{}", length), vec![])
             }
-        }
-        impl<$a> $crate::writers::smt::sorts::SmtSort for $plain_sort {}
-    };
-    ($plain_sort:ty) => {
-        impl From<$plain_sort> for $crate::writers::smt::exprs::SmtExpr {
-            fn from(value: $plain_sort) -> $crate::writers::smt::exprs::SmtExpr {
-                value.sort_name().into()
+            Type::Maybe(t) => Sort::Other("Maybe".to_string(), vec![(*t).into()]),
+            Type::Boolean => Sort::Bool,
+            Type::Empty => Sort::Other("Empty".to_string(), vec![]),
+            Type::Integer => Sort::Int,
+            Type::Table(t_idx, t_val) => {
+                Sort::Array(Box::new(((*t_idx).into(), Type::Maybe(t_val).into())))
             }
+            Type::Tuple(types) => Sort::Other(
+                format!("Tuple{}", types.len()),
+                types.into_iter().map(|ty| ty.into()).collect(),
+            ),
+            Type::Unknown => todo!(),
+            Type::String => todo!(),
+            Type::AddiGroupEl(_) => todo!(),
+            Type::MultGroupEl(_) => todo!(),
+            Type::List(_) => todo!(),
+            Type::Set(_) => todo!(),
+            Type::Fn(_, _) => todo!(),
+            Type::UserDefined(_) => todo!(),
         }
-        impl<$a> $crate::writers::smt::sorts::SmtSort for $plain_sort {}
-    };
-}
-
-pub struct Array<K, V>
-where
-    K: Into<SmtExpr>,
-    V: Into<SmtExpr>,
-{
-    pub key: K,
-    pub value: V,
-}
-
-impl<K, V> From<Array<K, V>> for SmtExpr
-where
-    K: Into<SmtExpr>,
-    V: Into<SmtExpr>,
-{
-    fn from(t: Array<K, V>) -> Self {
-        let Array { key, value } = t;
-        ("Array", key, value).into()
     }
 }
 
-pub struct SmtReturnValue<T: SmtSort> {
-    pub inner_sort: T,
-}
-
-impl<T: SmtSort> From<SmtReturnValue<T>> for SmtExpr {
-    fn from(value: SmtReturnValue<T>) -> Self {
-        ("ReturnValue", value.inner_sort).into()
+impl From<Sort> for SmtExpr {
+    fn from(value: Sort) -> Self {
+        match value {
+            Sort::Int => "Int".into(),
+            Sort::Bool => "Bool".into(),
+            Sort::String => "String".into(),
+            Sort::Array(types) => {
+                let (k, v) = *types;
+                ("Array", k, v).into()
+            }
+            Sort::Other(name, params) => {
+                if params.is_empty() {
+                    name.into()
+                } else {
+                    SmtExpr::List(
+                        Some(name)
+                            .into_iter()
+                            .map(SmtExpr::Atom)
+                            .chain(params.into_iter().map(|sort| sort.into()))
+                            .collect(),
+                    )
+                }
+            }
+            Sort::Parameter(name) => name.into(),
+        }
     }
 }
-
-impl<T: SmtSort> SmtSort for SmtReturnValue<T> {}
-
-pub struct SmtBool;
-
-impl From<SmtBool> for SmtExpr {
-    fn from(_value: SmtBool) -> Self {
-        SmtExpr::Atom("Bool".to_string())
-    }
-}
-
-impl SmtSort for SmtBool {}
-
-pub struct SmtInt;
-
-impl From<SmtInt> for SmtExpr {
-    fn from(_: SmtInt) -> Self {
-        SmtExpr::Atom("Int".to_string())
-    }
-}
-
-impl SmtSort for SmtInt {}
-
-pub struct SmtString;
-
-impl From<SmtString> for SmtExpr {
-    fn from(_value: SmtString) -> Self {
-        SmtExpr::Atom("String".to_string())
-    }
-}
-
-impl SmtSort for SmtString {}

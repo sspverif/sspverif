@@ -1,6 +1,5 @@
 composition Monprfideal {
     const n: Integer;
-/*    const prf: fn Bits(n), Bits(n) -> Bits(n);*/
     
     instance prf = PRFIdeal {
         params {

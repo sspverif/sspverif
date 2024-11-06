@@ -4,10 +4,16 @@ use super::{
     proofs,
 };
 use crate::{
-    expressions::Expression, gamehops::equivalence, identifier::{
+    expressions::Expression,
+    gamehops::equivalence,
+    identifier::{
         game_ident::{GameConstIdentifier, GameIdentifier},
         Identifier,
-    }, proof::GameHop, statement::Statement, types::Type, util::prover_process::{Communicator, ProverBackend}
+    },
+    proof::{Claim, ClaimType, GameHop},
+    statement::Statement,
+    types::Type,
+    util::prover_process::{Communicator, ProverBackend},
 };
 use std::{
     collections::HashMap,
@@ -85,6 +91,8 @@ fn small_game() {
                 name: "n".to_string(),
                 tipe: Type::Integer,
                 game_name: "SmallGame".to_string(),
+                game_inst_name: None,
+                proof_name: None,
                 inst_info: None,
             }
         )))
@@ -118,6 +126,40 @@ fn small_multi_inst_game() {
 #[test]
 fn untyped_none_type_inference_works() {
     let (name, pkg) = parse_file("none_inference_return.ssp");
+}
+
+#[test]
+fn equivalence_parses() {
+    let packages = parse_files(&["tiny.ssp"]);
+    let games = games::parse_files(&["small.ssp"], &packages);
+    let proof = proofs::parse_file("equivalence-small-small.ssp", &packages, &games);
+
+    let eq = proof
+        .game_hops
+        .iter()
+        .find_map(|hop| match hop {
+            GameHop::Equivalence(eq) => Some(eq),
+            _ => None,
+        })
+        .unwrap();
+
+    assert_eq!(eq.left_name, "smallA");
+    assert_eq!(eq.right_name, "smallB");
+    assert_eq!(
+        eq.invariants,
+        vec![("N".to_string(), vec!["./invariant.smt".to_string()])]
+    );
+    assert_eq!(
+        eq.trees,
+        vec![(
+            "N".into(),
+            vec![Claim {
+                name: "smt_ident".into(),
+                tipe: ClaimType::Lemma,
+                dependencies: vec![]
+            }]
+        )]
+    );
 }
 
 #[test]
@@ -176,30 +218,29 @@ fn package_empty_loop_works() {
     let k = "k".to_string();
     let n = "n".to_string();
     let h = "h".to_string();
-        assert_eq!(name, "EmptyLoop");
-        assert_eq!(pkg.params.len(), 1);
-        assert_eq!(pkg.params[0].0, "n");
-        assert_eq!(pkg.params[0].1, Type::Integer);
-        assert_eq!(pkg.oracles.len(), 2);
-        assert_eq!(pkg.oracles[0].sig.name, "Set");
-        assert_eq!(pkg.oracles[0].sig.tipe, Type::Empty);
-        assert_eq!(pkg.oracles[0].sig.args[0], (k, Type::Bits(n.clone())));
-        assert_eq!(pkg.oracles[0].sig.args[1], (h, Type::Bits(n)));
-        assert!(pkg.imports.is_empty());
-        assert!(matches!(&pkg.oracles[0].code.0[0], Statement::For(i, Expression::IntegerLiteral(1), Expression::Identifier(n), _,_)
+    assert_eq!(name, "EmptyLoop");
+    assert_eq!(pkg.params.len(), 1);
+    assert_eq!(pkg.params[0].0, "n");
+    assert_eq!(pkg.params[0].1, Type::Integer);
+    assert_eq!(pkg.oracles.len(), 2);
+    assert_eq!(pkg.oracles[0].sig.name, "Set");
+    assert_eq!(pkg.oracles[0].sig.tipe, Type::Empty);
+    assert_eq!(pkg.oracles[0].sig.args[0], (k, Type::Bits(n.clone())));
+    assert_eq!(pkg.oracles[0].sig.args[1], (h, Type::Bits(n)));
+    assert!(pkg.imports.is_empty());
+    assert!(
+        matches!(&pkg.oracles[0].code.0[0], Statement::For(i, Expression::IntegerLiteral(1), Expression::Identifier(n), _,_)
                 if n.ident() == "n" && i.ident() == "i"
-        ));
-        match &pkg.oracles[0].code.0[0]{
-         Statement::For(i, 
-         Expression::IntegerLiteral(1), 
-         Expression::Identifier(n), _,_) => {
-            assert_eq!(i.ident(),"i");
-            assert_eq!(n.ident(),"n")
+        )
+    );
+    match &pkg.oracles[0].code.0[0] {
+        Statement::For(i, Expression::IntegerLiteral(1), Expression::Identifier(n), _, _) => {
+            assert_eq!(i.ident(), "i");
+            assert_eq!(n.ident(), "n")
         }
-        other => panic!("expected For, got {:?}", other)
-        }
+        other => panic!("expected For, got {:?}", other),
+    }
 }
-
 
 /// This is a helper for transcripts. It can be cloned, and what is written in one clone can be
 /// read in all others. It is concurrency-safe. This can be passed into the Communicator, a simple

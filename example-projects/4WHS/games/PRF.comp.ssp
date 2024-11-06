@@ -1,0 +1,20 @@
+composition PRF {
+    const n: Integer;
+    const prf: fn Bits(n), Integer, Integer, Bits(n), Bits(n), Bool ->  Bits(n);
+    const b: Bool;
+    
+    instance prf = PRF {
+        params {
+            n:   n,
+          prf:   prf,
+            b:   b,
+        }
+    }
+
+    compose {
+        adversary: {
+            NewKey: prf,
+            Eval: prf,
+        },
+    }
+}

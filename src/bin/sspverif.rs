@@ -126,7 +126,7 @@ struct Cli {
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Export to LaTeX
-    Latex,
+    Latex(Latex),
 
     /// Give information about the provided code
     Explain(Explain),
@@ -146,6 +146,15 @@ enum Commands {
 struct Format {
     /// Input to reformat
     input: Option<std::path::PathBuf>,
+}
+
+#[derive(clap::Args, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Latex {
+    /// Solver for graph layouting
+    #[clap(short, long, default_value = "cvc5")]
+    prover: Option<ProverBackend>,
+    // TODO: given we have a default here, it seems impossible to choose none
 }
 
 #[derive(clap::Args, Debug)]
@@ -191,8 +200,8 @@ fn explain(_game_name: &str, _dst: &Option<String>) -> Result<(), project::error
     // Ok(())
 }
 
-fn latex() -> Result<(), project::error::Error> {
-    project::Project::load()?.latex()
+fn latex(l: &Latex) -> Result<(), project::error::Error> {
+    project::Project::load()?.latex(l.prover)
 }
 
 fn format(f: &Format) -> Result<(), project::error::Error> {
@@ -215,7 +224,7 @@ fn main() -> miette::Result<()> {
 
     let result = match &cli.command {
         Commands::Prove(p) => prove(p),
-        Commands::Latex => latex(),
+        Commands::Latex(l) => latex(l),
         Commands::Explain(Explain { game_name, output }) => explain(game_name, output),
         Commands::WireCheck(args) => wire_check(&args.game_name, args.dst_idx),
         Commands::Format(f) => format(f),

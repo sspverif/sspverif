@@ -1,7 +1,7 @@
 use crate::{
     expressions::Expression,
     identifier::game_ident::GameConstIdentifier,
-    package::{Composition, Package},
+    package::{Composition, Package, PackageInstance},
     packageinstance::instantiate::InstantiationContext,
     types::Type,
     util::resolver::{Resolver, SliceResolver},
@@ -44,19 +44,17 @@ mod instantiate {
             .pkg
             .oracles
             .iter()
-            .map(|oracle_def| inst_ctx.rewrite_oracle_def(oracle_def))
+            .map(|oracle_def| inst_ctx.rewrite_oracle_def(oracle_def.clone()))
             .collect();
 
         let new_split_oracles = pkg_inst
             .pkg
             .split_oracles
             .iter()
-            .map(|split_oracle_def| inst_ctx.rewrite_split_oracle_def(split_oracle_def))
+            .map(|split_oracle_def| inst_ctx.rewrite_split_oracle_def(split_oracle_def.clone()))
             .collect();
 
         let pkg = Package {
-            types: vec![],
-            params: vec![],
             oracles: new_oracles,
             split_oracles: new_split_oracles,
             ..pkg_inst.pkg.clone()
@@ -100,7 +98,6 @@ impl GameInstance {
         let game = Composition {
             name: game.name.clone(),
             pkgs: new_pkg_instances,
-            consts: vec![],
 
             ..game
         };
@@ -235,10 +232,10 @@ impl ClaimType {
 #[derive(Debug, Clone)]
 pub struct Equivalence {
     // these two are game instance names
-    left_name: String,
-    right_name: String,
-    invariants: Vec<(String, Vec<String>)>,
-    trees: Vec<(String, Vec<Claim>)>,
+    pub(crate) left_name: String,
+    pub(crate) right_name: String,
+    pub(crate) invariants: Vec<(String, Vec<String>)>,
+    pub(crate) trees: Vec<(String, Vec<Claim>)>,
 }
 
 impl Equivalence {
@@ -278,9 +275,15 @@ impl Equivalence {
     }
 
     pub fn invariants_by_oracle_name(&self, oracle_name: &str) -> Vec<String> {
-        SliceResolver(&self.invariants)
-            .resolve_value(oracle_name)
-            .map(|(_oname, inv_file_names)| inv_file_names.clone())
+        self.invariants
+            .iter()
+            .find_map(|(oracle_name_, invariants)| {
+                if oracle_name_.as_str() == oracle_name {
+                    Some(invariants.clone())
+                } else {
+                    None
+                }
+            })
             .unwrap_or(vec![])
     }
 
@@ -337,6 +340,40 @@ pub enum GameHop {
     Equivalence(Equivalence),
 }
 
+impl GameHop {
+    /// Returns `true` if the game hop is [`Reduction`].
+    ///
+    /// [`Reduction`]: GameHop::Reduction
+    #[must_use]
+    pub fn is_reduction(&self) -> bool {
+        matches!(self, Self::Reduction(..))
+    }
+
+    /// Returns `true` if the game hop is [`Equivalence`].
+    ///
+    /// [`Equivalence`]: GameHop::Equivalence
+    #[must_use]
+    pub fn is_equivalence(&self) -> bool {
+        matches!(self, Self::Equivalence(..))
+    }
+
+    pub fn as_reduction(&self) -> Option<&Reduction> {
+        if let Self::Reduction(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_equivalence(&self) -> Option<&Equivalence> {
+        if let Self::Equivalence(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Proof {
     pub(crate) name: String,
@@ -391,5 +428,11 @@ impl Proof {
 
     pub fn packages(&self) -> &[Package] {
         &self.pkgs
+    }
+
+    pub(crate) fn find_game_instance(&self, game_inst_name: &str) -> Option<&GameInstance> {
+        self.instances
+            .iter()
+            .find(|inst| inst.name == game_inst_name)
     }
 }

@@ -5,12 +5,11 @@ use pest::iterators::Pair;
 
 use crate::{
     identifier::pkg_ident::PackageImportsLoopVarIdentifier,
-    package::Package,
     types::Type,
     writers::smt::{
         exprs::{SmtEq2, SmtExpr, SmtIte, SmtLt, SmtLte},
         patterns::FunctionPattern,
-        sorts::SmtInt,
+        sorts::Sort,
     },
 };
 
@@ -27,22 +26,25 @@ struct MultiplicityFunctionPattern {
 }
 
 impl FunctionPattern for MultiplicityFunctionPattern {
-    type ReturnSort = SmtInt;
-
     fn function_name(&self) -> String {
         format!("multiset-multiplicity-{name}", name = self.name)
     }
 
-    fn function_args(&self) -> Vec<(String, SmtExpr)> {
+    fn function_args(&self) -> Vec<(String, Sort)> {
         self.args
             .iter()
-            .map(|name| ((*name).to_string(), SmtInt.into()))
-            .chain(vec![("queryElem".to_string(), SmtInt.into())].into_iter())
+            .map(|name| ((*name).to_string(), Sort::Int))
+            .chain(Some(("queryElem".to_string(), Sort::Int)))
             .collect()
     }
 
-    fn function_return_sort(&self) -> Self::ReturnSort {
-        SmtInt
+    fn function_return_sort(&self) -> Sort {
+        Sort::Int
+    }
+
+    fn function_args_count(&self) -> usize {
+        // args + query element
+        self.args.len() + 1
     }
 }
 
@@ -152,7 +154,7 @@ fn parse_import_oracles_oracle_sig(
 
     let call_args = stack.iter().map(|id| id.name.clone().into()).collect_vec();
 
-    let call = pattern.call(&call_args);
+    let call = pattern.call(&call_args).unwrap();
 
     let body = SmtIte {
         cond: SmtEq2 {
@@ -247,18 +249,20 @@ fn parse_import_oracles_for(
     let inner_iter = defs.iter().map(|(_, call, _)| call.clone());
 
     // the recursive call to the next iteration
-    let next_iter = vec![pattern.call(
-        &stack
-            .iter()
-            .map(|id| -> SmtExpr {
-                if id.name != ident_data.name {
-                    id.name.clone().into()
-                } else {
-                    ("+", 1, id.name.clone()).into()
-                }
-            })
-            .collect_vec(),
-    )]
+    let next_iter = vec![pattern
+        .call(
+            &stack
+                .iter()
+                .map(|id| -> SmtExpr {
+                    if id.name != ident_data.name {
+                        id.name.clone().into()
+                    } else {
+                        ("+", 1, id.name.clone()).into()
+                    }
+                })
+                .collect_vec(),
+        )
+        .unwrap()]
     .into_iter();
 
     let body = SmtIte {
@@ -286,14 +290,14 @@ fn parse_import_oracles_for(
         .map(|id| {
             if id.name == ident_data.name {
                 match ident_data.start_comp {
-                    ForComp::Lt => {
-                        fndef
-                            .pattern
-                            .call(&[("+", 1, ident_data.start.as_ref().clone()).into()])
-                    }
+                    ForComp::Lt => fndef
+                        .pattern
+                        .call(&[("+", 1, ident_data.start.as_ref().clone()).into()])
+                        .unwrap(),
                     ForComp::Lte => fndef
                         .pattern
-                        .call(&[ident_data.start.as_ref().clone().into()]),
+                        .call(&[ident_data.start.as_ref().clone().into()])
+                        .unwrap(),
                 }
             } else {
                 id.name.clone().into()
@@ -301,7 +305,7 @@ fn parse_import_oracles_for(
         })
         .collect_vec();
 
-    let start_call = fndef.pattern.call(&start_call_args);
+    let start_call = fndef.pattern.call(&start_call_args).unwrap();
 
     Ok((fndef, start_call, deps))
 }

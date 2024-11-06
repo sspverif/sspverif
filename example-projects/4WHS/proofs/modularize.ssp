@@ -1,40 +1,82 @@
 proof WHSProto {
+    const b: Bool;
     const n: Integer;
     const m: Integer;
-    const prf: fn Bits(n), Bits(n) -> (Bits(n),Bits(n));
-    const mac: fn Bits(n),Bits(n) -> Bits(n);
-    const verify: fn Bits(n),Bits(n),Bits(n) -> Bool;
+    const zeron: Bits(n);
+    const prf: fn Bits(n), Integer, Integer, Bits(n), Bits(n), Bool ->  Bits(n);
+    const mac: fn Bits(n), Bits(n), Integer -> Bits(n);
   
-    instance monprfreal = Monprfreal {
+    instance Noncesideal = Nonces {
         params {
-            n  : n  ,
-  	        prf: prf,
+            b  : true,
+            n  : n   ,
         }
     }
 
-    instance monprfideal = Monprfideal {
+    instance Noncesreal = Nonces {
         params {
-            n  : n  ,
+            b  : false,
+            n  : n    ,
         }
     }
+
+    instance PRFideal = PRF {
+        params {
+            b  : true,
+            n  : n   ,
+  	        prf: prf ,
+        }
+    }
+
+    instance PRFreal = PRF {
+        params {
+            b  : false,
+            n  : n    ,
+  	        prf: prf  ,
+        }
+    }
+
+    instance KX_Red_0 = KX_Red {
+        params {
+            bnonces : false,
+            b       : b    ,
+            n       : n    ,
+            zeron   : zeron,
+  	        prf     : prf  ,
+            mac     : mac  ,
+        }
+    }
+
+    instance KX_Red_1 = KX_Red {
+        params {
+            bnonces : true,
+            b       : b    ,
+            n       : n    ,
+            zeron   : zeron,
+  	        prf     : prf  ,
+            mac     : mac  ,
+        }
+    }
+
 
 
     assumptions {
-        Monprf: monprfreal ~ monprfideal
+        prf:    PRFreal    ~ PRFideal
+        nonces: Noncesreal ~ Noncesideal
     }
 
     gamehops 
     {
-        reduction monprfreal monprfideal  
+        reduction KX_Red_0 KX_Red_1  
         {
-            assumption Monprf
+            assumption nonces
 
-            map monprfreal monprfreal {
-                prf    : prf
+            map Noncesreal KX_Red_0  {
+                nonces    : nonces
             }
 
-            map monprfideal monprfideal {
-                prf    : prf
+            map Noncesideal KX_Red_1 {
+                nonces    : nonces
             }
         }
     }

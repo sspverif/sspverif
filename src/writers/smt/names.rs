@@ -4,10 +4,6 @@ pub(crate) fn oracle_function_name(game_name: &str, inst_name: &str, oracle_name
     format!("oracle-{game_name}-{inst_name}-{oracle_name}")
 }
 
-pub(crate) fn return_sort_name(game_name: &str, inst_name: &str, oracle_name: &str) -> String {
-    format!("Return_{game_name}_{inst_name}_{oracle_name}")
-}
-
 pub(crate) fn return_constructor_abort_name(
     game_name: &str,
     inst_name: &str,
@@ -20,16 +16,12 @@ pub(crate) fn gamestate_sort_name(game_name: &str) -> String {
     format!("CompositionState-{game_name}")
 }
 
-pub(crate) fn pkgstate_sort_name(game_name: &str, inst_name: &str) -> String {
-    format!("State_{game_name}_{inst_name}")
-}
-
 pub(crate) fn var_selfstate_name() -> String {
     "__self_state".to_string()
 }
 
 pub(crate) fn var_globalstate_name() -> String {
-    "__global_state".to_string()
+    "<game-state>".to_string()
 }
 
 pub(crate) fn var_ret_name() -> String {
@@ -41,9 +33,9 @@ pub(crate) fn fn_sample_rand_name<S: Into<SmtExpr>>(game_name: &str, rand_sort: 
 }
 
 pub(crate) fn oracle_nonsplit_arg_name(oracle_name: &str, arg_name: &str) -> String {
-    format!("arg-{oracle_name}-{arg_name}")
+    format!("<arg-{oracle_name}-{arg_name}>")
 }
 
 pub(crate) fn oracle_split_arg_name(game_name: &str, oracle_name: &str, arg_name: &str) -> String {
-    format!("arg-{game_name}-{oracle_name}-{arg_name}")
+    format!("<arg-{game_name}-{oracle_name}-{arg_name}>")
 }

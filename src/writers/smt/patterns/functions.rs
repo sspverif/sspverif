@@ -1,35 +1,31 @@
-use crate::types::Type;
-use crate::writers::smt::exprs::SmtExpr;
-use crate::writers::smt::patterns::ReturnPattern;
-use crate::writers::smt::sorts::{SmtBool, SmtSort};
-use crate::{package::OracleSig, split::SplitPath};
+pub mod const_mapping;
+pub mod dispatch_oracle;
+mod lemma;
+pub mod oracle;
+pub mod partial_oracle;
 
-use super::{
-    DatastructurePattern, GameStatePattern, GlobalStatePattern, IntermediateStatePattern,
-    PartialReturnPattern, PartialReturnSort, ReturnSort,
-};
+pub mod relation;
+
+pub use dispatch_oracle::DispatchOraclePattern;
+pub use oracle::{OraclePattern, ORACLE_ARG_GAME_STATE, ORACLE_ARG_INTERMEDIATE_STATE};
+pub use partial_oracle::PartialOraclePattern;
+
+use crate::writers::smt::{exprs::SmtExpr, sorts::Sort};
 
 pub trait FunctionPattern {
-    type ReturnSort: SmtSort;
-
     fn function_name(&self) -> String;
-    fn function_args(&self) -> Vec<(String, SmtExpr)>;
-    fn function_return_sort(&self) -> Self::ReturnSort;
+    fn function_args(&self) -> Vec<(String, Sort)>;
+    fn function_args_count(&self) -> usize;
+    fn function_return_sort(&self) -> Sort;
 
-    fn define_fun<B: Into<SmtExpr>>(&self, body: B) -> SmtExpr {
-        (
-            "define-fun",
-            self.function_name(),
-            SmtExpr::List(
-                self.function_args()
-                    .into_iter()
-                    .map(|pair| -> SmtExpr { pair.into() })
-                    .collect(),
-            ),
-            self.function_return_sort(),
+    fn define_fun<B: Into<SmtExpr>>(&self, body: B) -> SmtDefineFun<B> {
+        SmtDefineFun {
+            is_rec: false,
+            name: self.function_name(),
+            args: self.function_args(),
+            sort: self.function_return_sort(),
             body,
-        )
-            .into()
+        }
     }
 
     fn define_fun_rec<B: Into<SmtExpr>>(&self, body: B) -> SmtExpr {
@@ -48,220 +44,47 @@ pub trait FunctionPattern {
             .into()
     }
 
-    fn call(&self, args: &[SmtExpr]) -> SmtExpr {
-        let mut call: Vec<SmtExpr> = vec![self.function_name().into()];
-        call.extend(args.iter().cloned());
-        SmtExpr::List(call)
-    }
-}
-
-pub const ORACLE_ARG_GAME_STATE: &str = "__global_state";
-pub const ORACLE_ARG_INTERMEDIATE_STATE: &str = "__intermediate_state";
-
-pub struct OraclePattern<'a> {
-    pub game_inst_name: &'a str,
-    pub pkg_inst_name: &'a str,
-    pub oracle_name: &'a str,
-    pub oracle_args: &'a [(String, Type)],
-}
-
-impl<'a> FunctionPattern for OraclePattern<'a> {
-    type ReturnSort = ReturnSort<'a>;
-
-    fn function_name(&self) -> String {
-        let Self {
-            game_inst_name,
-            pkg_inst_name,
-            oracle_name,
-            ..
-        } = self;
-
-        format!("oracle-{game_inst_name}-{pkg_inst_name}-{oracle_name}")
-    }
-
-    fn function_args(&self) -> Vec<(String, SmtExpr)> {
-        let Self {
-            game_inst_name,
-            oracle_args,
-            ..
-        } = self;
-
-        let game_state_pattern = GameStatePattern { game_inst_name };
-
-        use super::VariablePattern;
-        let global_state_pattern = &GlobalStatePattern;
-        let mut args: Vec<(String, SmtExpr)> =
-            vec![global_state_pattern.name_sort_tuple(&game_state_pattern)];
-
-        args.extend(
-            oracle_args
-                .iter()
-                .cloned()
-                .map(|(name, tipe)| (name, tipe.into())),
-        );
-
-        args
-    }
-
-    fn function_return_sort(&self) -> ReturnSort<'a> {
-        let Self {
-            game_inst_name,
-            pkg_inst_name,
-            oracle_name,
-            ..
-        } = self;
-
-        ReturnPattern {
-            game_inst_name,
-            pkg_inst_name,
-            oracle_name,
+    fn call(&self, args: &[SmtExpr]) -> Option<SmtExpr> {
+        if args.len() == self.function_args_count() {
+            let mut call: Vec<SmtExpr> = vec![self.function_name().into()];
+            call.extend(args.iter().cloned());
+            Some(SmtExpr::List(call))
+        } else {
+            None
         }
-        .sort()
     }
 }
 
-pub struct DispatchOraclePattern<'a> {
-    pub game_inst_name: &'a str,
-    pub pkg_inst_name: &'a str,
-    pub oracle_sig: &'a OracleSig,
+#[derive(Debug)]
+pub struct SmtDefineFun<Body: Into<SmtExpr>> {
+    pub(crate) is_rec: bool,
+    pub(crate) name: String,
+    pub(crate) args: Vec<(String, Sort)>,
+    pub(crate) sort: Sort,
+    pub(crate) body: Body,
 }
 
-impl<'a> FunctionPattern for DispatchOraclePattern<'a> {
-    type ReturnSort = PartialReturnSort<'a>;
-    fn function_name(&self) -> String {
-        let Self {
-            game_inst_name,
-            pkg_inst_name,
-            oracle_sig,
-        } = self;
-
-        let oracle_name = &oracle_sig.name;
-        format!("oracle-{game_inst_name}-{pkg_inst_name}-{oracle_name}")
-    }
-
-    fn function_args(&self) -> Vec<(String, SmtExpr)> {
-        let DispatchOraclePattern {
-            oracle_sig,
-            game_inst_name,
-            pkg_inst_name,
-        } = self;
-
-        let oracle_name = &oracle_sig.name;
-        let game_state_pattern = GameStatePattern { game_inst_name };
-        let intermediate_state_pattern = IntermediateStatePattern {
-            game_inst_name,
-            pkg_inst_name,
-            oracle_name,
+impl<Body: Into<SmtExpr>> From<SmtDefineFun<Body>> for SmtExpr {
+    fn from(value: SmtDefineFun<Body>) -> Self {
+        let command_name = if value.is_rec {
+            "define-fun-rec"
+        } else {
+            "define-fun"
         };
 
-        let mut args = vec![
-            (
-                ORACLE_ARG_GAME_STATE.to_string(),
-                game_state_pattern.sort().into(),
+        (
+            command_name,
+            value.name,
+            SmtExpr::List(
+                value
+                    .args
+                    .into_iter()
+                    .map(|pair| -> SmtExpr { pair.into() })
+                    .collect(),
             ),
-            (
-                ORACLE_ARG_INTERMEDIATE_STATE.to_string(),
-                intermediate_state_pattern.sort().into(),
-            ),
-        ];
-
-        args.extend(
-            oracle_sig
-                .args
-                .iter()
-                .cloned()
-                .map(|(name, tipe)| (name, tipe.into())),
-        );
-
-        args
-    }
-
-    fn function_return_sort(&self) -> PartialReturnSort<'a> {
-        let Self {
-            game_inst_name,
-            pkg_inst_name,
-            oracle_sig,
-        } = self;
-
-        let partial_return_pattern = PartialReturnPattern {
-            game_inst_name,
-            pkg_inst_name,
-            oracle_name: &oracle_sig.name,
-        };
-
-        partial_return_pattern.sort()
-    }
-}
-
-pub struct PartialOraclePattern<'a> {
-    pub game_inst_name: &'a str,
-    pub pkg_inst_name: &'a str,
-    pub oracle_name: &'a str,
-    pub split_path: &'a SplitPath,
-}
-
-impl<'a> FunctionPattern for PartialOraclePattern<'a> {
-    type ReturnSort = PartialReturnSort<'a>;
-
-    fn function_name(&self) -> String {
-        let PartialOraclePattern {
-            game_inst_name,
-            pkg_inst_name,
-            oracle_name,
-            split_path,
-        } = self;
-
-        let path = split_path.smt_name();
-        format!("oracle-{game_inst_name}-{pkg_inst_name}-{oracle_name}-{path}")
-    }
-
-    fn function_args(&self) -> Vec<(String, SmtExpr)> {
-        todo!()
-    }
-
-    fn function_return_sort(&self) -> PartialReturnSort<'a> {
-        let Self {
-            game_inst_name,
-            pkg_inst_name,
-            oracle_name,
-            ..
-        } = self;
-        let partial_return_pattern = PartialReturnPattern {
-            game_inst_name,
-            pkg_inst_name,
-            oracle_name,
-        };
-
-        partial_return_pattern.sort()
-    }
-}
-
-pub struct LemmaFunction<'a> {
-    left_game_inst_name: &'a str,
-    right_game_inst_name: &'a str,
-    oracle_name: &'a str,
-}
-
-impl<'a> FunctionPattern for LemmaFunction<'a> {
-    type ReturnSort = SmtBool;
-
-    fn function_name(&self) -> String {
-        let Self {
-            left_game_inst_name,
-            right_game_inst_name,
-            oracle_name,
-        } = self;
-        format!("lemma-auto-{left_game_inst_name}-{right_game_inst_name}-{oracle_name}")
-    }
-
-    fn function_args(&self) -> Vec<(String, SmtExpr)> {
-        let _state_left_pattern = GameStatePattern {
-            game_inst_name: self.left_game_inst_name,
-        };
-        vec![]
-    }
-
-    fn function_return_sort(&self) -> Self::ReturnSort {
-        todo!()
+            value.sort,
+            value.body,
+        )
+            .into()
     }
 }

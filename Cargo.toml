@@ -5,7 +5,7 @@ authors = [
   "Jan Winkelmann (keks) <git@keks.cool>",
   "Christoph Egger <christoph.egger@alumni.fau.de>",
 ]
-edition = "2018"
+edition = "2021"
 
 [profile.release]
 debug = true

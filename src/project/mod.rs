@@ -119,7 +119,7 @@ impl Project {
         Ok(())
     }
 
-    pub fn latex(&self) -> Result<()> {
+    pub fn latex(&self, backend: Option<ProverBackend>) -> Result<()> {
         let mut path = self.root_dir.clone();
         path.push("_build/latex/");
         std::fs::create_dir_all(&path)?;
@@ -131,7 +131,7 @@ impl Project {
             let (transformed, _) = crate::transforms::resolveoracles::Transformation(&transformed)
                 .transform()
                 .unwrap();
-            crate::writers::tex::writer::tex_write_composition(&transformed, name, path.as_path())?;
+            crate::writers::tex::writer::tex_write_composition(&backend, &transformed, name, path.as_path())?;
         }
 
         for (name, proof) in &self.proofs {

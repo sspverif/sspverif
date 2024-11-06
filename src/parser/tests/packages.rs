@@ -4,6 +4,7 @@ use crate::{
     package::Package,
     parser::{
         package::{handle_pkg, ParsePackageError},
+        tests::TESTDATA_SSPCODE_PATH,
         SspParser,
     },
 };
@@ -35,7 +36,7 @@ pub fn parse_fails(code: &str, name: &str) -> ParsePackageError {
 }
 
 pub fn parse_file(file_name: &str) -> (String, Package) {
-    let file = std::fs::File::open(format!("src/parser/tests/packages/{file_name}"))
+    let file = std::fs::File::open(format!("{TESTDATA_SSPCODE_PATH}/packages/{file_name}"))
         .unwrap_or_else(|_| panic!("error opening test code package {}", file_name));
 
     let contents = std::io::read_to_string(file)
@@ -49,7 +50,7 @@ pub fn parse_files(file_names: &[&str]) -> HashMap<String, Package> {
 }
 
 pub fn parse_file_fails(file_name: &str) -> ParsePackageError {
-    let file = std::fs::File::open(format!("src/parser/tests/packages/{file_name}"))
+    let file = std::fs::File::open(format!("{TESTDATA_SSPCODE_PATH}/packages/{file_name}"))
         .unwrap_or_else(|_| panic!("error opening test code package {}", file_name));
 
     let contents = std::io::read_to_string(file)

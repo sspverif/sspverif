@@ -9,6 +9,11 @@ use crate::proof::GameHop;
 use crate::proof::Proof;
 use crate::statement::{CodeBlock, Statement};
 use crate::types::Type;
+use crate::util::prover_process::ProverBackend;
+use crate::util::prover_process::{Communicator, ProverResponse};
+use crate::writers::tex::SmtModelParser;
+use crate::writers::tex::Rule;
+
 
 /// TODO: Move to struct so we can have verbose versions (e.g. writing types to expressions)
 
@@ -267,7 +272,8 @@ pub fn tex_write_package(package: &PackageInstance, target: &Path) -> std::io::R
 
     for oracle in &package.pkg.oracles {
         let oraclefname = tex_write_oracle(oracle, &package.name, target)?;
-        writeln!(file, "\\input{{{}}}\\pchspace", oraclefname)?;
+        let oraclefname = Path::new(&oraclefname).strip_prefix(fname.clone().parent().unwrap()).unwrap().to_str();
+        writeln!(file, "\\input{{{}}}\\pchspace", oraclefname.unwrap())?;
     }
     writeln!(file, "\\end{{pchstack}}\\end{{pcvstack}}")?;
 
@@ -293,6 +299,81 @@ fn tex_write_document_header(mut file: &File) -> std::io::Result<()> {
     )?;
     writeln!(file, "\\tikzstyle{{package}} = [inner sep=1pt,align=center,rounded corners,draw,minimum width=2cm,minimum height=1cm,font=\\small]")?;
     writeln!(file, "\\tikzstyle{{onarrow}} = [inner sep=1pt,font=\\scriptsize,anchor=east,at end,xshift=-0.1mm,align=left,fill=white]")?;
+    Ok(())
+}
+
+fn tex_smt_write_composition_graph(
+    backend: &Option<ProverBackend>,
+    mut file: &File,
+    composition: &Composition,
+    pkgmap: &[(std::string::String, std::string::String)],
+) -> std::io::Result<()> {
+    use std::fmt::Write;
+
+    let mut model = String::new();
+
+    for width in 1..20 {
+    let mut comm = Communicator::new(backend.unwrap()).unwrap();
+    
+    writeln!(comm, "(declare-const num-pkgs Int)");
+    writeln!(comm, "(declare-const width Int)");
+    writeln!(comm, "(declare-const height Int)");
+    writeln!(comm, "(assert (= num-pkgs {}))", composition.pkgs.len());
+    
+    for i in 0..composition.pkgs.len() {
+        let pkg = &composition.pkgs[i].name; 
+        writeln!(comm, "(declare-const {pkg}-column Int)");
+        writeln!(comm, "(assert (< 0 {pkg}-column width))");
+        writeln!(comm, "(declare-const {pkg}-top Int)");
+        writeln!(comm, "(declare-const {pkg}-bottom Int)");
+        writeln!(comm, "(assert (< 0 {pkg}-bottom (- {pkg}-top 1) height))");
+    }
+
+    for Edge(from, to, oracle) in &composition.edges {
+        let pkga = &composition.pkgs[*from].name;
+        let pkgb = &composition.pkgs[*to].name;
+        
+        writeln!(comm, "(declare-const edge-{pkga}-{pkgb}-height Int)");
+        writeln!(comm, "(assert (< {pkga}-bottom edge-{pkga}-{pkgb}-height {pkga}-top))");
+        writeln!(comm, "(assert (< {pkgb}-bottom edge-{pkga}-{pkgb}-height {pkgb}-top))");
+        writeln!(comm, "(assert (< {pkga}-column {pkgb}-column))");
+    }
+
+    for i in 0..composition.pkgs.len() {
+        for j in 0..i {
+            let pkga = &composition.pkgs[i].name;
+            let pkgb = &composition.pkgs[j].name;
+            writeln!(comm, "
+(assert (not (exists ((l Int))
+               (and
+                 (<= {pkga}-bottom l {pkga}-top)
+                 (<= {pkgb}-bottom l {pkgb}-top)
+                 (= {pkga}-column {pkgb}-column)))))");
+        }
+    }
+
+    for i in 0..composition.pkgs.len() {
+        for Edge(from, to, oracle) in &composition.edges {
+            let pkga = &composition.pkgs[*from].name;
+            let pkgb = &composition.pkgs[*to].name;
+            let pkgc = &composition.pkgs[i].name;
+
+            writeln!(comm, "
+(assert (not (exists ((l Int))
+               (and 
+                 (=  edge-{pkga}-{pkgb}-height l)
+                 (<  {pkga}-column {pkgc}-column {pkgb}-column)
+                 (<= (- {pkgc}-bottom 1) l (+ {pkgc}-top 1))))))"); 
+        }
+    }
+
+        if comm.check_sat().unwrap() == ProverResponse::Sat {
+            model = comm.get_model().unwrap();
+            break;
+        }
+    }
+    let model = SmtModelParser::parse_model(&model);
+    println!("{:#?}", model);
     Ok(())
 }
 
@@ -367,25 +448,30 @@ fn tex_write_composition_graph(
 }
 
 fn tex_write_composition_graph_file(
+    backend: &Option<ProverBackend>,
     composition: &Composition,
     name: &str,
     target: &Path,
 ) -> std::io::Result<String> {
     let fname = target.join(format!("CompositionGraph_{}.tex", name));
+    let smtname = target.join(format!("CompositionGraph_{}.smt", name));
     let mut file = File::create(fname.clone())?;
+    let mut smtfile = File::create(smtname.clone())?;
 
     tex_write_composition_graph(&file, composition, &Vec::new())?;
+    tex_smt_write_composition_graph(backend, &smtfile, composition, &Vec::new())?;
 
     Ok(fname.to_str().unwrap().to_string())
 }
 
 pub fn tex_write_composition(
+    backend: &Option<ProverBackend>,
     composition: &Composition,
     name: &str,
     target: &Path,
 ) -> std::io::Result<()> {
     let fname = target.join(format!("Composition_{}.tex", name));
-    let mut file = File::create(fname)?;
+    let mut file = File::create(fname.clone())?;
 
     tex_write_document_header(&file)?;
 
@@ -393,15 +479,17 @@ pub fn tex_write_composition(
     writeln!(file, "\\begin{{document}}")?;
     writeln!(file, "\\maketitle")?;
 
-    let graphfname = tex_write_composition_graph_file(composition, name, target)?;
+    let graphfname = tex_write_composition_graph_file(backend, composition, name, target)?;
+    let graphfname = Path::new(&graphfname).strip_prefix(fname.clone().parent().unwrap()).unwrap().to_str();
     writeln!(file, "\\begin{{center}}")?;
-    writeln!(file, "\\input{{{}}}", graphfname)?;
+    writeln!(file, "\\input{{{}}}", graphfname.unwrap())?;
     writeln!(file, "\\end{{center}}")?;
 
     for pkg in &composition.pkgs {
         let pkgfname = tex_write_package(pkg, target)?;
+        let pkgfname = Path::new(&pkgfname).strip_prefix(fname.clone().parent().unwrap()).unwrap().to_str();
         writeln!(file, "\\begin{{center}}")?;
-        writeln!(file, "\\input{{{}}}", pkgfname)?;
+        writeln!(file, "\\input{{{}}}", pkgfname.unwrap())?;
         writeln!(file, "\\end{{center}}")?;
     }
 
@@ -425,15 +513,15 @@ pub fn tex_write_proof(proof: &Proof, name: &str, target: &Path) -> std::io::Res
     for instance in &proof.instances {
         writeln!(file, "\\subsection{{{} Game}}", instance.name())?;
 
-        let graphfname = target.join(format!("CompositionGraph_{}.tex", instance.name()));
+        let graphfname = format!("CompositionGraph_{}.tex", instance.name());
         writeln!(file, "\\begin{{center}}")?;
-        writeln!(file, "\\input{{{}}}", graphfname.display())?;
+        writeln!(file, "\\input{{{}}}", graphfname)?;
         writeln!(file, "\\end{{center}}")?;
 
         for package in &instance.game().pkgs {
-            let pkgfname = target.join(format!("Package_{}.tex", package.name));
+            let pkgfname = format!("Package_{}.tex", package.name);
             writeln!(file, "\\begin{{center}}")?;
-            writeln!(file, "\\input{{{}}}", pkgfname.display())?;
+            writeln!(file, "\\input{{{}}}", pkgfname)?;
             writeln!(file, "\\end{{center}}")?;
         }
     }

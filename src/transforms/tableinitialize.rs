@@ -53,7 +53,7 @@ pub fn tableinitialize(
                 ));
             }
             Statement::Assign(
-                Identifier::Generated(ref id, _),
+                Identifier::Generated(ref id, ref ty),
                 Some(ref idxexpr),
                 ref expr,
                 ref file_pos,
@@ -67,6 +67,8 @@ pub fn tableinitialize(
                     Box::new(valuetype.as_ref().clone()),
                 );
 
+                debug_assert_eq!(*ty, tabletype);
+
                 if !new_initialized.contains(id) {
                     new_initialized.push(id.clone());
                     newcode.push(Statement::Assign(
@@ -79,7 +81,7 @@ pub fn tableinitialize(
                 newcode.push(stmt);
             }
             Statement::Sample(
-                Identifier::Generated(ref id, _),
+                Identifier::Generated(ref id, ref ty),
                 Some(ref idxexpr),
                 _,
                 ref tipe,
@@ -87,6 +89,8 @@ pub fn tableinitialize(
             ) => {
                 let indextype = idxexpr.get_type();
                 let tabletype = Type::Table(Box::new(indextype.clone()), Box::new(tipe.clone()));
+
+                debug_assert_eq!(*ty, tabletype);
 
                 if !new_initialized.contains(id) {
                     new_initialized.push(id.clone());

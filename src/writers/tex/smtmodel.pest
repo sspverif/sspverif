@@ -1,0 +1,8 @@
+WHITESPACE = _{ " " | "\r" | "\n" | "\t" }
+
+model = { "(" ~ modelline*~ ")" }
+modelline = {"(define-fun" ~ name ~ "()" ~ type ~ value ~ ")"}
+
+name = @{ ( ASCII_ALPHA | "_" | "-" ) ~ ( ASCII_ALPHA | ASCII_DIGIT | "_" | "-" )* }
+type = { "Int" }
+value = { ASCII_DIGIT+ }

@@ -4,6 +4,7 @@ use crate::{
     package::{Composition, Package},
     parser::{
         composition::{handle_composition, ParseGameError},
+        tests::TESTDATA_SSPCODE_PATH,
         SspParser,
     },
 };
@@ -24,7 +25,7 @@ pub fn parse_fails(code: &str, name: &str, pkg_map: &HashMap<String, Package>) -
 }
 
 pub fn parse_file(file_name: &str, pkgs: &HashMap<String, Package>) -> Composition {
-    let file = std::fs::File::open(format!("src/parser/tests/games/{file_name}"))
+    let file = std::fs::File::open(format!("{TESTDATA_SSPCODE_PATH}/games/{file_name}"))
         .unwrap_or_else(|_| panic!("error opening test code game {}", file_name));
 
     let contents = std::io::read_to_string(file)
@@ -47,7 +48,7 @@ pub fn parse_file_fails(
     file_name: &'static str,
     pkg_map: &HashMap<String, Package>,
 ) -> ParseGameError {
-    let file = std::fs::File::open(format!("src/parser/tests/games/{file_name}"))
+    let file = std::fs::File::open(format!("{TESTDATA_SSPCODE_PATH}/games/{file_name}"))
         .unwrap_or_else(|_| panic!("error opening test code game {}", file_name));
 
     let contents = std::io::read_to_string(file)

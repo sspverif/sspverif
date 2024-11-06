@@ -6,7 +6,7 @@ use crate::{
     },
     package::{OracleDef, OracleSig, Package},
     parser::package::MultiInstanceIndices,
-    statement::Statement,
+    statement::{CodeBlock, Statement},
     types::Type,
 };
 
@@ -42,6 +42,16 @@ impl PackageInstance {
             .map(|d| d.sig)
             .collect()
     }
+
+    pub fn params(&self) -> Vec<(&str, &Expression)> {
+        let mut params: Vec<_> = self
+            .params
+            .iter()
+            .map(|(name, expr)| (name.name.as_str(), expr))
+            .collect();
+        params.sort();
+        params
+    }
 }
 
 impl PackageInstance {
@@ -61,26 +71,19 @@ impl PackageInstance {
                 &types,
             );
 
-        let params_as_ident: Vec<(Identifier, Expression)> = params
-            .iter()
-            .map(|(ident, expr)| (ident.clone().into(), expr.clone()))
-            .collect();
-
         let new_oracles = pkg
             .oracles
             .iter()
-            .map(|oracle_def| inst_ctx.rewrite_oracle_def(oracle_def))
+            .map(|oracle_def| inst_ctx.rewrite_oracle_def(oracle_def.clone()))
             .collect();
 
         let new_split_oracles = pkg
             .split_oracles
             .iter()
-            .map(|split_oracle_def| inst_ctx.rewrite_split_oracle_def(split_oracle_def))
+            .map(|split_oracle_def| inst_ctx.rewrite_split_oracle_def(split_oracle_def.clone()))
             .collect();
 
         let pkg = Package {
-            types: vec![],
-            params: vec![],
             oracles: new_oracles,
             split_oracles: new_split_oracles,
             ..pkg.clone()
@@ -103,8 +106,6 @@ impl PackageInstance {
 }
 
 pub(crate) mod instantiate {
-    use std::marker::PhantomData;
-
     use crate::{
         identifier::{
             game_ident::{GameConstIdentifier, GameIdentInstanciationInfo, GameIdentifier},
@@ -177,15 +178,15 @@ pub(crate) mod instantiate {
             }
         }
 
-        pub(crate) fn rewrite_oracle_def(&self, oracle_def: &OracleDef) -> OracleDef {
+        pub(crate) fn rewrite_oracle_def(&self, oracle_def: OracleDef) -> OracleDef {
             OracleDef {
-                sig: self.rewrite_oracle_sig(&oracle_def.sig),
-                code: self.rewrite_oracle_code(&oracle_def.code),
+                sig: self.rewrite_oracle_sig(oracle_def.sig),
+                code: self.rewrite_oracle_code(oracle_def.code),
                 file_pos: oracle_def.file_pos,
             }
         }
 
-        pub(crate) fn rewrite_oracle_sig(&self, oracle_sig: &OracleSig) -> OracleSig {
+        pub(crate) fn rewrite_oracle_sig(&self, oracle_sig: OracleSig) -> OracleSig {
             {
                 let type_rewrite_rules: Vec<_> = self
                     .type_assignments
@@ -194,11 +195,11 @@ pub(crate) mod instantiate {
                     .collect();
 
                 OracleSig {
-                    name: oracle_sig.name.clone(),
-                    multi_inst_idx: oracle_sig.multi_inst_idx.clone(),
+                    name: oracle_sig.name,
+                    multi_inst_idx: oracle_sig.multi_inst_idx,
                     args: oracle_sig
                         .args
-                        .iter()
+                        .into_iter()
                         .map(|(name, tipe)| (name.clone(), tipe.rewrite(&type_rewrite_rules)))
                         .collect(),
                     tipe: oracle_sig.tipe.rewrite(&type_rewrite_rules),
@@ -206,10 +207,10 @@ pub(crate) mod instantiate {
             }
         }
 
-        pub(crate) fn rewrite_oracle_code(&self, code: &CodeBlock) -> CodeBlock {
+        pub(crate) fn rewrite_oracle_code(&self, code: CodeBlock) -> CodeBlock {
             CodeBlock(
                 code.0
-                    .iter()
+                    .into_iter()
                     .map(|stmt| self.rewrite_statement(stmt))
                     .collect(),
             )
@@ -269,15 +270,15 @@ pub(crate) mod instantiate {
 
         pub(crate) fn rewrite_split_oracle_def(
             &self,
-            split_oracle_def: &SplitOracleDef,
+            split_oracle_def: SplitOracleDef,
         ) -> SplitOracleDef {
             SplitOracleDef {
                 sig: self.rewrite_split_oracle_sig(&split_oracle_def.sig),
-                code: self.rewrite_oracle_code(&split_oracle_def.code),
+                code: self.rewrite_oracle_code(split_oracle_def.code),
             }
         }
 
-        pub(crate) fn rewrite_statement(&self, stmt: &Statement) -> Statement {
+        pub(crate) fn rewrite_statement(&self, stmt: Statement) -> Statement {
             let type_rewrite_rules: Vec<_> = self
                 .type_assignments
                 .iter()
@@ -286,48 +287,30 @@ pub(crate) mod instantiate {
 
             match stmt {
                 Statement::Abort(_) => stmt.clone(),
-                Statement::Return(expr, pos) => Statement::Return(
-                    expr.clone().map(|expr| self.rewrite_expression(&expr)),
-                    *pos,
-                ),
+                Statement::Return(expr, pos) => {
+                    Statement::Return(expr.clone().map(|expr| self.rewrite_expression(&expr)), pos)
+                }
 
                 Statement::Assign(ident, index, value, pos) => Statement::Assign(
-                    rewrite_identifier(
-                        self.inst_name,
-                        self.parent_name,
-                        ident,
-                        self.type_assignments,
-                    ),
+                    self.rewrite_identifier(ident),
                     index.clone().map(|expr| self.rewrite_expression(&expr)),
-                    self.rewrite_expression(value),
-                    *pos,
+                    self.rewrite_expression(&value),
+                    pos,
                 ),
                 Statement::Parse(idents, expr, pos) => Statement::Parse(
                     idents
-                        .iter()
-                        .map(|ident| {
-                            rewrite_identifier(
-                                self.inst_name,
-                                self.parent_name,
-                                ident,
-                                self.type_assignments,
-                            )
-                        })
+                        .into_iter()
+                        .map(|ident| self.rewrite_identifier(ident))
                         .collect(),
-                    self.rewrite_expression(expr),
-                    *pos,
+                    self.rewrite_expression(&expr),
+                    pos,
                 ),
                 Statement::Sample(ident, index, sample_id, tipe, pos) => Statement::Sample(
-                    rewrite_identifier(
-                        self.inst_name,
-                        self.parent_name,
-                        ident,
-                        self.type_assignments,
-                    ),
+                    self.rewrite_identifier(ident),
                     index.clone().map(|expr| self.rewrite_expression(&expr)),
-                    *sample_id,
+                    sample_id,
                     tipe.rewrite(&type_rewrite_rules),
-                    *pos,
+                    pos,
                 ),
                 Statement::InvokeOracle {
                     id,
@@ -339,38 +322,34 @@ pub(crate) mod instantiate {
                     tipe,
                     file_pos,
                 } => Statement::InvokeOracle {
-                    id: rewrite_identifier(
-                        self.inst_name,
-                        self.parent_name,
-                        id,
-                        self.type_assignments,
-                    ),
+                    name,
+                    target_inst_name,
+                    file_pos,
+
+                    id: self.rewrite_identifier(id),
                     opt_idx: opt_idx.clone().map(|expr| self.rewrite_expression(&expr)),
                     opt_dst_inst_idx: opt_dst_inst_idx
                         .clone()
                         .map(|expr| self.rewrite_expression(&expr)),
-                    name: name.clone(),
                     args: args
-                        .iter()
-                        .map(|expr| self.rewrite_expression(expr))
+                        .into_iter()
+                        .map(|expr| self.rewrite_expression(&expr))
                         .collect(),
-                    target_inst_name: target_inst_name.clone(),
                     tipe: tipe.clone().map(|tipe| tipe.rewrite(&type_rewrite_rules)),
-                    file_pos: *file_pos,
                 },
 
                 Statement::IfThenElse(cond, ifblock, elseblock, pos) => Statement::IfThenElse(
-                    self.rewrite_expression(cond),
+                    self.rewrite_expression(&cond),
                     self.rewrite_oracle_code(ifblock),
                     self.rewrite_oracle_code(elseblock),
-                    *pos,
+                    pos,
                 ),
                 Statement::For(ident, start, end, code, pos) => Statement::For(
                     ident.clone(),
-                    self.rewrite_expression(start),
-                    self.rewrite_expression(end),
+                    self.rewrite_expression(&start),
+                    self.rewrite_expression(&end),
                     self.rewrite_oracle_code(code),
-                    *pos,
+                    pos,
                 ),
             }
         }
@@ -379,6 +358,11 @@ pub(crate) mod instantiate {
     impl<'a> InstantiationContext<'a> {
         pub(crate) fn rewrite_expression(&self, expr: &Expression) -> Expression {
             expr.map(|expr| match (self.src, expr) {
+                (src, Expression::Identifier(ident)) => {
+                    Expression::Identifier(self.rewrite_identifier(ident))
+                }
+
+                // XXX: Are we sure these should all be unreachable???
                 (
                     InstantiationSource::Package { const_assignments },
                     Expression::Identifier(Identifier::PackageIdentifier(
@@ -416,7 +400,23 @@ pub(crate) mod instantiate {
                     .iter()
                     .find_map(|(search, replace)| {
                         if search.name == game_const_ident.name {
-                            let new_expr = replace.map(|expr| match expr {
+                            let new_expr = replace.map(|mut expr| match expr {
+                                Expression::Identifier(ref mut ident) => match self.src {
+                                    InstantiationSource::Package { .. } => {
+                                        ident.set_pkg_inst_info(
+                                            self.inst_name.to_string(),
+                                            self.parent_name.to_string(),
+                                        );
+                                        expr
+                                    }
+                                    InstantiationSource::Game { .. } => {
+                                        ident.set_game_inst_info(
+                                            self.inst_name.to_string(),
+                                            self.parent_name.to_string(),
+                                        );
+                                        expr
+                                    }
+                                },
                                 Expression::Identifier(Identifier::ProofIdentifier(
                                     proof_ident,
                                 )) => {
@@ -438,180 +438,121 @@ pub(crate) mod instantiate {
                     })
                     .unwrap(),
 
+                // can only happen in oracle code, i.e. package code
+                (_, Expression::TableAccess(ident, expr)) => {
+                    Expression::TableAccess(self.rewrite_identifier(ident), expr)
+                }
+                (_, Expression::FnCall(ident, args)) => {
+                    Expression::FnCall(self.rewrite_identifier(ident), args)
+                }
+
                 (_, expr) => expr,
             })
         }
-    }
 
-    pub(crate) fn rewrite_expression(
-        inst_name: &str,
-        game_name: &str,
-        expr: &Expression,
-        const_assignments: &[(Identifier, Expression)],
-        type_assignments: &[(String, Type)],
-    ) -> Expression {
-        expr.map(|expr| match expr {
-            Expression::Identifier(Identifier::PackageIdentifier(PackageIdentifier::Const(
-                pkg_const_ident,
-            ))) => const_assignments
+        pub(crate) fn rewrite_identifier(&self, ident: Identifier) -> Identifier {
+            let type_rewrite_rules: Vec<_> = self
+                .type_assignments
                 .iter()
-                .find_map(|(search, replace)| match (search, replace) {
-                    (Identifier::PackageIdentifier(PackageIdentifier::Const(search)), new_expr) => {
-                        if search.name == pkg_const_ident.name {
-                            let new_expr = new_expr.map(|expr| match expr {
-                                Expression::Identifier(Identifier::GameIdentifier(game_ident)) => {
-                                    let inst_info = GameIdentInstanciationInfo {
-                                        lower: pkg_const_ident.clone(),
-                                        pkg_inst_name: inst_name.to_string(),
-                                    };
+                .map(|(name, tipe)| (Type::UserDefined(name.to_string()), tipe.clone()))
+                .collect();
 
-                                    Expression::Identifier(Identifier::GameIdentifier(
-                                        game_ident.with_instance_info(inst_info),
-                                    ))
-                                }
-                                other => other,
-                            });
-                            Some(new_expr)
-                        } else {
-                            None
+            // extend the identifier with the instance and parent names
+            let ident = match (self.src, ident) {
+                (
+                    InstantiationSource::Package { .. },
+                    Identifier::PackageIdentifier(mut pkg_ident),
+                ) => {
+                    pkg_ident.set_pkg_inst_info(
+                        self.inst_name.to_string(),
+                        self.parent_name.to_string(),
+                    );
+                    pkg_ident.into()
+                }
+                (
+                    InstantiationSource::Game { .. },
+                    Identifier::PackageIdentifier(mut pkg_ident),
+                ) => {
+                    pkg_ident.set_game_inst_info(
+                        self.inst_name.to_string(),
+                        self.parent_name.to_string(),
+                    );
+                    pkg_ident.into()
+                }
+                (InstantiationSource::Game { .. }, Identifier::GameIdentifier(mut game_ident)) => {
+                    game_ident.set_game_inst_info(
+                        self.inst_name.to_string(),
+                        self.parent_name.to_string(),
+                    );
+                    game_ident.into()
+                }
+
+                (InstantiationSource::Package { .. }, ident @ Identifier::GameIdentifier(_))
+                | (InstantiationSource::Package { .. }, ident @ Identifier::ProofIdentifier(_))
+                | (InstantiationSource::Game { .. }, ident @ Identifier::ProofIdentifier(_)) => {
+                    unreachable!(
+                        "found\n    {ident:?}\n  when instantiating with context\n    {self:?}",
+                        ident = ident,
+                        self = self
+                    )
+                }
+                (InstantiationSource::Package { .. }, ident @ Identifier::Generated(_, _))
+                | (InstantiationSource::Game { .. }, ident @ Identifier::Generated(_, _)) => ident,
+            };
+
+            // rewrite the types
+            #[allow(clippy::let_and_return)]
+            let new_ident = match ident {
+                Identifier::PackageIdentifier(pkg_ident) => {
+                    let pkg_ident = match pkg_ident {
+                        PackageIdentifier::Const(const_ident) => {
+                            PackageIdentifier::Const(PackageConstIdentifier {
+                                tipe: const_ident.tipe.rewrite(&type_rewrite_rules),
+                                ..const_ident
+                            })
                         }
-                    }
-
-                    other => {
-                        unreachable!(
-                            "expected a game identifier when rewriting, got {other:?}",
-                            other = other
-                        )
-                    }
-                })
-                .unwrap(),
-
-            Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(
-                game_const_ident,
-            ))) => const_assignments
-                .iter()
-                .find_map(|(search, replace)| match (search, replace) {
-                    (Identifier::GameIdentifier(GameIdentifier::Const(search)), new_expr) => {
-                        if search.name == game_const_ident.name {
-                            let new_expr = new_expr.map(|expr| match expr {
-                                Expression::Identifier(Identifier::ProofIdentifier(
-                                    proof_ident,
-                                )) => {
-                                    let inst_info = ProofIdentInstanciationInfo {
-                                        lower: game_const_ident.clone(),
-                                        game_inst_name: inst_name.to_string(),
-                                    };
-
-                                    Expression::Identifier(Identifier::ProofIdentifier(
-                                        proof_ident.with_instance_info(inst_info),
-                                    ))
-                                }
-                                other => other,
-                            });
-                            Some(new_expr)
-                        } else {
-                            None
+                        PackageIdentifier::State(state_ident) => {
+                            PackageIdentifier::State(PackageStateIdentifier {
+                                tipe: state_ident.tipe.rewrite(&type_rewrite_rules),
+                                ..state_ident
+                            })
                         }
-                    }
+                        PackageIdentifier::Local(local_ident) => {
+                            PackageIdentifier::Local(PackageLocalIdentifier {
+                                tipe: local_ident.tipe.rewrite(&type_rewrite_rules),
+                                ..local_ident
+                            })
+                        }
+                        // XXX: A bit unclear whether we keep this variant... it conflicts witht he
+                        // Oracle variant of Declaration, so we only need one and so far we use the
+                        // other. Also this one doesn't seem to support multi instance
+                        PackageIdentifier::OracleImport(_) => todo!(),
 
-                    other => {
-                        unreachable!(
-                            "expected a proof identifier when rewriting, got {other:?}",
-                            other = other
-                        )
-                    }
-                })
-                .unwrap_or_else(||  panic!("tried finding a value for {game_const_ident:?}, but that was not in the list of declared values {const_assignments:?}", game_const_ident = game_const_ident, const_assignments = const_assignments)),
+                        PackageIdentifier::OracleArg(arg_ident) => {
+                            PackageIdentifier::OracleArg(PackageOracleArgIdentifier {
+                                tipe: arg_ident.tipe.rewrite(&type_rewrite_rules),
+                                ..arg_ident.clone()
+                            })
+                        }
+                        // no types to rewrite here
+                        ident @ PackageIdentifier::ImportsLoopVar(_) => ident,
+                        ident @ PackageIdentifier::CodeLoopVar(_) => ident,
+                    };
 
-            Expression::Identifier(other_ident) => Expression::Identifier(rewrite_identifier(
-                inst_name,
-                game_name,
-                &other_ident,
-                type_assignments,
-            )),
-            Expression::TableAccess(ident, expr) => {
-                Expression::TableAccess(rewrite_identifier(inst_name, game_name, &ident, type_assignments), expr)
-            },
-            other => other.clone(),
-        })
-    }
+                    Identifier::PackageIdentifier(pkg_ident)
+                }
 
-    pub(crate) fn rewrite_identifier(
-        pkg_inst_name: &str,
-        game_name: &str,
-        ident: &Identifier,
-        type_assignments: &[(String, Type)],
-    ) -> Identifier {
-        let type_rewrite_rules: Vec<_> = type_assignments
-            .iter()
-            .map(|(name, tipe)| (Type::UserDefined(name.to_string()), tipe.clone()))
-            .collect();
+                Identifier::GameIdentifier(_) => ident.clone(),
 
-        match ident {
-            Identifier::PackageIdentifier(pkg_ident) => {
-                let pkg_ident = match pkg_ident {
-                    PackageIdentifier::Const(_) => {
-                        // This code can only be reached when rewriting a left-hand-side of an
-                        // assign-like statement (which is forbidden for consts). it can't occur
-                        // when rewriting expressions, as that already resolves these
-                        unreachable!("no const identifiers allowed here")
-                    }
-                    PackageIdentifier::State(state_ident) => {
-                        PackageIdentifier::State(PackageStateIdentifier {
-                            pkg_inst_name: Some(pkg_inst_name.to_string()),
-                            game_name: Some(game_name.to_string()),
-                            tipe: state_ident.tipe.rewrite(&type_rewrite_rules),
-                            ..state_ident.clone()
-                        })
-                    }
-                    PackageIdentifier::Local(local_ident) => {
-                        PackageIdentifier::Local(PackageLocalIdentifier {
-                            pkg_inst_name: Some(pkg_inst_name.to_string()),
-                            game_name: Some(game_name.to_string()),
-                            tipe: local_ident.tipe.rewrite(&type_rewrite_rules),
-                            ..local_ident.clone()
-                        })
-                    }
-                    // XXX: A bit unclear whether we keep this variant... it conflicts witht he
-                    // Oracle variant of Declaration, so we only need one and so far we use the
-                    // other. Also this one doesn't seem to support multi instance
-                    PackageIdentifier::OracleImport(_) => todo!(),
+                Identifier::ProofIdentifier(_) => unreachable!(
+                    "unexpected proof identifier when instantiating package: {:?}",
+                    ident
+                ),
 
-                    PackageIdentifier::OracleArg(arg_ident) => {
-                        PackageIdentifier::OracleArg(PackageOracleArgIdentifier {
-                            pkg_inst_name: Some(pkg_inst_name.to_string()),
-                            game_name: Some(game_name.to_string()),
-                            tipe: arg_ident.tipe.rewrite(&type_rewrite_rules),
-                            ..arg_ident.clone()
-                        })
-                    }
-                    PackageIdentifier::ImportsLoopVar(loopvar_ident) => {
-                        PackageIdentifier::ImportsLoopVar(PackageImportsLoopVarIdentifier {
-                            pkg_inst_name: Some(pkg_inst_name.to_string()),
-                            game_name: Some(game_name.to_string()),
-                            ..loopvar_ident.clone()
-                        })
-                    }
-                    PackageIdentifier::CodeLoopVar(loopvar_ident) => {
-                        PackageIdentifier::CodeLoopVar(PackageOracleCodeLoopVarIdentifier {
-                            pkg_inst_name: Some(pkg_inst_name.to_string()),
-                            game_name: Some(game_name.to_string()),
-                            ..loopvar_ident.clone()
-                        })
-                    }
-                };
+                other => unreachable!("won't rewrite deprecated identifier {:?}", other),
+            };
 
-                Identifier::PackageIdentifier(pkg_ident)
-            }
-
-            Identifier::GameIdentifier(_) => ident.clone(),
-
-            Identifier::ProofIdentifier(_) => unreachable!(
-                "unexpected proof identifier when instantiating package: {:?}",
-                ident
-            ),
-
-            other => unreachable!("won't rewrite deprecated identifier {:?}", other),
+            new_ident
         }
     }
 }

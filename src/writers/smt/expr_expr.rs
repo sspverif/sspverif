@@ -1,23 +1,13 @@
 use super::exprs::SmtExpr;
-use super::patterns::{
-    DatastructurePattern, GlobalStatePattern, PackageStatePattern, PackageStateSelector,
-    SelfStatePattern,
-};
 use crate::expressions::Expression;
-use crate::identifier::pkg_ident::PackageIdentifier;
+use crate::identifier::game_ident::{GameConstIdentifier, GameIdentifier};
+use crate::identifier::pkg_ident::{PackageConstIdentifier, PackageIdentifier};
 use crate::identifier::proof_ident::{ProofConstIdentifier, ProofIdentifier};
 use crate::identifier::Identifier;
 use crate::types::Type;
 
-impl From<Identifier> for SmtExpr {
-    fn from(value: Identifier) -> Self {
-        Expression::Identifier(value).into()
-    }
-}
-
 impl From<Expression> for SmtExpr {
     fn from(expr: Expression) -> SmtExpr {
-        //eprintln!("DEBUG expr->smt: {expr:?}");
         match expr {
             Expression::EmptyTable(t) => {
                 if let Type::Table(idxtipe, valtipe) = t {
@@ -105,38 +95,7 @@ impl From<Expression> for SmtExpr {
                 }
                 list
             }),
-            Expression::Identifier(Identifier::PackageIdentifier(PackageIdentifier::State(
-                pkg_state_ident,
-            ))) => {
-                let pattern = PackageStatePattern {
-                    game_inst_name: &pkg_state_ident.game_inst_name.unwrap(),
-                    pkg_inst_name: &pkg_state_ident.pkg_inst_name.unwrap(),
-                };
-                let selector = PackageStateSelector {
-                    name: &pkg_state_ident.name,
-                    tipe: &pkg_state_ident.tipe,
-                };
-
-                // can't use `access` because that would require the Package.
-                pattern.access_unchecked(&selector, &SelfStatePattern)
-            }
-            Expression::Identifier(Identifier::ProofIdentifier(ProofIdentifier::Const(
-                ProofConstIdentifier {
-                    name, inst_info, ..
-                },
-            ))) => {
-                let game_inst_name = inst_info.unwrap().game_inst_name;
-                (
-                    format!("composition-param-{game_inst_name}-{name}"),
-                    &GlobalStatePattern,
-                )
-                    .into()
-            }
-            Expression::Identifier(Identifier::PackageIdentifier(pkg_ident)) => {
-                pkg_ident.ident_ref().into()
-            }
-
-            Expression::Identifier(Identifier::Generated(identname, _)) => SmtExpr::Atom(identname),
+            Expression::Identifier(ident) => ident.into(),
 
             // TODO
             // I would love to use PackageStatePattern here, but in order to use the access
@@ -200,15 +159,54 @@ impl From<Expression> for SmtExpr {
                 SmtExpr::List(call)
             }
              */
-            Expression::FnCall(id, exprs) => {
-                let mut call = vec![SmtExpr::Atom(id.ident())];
+            Expression::FnCall(id, exprs) => match id {
+                Identifier::PackageIdentifier(PackageIdentifier::Const(
+                    PackageConstIdentifier {
+                        name,
+                        game_inst_name: Some(game_inst_name),
+                        pkg_inst_name: Some(pkg_inst_name),
+                        ..
+                    },
+                )) => {
+                    let func_name = format!("<<func-pkg-{game_inst_name}-{pkg_inst_name}-{name}>>");
+                    let mut call = vec![SmtExpr::Atom(func_name)];
 
-                for expr in exprs {
-                    call.push(expr.into());
+                    for expr in exprs {
+                        call.push(expr.into());
+                    }
+
+                    SmtExpr::List(call)
                 }
 
-                SmtExpr::List(call)
-            }
+                Identifier::GameIdentifier(GameIdentifier::Const(GameConstIdentifier {
+                    name,
+                    game_inst_name: Some(game_inst_name),
+                    ..
+                })) => {
+                    let func_name = format!("<<func-game-{game_inst_name}-{name}>>");
+                    let mut call = vec![SmtExpr::Atom(func_name)];
+
+                    for expr in exprs {
+                        call.push(expr.into());
+                    }
+
+                    SmtExpr::List(call)
+                }
+                Identifier::ProofIdentifier(ProofIdentifier::Const(ProofConstIdentifier {
+                    name,
+                    ..
+                })) => {
+                    let func_name = format!("<<func-proof-{name}>>");
+                    let mut call = vec![SmtExpr::Atom(func_name)];
+
+                    for expr in exprs {
+                        call.push(expr.into());
+                    }
+
+                    SmtExpr::List(call)
+                }
+                other => unreachable!("unexpected identifier in function call: {other:?}"),
+            },
             Expression::List(inner) => {
                 let t = inner[0].get_type();
 

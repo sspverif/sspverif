@@ -1,15 +1,18 @@
 proof Modularize {
     const n: Integer;
+    const prf: fn Bits(n), Bits(n) -> Bits(n);
   
     instance monprfreal = Monprfreal {
         params {
             n  : n  ,
+            prf: prf,
         }
     }
 
     instance modprfreal = Modprfreal {
         params {
             n  : n  ,
+            prf: prf,
         }
     }
 
@@ -22,6 +25,7 @@ proof Modularize {
     instance modprfideal = Modprfreal {
         params {
             n  : n  ,
+            prf: prf,
         }
     }
 
@@ -32,31 +36,28 @@ proof Modularize {
 
     gamehops {
       equivalence modprfreal monprfreal {
-            EVAL: 
-            {
+            Eval: {
                 invariant: [
                     ./proofs/invariant-PRF.smt2
                 ]
 
                 lemmas {
-                    aborts-equal-EVAL:   []
-                    invariant-EVAL:      [no-abort-EVAL]
-                    same-output-EVAL:    [no-abort-EVAL]
+                    equal-aborts:   []
+                    invariant-Eval: [no-abort]
+                    same-output:    [no-abort]
                 }
             }
-            GET: 
-            {
+            Get: {
                 invariant: [
                     ./proofs/invariant-PRF.smt2
                 ]
 
                 lemmas {
-                    aborts-equal-GET:   []
-                    invariant-GET:      [no-abort-GET]
-                    same-output-GET:    [no-abort-GET]
+                    equal-aborts:   []
+                    invariant-Get:  [no-abort]
+                    same-output:    [no-abort]
                 }
             }
         }
-
     }
 }
