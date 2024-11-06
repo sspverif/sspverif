@@ -1,0 +1,34 @@
+package KEM {
+  params {
+    sk_len: Integer,
+    pk_len: Integer,
+    ct_len: Integer,
+    shk_len: Integer,
+
+    encaps: fn (Bits(n_rand), Bits(pk_len)) -> (Bits(shk_len), Bits(ct_len)),
+  }
+
+  import oracles {
+    Set(key_id: Integer, key: Bits(key_len), is_uncorrupted: Bool),
+    Get(pk: Bits(pk_len)) -> (Bits(sk_len), Bool),
+    GetRand(key_id: Integer) -> (Bits(sk_len), Bool),
+  }
+
+  oracle Encaps(key_id: Integer, pk: Bits(pk_len)) -> Bits(ct_len) {
+    get <-invoke Get(pk);
+    (_, sk_is_honest) <-parse get;
+
+    getRand <-invoke GetRand(key_id);
+    (coins, coins_are_honest) <-parse getRand;
+
+    (k, ct) <-parse encaps(coins, pk);
+
+    hon <- (sk_is_honest and coins_are_honest);
+    /* TODO this is the Set from RandomKeysWithKeyID, not from AsymmetricKeys */
+    _ <-invoke Set((ct, pk), hon, k);
+
+    return ct;
+  }
+}
+
+

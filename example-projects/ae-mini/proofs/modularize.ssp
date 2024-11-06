@@ -35,10 +35,8 @@ proof Modularize {
     }
 
     gamehops {
-    equivalence modprfreal monprfreal 
-        {
-            Eval:
-            {
+      equivalence modprfreal monprfreal {
+            Eval: {
                 invariant: [
                     ./proofs/invariant-PRF.smt2
                 ]
@@ -49,8 +47,7 @@ proof Modularize {
                     same-output:    [no-abort]
                 }
             }
-            Get:
-            {
+            Get: {
                 invariant: [
                     ./proofs/invariant-PRF.smt2
                 ]
@@ -62,6 +59,5 @@ proof Modularize {
                 }
             }
         }
-
     }
 }

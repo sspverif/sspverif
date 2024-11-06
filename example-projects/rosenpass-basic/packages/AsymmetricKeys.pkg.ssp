@@ -1,0 +1,37 @@
+/**
+ * Sampling keypairs for asymmetric crypto schemes.
+ * 
+ * This package stores a private key, associated
+ * to a public key. A keypair can be marked honest.
+ */
+
+package AsymmetricKeys {
+  params {
+    is_ideal: Bool,
+
+    sk_len: Integer,
+    pk_len: Integer,
+
+    keygen: fn Bits(sk_len) -> Bits(pk_len)
+  }
+
+  state {
+    /* (pk, (sk, is_uncorrupted)) */
+    T: Table(Bits(pk_len), (Bits(sk_len), Bool)),
+  }
+
+  oracle Set(sk: Bits(sk_len), is_uncorrupted: Bool) -> Bits(pk_len) {
+    if (is_ideal and is_uncorrupted) {
+      sk <-$ Bits(sk_len);
+    }
+
+    pk <- keygen(sk);
+    assert (T[pk] == None);
+    T[pk] <- Some((sk, is_uncorrupted));
+    return pk;
+  }
+
+  oracle Get(pk: Bits(pk_len)) -> (Bits(sk_len), Bool) {
+    return Unwrap(T[pk]);
+  }
+}
