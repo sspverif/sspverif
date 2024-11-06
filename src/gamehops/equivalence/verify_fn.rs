@@ -14,7 +14,7 @@ pub fn verify(eq: &Equivalence, proof: &Proof, mut prover: Communicator) -> Resu
     let (proof, auxs) = EquivalenceTransform.transform_proof(proof).unwrap();
 
     let eqctx = EquivalenceContext {
-        eq,
+        equivalence: eq,
         proof: &proof,
         auxs: &auxs,
     };
@@ -38,7 +38,10 @@ pub fn verify(eq: &Equivalence, proof: &Proof, mut prover: Communicator) -> Resu
         eqctx.emit_return_value_helpers(&mut prover, &oracle_sig.name)?;
         eqctx.emit_invariant(&mut prover, &oracle_sig.name)?;
 
-        for claim in eqctx.eq.proof_tree_by_oracle_name(&oracle_sig.name) {
+        for claim in eqctx
+            .equivalence
+            .proof_tree_by_oracle_name(&oracle_sig.name)
+        {
             write!(prover, "(push 1)").unwrap();
             eqctx.emit_claim_assert(&mut prover, &oracle_sig.name, &claim)?;
             match prover.check_sat()? {
@@ -62,7 +65,10 @@ pub fn verify(eq: &Equivalence, proof: &Proof, mut prover: Communicator) -> Resu
         write!(prover, "(push 1)").unwrap();
         eqctx.emit_invariant(&mut prover, &split_oracle_sig.name)?;
 
-        for claim in eqctx.eq.proof_tree_by_oracle_name(&split_oracle_sig.name) {
+        for claim in eqctx
+            .equivalence
+            .proof_tree_by_oracle_name(&split_oracle_sig.name)
+        {
             write!(prover, "(push 1)").unwrap();
             eqctx.emit_split_claim_assert(
                 &mut prover,

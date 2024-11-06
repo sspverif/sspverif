@@ -1,34 +1,17 @@
 use crate::{
-    proof::GameInstance,
+    gamehops::equivalence::EquivalenceContext,
     writers::smt::patterns::{relation::Relation, relations::equal_aborts, GameStatePattern},
 };
 
-use super::{EquivalenceContext, GameInstanceContext, GenericOracleContext, OracleContext};
-
-// subcontexts
-impl<'a> EquivalenceContext<'a> {
-    pub(crate) fn left_game_inst_ctx(&self) -> GameInstanceContext<'a> {
-        let game_inst: &'a GameInstance = self
-            .proof
-            .find_game_instance(self.equivalence.left_name())
-            .unwrap();
-
-        GameInstanceContext { game_inst }
-    }
-
-    pub(crate) fn right_game_inst_ctx(&self) -> GameInstanceContext<'a> {
-        let game_inst = self
-            .proof
-            .find_game_instance(self.equivalence.right_name())
-            .unwrap();
-
-        GameInstanceContext { game_inst }
-    }
-}
+use super::{GameInstanceContext, GenericOracleContext, OracleContext};
 
 // patterns
 impl<'a> EquivalenceContext<'a> {
-    fn relation_pattern(&'a self, relation_name: &'a str, oracle_name: &'a str) -> Relation<'a> {
+    pub(crate) fn relation_pattern(
+        &'a self,
+        relation_name: &'a str,
+        oracle_name: &'a str,
+    ) -> Relation<'a> {
         let left_gctx: GameInstanceContext<'a> = self.left_game_inst_ctx();
         let right_gctx: GameInstanceContext<'a> = self.left_game_inst_ctx();
 
@@ -61,7 +44,10 @@ impl<'a> EquivalenceContext<'a> {
         }
     }
 
-    fn equal_aborts_definition(&self, oracle_name: &str) -> equal_aborts::RelationFunction {
+    pub(crate) fn equal_aborts_definition(
+        &self,
+        oracle_name: &str,
+    ) -> equal_aborts::RelationFunction {
         self.relation_pattern("equal-aborts", oracle_name)
             .build_equal_aborts()
     }
@@ -69,6 +55,8 @@ impl<'a> EquivalenceContext<'a> {
     // TODO:
     // - add functions to build basic relation patterns, each constructing the function body,
     //   calling above fucntion
+    //   - left-no-abort
+    //   - right-no-abort
     //   - no-abort
     //   - ??
 }

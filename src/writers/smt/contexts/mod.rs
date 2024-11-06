@@ -22,11 +22,6 @@ mod oracle;
 mod pkg_inst;
 mod split_oracle;
 
-struct EquivalenceContext<'a> {
-    proof: &'a Proof,
-    equivalence: &'a Equivalence,
-}
-
 #[derive(Clone, Debug, Copy)]
 pub struct GameInstanceContext<'a> {
     game_inst: &'a GameInstance,
