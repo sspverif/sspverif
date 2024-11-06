@@ -44,7 +44,7 @@ proof Modularize {
                 ]
 
                 lemmas {
-                    aborts-equal:   []
+                    equal-aborts:   []
                     invariant-PRF:  [no-abort]
                     same-output:    [no-abort]
                 }

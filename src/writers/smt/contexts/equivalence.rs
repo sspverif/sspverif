@@ -1,6 +1,9 @@
 use crate::{
     gamehops::equivalence::EquivalenceContext,
-    writers::smt::patterns::{relation::Relation, relations::equal_aborts, GameStatePattern},
+    writers::smt::{
+        exprs::SmtExpr,
+        patterns::{relation::Relation, relations::equal_aborts, GameStatePattern},
+    },
 };
 
 use super::{GameInstanceContext, GenericOracleContext, OracleContext};
@@ -13,7 +16,7 @@ impl<'a> EquivalenceContext<'a> {
         oracle_name: &'a str,
     ) -> Relation<'a> {
         let left_gctx: GameInstanceContext<'a> = self.left_game_inst_ctx();
-        let right_gctx: GameInstanceContext<'a> = self.left_game_inst_ctx();
+        let right_gctx: GameInstanceContext<'a> = self.right_game_inst_ctx();
 
         let state_datatype_left: GameStatePattern<'a> =
             left_gctx.datastructure_game_state_pattern();
@@ -44,12 +47,33 @@ impl<'a> EquivalenceContext<'a> {
         }
     }
 
-    pub(crate) fn equal_aborts_definition(
+    pub(crate) fn relation_definition_equal_aborts(
         &self,
         oracle_name: &str,
     ) -> equal_aborts::RelationFunction {
         self.relation_pattern("equal-aborts", oracle_name)
             .build_equal_aborts()
+    }
+
+    pub(crate) fn relation_definition_left_no_abort(
+        &self,
+        oracle_name: &str,
+    ) -> impl Into<SmtExpr> {
+        self.relation_pattern("left-no-abort", oracle_name)
+            .build_left_no_abort()
+    }
+
+    pub(crate) fn relation_definition_right_no_abort(
+        &self,
+        oracle_name: &str,
+    ) -> impl Into<SmtExpr> {
+        self.relation_pattern("right-no-abort", oracle_name)
+            .build_right_no_abort()
+    }
+
+    pub(crate) fn relation_definition_no_abort(&self, oracle_name: &str) -> impl Into<SmtExpr> {
+        self.relation_pattern("no-abort", oracle_name)
+            .build_no_abort()
     }
 
     // TODO:

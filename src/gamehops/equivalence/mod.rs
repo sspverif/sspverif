@@ -64,7 +64,7 @@ impl<'a> EquivalenceContext<'a> {
     pub(crate) fn left_game_inst_ctx(&self) -> contexts::GameInstanceContext<'a> {
         let game_inst = self
             .proof()
-            .find_game_instance(self.equivalence().right_name())
+            .find_game_instance(self.equivalence().left_name())
             .unwrap();
 
         contexts::GameInstanceContext::new(game_inst)
@@ -574,6 +574,11 @@ impl<'a> EquivalenceContext<'a> {
             comm.write_smt(declare)?;
             comm.write_smt(constrain)?;
         }
+
+        comm.write_smt(self.relation_definition_equal_aborts(oracle_name))?;
+        comm.write_smt(self.relation_definition_left_no_abort(oracle_name))?;
+        comm.write_smt(self.relation_definition_right_no_abort(oracle_name))?;
+        comm.write_smt(self.relation_definition_no_abort(oracle_name))?;
 
         Ok(())
     }
