@@ -579,6 +579,7 @@ impl<'a> EquivalenceContext<'a> {
         comm.write_smt(self.relation_definition_left_no_abort(oracle_name))?;
         comm.write_smt(self.relation_definition_right_no_abort(oracle_name))?;
         comm.write_smt(self.relation_definition_no_abort(oracle_name))?;
+        comm.write_smt(self.relation_definition_same_output(oracle_name))?;
 
         Ok(())
     }
@@ -893,31 +894,6 @@ impl<'a> EquivalenceContext<'a> {
                     .find(|odef| odef.sig.name == oracle_name)
                     .map(|odef| &odef.sig)
             })
-    }
-
-    fn emit_no_abort_claim_definition(
-        &self,
-        _comm: &mut Communicator,
-        oracle_name: &str,
-    ) -> Result<()> {
-        let _gctx_left = self.left_game_inst_ctx();
-        let _gctx_right = self.right_game_inst_ctx();
-
-        let _game_inst_name_left = self.equivalence.left_name();
-        let _game_inst_name_right = self.equivalence.right_name();
-
-        let _game_name_left = &_gctx_left.game().name;
-        let _game_name_right = &_gctx_right.game().name;
-
-        let octx_left = _gctx_left.exported_oracle_ctx_by_name(oracle_name).unwrap();
-        let octx_right = _gctx_right
-            .exported_oracle_ctx_by_name(oracle_name)
-            .unwrap();
-
-        let _pkg_inst_name_left = octx_left.pkg_inst_ctx().pkg_inst_name();
-        let _pkg_inst_name_right = octx_right.pkg_inst_ctx().pkg_inst_name();
-
-        todo!()
     }
 
     fn emit_claim_assert(
@@ -1524,7 +1500,7 @@ fn build_returns(game_inst: &GameInstance) -> Vec<(SmtExpr, SmtExpr)> {
             .unwrap();
 
         let return_pattern = octx.return_pattern();
-        let return_spec = return_pattern.datastructure_spec(&return_type);
+        let return_spec = return_pattern.datastructure_spec(return_type);
 
         let access_returnvalue = return_pattern
             .access(

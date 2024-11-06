@@ -35,7 +35,7 @@ impl<'a> super::Transformation for Transformation<'a> {
     type Aux = SampleInfo;
 
     fn transform(&self) -> Result<(Composition, SampleInfo), Infallible> {
-        let mut ctr = 1usize;
+        let mut ctr = 0usize;
         let mut samplings = HashSet::new();
         let mut positions = vec![];
 
