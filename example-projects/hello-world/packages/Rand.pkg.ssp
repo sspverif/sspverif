@@ -1,0 +1,17 @@
+package Rand {
+    params {
+        n: Integer,
+    }
+
+    state {
+          ctr: Integer,
+    }
+     
+    oracle Oracle() -> Integer  {
+        ctr  <- (ctr + 1);
+        rand <-$ Integer;
+        y <- (ctr + rand);
+        return y;
+        }
+}
+

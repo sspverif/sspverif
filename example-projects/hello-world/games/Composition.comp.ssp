@@ -1,0 +1,23 @@
+composition Composition {
+    const n: Integer;
+
+    instance rand = Rand {
+        params {
+            n:   n,
+        }
+    }
+
+    instance fwd = Fwd {
+        params {
+            n:   n,
+        }
+    }
+    compose {
+        adversary: {
+            Oracle: fwd,
+        },
+        fwd: {
+            Oracle: rand,
+        },
+    }
+}

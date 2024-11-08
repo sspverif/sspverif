@@ -1,0 +1,25 @@
+package Fwd {
+    params {
+        n: Integer,
+    }
+
+    state {
+          ctr: Integer,
+    }
+
+        import oracles {
+        Oracle() -> Integer, 
+    }
+     
+    oracle Oracle() -> Integer  {
+        y  <- invoke Oracle();
+        return y;
+        }
+
+    oracle UselessOracle() -> Integer  {
+        return 1;
+        }
+
+
+}
+

@@ -1,0 +1,50 @@
+proof Proof {
+    const n: Integer;
+  
+    instance assumption_0 = Assumption {
+        params {
+            n: n,
+        }
+    }
+
+    instance assumption_1 = Assumption {
+        params {
+            n: n,
+        }
+    }
+
+    instance composition_0 = Composition {
+        params {
+            n: n,
+        }
+    }
+
+    instance composition_1 = Composition {
+        params {
+            n: n,
+        }
+    }
+
+    assumptions {
+        Assumption: assumption_0 ~ assumption_1
+    }
+
+    gamehops {
+    equivalence composition_0 composition_1 
+        {
+            Oracle: 
+            {
+                invariant: [
+                    ./proofs/invariant.smt2
+                ]
+
+                lemmas {
+                    equal-aborts-Oracle: []
+                    invariant:           [no-abort-Oracle]
+                    same-output-Oracle:  [no-abort-Oracle]
+                }
+            }
+        }
+
+    }
+}

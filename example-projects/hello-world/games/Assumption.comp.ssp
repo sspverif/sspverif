@@ -1,0 +1,15 @@
+composition Assumption {
+    const n: Integer;
+
+    instance rand = Rand {
+        params {
+            n:   n,
+        }
+    }
+
+    compose {
+        adversary: {
+            Oracle: rand,
+        },
+    }
+}
