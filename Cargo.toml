@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "crates/smtlib"]
+members = [".", "crates/smtlib", "crates/ssbee"]
 
 [workspace.package]
 version = "0.1.0"
@@ -7,6 +7,7 @@ edition = "2021"
 
 [workspace.dependencies]
 sspverif-smtlib = { path = "crates/smtlib" }
+sspverif = { path = "" }
 
 [package]
 name = "sspverif"
@@ -14,6 +15,7 @@ version = "0.1.0"
 authors = [
     "Jan Winkelmann (keks) <git@keks.cool>",
     "Christoph Egger <christoph.egger@alumni.fau.de>",
+    "Chris Brzuska <chris.brzuska@aalto.fi>",
 ]
 edition = "2021"
 
@@ -36,7 +38,3 @@ miette = { version = "7.2.0", features = ["fancy"] }
 tempfile = "3"
 
 sspverif-smtlib = { workspace = true }
-
-[lib]
-name = "sspverif"
-path = "src/lib.rs"
