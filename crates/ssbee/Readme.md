@@ -5,9 +5,13 @@ _When it comes to **s**tate **s**eparating proofs, it's a busy **bee**!_
 
 `ssbee` is a tool that helps you manage the tedious parts of working with the State-Separation Proofs framework for doing crypto proofs.
 
-:::danger
+<div style="background-color: rgba(255, 0, 0, 0.08);
+            border-left:      4px solid #ff0000;
+            padding:          8px;">
+
 This project is in early alpha. Expect insufficient documentation and  bugs, bugs, bugs!
-:::
+
+</div>
 
 ## Features
 
@@ -22,7 +26,9 @@ This project is in early alpha. Expect insufficient documentation and  bugs, bug
 
 You need a somewhat recent Rust toolchain. If you don't have that, look into rustup.
 
-Install the tool cloning the repo and running `cargo run --package ssbee`. Ensure that the installed binary is in your `PATH`.
+Install the tool cloning the repo and running `cargo run --package ssbee`. Ensure that the installed binary is in your `PATH`. background-color: rgba(255, 0, 0, 0.05);
+  border-left: 4px solid #ff0000;
+  padding: 8px;
 
 Enter a project directory and run `ssbee prove`. To get an idea how a projects is structured, see the `example-projects/hello-world` directory (documentation is on the roadmap...).
 
