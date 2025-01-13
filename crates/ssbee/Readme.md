@@ -24,7 +24,7 @@ You need a somewhat recent Rust toolchain. If you don't have that, look into rus
 
 Install the tool cloning the repo and running `cargo run --package ssbee`. Ensure that the installed binary is in your `PATH`.
 
-Enter a project directory and run `ssbee prove`. To get an idea how a projects is structured, see the `example-projects` directory (documentation is on the roadmap...).
+Enter a project directory and run `ssbee prove`. To get an idea how a projects is structured, see the `example-projects/hello-world` directory (documentation is on the roadmap...).
 
 ## Model
 
