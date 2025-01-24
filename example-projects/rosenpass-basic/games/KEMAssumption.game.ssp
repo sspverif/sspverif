@@ -12,11 +12,11 @@ composition KemAssumption {
 
   instance kem = KEM {
     params {
-      kem_sk_len: kem_sk_len,
-      kem_pk_len: kem_pk_len,
-      kem_ct_len: kem_ct_len,
-      kem_shk_len: kem_shk_len,
-      kem_encaps_coins_len: kem_encaps_coins_len,
+      sk_len: kem_sk_len,
+      pk_len: kem_pk_len,
+      ct_len: kem_ct_len,
+      shk_len: kem_shk_len,
+      encaps_coins_len: kem_encaps_coins_len,
 
       encaps: encaps,
     }

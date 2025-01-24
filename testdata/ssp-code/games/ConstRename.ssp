@@ -1,0 +1,17 @@
+composition ConstRenameGame {
+    const m: Integer;
+    
+    instance key = KeyReal {
+        params {
+            n: m,
+        }
+    }
+    
+    compose {
+        adversary: {
+            Set: key,
+            Get: key,
+        },
+    }
+}
+
