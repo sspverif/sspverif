@@ -168,7 +168,7 @@ pub(crate) fn handle_game_params_def_list(
     });
 
     // and then we chain the two again and do the rest of the processing
-    let result = ints
+    ints
         .into_iter()
         .chain(others_iter)
         .map(|res: Result<(pest::Span, Pair<Rule>, Pair<Rule>, Type), ParseGameError>| -> Result<(String, Expression), ParseGameError> {
@@ -223,9 +223,7 @@ pub(crate) fn handle_game_params_def_list(
             } else {
                 Ok(list)
             }
-        });
-
-    result
+        })
 }
 
 pub(crate) fn handle_proof_params_def_list(
@@ -237,7 +235,12 @@ pub(crate) fn handle_proof_params_def_list(
     let params = &game.consts;
     let mut defined_params = HashMap::<String, SourceSpan>::new();
     let block_span = ast.as_span();
-    ast.into_inner()
+
+    // We need to process ints first, so we can rewrite the Bits(<some int>) that contain the name
+    // of the const parameter on one side, and the name of the value that is assigned on the other.
+    // We first split the two...
+    let (ints, others): (Vec<_>, _) = ast
+        .into_inner()
         .map(|inner| {
             let pair_span = inner.as_span();
             let mut inner = inner.into_inner();
@@ -246,6 +249,81 @@ pub(crate) fn handle_proof_params_def_list(
 
             let name_span = name_ast.as_span();
             let name = name_ast.as_str();
+
+            // look up the parameter clone from the game
+            let maybe_param_info = params.iter().find(|(name_, _)| name == name_);
+
+            // if it desn't exist, return an error
+            let (_, expected_type) = maybe_param_info.ok_or(NoSuchGameParameterError {
+                source_code: ctx.named_source(),
+                at: (name_span.start()..name_span.end()).into(),
+                param_name: name.to_string(),
+                game_name: game.name.clone(),
+            })?;
+
+            Ok((pair_span, name_ast, value_ast, expected_type.clone()))
+        })
+        .partition(|result| matches!(result, Ok((_, _, _, Type::Integer))));
+
+    let mut bits_rewrite_rules = vec![];
+
+    // ... then we parse the ints and add populate a list of rewrite rules
+    //     for all the Bits types ...
+    let ints: Vec<_> = ints
+        .into_iter()
+        .map(|res| {
+            res.and_then(|(pair_span, name_ast, value_ast, expected_type)| {
+                // parse the assigned value, and set the expected type to what the clone
+                // prescribes.
+                let value = super::package::handle_expression(
+                    &ctx.parse_ctx(),
+                    value_ast.clone(),
+                    Some(&expected_type),
+                )?;
+
+                let assigned_const_text = match value {
+                    Expression::Identifier(ident) => ident.ident(),
+                    Expression::IntegerLiteral(num) => {
+                        format!("{num}")
+                    }
+                    other => {
+                        return Err(todo!());
+                    }
+                };
+
+                let name: &str = name_ast.as_str();
+
+                bits_rewrite_rules.push((
+                    Type::Bits(name.to_string()),
+                    Type::Bits(assigned_const_text),
+                ));
+
+                Ok((pair_span, name_ast, value_ast, expected_type))
+            })
+        })
+        .collect();
+
+    // ... then we map the other values to rewrite the types according to the rules defined
+    //     above ...
+    let others_iter = others.into_iter().map(|res| {
+        res.map(|(pair_span, name_ast, value_ast, ty)| {
+            (
+                pair_span,
+                name_ast,
+                value_ast,
+                ty.rewrite(&bits_rewrite_rules),
+            )
+        })
+    });
+
+    // and then we chain the two again and do the rest of the processing
+    ints
+        .into_iter()
+        .chain(others_iter)
+        .map(|res: Result<(pest::Span, Pair<Rule>, Pair<Rule>, Type), ParseProofError>| -> Result<(String, Expression), ParseProofError> {
+        let (pair_span, name_ast, value_ast, expected_type) = res?;
+        let name: &str = name_ast.as_str();
+        let name_span: pest::Span = name_ast.as_span();
 
             // check that the defined parameter hasn't been defined before
             // (insert returns Some(x) if x has been written before)
@@ -263,21 +341,11 @@ pub(crate) fn handle_proof_params_def_list(
                 .into());
             }
 
-            // look up the parameter clone from the game
-            let maybe_param_info = params.iter().find(|(name_, _)| name == name_);
-
-            // if it desn't exist, return an error
-            let (_, expected_type) = maybe_param_info.ok_or(NoSuchGameParameterError {
-                source_code: ctx.named_source(),
-                at: (name_span.start()..name_span.end()).into(),
-                param_name: name.to_string(),
-                game_name: game.name.clone(),
-            })?;
 
             let value = super::package::handle_expression(
                 &ctx.parse_ctx(),
                 value_ast,
-                Some(expected_type),
+                Some(&expected_type),
             )?;
 
             Ok((name.to_owned(), value.clone()))

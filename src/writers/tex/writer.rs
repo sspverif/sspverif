@@ -468,11 +468,9 @@ fn tex_solve_composition_graph(
     use std::fmt::Write;
 
     let mut model = String::new();
-
-    for height in 2..50 {
+    let write_model = |comm: &mut crate::util::prover_process::Communicator| {
         let mut edges: HashSet<(usize, usize)> = HashSet::new();
-        let mut comm = Communicator::new(backend.unwrap()).unwrap();
-
+        
         writeln!(comm, "(declare-const num-pkgs Int)").unwrap();
         writeln!(comm, "(declare-const width Int)").unwrap();
         writeln!(comm, "(declare-const height Int)").unwrap();
@@ -583,8 +581,27 @@ fn tex_solve_composition_graph(
                 .unwrap();
             }
         }
+    };
 
+    let mut min_width = 50;
+    for width in 2..50 {
+        let mut comm = Communicator::new(backend.unwrap()).unwrap();
+
+        write_model(&mut comm);
+        writeln!(comm, "(assert (< width {width}))").unwrap();
+
+        if comm.check_sat().unwrap() == ProverResponse::Sat {
+            min_width = width;
+            break;
+        }
+    }
+    
+    for height in 2..50 {
+        let mut comm = Communicator::new(backend.unwrap()).unwrap();
+
+        write_model(&mut comm);
         writeln!(comm, "(assert (< height {height}))").unwrap();
+        writeln!(comm, "(assert (< width {min_width}))").unwrap();
 
         if comm.check_sat().unwrap() == ProverResponse::Sat {
             model = comm.get_model().unwrap();
@@ -919,11 +936,11 @@ pub fn tex_write_proof(
                     file,
                     "\\subsection{{Game {} with Assumption Game {} highlighted in red}}",
                     red.left()
-                        .assumption_game_instance_name()
+                        .construction_game_instance_name()
                         .as_str()
                         .replace('_', "\\_"),
                     red.left()
-                        .construction_game_instance_name()
+                        .assumption_game_instance_name()
                         .as_str()
                         .replace('_', "\\_")
                 )?;
@@ -932,7 +949,7 @@ pub fn tex_write_proof(
                     .instances
                     .iter()
                     .find(|instance| {
-                        instance.name() == red.left().assumption_game_instance_name().as_str()
+                        instance.name() == red.left().construction_game_instance_name().as_str()
                     })
                     .unwrap();
                 tex_write_composition_graph(
@@ -960,7 +977,7 @@ pub fn tex_write_proof(
                     .instances
                     .iter()
                     .find(|instance| {
-                        instance.name() == red.right().assumption_game_instance_name().as_str()
+                        instance.name() == red.right().construction_game_instance_name().as_str()
                     })
                     .unwrap();
                 tex_write_composition_graph(
