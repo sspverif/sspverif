@@ -280,6 +280,23 @@ fn proof_const_rename() {
     );
 }
 
+#[test]
+fn test_const_expression() {
+    let pkgs = packages::parse_files(&["PRFConstExpression.pkg.ssp","KeyReal.pkg.ssp","Enc.pkg.ssp"]);
+    let games = games::parse_files(&["ConstructionConstExpression.comp.ssp"], &pkgs);
+
+    dbg!(&pkgs);
+    dbg!(&games);
+
+    let proof = proofs::parse(
+        &proofs::read_file("const_expression.ssp"),
+        "const_expression.ssp",
+        &pkgs,
+        &games,
+    );
+}
+
+
 /// This is a helper for transcripts. It can be cloned, and what is written in one clone can be
 /// read in all others. It is concurrency-safe. This can be passed into the Communicator, a simple
 /// `&mut Vec<u8>` can't. a `Vec<u8>` can, but then we lose access to it. This solves that problem.
