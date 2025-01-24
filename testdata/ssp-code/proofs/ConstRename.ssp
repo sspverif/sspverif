@@ -1,27 +1,32 @@
 proof ConstRenameProof {
   const o: Integer;
+  const zeroo: Bits(o);
 
   instance const_rename_assumption_left = ConstRenameGame {
       params {
           m: o,
+          lala: zeroo,
       }
   }
 
   instance const_rename_assumption_right = ConstRenameGame2 {
       params {
           l: o,
+          lala: zeroo,
       }
   }
 
   instance const_rename_construction_left = ConstRenameGame {
       params {
           m: o,
+          oho: zeroo,
       }
   }
 
   instance const_rename_construction_right = ConstRenameGame2 {
       params {
           l: o,
+          oho: zeroo,
       }
   }
 
