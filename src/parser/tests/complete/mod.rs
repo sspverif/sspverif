@@ -266,7 +266,7 @@ fn game_const_rename() {
 
 #[test]
 fn proof_const_rename() {
-    let pkgs = packages::parse_files(&["KeyReal.pkg.ssp"]);
+    let pkgs = packages::parse_files(&["KeyRealMoreParams.pkg.ssp"]);
     let games = games::parse_files(&["ConstRename.ssp", "ConstRename2.ssp"], &pkgs);
 
     dbg!(&pkgs);
