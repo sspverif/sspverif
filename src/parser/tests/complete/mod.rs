@@ -260,8 +260,8 @@ fn package_empty_loop_works() {
 ///
 #[test]
 fn game_const_rename() {
-    let pkgs = packages::parse_files(&["KeyReal.pkg.ssp"]);
-    let game = games::parse_file("ConstRename.ssp", &pkgs);
+    let pkgs = packages::parse_files(&["KeyRealMoreParams.pkg.ssp"]);
+    let games = games::parse_files(&["ConstRename.ssp", "ConstRename2.ssp"], &pkgs);
 }
 
 #[test]
