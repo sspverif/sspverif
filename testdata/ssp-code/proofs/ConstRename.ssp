@@ -12,14 +12,14 @@ proof ConstRenameProof {
   instance const_rename_assumption_right = ConstRenameGame2 {
       params {
           l: o,
-          lala: zeroo,
+          oho: zeroo,
       }
   }
 
   instance const_rename_construction_left = ConstRenameGame {
       params {
           m: o,
-          oho: zeroo,
+          lala: zeroo,
       }
   }
 
