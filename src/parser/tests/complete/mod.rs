@@ -255,6 +255,31 @@ fn package_empty_loop_works() {
     }
 }
 
+/// When instantiating a pacakge instance in a game, the name of the assigned constant must be
+/// allowed to be different from the parameter.
+///
+#[test]
+fn game_const_rename() {
+    let pkgs = packages::parse_files(&["KeyReal.pkg.ssp"]);
+    let game = games::parse_file("ConstRename.ssp", &pkgs);
+}
+
+#[test]
+fn proof_const_rename() {
+    let pkgs = packages::parse_files(&["KeyReal.pkg.ssp"]);
+    let games = games::parse_files(&["ConstRename.ssp", "ConstRename2.ssp"], &pkgs);
+
+    dbg!(&pkgs);
+    dbg!(&games);
+
+    let proof = proofs::parse(
+        &proofs::read_file("ConstRename.ssp"),
+        "ConstRename.ssp",
+        &pkgs,
+        &games,
+    );
+}
+
 /// This is a helper for transcripts. It can be cloned, and what is written in one clone can be
 /// read in all others. It is concurrency-safe. This can be passed into the Communicator, a simple
 /// `&mut Vec<u8>` can't. a `Vec<u8>` can, but then we lose access to it. This solves that problem.
