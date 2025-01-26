@@ -1,7 +1,7 @@
 use crate::{
     expressions::Expression,
     identifier::{game_ident::GameConstIdentifier, Identifier},
-    package::{Composition, Export, SplitExport},
+    package::{Composition, Export},
     proof::GameInstance,
     transforms::samplify::SampleInfo,
     types::Type,
@@ -16,7 +16,12 @@ use crate::{
     },
 };
 
-use super::{GameInstanceContext, OracleContext, PackageInstanceContext};
+use super::{OracleContext, PackageInstanceContext};
+
+#[derive(Clone, Debug, Copy)]
+pub struct GameInstanceContext<'a> {
+    game_inst: &'a GameInstance,
+}
 
 impl<'a> GameInstanceContext<'a> {
     pub(crate) fn new(game_inst: &'a GameInstance) -> Self {
@@ -291,10 +296,7 @@ impl<'a> GameInstanceContext<'a> {
             .pkgs // we only want a single package, no sorting needed
             .iter()
             .position(|pkg| pkg.name == inst_name)
-            .map(|inst_offs| PackageInstanceContext {
-                game_ctx: *self,
-                inst_offs,
-            })
+            .map(|inst_offs| PackageInstanceContext::new(*self, inst_offs))
     }
 
     pub(crate) fn pkg_inst_ctx_by_offs(
@@ -305,10 +307,7 @@ impl<'a> GameInstanceContext<'a> {
             return None;
         }
 
-        Some(PackageInstanceContext {
-            game_ctx: self,
-            inst_offs,
-        })
+        Some(PackageInstanceContext::new(self, inst_offs))
     }
 
     pub(crate) fn exported_oracle_ctx_by_name(
@@ -322,10 +321,7 @@ impl<'a> GameInstanceContext<'a> {
             .iter()
             .find(|Export(_, osig)| osig.name == oracle_name)?;
 
-        let inst_ctx = PackageInstanceContext {
-            game_ctx: *self,
-            inst_offs,
-        };
+        let inst_ctx = PackageInstanceContext::new(*self, inst_offs);
 
         inst_ctx.oracle_ctx_by_name(oracle_name)
     }
