@@ -172,7 +172,23 @@ fn compare_reduction(
             .edges
             .iter()
             .find(|edge| edge.from() == inst_offs_left && edge.sig() == sig)
-            .unwrap();
+            .unwrap_or_else(|| {
+                let edge = game_left
+                    .edges
+                    .iter()
+                    .find(|edge| edge.from() == inst_offs_left && edge.sig().name == sig.name)
+                    .unwrap();
+
+                panic!("failed to find edge {edge:?} by comapring with signature {sig:?}");
+
+                // again, the problem is that there is a Bits(_) type in the signature.
+                // what is new is that we are on the level of proofs here, so we need another layer
+                // of instantiation here.
+                // Or we add a nestable EqWithContext somehow. I am not sure that is a good idea,
+                // but let's play with the idea for a bit.
+                //
+                // Actually let's do that somewhere else.
+            });
         let right_edge = game_right
             .edges
             .iter()
