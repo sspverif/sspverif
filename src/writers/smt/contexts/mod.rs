@@ -1,5 +1,4 @@
 use crate::{
-    proof::GameInstance,
     transforms::samplify::SampleInfo,
     types::Type,
     writers::smt::{exprs::SmtExpr, names},
@@ -20,11 +19,6 @@ mod oracle;
 mod pkg_inst;
 //mod split_oracle;
 
-#[derive(Clone, Debug, Copy)]
-pub struct GameInstanceContext<'a> {
-    game_inst: &'a GameInstance,
-}
-
 // #[derive(Clone, Debug)]
 // pub struct SplitOracleContext<'a> {
 //     game_inst_context: GameInstanceContext<'a>,
@@ -33,18 +27,9 @@ pub struct GameInstanceContext<'a> {
 //     partials: &'a PartialsDatatype,
 // }
 
-#[derive(Copy, Clone, Debug)]
-pub struct OracleContext<'a> {
-    game_inst_context: GameInstanceContext<'a>,
-    pkg_inst_offs: usize,
-    oracle_offs: usize,
-}
-
-#[derive(Clone, Debug, Copy)]
-pub struct PackageInstanceContext<'a> {
-    game_ctx: GameInstanceContext<'a>,
-    inst_offs: usize,
-}
+pub use game_inst::GameInstanceContext;
+pub use oracle::OracleContext;
+pub use pkg_inst::PackageInstanceContext;
 
 pub trait GenericOracleContext<'a> {
     fn game_inst_ctx(&self) -> GameInstanceContext<'a>;

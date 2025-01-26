@@ -7,25 +7,34 @@ use crate::identifier::pkg_ident::{
 use crate::identifier::Identifier;
 use crate::package::{Composition, Package, PackageInstance};
 use crate::proof::GameInstance;
-use crate::split::SplitPath;
 use crate::types::Type;
 use crate::writers::smt::patterns::pkg_consts::PackageConstsPattern;
-use crate::writers::smt::patterns::{
-    self, Datatype as _, PackageStateDatatype, PackageStateSelector, SmtDefineFun,
-};
+use crate::writers::smt::patterns::{self, Datatype as _, PackageStateSelector, SmtDefineFun};
 use crate::writers::smt::{
-    contexts::{GameInstanceContext, OracleContext, PackageInstanceContext},
+    contexts::{GameInstanceContext, OracleContext},
     exprs::SmtExpr,
     patterns::{DatastructurePattern, PackageStatePattern},
 };
 
+#[derive(Clone, Debug, Copy)]
+pub struct PackageInstanceContext<'a> {
+    game_ctx: GameInstanceContext<'a>,
+    inst_offs: usize,
+}
+
 impl<'a> PackageInstanceContext<'a> {
+    pub(crate) fn new(game_inst_ctx: GameInstanceContext<'a>, pkg_inst_offs: usize) -> Self {
+        Self {
+            game_ctx: game_inst_ctx,
+            inst_offs: pkg_inst_offs,
+        }
+    }
     pub(crate) fn game_inst_ctx(&self) -> GameInstanceContext<'a> {
         self.game_ctx
     }
 
     pub(crate) fn game_inst(&self) -> &'a GameInstance {
-        self.game_ctx.game_inst
+        self.game_inst_ctx().game_inst()
     }
 
     pub(crate) fn game_inst_name(&self) -> &'a str {
@@ -74,11 +83,11 @@ impl<'a> PackageInstanceContext<'a> {
             .iter()
             .position(|odef| odef.sig.name == oracle_name)?;
 
-        Some(OracleContext {
-            game_inst_context: self.game_ctx,
-            pkg_inst_offs: inst_offs,
+        Some(OracleContext::new(
+            self.game_inst_ctx(),
+            inst_offs,
             oracle_offs,
-        })
+        ))
     }
 
     // pub(crate) fn split_oracle_ctx_by_name_and_path(
@@ -112,14 +121,10 @@ impl<'a> PackageInstanceContext<'a> {
             return None;
         }
 
-        let game_ctx = self.game_ctx;
+        let game_ctx = self.game_inst_ctx();
         let inst_offs = self.inst_offs;
 
-        Some(OracleContext {
-            game_inst_context: game_ctx,
-            pkg_inst_offs: inst_offs,
-            oracle_offs,
-        })
+        Some(OracleContext::new(game_ctx, inst_offs, oracle_offs))
     }
 
     pub(crate) fn pkg_inst(&self) -> &'a PackageInstance {
