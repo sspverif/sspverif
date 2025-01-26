@@ -1,8 +1,9 @@
 use crate::parser::{
     error::{
         AssumptionExportsNotSufficientError, AssumptionMappingContainsDifferentPackagesError,
-        InconsistentReductions, ReductionPackageInstanceParameterMismatchError,
+        InconsistentReductions, ReductionPackageInstanceParameterMismatchError, TypeMismatchError,
     },
+    package::ParseExpressionError,
     proof::ParseProofError,
     tests::{games, packages, proofs, slice_source_span},
 };
@@ -418,7 +419,7 @@ fn fail_wrong_params_in_reduction_should_fail() {
 
     assert_eq!(left_pkg_inst_name, "enc");
     assert_eq!(right_pkg_inst_name, "enc");
-    assert_eq!(param_names, "m");
+    assert_eq!(param_names, "enc, m");
 
     let report = miette::Report::new(err);
     println!("the error prints like this:\n{:?}", report)

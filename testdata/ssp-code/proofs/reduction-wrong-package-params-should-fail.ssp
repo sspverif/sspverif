@@ -4,14 +4,14 @@ proof PRF {
     const p: Integer;
     const prf: fn Bits(n),Bits(n) -> Bits(n);
     const enc: fn Bits(n),Bits(n),Bits(n) -> Bits(m);
+    const encp: fn Bits(n),Bits(n),Bits(n) -> Bits(p);
 
     instance constructionreal = ConstructionReal {
         params {
             n: n,
             m: p,
             prf: prf,
-            enc: enc,
-
+            enc: encp,
         }
     }
 

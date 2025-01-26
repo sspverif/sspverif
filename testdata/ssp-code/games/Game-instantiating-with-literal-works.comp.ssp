@@ -1,7 +1,7 @@
 composition ConstructionReal {
     const n: Integer;
     const m: Integer;
-    const prf: fn Bits(n), Bits(n) -> Bits(n);
+    const prf: fn Bits(1), Bits(1) -> Bits(1);
     const enc: fn Bits(n), Bits(n), Bits(n) -> Bits(m);
     
     instance prf = PRF {
