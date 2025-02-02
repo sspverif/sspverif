@@ -122,7 +122,6 @@ pub(crate) mod instantiate {
             },
             proof_ident::ProofIdentInstanciationInfo,
         },
-        split::{SplitOracleDef, SplitOracleSig, SplitPath, SplitType},
         statement::{CodeBlock, IfThenElse, InvokeOracleStatement},
     };
 
@@ -359,10 +358,10 @@ pub(crate) mod instantiate {
         }
     }
 
-    impl<'a> InstantiationContext<'a> {
+    impl InstantiationContext<'_> {
         pub(crate) fn rewrite_expression(&self, expr: &Expression) -> Expression {
             expr.map(|expr| match (self.src, expr) {
-                (src, Expression::Identifier(ident)) => {
+                (_, Expression::Identifier(ident)) => {
                     Expression::Identifier(self.rewrite_identifier(ident))
                 }
 
