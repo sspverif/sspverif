@@ -188,6 +188,12 @@ fn compare_reduction(
                 // but let's play with the idea for a bit.
                 //
                 // Actually let's do that somewhere else.
+                //
+                // ----
+                //
+                // Alternative idea: rewrite during instantiation and put that piece of info
+                // somewhere. For some things we already do that, but these are just strings, not
+                // identifiers. maybe that is the actual problem. Let's try to change that
             });
         let right_edge = game_right
             .edges
