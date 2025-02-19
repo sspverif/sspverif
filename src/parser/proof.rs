@@ -41,7 +41,7 @@ use pest::{
 use thiserror::Error;
 
 use super::{
-    common,
+    common::{self, HandleTypeError},
     error::{
         AssumptionExportsNotSufficientError, AssumptionMappingMissesPackageInstanceError,
         AssumptionMappingParameterMismatchError,
@@ -187,7 +187,7 @@ pub enum ParseProofError {
 
     #[diagnostic(transparent)]
     #[error(transparent)]
-    NoSuchType(#[from] NoSuchTypeError),
+    HandleType(#[from] HandleTypeError),
 
     #[diagnostic(transparent)]
     #[error(transparent)]
@@ -362,9 +362,10 @@ fn handle_instance_assign_list(
                             game_name: game.name.to_string(),
                             name,
                             tipe: value.get_type(),
+                            assigned_value: Some(Box::new(value.clone())),
                             inst_info: None,
-                            game_inst_name: None,
-                            proof_name: None,
+                            game_inst_name: Some(game_inst_name.to_string()),
+                            proof_name: Some(ctx.proof_name.to_string()),
                         },
                         value,
                     )

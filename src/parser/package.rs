@@ -115,7 +115,7 @@ pub enum ParsePackageError {
 
     #[diagnostic(transparent)]
     #[error(transparent)]
-    NoSuchType(#[from] NoSuchTypeError),
+    HandleType(#[from] HandleTypeError),
 
     #[diagnostic(transparent)]
     #[error(transparent)]
@@ -243,8 +243,8 @@ pub fn handle_decl_list(
     decl_list: Pair<Rule>,
     ident_type: IdentType,
 ) -> Result<(), ParsePackageError> {
-    let parse_ctx = ctx.parse_ctx();
     for entry in decl_list.into_inner() {
+        let parse_ctx = ctx.parse_ctx();
         let span = entry.as_span();
         let mut inner = entry.into_inner();
         let name_ast = inner.next().unwrap();
@@ -301,7 +301,7 @@ pub fn handle_decl_list(
 pub fn handle_arglist(
     ctx: &ParsePackageContext,
     arglist: Pair<Rule>,
-) -> Result<Vec<(String, Type)>, NoSuchTypeError> {
+) -> Result<Vec<(String, Type)>, HandleTypeError> {
     let parse_ctx = ctx.parse_ctx();
 
     arglist
@@ -327,7 +327,7 @@ pub enum ParseExpressionError {
 
     #[diagnostic(transparent)]
     #[error(transparent)]
-    NoSuchType(#[from] NoSuchTypeError),
+    HandleType(#[from] HandleTypeError),
 
     #[diagnostic(transparent)]
     #[error(transparent)]
@@ -736,7 +736,7 @@ pub fn handle_identifier_in_code_rhs(
 ) -> Result<Identifier, ParseIdentifierError> {
     let ident = scope
         .lookup(name)
-        .ok_or(ParseIdentifierError::Undefined(name.to_string()))?
+        .ok_or(ParseIdentifierError::Undefined(name.to_string())).unwrap()
         .into_identifier()
         .unwrap_or_else(|decl| panic!("expected an identifier, got a clone {decl:?}", decl = decl));
 

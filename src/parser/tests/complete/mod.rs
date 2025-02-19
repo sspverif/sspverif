@@ -5,15 +5,15 @@ use super::{
 };
 use crate::{
     expressions::Expression,
-    gamehops::equivalence,
-    gamehops::GameHop,
+    gamehops::{equivalence, GameHop},
     identifier::{
         game_ident::{GameConstIdentifier, GameIdentifier},
+        pkg_ident::{PackageConstIdentifier, PackageIdentifier},
         Identifier,
     },
     proof::{Claim, ClaimType},
     statement::Statement,
-    types::Type,
+    types::{CountSpec, Type},
     util::prover_process::{Communicator, ProverBackend},
 };
 use std::{
@@ -94,6 +94,7 @@ fn small_game() {
                 game_name: "SmallGame".to_string(),
                 game_inst_name: None,
                 proof_name: None,
+                assigned_value: None,
                 inst_info: None,
             }
         )))
@@ -229,7 +230,6 @@ fn game_instantiating_with_literal_works() {
 fn package_empty_loop_works() {
     let (name, pkg) = parse_file("EmptyLoop.pkg.ssp");
     let k = "k".to_string();
-    let n = "n".to_string();
     let h = "h".to_string();
     assert_eq!(name, "EmptyLoop");
     assert_eq!(pkg.params.len(), 1);
@@ -238,8 +238,15 @@ fn package_empty_loop_works() {
     assert_eq!(pkg.oracles.len(), 2);
     assert_eq!(pkg.oracles[0].sig.name, "Set");
     assert_eq!(pkg.oracles[0].sig.tipe, Type::Empty);
-    assert_eq!(pkg.oracles[0].sig.args[0], (k, Type::Bits(n.clone())));
-    assert_eq!(pkg.oracles[0].sig.args[1], (h, Type::Bits(n)));
+
+    assert!(matches!(
+            &pkg.oracles[0].sig.args[0],
+            (name, Type::Bits(bitlen)) if name == &k && matches!(&**bitlen, CountSpec::Identifier(bitlen) if bitlen.ident() == "n") ));
+
+    assert!(matches!(
+            &pkg.oracles[0].sig.args[1],
+            (name, Type::Bits(bitlen)) if name == &h && matches!(&**bitlen, CountSpec::Identifier(bitlen) if bitlen.ident() == "n") ));
+
     assert!(pkg.imports.is_empty());
     assert!(
         matches!(&pkg.oracles[0].code.0[0], Statement::For(i, Expression::IntegerLiteral(1), Expression::Identifier(n), _,_)

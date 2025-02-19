@@ -1,13 +1,18 @@
+use crate::identifier::game_ident::{GameConstIdentifier, GameIdentifier};
+use crate::identifier::pkg_ident::{PackageConstIdentifier, PackageIdentifier};
+use crate::identifier::Identifier;
 use crate::package::{Composition, Package};
 use crate::parser::composition::ParseGameError;
+use crate::types::CountSpec;
 use crate::{debug_assert_matches, expressions::Expression, types::Type};
 
 use super::composition::ParseGameContext;
 use super::error::{
     DuplicateGameParameterDefinitionError, DuplicatePackageParameterDefinitionError,
     MissingGameParameterDefinitionError, MissingPackageParameterDefinitionError,
-    NoSuchGameParameterError, NoSuchPackageParameterError, NoSuchTypeError,
+    NoSuchGameParameterError, NoSuchPackageParameterError, NoSuchTypeError, ParseNumberError,
 };
+use super::package::{handle_identifier_in_code_rhs, ParseIdentifierError};
 use super::proof::{ParseProofContext, ParseProofError};
 use super::{ParseContext, Rule};
 
@@ -17,7 +22,52 @@ use pest::iterators::Pair;
 
 use std::collections::{HashMap, HashSet};
 
-pub(crate) fn handle_type(ctx: &ParseContext, tipe: Pair<Rule>) -> Result<Type, NoSuchTypeError> {
+pub(crate) fn handle_countspec(
+    ctx: &ParseContext,
+    tree: Pair<Rule>,
+) -> Result<CountSpec, HandleTypeError> {
+    assert_eq!(tree.as_rule(), Rule::countspec);
+    if let Some(inner) = tree.into_inner().next() {
+        let span = inner.as_span();
+        match inner.as_rule() {
+            Rule::identifier => {
+                let name = inner.as_str();
+                let ident = handle_identifier_in_code_rhs(name, &ctx.scope).map_err(Box::new)?;
+                Ok(CountSpec::Identifier(ident))
+            }
+            Rule::num => {
+                let num_str = inner.as_str();
+                let num = num_str.parse().map_err(|source| ParseNumberError {
+                    source_code: ctx.named_source(),
+                    at: (span.start()..span.end()).into(),
+                    num_str: num_str.to_string(),
+                    source,
+                })?;
+                Ok(CountSpec::Literal(num))
+            }
+            other => unreachable!("unexpected: {other:?}"),
+        }
+    } else {
+        Ok(CountSpec::Any)
+    }
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+pub enum HandleTypeError {
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    NoSuchType(#[from] NoSuchTypeError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ParseIdentifier(#[from] Box<ParseIdentifierError>),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ParseNumber(#[from] ParseNumberError),
+}
+
+pub(crate) fn handle_type(ctx: &ParseContext, tipe: Pair<Rule>) -> Result<Type, HandleTypeError> {
     let out = match tipe.as_rule() {
         Rule::type_empty => Type::Empty,
         Rule::type_bool => Type::Boolean,
@@ -27,7 +77,10 @@ pub(crate) fn handle_type(ctx: &ParseContext, tipe: Pair<Rule>) -> Result<Type, 
             ctx,
             tipe.into_inner().next().unwrap(),
         )?)),
-        Rule::type_bits => Type::Bits(tipe.into_inner().next().unwrap().as_str().to_string()),
+        Rule::type_bits => Type::Bits(Box::new(handle_countspec(
+            ctx,
+            tipe.into_inner().next().unwrap(),
+        )?)),
         Rule::type_tuple => Type::Tuple(
             tipe.into_inner()
                 .map(|t| handle_type(ctx, t))
@@ -64,7 +117,8 @@ pub(crate) fn handle_type(ctx: &ParseContext, tipe: Pair<Rule>) -> Result<Type, 
                     source_code: ctx.named_source(),
                     at: (span.start()..span.end()).into(),
                     type_name: type_name.to_string(),
-                });
+                }
+                .into());
             }
         }
         _ => {
@@ -82,7 +136,6 @@ pub(crate) fn handle_game_params_def_list(
     ast: Pair<Rule>,
 ) -> std::result::Result<Vec<(String, Expression)>, super::composition::ParseGameError> {
     debug_assert_matches!(ast.as_rule(), Rule::params_def_list);
-    let params = &pkg.params;
     let mut defined_params = HashMap::<String, SourceSpan>::new();
     let block_span = ast.as_span();
 
@@ -102,7 +155,25 @@ pub(crate) fn handle_game_params_def_list(
             let name = name_ast.as_str();
 
             // look up the parameter clone from the package
-            let maybe_param_info = params.iter().find(|(name_, _, _)| name == name_);
+            let maybe_param_info = pkg.params.iter().find(|(name_, _, _)| name == name_);
+
+            panic!("This is where the bug is");
+
+            /*
+             *   The problem is that we are comparing package identifiers with game identifiers, and
+             *   they are techincally the same, but on one seide they are game indentifers but on
+             *   the other side they are package identifiers.
+             *
+             *   To show the actual error that occurs, comment out the panic above.
+             *
+             * */
+
+            match &maybe_param_info {
+                Some((_, Type::Fn(args, ret), _)) => {
+                    dbg!(args);
+                }
+                _ => {}
+            }
 
             // if it desn't exist, return an error
             let (_, expected_type, _) = maybe_param_info.ok_or(NoSuchPackageParameterError {
@@ -132,12 +203,11 @@ pub(crate) fn handle_game_params_def_list(
                     Some(&expected_type),
                 )?;
 
-                let assigned_const_text = match value {
-                    Expression::Identifier(ident) => ident.ident(),
-                    Expression::IntegerLiteral(num) => {
-                        format!("{num}")
-                    }
-                    other => {
+                let assigned_countspec = match value {
+                    Expression::Identifier(ident) => CountSpec::Identifier(ident),
+                    // TODO:: enforce somehow that this number is not negative
+                    Expression::IntegerLiteral(num) => CountSpec::Literal(num as u64),
+                    _ => {
                         return Err(todo!());
                     }
                 };
@@ -145,8 +215,21 @@ pub(crate) fn handle_game_params_def_list(
                 let name: &str = name_ast.as_str();
 
                 bits_rewrite_rules.push((
-                    Type::Bits(name.to_string()),
-                    Type::Bits(assigned_const_text),
+                    Type::Bits(Box::new(CountSpec::Identifier(
+                        Identifier::PackageIdentifier(PackageIdentifier::Const(
+                            PackageConstIdentifier {
+                                pkg_name: pkg.name.clone(),
+                                name: name.to_string(),
+                                tipe: Type::Integer,
+                                game_name: Some(ctx.game_name.to_string()),
+                                pkg_inst_name: Some(pkg_inst_name.to_string()),
+                                game_inst_name: None,
+                                proof_name: None,
+                                game_assignment: None,
+                            },
+                        )),
+                    ))),
+                    Type::Bits(Box::new(assigned_countspec)),
                 ));
 
                 Ok((pair_span, name_ast, value_ast, expected_type))
@@ -162,7 +245,7 @@ pub(crate) fn handle_game_params_def_list(
                 pair_span,
                 name_ast,
                 value_ast,
-                ty.rewrite(&bits_rewrite_rules),
+                ty.rewrite_type(&bits_rewrite_rules),
             )
         })
     });
@@ -202,7 +285,7 @@ pub(crate) fn handle_game_params_def_list(
         .and_then(|list| {
             let definied_names: HashSet<String> = defined_params.keys().cloned().collect();
             let declared_names: HashSet<String> =
-                params.iter().map(|(name, _, _)| name).cloned().collect();
+                pkg.params.iter().map(|(name, _, _)| name).cloned().collect();
 
             let missing_params_vec: Vec<_> = declared_names
                 .difference(&definied_names)
@@ -281,12 +364,11 @@ pub(crate) fn handle_proof_params_def_list(
                     Some(&expected_type),
                 )?;
 
-                let assigned_const_text = match value {
-                    Expression::Identifier(ident) => ident.ident(),
-                    Expression::IntegerLiteral(num) => {
-                        format!("{num}")
-                    }
-                    other => {
+                let assigned_countspec = match value {
+                    Expression::Identifier(ident) => CountSpec::Identifier(ident),
+                    // TODO:: enforce somehow that this number is not negative
+                    Expression::IntegerLiteral(num) => CountSpec::Literal(num as u64),
+                    _ => {
                         return Err(todo!());
                     }
                 };
@@ -294,8 +376,18 @@ pub(crate) fn handle_proof_params_def_list(
                 let name: &str = name_ast.as_str();
 
                 bits_rewrite_rules.push((
-                    Type::Bits(name.to_string()),
-                    Type::Bits(assigned_const_text),
+                    Type::Bits(Box::new(CountSpec::Identifier(Identifier::GameIdentifier(
+                        GameIdentifier::Const(GameConstIdentifier {
+                            game_name: game.name.clone(),
+                            name: name.to_string(),
+                            tipe: Type::Integer,
+                            game_inst_name: Some(game_inst_name.to_string()),
+                            proof_name: Some(ctx.proof_name.to_string()),
+                            inst_info: None,
+                            assigned_value: None,
+                        }),
+                    )))),
+                    Type::Bits(Box::new(assigned_countspec)),
                 ));
 
                 Ok((pair_span, name_ast, value_ast, expected_type))
@@ -311,7 +403,7 @@ pub(crate) fn handle_proof_params_def_list(
                 pair_span,
                 name_ast,
                 value_ast,
-                ty.rewrite(&bits_rewrite_rules),
+                ty.rewrite_type(&bits_rewrite_rules),
             )
         })
     });
@@ -422,7 +514,7 @@ pub fn handle_types_def_spec(
 pub fn handle_const_decl(
     ctx: &ParseContext,
     ast: Pair<Rule>,
-) -> Result<(String, Type), NoSuchTypeError> {
+) -> Result<(String, Type), HandleTypeError> {
     let mut inner = ast.into_inner();
     let name = inner.next().unwrap().as_str().to_owned();
     handle_type(ctx, inner.next().unwrap()).map(|t| (name, t))

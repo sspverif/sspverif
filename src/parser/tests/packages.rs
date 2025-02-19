@@ -17,7 +17,12 @@ pub fn parse(code: &str, file_name: &str) -> (String, Package) {
             err = err
         )
     });
-    handle_pkg(file_name, code, pkg_pairs.next().unwrap()).unwrap()
+    handle_pkg(file_name, code, pkg_pairs.next().unwrap())
+        .map_err(|err| {
+            println!("Error: {err:?}");
+            miette::Report::new(err)
+        })
+        .unwrap()
 }
 
 pub fn parse_fails(code: &str, name: &str) -> ParsePackageError {

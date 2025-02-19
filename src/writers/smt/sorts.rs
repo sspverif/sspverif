@@ -30,7 +30,14 @@ impl From<&Type> for SmtlibSort {
             Type::Integer => theories::ints::int(),
             Type::String => "String".into(),
             Type::Boolean => theories::core::bool_(),
-            Type::Bits(name) => format!("Bits_{name}").into(),
+            Type::Bits(length) => {
+                let length = match &**length {
+                    crate::types::CountSpec::Identifier(identifier) => identifier.ident(),
+                    crate::types::CountSpec::Literal(num) => format!("{num}"),
+                    crate::types::CountSpec::Any => "*".to_string(),
+                };
+                format!("Bits_{length}").into()
+            }
             Type::Table(ty_idx, ty_val) => SmtlibSort {
                 name: "Array".into(),
                 parameters: vec![
@@ -80,8 +87,13 @@ impl From<Type> for Sort {
     fn from(value: Type) -> Self {
         match value {
             Type::Bits(length) => {
-                // TODO make sure we define this somewhere
-                Sort::Other(format!("Bits_{}", length), vec![])
+                let length = match &*length {
+                    crate::types::CountSpec::Identifier(identifier) => identifier.ident(),
+                    crate::types::CountSpec::Literal(num) => format!("{num}"),
+                    crate::types::CountSpec::Any => "*".to_string(),
+                };
+
+                Sort::Other(format!("Bits_{length}"), vec![])
             }
             Type::Maybe(t) => Sort::Other("Maybe".to_string(), vec![(*t).into()]),
             Type::Boolean => Sort::Bool,
