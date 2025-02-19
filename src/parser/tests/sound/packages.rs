@@ -1,20 +1,21 @@
 use crate::{
     parser::{
+        common::HandleTypeError,
         error::{NoSuchTypeError, TypeMismatchError, UndefinedIdentifierError},
         package::{ParseExpressionError, ParsePackageError},
         tests::{packages, slice_source_span},
     },
-    types::Type,
+    types::{CountSpec, Type},
 };
 
 #[test]
 fn undefined_type_in_pkg_params() {
     let err = packages::parse_file_fails("bad_param_type.ssp");
     assert!(
-        matches!(err, ParsePackageError::NoSuchType(NoSuchTypeError {
+        matches!(err, ParsePackageError::HandleType(HandleTypeError::NoSuchType(NoSuchTypeError {
                 type_name,
                 ..
-            })
+            }))
             if &type_name == "ThisTypeDoesNotExist"
         )
     )
@@ -24,10 +25,10 @@ fn undefined_type_in_pkg_params() {
 fn undefined_type_in_pkg_state() {
     let err = packages::parse_file_fails("bad_state_type.ssp");
     assert!(
-        matches!(err, ParsePackageError::NoSuchType(NoSuchTypeError {
+        matches!(err, ParsePackageError::HandleType(HandleTypeError::NoSuchType(NoSuchTypeError {
                 type_name,
                 ..
-            })
+            }))
             if &type_name == "ThisTypeDoesNotExist"
         )
     )
@@ -189,18 +190,19 @@ fn bad_add_fails_4() {
 fn loop_start_non_integer_fails() {
     let err = packages::parse_file_fails("EmptyLoopStartNonIntegerFails.pkg.ssp");
 
-    assert!(
-        matches!(
+    assert!(matches!(
             &err,
             ParsePackageError::ParseExpression(ParseExpressionError::TypeMismatch(
                 TypeMismatchError {
                     expected: Type::Integer,
-                    got,
+                    got: Type::Bits(countspec),
                     ..
                 }
-            )) if got == &Type:: Bits("n".to_string())));
+            )) if matches!(&**countspec, CountSpec::Identifier(ident) if ident.ident_ref() == "n")));
+
     assert_eq!(
-        "type mismatch: got Bits(\"n\"), expected Integer",err.to_string()
+        "type mismatch: got Bits(\"n\"), expected Integer",
+        err.to_string()
     )
 }
 
@@ -208,17 +210,17 @@ fn loop_start_non_integer_fails() {
 fn loop_end_non_integer_fails() {
     let err = packages::parse_file_fails("EmptyLoopEndNonIntegerFails.pkg.ssp");
 
-    assert!(
-        matches!(
+    assert!(matches!(
             &err,
             ParsePackageError::ParseExpression(ParseExpressionError::TypeMismatch(
                 TypeMismatchError {
                     expected: Type::Integer,
-                    got,
+                    got: Type::Bits(countspec),
                     ..
                 }
-            )) if got == &Type:: Bits("n".to_string())));
+            )) if matches!(&**countspec, CountSpec::Identifier(ident) if ident.ident_ref() == "n")));
     assert_eq!(
-        "type mismatch: got Bits(\"n\"), expected Integer",err.to_string()
+        "type mismatch: got Bits(\"n\"), expected Integer",
+        err.to_string()
     )
 }

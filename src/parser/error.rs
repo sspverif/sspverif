@@ -572,6 +572,22 @@ pub struct DuplicateEdgeDefinitionError {
     pub game_name: String,
 }
 
+#[derive(Error, Debug, miette::Diagnostic)]
+#[error("Error parsing '{num_str}' as a number: {source}")]
+#[diagnostic(code(ssbee::code::number_parse))]
+pub struct ParseNumberError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this number could not be parsed")]
+    pub at: SourceSpan,
+
+    pub num_str: String,
+
+    #[source]
+    pub source: <u64 as std::str::FromStr>::Err,
+}
+
 #[derive(miette::Diagnostic, Debug, thiserror::Error)]
 #[error("Reduction references construction game instance {name}, but that is not in the header")]
 pub struct InvalidGameInstanceInReductionError {

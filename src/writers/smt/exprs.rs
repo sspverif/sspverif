@@ -233,8 +233,13 @@ impl From<Type> for SmtExpr {
     fn from(t: Type) -> SmtExpr {
         match t {
             Type::Bits(length) => {
-                // TODO make sure we define this somewhere
-                SmtExpr::Atom(format!("Bits_{}", length))
+                let length = match &*length {
+                    crate::types::CountSpec::Identifier(identifier) => identifier.ident(),
+                    crate::types::CountSpec::Literal(num) => format!("{num}"),
+                    crate::types::CountSpec::Any => "*".to_string(),
+                };
+
+                SmtExpr::Atom(format!("Bits_{length}"))
             }
             Type::Maybe(t) => SmtExpr::List(vec![SmtExpr::Atom("Maybe".into()), (*t).into()]),
             Type::Boolean => SmtExpr::Atom("Bool".to_string()),
@@ -263,8 +268,13 @@ impl From<&Type> for SmtExpr {
     fn from(t: &Type) -> SmtExpr {
         match t {
             Type::Bits(length) => {
-                // TODO make sure we define this somewhere
-                SmtExpr::Atom(format!("Bits_{}", length))
+                let length = match &**length {
+                    crate::types::CountSpec::Identifier(identifier) => identifier.ident(),
+                    crate::types::CountSpec::Literal(num) => format!("{num}"),
+                    crate::types::CountSpec::Any => "*".to_string(),
+                };
+
+                SmtExpr::Atom(format!("Bits_{length}"))
             }
             Type::Maybe(t) => SmtExpr::List(vec![SmtExpr::Atom("Maybe".into()), (&**t).into()]),
             Type::Boolean => SmtExpr::Atom("Bool".to_string()),
