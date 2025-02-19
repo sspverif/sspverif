@@ -122,7 +122,6 @@ pub(crate) mod instantiate {
             },
             proof_ident::ProofIdentInstanciationInfo,
         },
-        split::{SplitOracleDef, SplitOracleSig, SplitPath, SplitType},
         statement::{CodeBlock, IfThenElse, InvokeOracleStatement},
     };
 
@@ -204,9 +203,9 @@ pub(crate) mod instantiate {
                     args: oracle_sig
                         .args
                         .into_iter()
-                        .map(|(name, tipe)| (name.clone(), tipe.rewrite(&type_rewrite_rules)))
+                        .map(|(name, tipe)| (name.clone(), tipe.rewrite_type(&type_rewrite_rules)))
                         .collect(),
-                    tipe: oracle_sig.tipe.rewrite(&type_rewrite_rules),
+                    tipe: oracle_sig.tipe.rewrite_type(&type_rewrite_rules),
                 }
             }
         }
@@ -313,7 +312,7 @@ pub(crate) mod instantiate {
                     self.rewrite_identifier(ident),
                     index.clone().map(|expr| self.rewrite_expression(&expr)),
                     sample_id,
-                    tipe.rewrite(&type_rewrite_rules),
+                    tipe.rewrite_type(&type_rewrite_rules),
                     pos,
                 ),
                 Statement::InvokeOracle(InvokeOracleStatement {
@@ -339,7 +338,9 @@ pub(crate) mod instantiate {
                         .into_iter()
                         .map(|expr| self.rewrite_expression(&expr))
                         .collect(),
-                    tipe: tipe.clone().map(|tipe| tipe.rewrite(&type_rewrite_rules)),
+                    tipe: tipe
+                        .clone()
+                        .map(|tipe| tipe.rewrite_type(&type_rewrite_rules)),
                 }),
 
                 Statement::IfThenElse(ite) => Statement::IfThenElse(IfThenElse {
@@ -359,10 +360,10 @@ pub(crate) mod instantiate {
         }
     }
 
-    impl<'a> InstantiationContext<'a> {
+    impl InstantiationContext<'_> {
         pub(crate) fn rewrite_expression(&self, expr: &Expression) -> Expression {
             expr.map(|expr| match (self.src, expr) {
-                (src, Expression::Identifier(ident)) => {
+                (_, Expression::Identifier(ident)) => {
                     Expression::Identifier(self.rewrite_identifier(ident))
                 }
 
@@ -511,19 +512,19 @@ pub(crate) mod instantiate {
                     let pkg_ident = match pkg_ident {
                         PackageIdentifier::Const(const_ident) => {
                             PackageIdentifier::Const(PackageConstIdentifier {
-                                tipe: const_ident.tipe.rewrite(&type_rewrite_rules),
+                                tipe: const_ident.tipe.rewrite_type(&type_rewrite_rules),
                                 ..const_ident
                             })
                         }
                         PackageIdentifier::State(state_ident) => {
                             PackageIdentifier::State(PackageStateIdentifier {
-                                tipe: state_ident.tipe.rewrite(&type_rewrite_rules),
+                                tipe: state_ident.tipe.rewrite_type(&type_rewrite_rules),
                                 ..state_ident
                             })
                         }
                         PackageIdentifier::Local(local_ident) => {
                             PackageIdentifier::Local(PackageLocalIdentifier {
-                                tipe: local_ident.tipe.rewrite(&type_rewrite_rules),
+                                tipe: local_ident.tipe.rewrite_type(&type_rewrite_rules),
                                 ..local_ident
                             })
                         }
@@ -534,7 +535,7 @@ pub(crate) mod instantiate {
 
                         PackageIdentifier::OracleArg(arg_ident) => {
                             PackageIdentifier::OracleArg(PackageOracleArgIdentifier {
-                                tipe: arg_ident.tipe.rewrite(&type_rewrite_rules),
+                                tipe: arg_ident.tipe.rewrite_type(&type_rewrite_rules),
                                 ..arg_ident.clone()
                             })
                         }

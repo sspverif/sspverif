@@ -12,7 +12,28 @@ use crate::writers::smt::patterns::{
 use super::super::exprs::SmtExpr;
 use super::super::names;
 
-use super::{GameInstanceContext, GenericOracleContext, OracleContext, PackageInstanceContext};
+use super::{GameInstanceContext, GenericOracleContext, PackageInstanceContext};
+
+#[derive(Copy, Clone, Debug)]
+pub struct OracleContext<'a> {
+    game_inst_context: GameInstanceContext<'a>,
+    pkg_inst_offs: usize,
+    oracle_offs: usize,
+}
+
+impl<'a> OracleContext<'a> {
+    pub(crate) fn new(
+        game_inst_context: GameInstanceContext<'a>,
+        pkg_inst_offs: usize,
+        oracle_offs: usize,
+    ) -> Self {
+        Self {
+            game_inst_context,
+            pkg_inst_offs,
+            oracle_offs,
+        }
+    }
+}
 
 // Patterns
 impl<'a> OracleContext<'a> {
@@ -118,13 +139,13 @@ impl<'a> OracleContext<'a> {
     }
 
     pub(crate) fn oracle_def(&self) -> &'a OracleDef {
-        &self.game_inst_context.game_inst.game().pkgs[self.pkg_inst_offs]
+        &self.game_inst_context.game_inst().game().pkgs[self.pkg_inst_offs]
             .pkg
             .oracles[self.oracle_offs]
     }
 
     pub(crate) fn oracle_sig(&self) -> &'a OracleSig {
-        &self.game_inst_context.game_inst.game().pkgs[self.pkg_inst_offs]
+        &self.game_inst_context.game_inst().game().pkgs[self.pkg_inst_offs]
             .pkg
             .oracles[self.oracle_offs]
             .sig
@@ -133,7 +154,7 @@ impl<'a> OracleContext<'a> {
 // SMT Code Generation
 impl<'a> OracleContext<'a> {
     pub(crate) fn smt_arg_name(&self, arg_name: &str) -> SmtExpr {
-        let game = self.game_inst_context.game_inst.game();
+        let game = self.game_inst_context.game_inst().game();
         let pkg_inst = &game.pkgs[self.pkg_inst_offs];
         let odef = &pkg_inst.pkg.oracles[self.oracle_offs];
 
@@ -145,7 +166,7 @@ impl<'a> OracleContext<'a> {
         S: Into<SmtExpr>,
         V: Into<SmtExpr>,
     {
-        let game_inst = self.game_inst_context.game_inst;
+        let game_inst = self.game_inst_context.game_inst();
         let pkg_inst = &game_inst.game().pkgs[self.pkg_inst_offs];
         let odef = &pkg_inst.pkg.oracles[self.oracle_offs];
         let osig = &odef.sig;
@@ -199,7 +220,7 @@ impl<'a> OracleContext<'a> {
     where
         R: Into<SmtExpr>,
     {
-        let game_inst = self.game_inst_context.game_inst;
+        let game_inst = self.game_inst_context.game_inst();
         let pkg_inst = &game_inst.game().pkgs[self.pkg_inst_offs];
         let osig = &pkg_inst.pkg.oracles[self.oracle_offs].sig;
         let return_type = &osig.tipe;
@@ -242,7 +263,7 @@ impl<'a> OracleContext<'a> {
     }
 
     pub(crate) fn smt_access_return_value<R: Into<SmtExpr>>(&self, ret: R) -> SmtExpr {
-        let game_inst = self.game_inst_context.game_inst;
+        let game_inst = self.game_inst_context.game_inst();
         let pkg_inst = &game_inst.game().pkgs[self.pkg_inst_offs];
         let osig = &pkg_inst.pkg.oracles[self.oracle_offs].sig;
         let return_type = &osig.tipe;
@@ -287,10 +308,7 @@ impl<'a> GenericOracleContext<'a> for OracleContext<'a> {
     }
 
     fn pkg_inst_ctx(&self) -> PackageInstanceContext<'a> {
-        PackageInstanceContext {
-            game_ctx: self.game_inst_context,
-            inst_offs: self.pkg_inst_offs,
-        }
+        PackageInstanceContext::new(self.game_inst_context, self.pkg_inst_offs)
     }
 
     fn oracle_name(&self) -> &'a str {
@@ -315,7 +333,7 @@ impl<'a> GenericOracleContext<'a> for OracleContext<'a> {
     }
 
     fn smt_construct_abort<S: Into<SmtExpr>>(&self, game_state: S) -> SmtExpr {
-        let game_inst = self.game_inst_context.game_inst;
+        let game_inst = self.game_inst_context.game_inst();
         let pkg_inst = &game_inst.game().pkgs[self.pkg_inst_offs];
         let osig = &pkg_inst.pkg.oracles[self.oracle_offs].sig;
 

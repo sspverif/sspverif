@@ -206,7 +206,7 @@ pub enum ParseGameError {
 
     #[diagnostic(transparent)]
     #[error(transparent)]
-    NoSuchType(#[from] NoSuchTypeError),
+    HandleType(#[from] HandleTypeError),
 
     #[diagnostic(transparent)]
     #[error(transparent)]
@@ -260,6 +260,7 @@ pub fn handle_comp_spec_list<'a>(
                             inst_info: None,
                             game_inst_name: None,
                             proof_name: None,
+                            assigned_value: None,
                         }
                         .into(),
                     ),

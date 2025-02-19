@@ -4,7 +4,7 @@ use crate::expressions::Expression;
 use crate::identifier::Identifier;
 use crate::package::{OracleDef, OracleSig, Package};
 use crate::statement::{CodeBlock, InvokeOracleStatement, Statement};
-use crate::types::Type;
+use crate::types::{CountSpec, Type};
 
 type Result = std::io::Result<()>;
 
@@ -31,13 +31,26 @@ impl<W: Write> Writer<W> {
 
         Ok(())
     }
+
+    pub fn write_countspec(&mut self, countspec: &CountSpec) -> Result {
+        match countspec {
+            CountSpec::Identifier(identifier) => self.write_string(identifier.ident_ref()),
+            CountSpec::Literal(num) => self.write_string(&format!("{num}")),
+            CountSpec::Any => self.write_string("*"),
+        }
+    }
+
     pub fn write_type(&mut self, t: &Type) -> Result {
         match t {
             Type::String => self.write_string("String"),
             Type::Integer => self.write_string("Integer"),
             Type::Boolean => self.write_string("Boolean"),
             Type::Empty => self.write_string("()"),
-            Type::Bits(n) => self.write_string(&format!("Bits({n})")),
+            Type::Bits(n) => {
+                self.write_string(&format!("Bits("))?;
+                self.write_string(&format!("&*n"))?;
+                self.write_string(&format!(")"))
+            }
             Type::Maybe(t) => {
                 self.write_string("Maybe(")?;
                 self.write_type(t)?;

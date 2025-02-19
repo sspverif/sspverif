@@ -5,15 +5,15 @@ use super::{
 };
 use crate::{
     expressions::Expression,
-    gamehops::equivalence,
-    gamehops::GameHop,
+    gamehops::{equivalence, GameHop},
     identifier::{
         game_ident::{GameConstIdentifier, GameIdentifier},
+        pkg_ident::{PackageConstIdentifier, PackageIdentifier},
         Identifier,
     },
     proof::{Claim, ClaimType},
     statement::Statement,
-    types::Type,
+    types::{CountSpec, Type},
     util::prover_process::{Communicator, ProverBackend},
 };
 use std::{
@@ -94,6 +94,7 @@ fn small_game() {
                 game_name: "SmallGame".to_string(),
                 game_inst_name: None,
                 proof_name: None,
+                assigned_value: None,
                 inst_info: None,
             }
         )))
@@ -229,7 +230,6 @@ fn game_instantiating_with_literal_works() {
 fn package_empty_loop_works() {
     let (name, pkg) = parse_file("EmptyLoop.pkg.ssp");
     let k = "k".to_string();
-    let n = "n".to_string();
     let h = "h".to_string();
     assert_eq!(name, "EmptyLoop");
     assert_eq!(pkg.params.len(), 1);
@@ -238,8 +238,15 @@ fn package_empty_loop_works() {
     assert_eq!(pkg.oracles.len(), 2);
     assert_eq!(pkg.oracles[0].sig.name, "Set");
     assert_eq!(pkg.oracles[0].sig.tipe, Type::Empty);
-    assert_eq!(pkg.oracles[0].sig.args[0], (k, Type::Bits(n.clone())));
-    assert_eq!(pkg.oracles[0].sig.args[1], (h, Type::Bits(n)));
+
+    assert!(matches!(
+            &pkg.oracles[0].sig.args[0],
+            (name, Type::Bits(bitlen)) if name == &k && matches!(&**bitlen, CountSpec::Identifier(bitlen) if bitlen.ident() == "n") ));
+
+    assert!(matches!(
+            &pkg.oracles[0].sig.args[1],
+            (name, Type::Bits(bitlen)) if name == &h && matches!(&**bitlen, CountSpec::Identifier(bitlen) if bitlen.ident() == "n") ));
+
     assert!(pkg.imports.is_empty());
     assert!(
         matches!(&pkg.oracles[0].code.0[0], Statement::For(i, Expression::IntegerLiteral(1), Expression::Identifier(n), _,_)
@@ -253,6 +260,31 @@ fn package_empty_loop_works() {
         }
         other => panic!("expected For, got {:?}", other),
     }
+}
+
+/// When instantiating a pacakge instance in a game, the name of the assigned constant must be
+/// allowed to be different from the parameter.
+///
+#[test]
+fn game_const_rename() {
+    let pkgs = packages::parse_files(&["KeyRealMoreParams.pkg.ssp"]);
+    let games = games::parse_files(&["ConstRename.ssp", "ConstRename2.ssp"], &pkgs);
+}
+
+#[test]
+fn proof_const_rename() {
+    let pkgs = packages::parse_files(&["KeyRealMoreParams.pkg.ssp"]);
+    let games = games::parse_files(&["ConstRename.ssp", "ConstRename2.ssp"], &pkgs);
+
+    dbg!(&pkgs);
+    dbg!(&games);
+
+    let proof = proofs::parse(
+        &proofs::read_file("ConstRename.ssp"),
+        "ConstRename.ssp",
+        &pkgs,
+        &games,
+    );
 }
 
 /// This is a helper for transcripts. It can be cloned, and what is written in one clone can be

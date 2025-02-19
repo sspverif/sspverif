@@ -1,21 +1,21 @@
 package KEM {
   params {
-    kem_sk_len: Integer,
-    kem_pk_len: Integer,
-    kem_ct_len: Integer,
-    kem_shk_len: Integer,
-    kem_encaps_coins_len: Integer,
+    sk_len: Integer,
+    pk_len: Integer,
+    ct_len: Integer,
+    shk_len: Integer,
+    encaps_coins_len: Integer,
 
-    encaps: fn (Bits(kem_encaps_coins_len), Bits(kem_pk_len)) -> (Bits(kem_shk_len), Bits(kem_ct_len)),
+    encaps: fn (Bits(encaps_coins_len), Bits(pk_len)) -> (Bits(shk_len), Bits(ct_len)),
   }
 
   import oracles {
-    Set(key_id: Integer, key: Bits(kem_shk_len), is_uncorrupted: Bool),
-    Get(pk: Bits(kem_pk_len)) -> (Bits(kem_sk_len), Bool),
-    GetRand(key_id: Integer) -> (Bits(kem_encaps_coins_len), Bool),
+    Set(key_id: Integer, key: Bits(shk_len), is_uncorrupted: Bool),
+    Get(pk: Bits(pk_len)) -> (Bits(sk_len), Bool),
+    GetRand(key_id: Integer) -> (Bits(encaps_coins_len), Bool),
   }
 
-  oracle Encaps(key_id: Integer, pk: Bits(kem_pk_len)) -> Bits(kem_ct_len) {
+  oracle Encaps(key_id: Integer, pk: Bits(pk_len)) -> Bits(ct_len) {
     get <-invoke Get(pk);
     (_sk, sk_is_honest) <-parse get;
 

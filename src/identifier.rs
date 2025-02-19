@@ -1,5 +1,6 @@
 use game_ident::{GameIdentInstanciationInfo, GameIdentifier};
-use proof_ident::ProofIdentInstanciationInfo;
+use pkg_ident::PackageConstIdentifier;
+use proof_ident::{ProofIdentInstanciationInfo, ProofIdentifier};
 
 use crate::{expressions::Expression, parser::package::ForComp, types::Type};
 
@@ -17,6 +18,41 @@ pub enum Identifier {
     /// Denotes identifiers that were injected by transforms.
     /// Should only live inside oracle code
     Generated(String, Type),
+}
+
+impl Identifier {
+    pub(crate) fn is_const(&self) -> bool {
+        match self {
+            Identifier::PackageIdentifier(PackageIdentifier::Const(_))
+            | Identifier::GameIdentifier(GameIdentifier::Const(_))
+            | Identifier::ProofIdentifier(ProofIdentifier::Const(_)) => true,
+            _ => false,
+        }
+    }
+
+    pub(crate) fn value(&self) -> Option<&Expression> {
+        match self {
+            Identifier::Generated(_, _) => None,
+            Identifier::ProofIdentifier(_) => None,
+            Identifier::GameIdentifier(GameIdentifier::Const(GameConstIdentifier {
+                assigned_value,
+                ..
+            })) => assigned_value.as_ref().map(|value| value.as_ref()),
+            Identifier::PackageIdentifier(PackageIdentifier::Const(PackageConstIdentifier {
+                game_assignment,
+                ..
+            })) => game_assignment.as_ref().map(|value| value.as_ref()),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn resolve_value(&self) -> Option<Expression> {
+        match self.value() {
+            Some(Expression::Identifier(ident)) => ident.resolve_value(),
+            Some(other) => Some(other.clone()),
+            None => None,
+        }
+    }
 }
 
 impl From<GameConstIdentifier> for Identifier {
@@ -409,6 +445,10 @@ pub mod game_ident {
             self.game_inst_name = Some(game_inst_name);
             self.proof_name = Some(proof_name);
         }
+
+        pub(crate) fn proof_level_value(&self) -> Option<&Expression> {
+            self.assigned_value.as_ref().map(Box::as_ref)
+        }
     }
     impl GameLoopVarIdentifier {
         pub(crate) fn set_game_inst_info(&mut self, game_inst_name: String, proof_name: String) {
@@ -431,6 +471,7 @@ pub mod game_ident {
         pub game_inst_name: Option<String>,
         pub proof_name: Option<String>,
         pub inst_info: Option<GameIdentInstanciationInfo>,
+        pub assigned_value: Option<Box<Expression>>,
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]

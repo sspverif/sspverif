@@ -14,6 +14,7 @@ use crate::parser::package::ForComp;
 use crate::parser::reduction::NewReductionMappingEntry;
 use crate::proof::Proof;
 use crate::statement::{CodeBlock, InvokeOracleStatement, Statement};
+use crate::types::CountSpec;
 use crate::types::Type;
 use crate::util::prover_process::ProverBackend;
 use crate::util::prover_process::{Communicator, ProverResponse};
@@ -43,9 +44,17 @@ impl<'a> BlockWriter<'a> {
         format!("\\n{{{}}}", ident.ident().replace('_', "\\_"))
     }
 
+    fn countspec_to_tex(&self, count_spec: &CountSpec) -> String {
+        match count_spec {
+            CountSpec::Identifier(identifier) => identifier.ident(),
+            CountSpec::Literal(num) => format!("{num}"),
+            CountSpec::Any => "*".to_string(),
+        }
+    }
+
     fn type_to_tex(&self, tipe: &Type) -> String {
         match tipe {
-            Type::Bits(n) => format!("\\bin^{{{}}}", n),
+            Type::Bits(n) => format!("\\bin^{{{}}}", self.countspec_to_tex(&*n)),
             _ => format!("\\O{{{:?}}}", tipe),
         }
     }
@@ -405,9 +414,7 @@ pub fn tex_write_oracle(
             .sig
             .args
             .iter()
-            .map(|(a, _)| {
-                format!("\\n{{{}}}", a.replace("_", "\\_"))
-            })
+            .map(|(a, _)| { format!("\\n{{{}}}", a.replace("_", "\\_")) })
             .collect::<Vec<_>>()
             .join(", ")
     )?;
@@ -490,7 +497,7 @@ fn tex_solve_composition_graph(
     let mut model = String::new();
     let write_model = |comm: &mut crate::util::prover_process::Communicator| {
         let mut edges: HashSet<(usize, usize)> = HashSet::new();
-        
+
         writeln!(comm, "(declare-const num-pkgs Int)").unwrap();
         writeln!(comm, "(declare-const width Int)").unwrap();
         writeln!(comm, "(declare-const height Int)").unwrap();
@@ -615,7 +622,7 @@ fn tex_solve_composition_graph(
             break;
         }
     }
-    
+
     for height in 2..50 {
         let mut comm = Communicator::new(backend.unwrap()).unwrap();
 

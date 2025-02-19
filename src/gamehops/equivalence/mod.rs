@@ -160,7 +160,14 @@ impl<'a> EquivalenceContext<'a> {
 
         for tipe in self.types() {
             if let Type::Bits(id) = &tipe {
-                base_declarations.extend(hacks::BitsDeclaration(id.to_string()).into_iter());
+                let smt_expr: SmtExpr = match &**id {
+                    crate::types::CountSpec::Literal(num) => format!("{num}").into(),
+                    crate::types::CountSpec::Any => "*".into(),
+                    crate::types::CountSpec::Identifier(ident) => {
+                        ident.resolve_value().unwrap().into()
+                    }
+                };
+                base_declarations.extend(hacks::BitsDeclaration(smt_expr.to_string()).into_iter());
             }
         }
 

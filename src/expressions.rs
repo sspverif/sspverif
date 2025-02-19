@@ -129,6 +129,52 @@ impl Expression {
         }
     }
 
+    pub fn is_const(&self) -> bool {
+        match self {
+            Expression::Bot
+            | Expression::StringLiteral(_)
+            | Expression::IntegerLiteral(_)
+            | Expression::EmptyTable(_)
+            | Expression::None(_)
+            | Expression::BooleanLiteral(_) => true,
+
+            Expression::TableAccess(_, _) | Expression::FnCall(_, _) | Expression::Sample(_) => {
+                false
+            }
+
+            Expression::Not(expression)
+            | Expression::Neg(expression)
+            | Expression::Inv(expression)
+            | Expression::Some(expression)
+            | Expression::Unwrap(expression)
+            | Expression::Sum(expression)
+            | Expression::Prod(expression)
+            | Expression::Any(expression)
+            | Expression::All(expression)
+            | Expression::Union(expression)
+            | Expression::Cut(expression)
+            | Expression::SetDiff(expression) => expression.is_const(),
+
+            Expression::Identifier(ident) => ident.is_const(),
+
+            Expression::Tuple(exprs)
+            | Expression::List(exprs)
+            | Expression::Set(exprs)
+            | Expression::Equals(exprs)
+            | Expression::And(exprs)
+            | Expression::Or(exprs)
+            | Expression::Xor(exprs)
+            | Expression::Concat(exprs) => exprs.iter().all(Expression::is_const),
+
+            Expression::Add(lhs, rhs)
+            | Expression::Sub(lhs, rhs)
+            | Expression::Mul(lhs, rhs)
+            | Expression::Div(lhs, rhs)
+            | Expression::Pow(lhs, rhs)
+            | Expression::Mod(lhs, rhs) => lhs.is_const() && rhs.is_const(),
+        }
+    }
+
     pub fn walk(&mut self, f: &mut impl FnMut(&mut Expression) -> bool) {
         if !f(self) {
             return;

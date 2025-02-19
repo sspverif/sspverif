@@ -11,8 +11,14 @@ use crate::{
 
 pub fn parse(code: &str, name: &str, pkg_map: &HashMap<String, Package>) -> Composition {
     let mut game_pairs = SspParser::parse_composition(code).unwrap();
-    handle_composition(name, code, game_pairs.next().unwrap(), pkg_map)
-        .unwrap_or_else(|err| panic!("handle error for game in {name}: {err}", err = err))
+    handle_composition(name, code, game_pairs.next().unwrap(), pkg_map).unwrap_or_else(|err| {
+        let err_str = format!("{err:?}");
+        panic!(
+            "handle error for game in {name}:\n\t{err}\n\n{diag:?}",
+            err = err_str,
+            diag = miette::Report::new(err)
+        )
+    })
 }
 
 pub fn parse_fails(code: &str, name: &str, pkg_map: &HashMap<String, Package>) -> ParseGameError {

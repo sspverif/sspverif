@@ -162,8 +162,7 @@ fn test_const_datatypes_remap_consts() {
     let bindings = &mapping.body.bindings;
 
     println!("bindings: {bindings:?}");
-    assert_eq!(bindings.len(), 1);
-    assert_eq!(bindings[0].0, "m");
+    assert!(bindings.is_empty());
 
     let constructor = &mapping.body.body;
     println!("body: {:?}", mapping.body.body);
@@ -173,7 +172,7 @@ fn test_const_datatypes_remap_consts() {
 
     assert_eq!(constructor_list.len(), 2);
     assert_eq!(constructor_list[0].to_string(), "<mk-pkg-consts-TinyPkg>");
-    assert_eq!(constructor_list[1].to_string(), "(+ m 1)\n");
+    assert_eq!(constructor_list[1].to_string(), "1");
 }
 
 #[test]

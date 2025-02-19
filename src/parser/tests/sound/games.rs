@@ -9,7 +9,7 @@ use crate::{
         package::ParseExpressionError,
         tests::{games, packages},
     },
-    types::Type,
+    types::{CountSpec, Type},
 };
 use std::{collections::HashMap, iter::FromIterator as _};
 
@@ -104,7 +104,9 @@ fn param_wrong_type() {
     };
 
     assert_eq!(err.expected, Type::Integer);
-    assert_eq!(err.got, Type::Bits("n".to_string()));
+    assert!(
+        matches!(&err.got, Type::Bits(countspec) if matches!(&**countspec, CountSpec::Identifier(ident) if ident.ident_ref() == "n"  ))
+    );
 }
 
 #[test]
