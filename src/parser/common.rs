@@ -157,24 +157,6 @@ pub(crate) fn handle_game_params_def_list(
             // look up the parameter clone from the package
             let maybe_param_info = pkg.params.iter().find(|(name_, _, _)| name == name_);
 
-            panic!("This is where the bug is");
-
-            /*
-             *   The problem is that we are comparing package identifiers with game identifiers, and
-             *   they are techincally the same, but on one seide they are game indentifers but on
-             *   the other side they are package identifiers.
-             *
-             *   To show the actual error that occurs, comment out the panic above.
-             *
-             * */
-
-            match &maybe_param_info {
-                Some((_, Type::Fn(args, ret), _)) => {
-                    dbg!(args);
-                }
-                _ => {}
-            }
-
             // if it desn't exist, return an error
             let (_, expected_type, _) = maybe_param_info.ok_or(NoSuchPackageParameterError {
                 source_code: ctx.named_source(),
@@ -221,8 +203,8 @@ pub(crate) fn handle_game_params_def_list(
                                 pkg_name: pkg.name.clone(),
                                 name: name.to_string(),
                                 tipe: Type::Integer,
-                                game_name: Some(ctx.game_name.to_string()),
-                                pkg_inst_name: Some(pkg_inst_name.to_string()),
+                                game_name: None,
+                                pkg_inst_name: None,
                                 game_inst_name: None,
                                 proof_name: None,
                                 game_assignment: None,
@@ -381,8 +363,8 @@ pub(crate) fn handle_proof_params_def_list(
                             game_name: game.name.clone(),
                             name: name.to_string(),
                             tipe: Type::Integer,
-                            game_inst_name: Some(game_inst_name.to_string()),
-                            proof_name: Some(ctx.proof_name.to_string()),
+                            game_inst_name: None,
+                            proof_name: None,
                             inst_info: None,
                             assigned_value: None,
                         }),

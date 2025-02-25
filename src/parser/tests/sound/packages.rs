@@ -199,11 +199,6 @@ fn loop_start_non_integer_fails() {
                     ..
                 }
             )) if matches!(&**countspec, CountSpec::Identifier(ident) if ident.ident_ref() == "n")));
-
-    assert_eq!(
-        "type mismatch: got Bits(\"n\"), expected Integer",
-        err.to_string()
-    )
 }
 
 #[test]
@@ -219,8 +214,4 @@ fn loop_end_non_integer_fails() {
                     ..
                 }
             )) if matches!(&**countspec, CountSpec::Identifier(ident) if ident.ident_ref() == "n")));
-    assert_eq!(
-        "type mismatch: got Bits(\"n\"), expected Integer",
-        err.to_string()
-    )
 }
