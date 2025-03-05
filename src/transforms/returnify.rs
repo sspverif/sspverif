@@ -64,7 +64,7 @@ mod old {
 
     pub struct Transformation<'a>(pub &'a Composition);
 
-    impl<'a> TransformationTrait for Transformation<'a> {
+    impl TransformationTrait for Transformation<'_> {
         type Err = Error;
         type Aux = ();
 

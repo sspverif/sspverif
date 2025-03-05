@@ -21,7 +21,6 @@ use crate::{
         AssumptionMappingRightGameInstanceIsFromAssumption, InvalidGameInstanceInReductionError,
     },
     proof::GameInstance,
-    util::resolver::Named,
 };
 
 use super::{
@@ -248,8 +247,6 @@ fn handle_reduction_body<'a>(
         // TODO: find a better way to emit warnings
         log::warn!("{diag:?}")
     }
-
-    let construction_game_instance_names = [left_name.as_str(), right_name.as_str()];
 
     let map1_ast = ast.next().unwrap();
     let map2_ast = ast.next().unwrap();
@@ -689,23 +686,6 @@ fn handle_mapspec_assumption<'a>(
             .iter()
             .all(|(constr, _)| *constr != *constr_src);
 
-        if constr_sig.name == "Get" {
-            let constr_pkgs: Vec<_> = construction_game_inst
-                .game()
-                .pkgs
-                .iter()
-                .enumerate()
-                .map(|(i, pkg_inst)| (i, pkg_inst.name(), pkg_inst.pkg_name()))
-                .collect();
-            let assump_pkgs: Vec<_> = assumption_game_inst
-                .game()
-                .pkgs
-                .iter()
-                .enumerate()
-                .map(|(i, pkg_inst)| (i, pkg_inst.name(), pkg_inst.pkg_name()))
-                .collect();
-        }
-
         // ignore edges that start in mapped packages, because we are only interested in cross-cut
         // edges
         if !src_is_in_reduction_part {
@@ -862,16 +842,16 @@ fn handle_mapspec_assumption<'a>(
 
                 println!(
                     "assumption src pkg inst name: {}",
-                    assumption_game_inst.game().pkgs[assumption_edge.0].as_name()
+                    assumption_game_inst.game().pkgs[assumption_edge.0].name()
                 );
                 println!(
                     "assumption dst pkg inst name: {}",
-                    assumption_game_inst.game().pkgs[assumption_edge.1].as_name()
+                    assumption_game_inst.game().pkgs[assumption_edge.1].name()
                 );
 
                 println!(
                     "construction src pkg inst name: {}",
-                    construction_game_inst.game().pkgs[*constr_src_pkg_inst_offs].as_name()
+                    construction_game_inst.game().pkgs[*constr_src_pkg_inst_offs].name()
                 );
 
                 panic!("assumption wires 2")
@@ -884,7 +864,7 @@ fn handle_mapspec_assumption<'a>(
         construction: construction_game_inst_name,
         entries: mappings
             .into_iter()
-            .map(|(left, right)| NewReductionMappingEntry {
+            .map(|(left, right)| ReductionMappingEntry {
                 assumption: left,
                 construction: right,
             })
@@ -1007,11 +987,11 @@ enum PackageInstanceDiff {
 // ----
 
 #[derive(Clone, Debug)]
-pub struct ReductionMapping<'a> {
+pub(crate) struct ReductionMapping<'a> {
     assumption: GameInstanceName<'a>,
     construction: GameInstanceName<'a>,
 
-    entries: Vec<NewReductionMappingEntry<'a>>,
+    entries: Vec<ReductionMappingEntry<'a>>,
 }
 
 impl<'a> ReductionMapping<'a> {
@@ -1023,25 +1003,18 @@ impl<'a> ReductionMapping<'a> {
         &self.construction
     }
 
-    pub(crate) fn entries(&self) -> &[NewReductionMappingEntry<'a>] {
+    pub(crate) fn entries(&self) -> &[ReductionMappingEntry<'a>] {
         &self.entries
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct NewReductionMappingEntry<'a> {
+pub(crate) struct ReductionMappingEntry<'a> {
     assumption: PackageInstanceName<'a>,
     construction: PackageInstanceName<'a>,
 }
 
-#[derive(Clone, Debug)]
-pub struct NewAssumption<'a> {
-    name: AssumptionName<'a>,
-    left: GameInstanceName<'a>,
-    right: GameInstanceName<'a>,
-}
-
-impl<'a> NewReductionMappingEntry<'a> {
+impl<'a> ReductionMappingEntry<'a> {
     pub(crate) fn assumption(&self) -> &PackageInstanceName<'a> {
         &self.assumption
     }
