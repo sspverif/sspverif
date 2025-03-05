@@ -47,9 +47,9 @@ impl<W: Write> Writer<W> {
             Type::Boolean => self.write_string("Boolean"),
             Type::Empty => self.write_string("()"),
             Type::Bits(n) => {
-                self.write_string(&format!("Bits("))?;
-                self.write_string(&format!("&*n"))?;
-                self.write_string(&format!(")"))
+                self.write_string("Bits(")?;
+                self.write_string("&*n")?;
+                self.write_string(")")
             }
             Type::Maybe(t) => {
                 self.write_string("Maybe(")?;

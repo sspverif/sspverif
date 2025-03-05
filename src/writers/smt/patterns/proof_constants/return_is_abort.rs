@@ -18,7 +18,7 @@ pub struct ReturnIsAbortConst<'a> {
     pub tipe: &'a Type,
 }
 
-impl<'a> ConstantPattern for ReturnIsAbortConst<'a> {
+impl ConstantPattern for ReturnIsAbortConst<'_> {
     fn name(&self) -> String {
         let Self {
             game_inst_name,
@@ -34,7 +34,7 @@ impl<'a> ConstantPattern for ReturnIsAbortConst<'a> {
     }
 }
 
-impl<'a> ReturnIsAbortConst<'a> {
+impl ReturnIsAbortConst<'_> {
     pub(crate) fn value(&self, return_value: impl Into<SmtExpr>) -> SmtExpr {
         let pattern = ReturnValue {
             inner_type: self.tipe,

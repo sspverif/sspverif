@@ -10,7 +10,7 @@ pub struct OracleArgs<'a> {
     pub arg_type: &'a Type,
 }
 
-impl<'a> ConstantPattern for OracleArgs<'a> {
+impl ConstantPattern for OracleArgs<'_> {
     fn name(&self) -> String {
         let Self {
             oracle_name,

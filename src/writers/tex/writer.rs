@@ -54,14 +54,14 @@ impl<'a> BlockWriter<'a> {
 
     fn type_to_tex(&self, tipe: &Type) -> String {
         match tipe {
-            Type::Bits(n) => format!("\\bin^{{{}}}", self.countspec_to_tex(&*n)),
+            Type::Bits(n) => format!("\\bin^{{{}}}", self.countspec_to_tex(n)),
             _ => format!("\\O{{{:?}}}", tipe),
         }
     }
 
     fn type_to_tex_short(&self, tipe: &Type) -> String {
         match tipe {
-            Type::Tuple(_) => format!("\\O{{Tuple[..]}}"),
+            Type::Tuple(_) => "\\O{Tuple[..]}".to_string(),
             _ => format!("\\O{{{:?}}}", tipe),
         }
     }
@@ -99,7 +99,7 @@ impl<'a> BlockWriter<'a> {
             // maybe this should be a minipage and latex figures linesbreaking ...
             match it.next() {
                 None => {
-                    if line.len() > 0 {
+                    if !line.is_empty() {
                         lines.push(line.join(", "));
                     }
                     break;
@@ -770,7 +770,7 @@ fn tex_write_composition_graph(
             let SmtModelEntry::IntEntry { value: height, .. } =
                 model.get_value(&format!("edge---{pkgb}-height")).unwrap();
             let SmtModelEntry::IntEntry { value: acolumn, .. } =
-                model.get_value(&format!("--column")).unwrap();
+                model.get_value("--column").unwrap();
             let SmtModelEntry::IntEntry { value: bcolumn, .. } =
                 model.get_value(&format!("{pkgb}-column")).unwrap();
 
@@ -949,7 +949,7 @@ pub fn tex_write_proof(
         )?;
         writeln!(file, "\\input{{{}}}", graphfname)?;
         writeln!(file, "\\end{{minipage}}")?;
-        fill = fill + 1;
+        fill += 1;
         if fill == 3 {
             fill = 0;
             writeln!(file, "\\\\")?;

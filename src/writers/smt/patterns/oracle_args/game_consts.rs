@@ -8,7 +8,7 @@ pub struct GameConstsPattern<'a> {
     pub game_name: &'a str,
 }
 
-impl<'a> OracleArgPattern for GameConstsPattern<'a> {
+impl OracleArgPattern for GameConstsPattern<'_> {
     type Variant = ();
 
     fn global_const_name(&self, game_inst_name: &str, _variant: &()) -> String {

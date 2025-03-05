@@ -152,7 +152,7 @@ impl<'a> OracleContext<'a> {
     }
 }
 // SMT Code Generation
-impl<'a> OracleContext<'a> {
+impl OracleContext<'_> {
     pub(crate) fn smt_arg_name(&self, arg_name: &str) -> SmtExpr {
         let game = self.game_inst_context.game_inst().game();
         let pkg_inst = &game.pkgs[self.pkg_inst_offs];

@@ -52,7 +52,7 @@ pub struct SmtModel {
 
 impl SmtModel {
     pub fn from_string(from: &str) -> Self {
-        let parsed = SmtModelParser::parse_model(&from);
+        let parsed = SmtModelParser::parse_model(from);
         let transformed = parsed
             .into_iter()
             .map(|(name, tipe, value)| match tipe.as_str() {

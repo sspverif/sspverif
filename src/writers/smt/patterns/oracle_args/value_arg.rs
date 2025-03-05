@@ -9,7 +9,7 @@ pub struct ValueArgPattern<'a> {
     pub arg_ty: &'a Type,
 }
 
-impl<'a> OracleArgPattern for ValueArgPattern<'a> {
+impl OracleArgPattern for ValueArgPattern<'_> {
     type Variant = ();
 
     fn global_const_name(&self, game_inst_name: &str, _variant: &()) -> String {

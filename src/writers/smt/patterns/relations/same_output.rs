@@ -3,7 +3,7 @@ use crate::writers::smt::{
     patterns::{relation::Relation, DatastructurePattern, FunctionPattern, ReturnSelector},
 };
 
-impl<'a> Relation<'a> {
+impl Relation<'_> {
     pub(crate) fn build_same_output(&self) -> impl Into<SmtExpr> {
         let return_spec_left = self
             .return_datatype_left
