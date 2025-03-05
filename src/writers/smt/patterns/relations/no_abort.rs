@@ -6,7 +6,7 @@ use crate::writers::smt::{
     },
 };
 
-impl<'a> Relation<'a> {
+impl Relation<'_> {
     fn left_no_abort_body(&self) -> impl Into<SmtExpr> {
         let return_spec_left = self
             .return_datatype_left

@@ -10,7 +10,7 @@ pub struct ReturnValueConst<'a> {
     pub tipe: &'a Type,
 }
 
-impl<'a> ConstantPattern for ReturnValueConst<'a> {
+impl ConstantPattern for ReturnValueConst<'_> {
     fn name(&self) -> String {
         let Self {
             game_inst_name,

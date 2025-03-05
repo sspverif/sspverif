@@ -19,7 +19,7 @@ pub struct ReturnConst<'a> {
     pub oracle_name: &'a str,
 }
 
-impl<'a> ConstantPattern for ReturnConst<'a> {
+impl ConstantPattern for ReturnConst<'_> {
     fn name(&self) -> String {
         let Self {
             game_inst_name,

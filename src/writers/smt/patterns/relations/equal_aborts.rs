@@ -9,7 +9,7 @@ use crate::writers::smt::{
 pub(crate) type RelationFunction =
     SmtDefineFun<SmtLet<SmtEq2<SmtIs<String, &'static str>, SmtIs<String, &'static str>>>>;
 
-impl<'a> Relation<'a> {
+impl Relation<'_> {
     pub(crate) fn build_equal_aborts(&self) -> RelationFunction {
         let return_spec_left = self
             .return_datatype_left
