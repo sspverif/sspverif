@@ -54,7 +54,7 @@ fn transform_helper_outer(table: &HashMap<String, String>, block: CodeBlock) -> 
     }
 }
 
-impl<'a> super::Transformation for Transformation<'a> {
+impl super::Transformation for Transformation<'_> {
     type Err = ResolutionError;
     type Aux = ();
 

@@ -5,7 +5,7 @@ use crate::statement::{CodeBlock, IfThenElse, Statement};
 
 pub struct Transformation<'a>(pub &'a Composition);
 
-impl<'a> super::Transformation for Transformation<'a> {
+impl super::Transformation for Transformation<'_> {
     type Err = Infallible;
     type Aux = ();
 

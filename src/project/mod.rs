@@ -11,12 +11,9 @@ use std::{collections::HashMap, path::PathBuf};
 
 use error::{Error, Result};
 
-use crate::parser::composition::handle_composition;
 use crate::parser::package::handle_pkg;
-use crate::parser::proof::handle_proof;
 use crate::parser::SspParser;
 use crate::util::prover_process::Communicator;
-//use crate::transforms::typecheck::wire_proofs;
 use crate::{
     gamehops::{equivalence, GameHop},
     package::{Composition, Package},
@@ -96,84 +93,13 @@ impl Files {
             Ok(pkg)
         })
     }
-
-    pub(crate) fn games<'a>(&'a self) -> Result<impl Iterator<Item = Result<Composition>> + 'a> {
-        let pkgs: HashMap<_, _> = self
-            .packages()
-            .map(|pkg| pkg.map(|pkg| (pkg.name.clone(), pkg)))
-            .collect::<Result<_>>()?;
-
-        let mut filenames: HashMap<String, &String> = HashMap::new();
-
-        let parse_iter = self.games.iter().map(move |(file_name, file_content)| {
-            let mut ast =
-                SspParser::parse_composition(file_content).map_err(|e| (file_name.as_str(), e))?;
-
-            let game = handle_composition(file_name, file_content, ast.next().unwrap(), &pkgs)
-                .map_err(Error::ParseGame)?;
-
-            if let Some(other_filename) = filenames.insert(game.name.clone(), file_name) {
-                return Err(Error::RedefinedGame(
-                    game.name,
-                    file_name.to_string(),
-                    other_filename.to_string(),
-                ));
-            }
-
-            Ok(game)
-        });
-
-        Ok(parse_iter)
-    }
-
-    pub(crate) fn proofs<'a>(&'a self) -> Result<impl Iterator<Item = Result<Proof<'a>>> + 'a> {
-        let pkgs: HashMap<_, _> = self
-            .packages()
-            .map(|pkg| pkg.map(|pkg| (pkg.name.clone(), pkg)))
-            .collect::<Result<_>>()?;
-
-        let games: HashMap<_, _> = self
-            .games()?
-            .map(|game| game.map(|game| (game.name.clone(), game)))
-            .collect::<Result<_>>()?;
-
-        let mut filenames: HashMap<String, &String> = HashMap::new();
-
-        let parse_iter = self.games.iter().map(move |(file_name, file_content)| {
-            let mut ast =
-                SspParser::parse_proof(file_content).map_err(|e| (file_name.as_str(), e))?;
-
-            let proof = handle_proof(
-                file_name,
-                file_content,
-                ast.next().unwrap(),
-                pkgs.clone(),
-                games.clone(),
-            )
-            .map_err(Error::ParseProof)?;
-
-            if let Some(other_filename) = filenames.insert(proof.name.clone(), file_name) {
-                return Err(Error::RedefinedGame(
-                    proof.name,
-                    file_name.to_string(),
-                    other_filename.to_string(),
-                ));
-            }
-
-            Ok(proof)
-        });
-
-        Ok(parse_iter)
-    }
 }
 
 #[derive(Debug)]
 pub struct Project<'a> {
     root_dir: PathBuf,
     packages: HashMap<String, Package>,
-    //assumptions: HashMap<String, Assumption>,
     games: HashMap<String, Composition>,
-    //game_hops: Vec<GameHop>,
     proofs: HashMap<String, Proof<'a>>,
 }
 
@@ -425,15 +351,6 @@ impl<'a> Project<'a> {
         Ok(f)
     }
 
-    fn get_invariant_path(&self, invariant_path: &str) -> PathBuf {
-        let path = PathBuf::from(invariant_path);
-        if path.is_absolute() {
-            path
-        } else {
-            self.root_dir.join(path)
-        }
-    }
-
     pub fn print_wire_check_smt(&self, game_name: &str, _dst_idx: usize) {
         let _game = self.get_game(game_name).unwrap();
         // for command in wire_proofs::build_smt(&game, dst_idx) {
@@ -462,23 +379,5 @@ pub fn find_project_root() -> std::io::Result<std::path::PathBuf> {
             None => return Err(std::io::Error::from(ErrorKind::NotFound)),
             Some(parent) => dir = parent.into(),
         }
-    }
-}
-
-struct OneshotIteratorClosure<T, C>(Option<C>)
-where
-    C: FnOnce() -> T;
-
-impl<T, C: FnOnce() -> T> OneshotIteratorClosure<T, C> {
-    fn new(c: C) -> Self {
-        Self(Some(c))
-    }
-}
-
-impl<T, C: FnOnce() -> T> std::iter::Iterator for OneshotIteratorClosure<T, C> {
-    type Item = T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        Some(self.0.take()?())
     }
 }

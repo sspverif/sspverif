@@ -9,7 +9,6 @@ use super::{
 use crate::{
     expressions::Expression,
     identifier::{
-        game_ident::GameIdentifier,
         pkg_ident::{
             PackageConstIdentifier, PackageIdentifier, PackageImportsLoopVarIdentifier,
             PackageLocalIdentifier, PackageOracleArgIdentifier, PackageOracleCodeLoopVarIdentifier,
@@ -24,7 +23,6 @@ use crate::{
     statement::{CodeBlock, FilePosition, IfThenElse, InvokeOracleStatement, Statement},
     types::Type,
     util::scope::{Declaration, OracleContext, Scope},
-    writers::smt::exprs::{SmtAnd, SmtEq2, SmtExpr, SmtLt, SmtLte},
 };
 
 use miette::{Diagnostic, NamedSource, SourceSpan};
@@ -50,7 +48,7 @@ pub struct ParsePackageContext<'a> {
 }
 
 impl<'a> ParseContext<'a> {
-    fn pkg_parse_context(self, pkg_name: &'a str) -> ParsePackageContext {
+    fn pkg_parse_context(self, pkg_name: &'a str) -> ParsePackageContext<'a> {
         let mut scope = Scope::new();
         scope.enter();
 
@@ -153,7 +151,7 @@ pub enum ParsePackageError {
 #[derive(Error, Debug)]
 pub enum ParseOracleSigError {}
 
-impl<'a> ParsePackageContext<'a> {
+impl ParsePackageContext<'_> {
     fn with_scope(self, scope: Scope) -> Self {
         Self { scope, ..self }
     }
@@ -1415,71 +1413,64 @@ impl MultiInstanceIndicesGroup {
 }
 */
 
-impl MultiInstanceIndices {
-    /// returns smt code that checks whether a variable with name `varname` is in the range.
-    /// currently only works for one-dimensional indices and panics for higher dimensions.
-    pub(crate) fn smt_range_predicate(&self, varname: &str) -> SmtExpr {
-        //assert!(self.indices.len() == 1);
-        match &self.indices[0] {
-            Expression::IntegerLiteral(index) => SmtEq2 {
-                lhs: *index,
-                rhs: varname,
-            }
-            .into(),
-            // I don't think we need to check totality for imports inside the package's import
-            // block, so we don't need to handle ImportsLoopVar.
-            // Expression::Identifier(Identifier::PackageIdentifier(
-            // PackageIdentifier::ImportsLoopVar(loopvar),
-            // )) => {
-            // let start_comp: SmtExpr = match loopvar.start_comp {
-            // ForComp::Lt => SmtLt((*loopvar.start).clone(), varname).into(),
-            // ForComp::Lte => SmtLte((*loopvar.start).clone(), varname).into(),
-            // };
-            //
-            // let end_comp: SmtExpr = match loopvar.end_comp {
-            // ForComp::Lt => SmtLt(varname, (*loopvar.end).clone()).into(),
-            // ForComp::Lte => SmtLte(varname, (*loopvar.end).clone()).into(),
-            // };
-            //
-            // SmtAnd(vec![start_comp, end_comp]).into()
-            // }
-            Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(
-                game_const_ident,
-            ))) => SmtEq2 {
-                lhs: &game_const_ident.name,
-                rhs: varname,
-            }
-            .into(),
-            Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::LoopVar(
-                game_loop_var,
-            ))) => {
-                let lower_comp: SmtExpr = match game_loop_var.start_comp {
-                    ForComp::Lt => SmtLt((*game_loop_var.start).clone(), varname).into(),
-                    ForComp::Lte => SmtLte((*game_loop_var.start).clone(), varname).into(),
-                };
+// impl MultiInstanceIndices {
+//     /// returns smt code that checks whether a variable with name `varname` is in the range.
+//     /// currently only works for one-dimensional indices and panics for higher dimensions.
+//     pub(crate) fn smt_range_predicate(&self, varname: &str) -> SmtExpr {
+//         //assert!(self.indices.len() == 1);
+//         match &self.indices[0] {
+//             Expression::IntegerLiteral(index) => SmtEq2 {
+//                 lhs: *index,
+//                 rhs: varname,
+//             }
+//             .into(),
+//             // I don't think we need to check totality for imports inside the package's import
+//             // block, so we don't need to handle ImportsLoopVar.
+//             // Expression::Identifier(Identifier::PackageIdentifier(
+//             // PackageIdentifier::ImportsLoopVar(loopvar),
+//             // )) => {
+//             // let start_comp: SmtExpr = match loopvar.start_comp {
+//             // ForComp::Lt => SmtLt((*loopvar.start).clone(), varname).into(),
+//             // ForComp::Lte => SmtLte((*loopvar.start).clone(), varname).into(),
+//             // };
+//             //
+//             // let end_comp: SmtExpr = match loopvar.end_comp {
+//             // ForComp::Lt => SmtLt(varname, (*loopvar.end).clone()).into(),
+//             // ForComp::Lte => SmtLte(varname, (*loopvar.end).clone()).into(),
+//             // };
+//             //
+//             // SmtAnd(vec![start_comp, end_comp]).into()
+//             // }
+//             Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(
+//                 game_const_ident,
+//             ))) => SmtEq2 {
+//                 lhs: &game_const_ident.name,
+//                 rhs: varname,
+//             }
+//             .into(),
+//             Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::LoopVar(
+//                 game_loop_var,
+//             ))) => {
+//                 let lower_comp: SmtExpr = match game_loop_var.start_comp {
+//                     ForComp::Lt => SmtLt((*game_loop_var.start).clone(), varname).into(),
+//                     ForComp::Lte => SmtLte((*game_loop_var.start).clone(), varname).into(),
+//                 };
+// 
+//                 let upper_comp: SmtExpr = match game_loop_var.end_comp {
+//                     ForComp::Lt => SmtLt((*game_loop_var.end).clone(), varname).into(),
+//                     ForComp::Lte => SmtLte((*game_loop_var.end).clone(), varname).into(),
+//                 };
+// 
+//                 SmtAnd(vec![lower_comp, upper_comp]).into()
+//             }
+//             other => unreachable!(
+//                 "in smt_range_predicate, found unhandled expression variant {expr:?}",
+//                 expr = other
+//             ),
+//         }
+//     }
+// }
 
-                let upper_comp: SmtExpr = match game_loop_var.end_comp {
-                    ForComp::Lt => SmtLt((*game_loop_var.end).clone(), varname).into(),
-                    ForComp::Lte => SmtLte((*game_loop_var.end).clone(), varname).into(),
-                };
-
-                SmtAnd(vec![lower_comp, upper_comp]).into()
-            }
-            other => unreachable!(
-                "in smt_range_predicate, found unhandled expression variant {expr:?}",
-                expr = other
-            ),
-        }
-    }
-}
-
-fn map_ident_expr<F: Fn(&Identifier) -> Identifier>(expr: &Expression, f: &F) -> Expression {
-    if let Expression::Identifier(id) = expr {
-        Expression::Identifier(f(id))
-    } else {
-        expr.clone()
-    }
-}
 
 impl std::convert::TryFrom<&str> for ForComp {
     type Error = ForCompError;
@@ -1663,124 +1654,4 @@ pub fn handle_types_list(types: Pair<Rule>) -> Vec<String> {
         .into_inner()
         .map(|entry| entry.as_str().to_string())
         .collect()
-}
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-    use crate::parser::{package::handle_pkg, SspParser};
-
-    fn unwrap_parse_err<T>(res: Result<T, pest::error::Error<crate::parser::Rule>>) -> T {
-        match res {
-            Ok(v) => v,
-            Err(err) => panic!("parse error: {err}", err = err),
-        }
-    }
-
-    fn fail_parse_pkg(code: &str, name: &str) -> ParsePackageError {
-        let mut pkg_pairs = unwrap_parse_err(SspParser::parse_package(code));
-        handle_pkg(name, code, pkg_pairs.next().unwrap())
-            .expect_err("expected to fail parsing the package")
-    }
-}
-
-#[cfg(test)]
-mod tests2 {
-    /*
-    I am actually not sure what this was supposed to test, but
-     (a) it has never worked, as can be seen by the todo!s and
-     (b) it uses Identifier::Scalar,
-    so I will just comment this out for now
-
-        use pest::Parser;
-
-        use crate::{
-            expressions::Expression,
-            identifier::{pkg_ident::PackageIdentifier, Identifier},
-            parser::{common::handle_expression, package::ForComp, Rule, SspParser},
-            types::Type,
-            util::scope::Scope,
-            writers::smt::exprs::{SmtLt, SmtLte},
-        };
-
-        use super::{MultiInstanceIndices, MultiInstanceIndicesGroup};
-
-       #[test]
-       #[ignore]
-       fn example_smt_stuff() {
-           let pkg_name = || "Foo".to_string();
-           let mut scope = Scope::new();
-           scope.enter();
-           scope
-               .declare(
-                   "n",
-                   crate::util::scope::Declaration::Identifier(Identifier::PackageIdentifier(
-                       crate::identifier::pkg_ident::PackageIdentifier::Const(
-                           crate::identifier::pkg_ident::PackageConstIdentifier {
-                               pkg_name: pkg_name(),
-                               name: "n".to_string(),
-                               tipe: Type::Integer,
-                               game_assignment: None,
-                               pkg_inst_name: None,
-                               game_name: None,
-                               game_inst_name: None,
-                               proof_name: None,
-                           },
-                       ),
-                   )),
-               )
-               .unwrap();
-
-           let mut parse_expr = |text: &str| {
-               handle_expression(
-                   SspParser::parse(Rule::expression, text)
-                       .unwrap()
-                       .next()
-                       .unwrap(),
-                   &mut scope,
-               )
-               .unwrap()
-           };
-
-           let end = parse_expr("(n - 1)").map(|expr| match expr {
-               Expression::Identifier(Identifier::Scalar(x)) => {
-                   Expression::Identifier(Identifier::Local(x))
-               }
-               x => x,
-           });
-
-           let indices_group = MultiInstanceIndicesGroup(vec![MultiInstanceIndices::new(vec![
-               Expression::Identifier(Identifier::PackageIdentifier(
-                   PackageIdentifier::ImportsLoopVar(
-                       crate::identifier::pkg_ident::PackageImportsLoopVarIdentifier {
-                           pkg_name: pkg_name(),
-                           name: "i".to_string(),
-                           start: Box::new(parse_expr("0")),
-                           end: Box::new(end),
-                           start_comp: ForComp::Lte,
-                           end_comp: ForComp::Lt,
-                           pkg_inst_name: todo!(),
-                           game_name: todo!(),
-                           game_inst_name: None,
-                           proof_name: None,
-                       },
-                   ),
-               )),
-           ])]);
-
-           let smt = indices_group.smt_check_total(
-               vec![SmtLte(0, "x").into(), SmtLt("x", "n").into()],
-               &["n"],
-               "x",
-           );
-
-           for expr in smt {
-               println!("{expr}")
-           }
-
-           println!("(check-sat)");
-           println!("(get-model)")
-       }
-    */
 }

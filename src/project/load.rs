@@ -1,38 +1,11 @@
 use std::collections::HashMap;
 
 use super::*;
-use error::{Error, Result};
+use error::Result;
 
 use crate::package::{Composition, Package};
-use crate::parser::{
-    composition::handle_composition, package::handle_pkg, proof::handle_proof, SspParser,
-};
+use crate::parser::{composition::handle_composition, proof::handle_proof, SspParser};
 use crate::proof::Proof;
-
-pub(crate) fn packages(files: &[(String, String)]) -> Result<HashMap<String, Package>> {
-    let mut pkgs = HashMap::new();
-    let mut pkgs_filenames: HashMap<String, String> = HashMap::new();
-
-    for (file_name, file_content) in files {
-        let mut ast =
-            SspParser::parse_package(file_content).map_err(|e| (file_name.as_str(), e))?;
-        let (pkg_name, pkg) = handle_pkg(file_name, file_content, ast.next().unwrap())
-            .map_err(Error::ParsePackage)?;
-
-        if let Some(other_filename) = pkgs_filenames.get(&pkg_name) {
-            return Err(Error::RedefinedPackage(
-                pkg_name,
-                file_name.to_string(),
-                other_filename.to_string(),
-            ));
-        }
-
-        pkgs.insert(pkg_name.clone(), pkg);
-        pkgs_filenames.insert(pkg_name, file_name.to_string());
-    }
-
-    Ok(pkgs)
-}
 
 pub(crate) fn games(
     files: &[(String, String)],
@@ -42,9 +15,9 @@ pub(crate) fn games(
 
     for (file_name, file_content) in files {
         let mut ast =
-            SspParser::parse_composition(&file_content).map_err(|err| (file_name.as_str(), err))?;
+            SspParser::parse_composition(file_content).map_err(|err| (file_name.as_str(), err))?;
 
-        let comp = handle_composition(file_name, &file_content, ast.next().unwrap(), pkgs)?;
+        let comp = handle_composition(file_name, file_content, ast.next().unwrap(), pkgs)?;
         let comp_name = comp.name.clone();
 
         games.insert(comp_name, comp);
@@ -53,21 +26,21 @@ pub(crate) fn games(
     Ok(games)
 }
 
-pub(crate) fn proofs<'a>(
-    files: &'a [(String, String)],
+pub(crate) fn proofs(
+    files: &[(String, String)],
     pkgs: HashMap<String, Package>,
     games: HashMap<String, Composition>,
-) -> Result<HashMap<String, Proof<'a>>> {
+) -> Result<HashMap<String, Proof<'_>>> {
     let mut proofs = HashMap::new();
 
     for (file_name, file_content) in files {
         let parse_result =
-            SspParser::parse_proof(&file_content).map_err(|err| (file_name.as_str(), err))?;
+            SspParser::parse_proof(file_content).map_err(|err| (file_name.as_str(), err))?;
 
         let mut ast = parse_result;
         let proof = handle_proof(
             file_name,
-            &file_content,
+            file_content,
             ast.next().unwrap(),
             pkgs.clone(),
             games.clone(),

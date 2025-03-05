@@ -11,7 +11,7 @@ use crate::identifier::Identifier;
 use crate::package::{Composition, Edge, Export, OracleDef, PackageInstance};
 use crate::parser::ast::Identifier as _;
 use crate::parser::package::ForComp;
-use crate::parser::reduction::NewReductionMappingEntry;
+use crate::parser::reduction::ReductionMappingEntry;
 use crate::proof::Proof;
 use crate::statement::{CodeBlock, InvokeOracleStatement, Statement};
 use crate::types::CountSpec;
@@ -653,11 +653,11 @@ fn tex_write_composition_graph(
     backend: &Option<ProverBackend>,
     mut file: &File,
     composition: &Composition,
-    pkgmap: &[NewReductionMappingEntry],
+    pkgmap: &[ReductionMappingEntry],
 ) -> std::io::Result<()> {
     let write_node = |mut file: &File,
                       pkgname: &str,
-                      compname: &str,
+                      _compname: &str,
                       idx,
                       top,
                       bottom,

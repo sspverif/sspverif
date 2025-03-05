@@ -126,7 +126,7 @@ fn small_multi_inst_game() {
 
 #[test]
 fn untyped_none_type_inference_works() {
-    let (name, pkg) = parse_file("none_inference_return.ssp");
+    let (_name, _pkg) = parse_file("none_inference_return.ssp");
 }
 
 #[test]
@@ -267,7 +267,7 @@ fn package_empty_loop_works() {
 #[test]
 fn game_const_rename() {
     let pkgs = packages::parse_files(&["KeyRealMoreParams.pkg.ssp"]);
-    let games = games::parse_files(&["ConstRename.ssp", "ConstRename2.ssp"], &pkgs);
+    let _games = games::parse_files(&["ConstRename.ssp", "ConstRename2.ssp"], &pkgs);
 }
 
 #[test]
@@ -278,7 +278,7 @@ fn proof_const_rename() {
     dbg!(&pkgs);
     dbg!(&games);
 
-    let proof = proofs::parse(
+    let _proof = proofs::parse(
         &proofs::read_file("ConstRename.ssp"),
         "ConstRename.ssp",
         &pkgs,

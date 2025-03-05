@@ -31,14 +31,14 @@ impl Composition {
  */
 
 #[derive(Debug, Clone)]
-pub struct Assumption {
+pub(crate) struct Assumption {
     pub name: String,
     pub left_name: String,
     pub right_name: String,
 }
 
 #[derive(Debug, Clone)]
-pub struct Reduction<'a> {
+pub(crate) struct Reduction<'a> {
     left: ReductionMapping<'a>,
     right: ReductionMapping<'a>,
 
@@ -46,7 +46,7 @@ pub struct Reduction<'a> {
 }
 
 impl<'a> Reduction<'a> {
-    pub fn new(
+    pub(crate) fn new(
         left: ReductionMapping<'a>,
         right: ReductionMapping<'a>,
         assumption_name: String,
@@ -58,15 +58,15 @@ impl<'a> Reduction<'a> {
         }
     }
 
-    pub fn left(&self) -> &ReductionMapping<'a> {
+    pub(crate) fn left(&self) -> &ReductionMapping<'a> {
         &self.left
     }
 
-    pub fn right(&self) -> &ReductionMapping<'a> {
+    pub(crate) fn right(&self) -> &ReductionMapping<'a> {
         &self.right
     }
 
-    pub fn assumption_name(&self) -> &str {
+    pub(crate) fn assumption_name(&self) -> &str {
         &self.assumption_name
     }
 }

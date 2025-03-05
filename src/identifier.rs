@@ -1,6 +1,6 @@
-use game_ident::{GameIdentInstanciationInfo, GameIdentifier};
+use game_ident::GameIdentifier;
 use pkg_ident::PackageConstIdentifier;
-use proof_ident::{ProofIdentInstanciationInfo, ProofIdentifier};
+use proof_ident::ProofIdentifier;
 
 use crate::{expressions::Expression, parser::package::ForComp, types::Type};
 
@@ -22,12 +22,12 @@ pub enum Identifier {
 
 impl Identifier {
     pub(crate) fn is_const(&self) -> bool {
-        match self {
+        matches!(
+            self,
             Identifier::PackageIdentifier(PackageIdentifier::Const(_))
-            | Identifier::GameIdentifier(GameIdentifier::Const(_))
-            | Identifier::ProofIdentifier(ProofIdentifier::Const(_)) => true,
-            _ => false,
-        }
+                | Identifier::GameIdentifier(GameIdentifier::Const(_))
+                | Identifier::ProofIdentifier(ProofIdentifier::Const(_))
+        )
     }
 
     pub(crate) fn value(&self) -> Option<&Expression> {
@@ -124,19 +124,6 @@ pub mod pkg_ident {
             }
         }
 
-        pub(crate) fn type_mut(&mut self) -> &mut Type {
-            match self {
-                PackageIdentifier::Const(const_ident) => &mut const_ident.tipe,
-                PackageIdentifier::State(state_ident) => &mut state_ident.tipe,
-                PackageIdentifier::Local(local_ident) => &mut local_ident.tipe,
-                PackageIdentifier::OracleArg(arg_ident) => &mut arg_ident.tipe,
-                PackageIdentifier::OracleImport(oracle_import) => &mut oracle_import.return_type,
-                PackageIdentifier::ImportsLoopVar(_) | PackageIdentifier::CodeLoopVar(_) => {
-                    panic!("cannot provide a mutable reference to the type of a loopvar")
-                }
-            }
-        }
-
         pub(crate) fn set_pkg_inst_info(&mut self, pkg_inst_name: String, game_name: String) {
             match self {
                 PackageIdentifier::Const(id) => id.set_pkg_inst_info(pkg_inst_name, game_name),
@@ -214,20 +201,6 @@ pub mod pkg_ident {
 
         pub(crate) fn ident_ref(&self) -> &str {
             &self.name
-        }
-
-        pub(crate) fn eq_except_game_assignment(&self, other: &Self) -> bool {
-            let left = Self {
-                game_assignment: None,
-                ..self.clone()
-            };
-
-            let right = Self {
-                game_assignment: None,
-                ..other.clone()
-            };
-
-            left == right
         }
     }
 
@@ -440,16 +413,14 @@ pub mod game_ident {
             }
         }
     }
+
     impl GameConstIdentifier {
         pub(crate) fn set_game_inst_info(&mut self, game_inst_name: String, proof_name: String) {
             self.game_inst_name = Some(game_inst_name);
             self.proof_name = Some(proof_name);
         }
-
-        pub(crate) fn proof_level_value(&self) -> Option<&Expression> {
-            self.assigned_value.as_ref().map(Box::as_ref)
-        }
     }
+
     impl GameLoopVarIdentifier {
         pub(crate) fn set_game_inst_info(&mut self, game_inst_name: String, proof_name: String) {
             self.game_inst_name = Some(game_inst_name);
@@ -656,24 +627,6 @@ impl Identifier {
             Identifier::GameIdentifier(id) => id.set_game_inst_info(game_inst_name, proof_name),
             Identifier::ProofIdentifier(_) => {}
             Identifier::Generated(_, _) => {}
-        }
-    }
-
-    pub(crate) fn with_instance_info(
-        &mut self,
-        game_ident_inst_info: Option<GameIdentInstanciationInfo>,
-        proof_ident_inst_info: Option<ProofIdentInstanciationInfo>,
-    ) -> Self {
-        match (self, game_ident_inst_info, proof_ident_inst_info) {
-            (ident @ Identifier::PackageIdentifier(_), _, _) => ident.clone(),
-            (ident @ Identifier::Generated(_, _), _, _) => ident.clone(),
-            (Identifier::GameIdentifier(game_ident), Some(inst_info), None) => {
-                Identifier::GameIdentifier(game_ident.clone().with_instance_info(inst_info))
-            }
-            (Identifier::ProofIdentifier(proof_ident), None, Some(inst_info)) => {
-                Identifier::ProofIdentifier(proof_ident.clone().with_instance_info(inst_info))
-            }
-            (other, _, _) => unreachable!("{other:?}"),
         }
     }
 }
