@@ -463,7 +463,7 @@ pub mod game_ident {
         pub pkg_inst_name: String,
     }
 
-    #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
+    #[derive(Debug, Clone, PartialOrd, Eq, Ord)]
     pub struct GameConstIdentifier {
         pub game_name: String,
         pub name: String,
@@ -472,6 +472,20 @@ pub mod game_ident {
         pub proof_name: Option<String>,
         pub inst_info: Option<GameIdentInstanciationInfo>,
         pub assigned_value: Option<Box<Expression>>,
+    }
+
+    impl PartialEq for GameConstIdentifier {
+        fn eq(&self, other: &Self) -> bool {
+            self.game_name == other.game_name && self.name == other.name && self.tipe == other.tipe
+        }
+    }
+
+    impl core::hash::Hash for GameConstIdentifier {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            self.game_name.hash(state);
+            self.name.hash(state);
+            self.tipe.hash(state);
+        }
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]
@@ -574,15 +588,21 @@ pub mod proof_ident {
         pub inst_info: Option<ProofIdentInstanciationInfo>,
     }
 
-    impl From<ProofConstIdentifier> for Identifier {
+    impl From<ProofConstIdentifier> for ProofIdentifier {
         fn from(value: ProofConstIdentifier) -> Self {
-            Identifier::ProofIdentifier(ProofIdentifier::Const(value))
+            ProofIdentifier::Const(value)
         }
     }
 
-    impl From<ProofLoopVarIdentifier> for Identifier {
+    impl From<ProofLoopVarIdentifier> for ProofIdentifier {
         fn from(value: ProofLoopVarIdentifier) -> Self {
-            Identifier::ProofIdentifier(ProofIdentifier::LoopVar(value))
+            ProofIdentifier::LoopVar(value)
+        }
+    }
+
+    impl<T: Into<ProofIdentifier>> From<T> for Identifier {
+        fn from(value: T) -> Self {
+            Identifier::ProofIdentifier(value.into())
         }
     }
 }

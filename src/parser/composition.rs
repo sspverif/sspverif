@@ -2,10 +2,9 @@ use super::{
     common::*,
     error::{
         DuplicateEdgeDefinitionError, DuplicatePackageParameterDefinitionError,
-        InvalidGameInstanceInReductionError, MissingEdgeForImportedOracleError,
-        MissingPackageParameterDefinitionError, NoSuchPackageParameterError, NoSuchTypeError,
-        UndefinedOracleError, UndefinedPackageError, UndefinedPackageInstanceError,
-        UnusedEdgeError,
+        MissingEdgeForImportedOracleError, MissingPackageParameterDefinitionError,
+        NoSuchPackageParameterError, UndefinedOracleError, UndefinedPackageError,
+        UndefinedPackageInstanceError, UnusedEdgeError,
     },
     package::{handle_expression, ForComp, MultiInstanceIndices, ParsePackageError},
     ParseContext, Rule,
@@ -485,7 +484,6 @@ pub fn handle_compose_assign_body_list(
                 &source_instance_idx,
                 source_pkgidx,
             )? {
-                println!("found edge {:?}", multi_instance_edge);
                 match multi_instance_edge.try_into() {
                     Ok(edge) => ctx.add_edge(edge),
                     Err(NotSingleInstanceEdgeError(multi_edge)) => {
@@ -499,19 +497,25 @@ pub fn handle_compose_assign_body_list(
     Ok(())
 }
 
+/// parses the oracle wiring assignment list for the exports.
 fn handle_export_compose_assign_list_multi_inst(
     ctx: &mut ParseGameContext,
     ast: Pair<Rule>,
 ) -> Result<Vec<MultiInstanceExport>, ParseGameError> {
+    // compose_assign_list = { compose_assign ~ ( "," ~ compose_assign )* ~ ","? }
     assert_eq!(ast.as_rule(), Rule::compose_assign_list);
 
     let mut exports = vec![];
 
+    // Iterate over the assignment pairs
     for assignment in ast.into_inner() {
+        // compose_assign = { compose_assign_modifier? ~ identifier ~ ":" ~ identifier }
         assert_eq!(assignment.as_rule(), Rule::compose_assign);
 
         let mut assignment = assignment.into_inner();
 
+        // extract the base information from the parse tree. This is a bit tricky, because we may
+        // start with an optional modifier.
         let first = assignment.peek().unwrap();
         let (modifier_ast, oracle_name_ast, dst_pkg_inst_name_ast) = match first.as_rule() {
             Rule::identifier => {
@@ -520,6 +524,7 @@ fn handle_export_compose_assign_list_multi_inst(
                 (None, oracle_name, dst_inst_name)
             }
             Rule::compose_assign_modifier_with_index => {
+                // compose_assign_modifier_with_index =  { "with" ~ "index" ~ indices_expr}
                 let modifier = assignment.next().unwrap();
                 let oracle_name = assignment.next().unwrap();
                 let dst_inst_name = assignment.next().unwrap();
@@ -533,6 +538,7 @@ fn handle_export_compose_assign_list_multi_inst(
         let dst_pkg_inst_name = dst_pkg_inst_name_ast.as_str();
         let dst_pkg_inst_name_span = dst_pkg_inst_name_ast.as_span();
 
+        // parse the index modifiers. currently we don't use this.
         let dst_inst_idx: Option<Vec<Expression>> = modifier_ast
             .map(|modifier| {
                 modifier
@@ -545,6 +551,7 @@ fn handle_export_compose_assign_list_multi_inst(
             })
             .transpose()?;
 
+        // look up destination package instance
         let (dst_offset, dst_inst) =
             ctx.get_pkg_instance(dst_pkg_inst_name)
                 .ok_or(UndefinedPackageInstanceError {
@@ -554,7 +561,8 @@ fn handle_export_compose_assign_list_multi_inst(
                     in_game: ctx.game_name.to_string(),
                 })?;
 
-        let mut oracle_sig = dst_inst
+        // look up authorative oracle signature from destination package instance
+        let oracle_sig = dst_inst
             .pkg
             .oracles
             .iter()
@@ -569,9 +577,17 @@ fn handle_export_compose_assign_list_multi_inst(
 
         assert!(oracle_sig.multi_inst_idx.indices.is_empty());
 
-        if let Some(indices) = dst_inst_idx {
-            oracle_sig.multi_inst_idx = MultiInstanceIndices { indices };
-        }
+        // refine the indices (not sure this is correct, but we don't do this now anyway)
+        let oracle_sig = match dst_inst_idx.map(MultiInstanceIndices::new) {
+            Some(multi_inst_idx) => OracleSig {
+                multi_inst_idx,
+                ..oracle_sig
+            },
+            None => oracle_sig,
+        };
+
+        // make the signature use the constants from the game, not the package
+        let oracle_sig = dst_inst.instantiate_oracle_signature(oracle_sig);
 
         exports.push(MultiInstanceExport {
             dest_pkgidx: dst_offset,
@@ -582,21 +598,27 @@ fn handle_export_compose_assign_list_multi_inst(
     Ok(exports)
 }
 
+/// parses the oracle wiring assignment list for the package instance with index `source_pkgidx`.
 fn handle_edges_compose_assign_list_multi_inst(
     ctx: &mut ParseGameContext,
     ast: Pair<Rule>,
     source_instance_idx: &[Identifier],
     source_pkgidx: usize,
 ) -> Result<Vec<MultiInstanceEdge>, ParseGameError> {
+    // compose_assign_list = { compose_assign ~ ( "," ~ compose_assign )* ~ ","? }
     assert_eq!(ast.as_rule(), Rule::compose_assign_list);
 
     let mut edges = vec![];
 
+    // Iterate over the assignment pairs
     for assignment in ast.into_inner() {
+        // compose_assign = { compose_assign_modifier? ~ identifier ~ ":" ~ identifier }
         assert_eq!(assignment.as_rule(), Rule::compose_assign);
 
         let mut assignment = assignment.into_inner();
 
+        // extract the base information from the parse tree. This is a bit tricky, because we may
+        // start with an optional modifier.
         let first = assignment.peek().unwrap();
         let (modifier_ast, oracle_name_ast, dst_pkg_inst_name_ast) = match first.as_rule() {
             Rule::identifier => {
@@ -605,6 +627,7 @@ fn handle_edges_compose_assign_list_multi_inst(
                 (None, oracle_name, dst_inst_name)
             }
             Rule::compose_assign_modifier_with_index => {
+                // compose_assign_modifier_with_index =  { "with" ~ "index" ~ indices_expr}
                 let modifier = assignment.next().unwrap();
                 let oracle_name = assignment.next().unwrap();
                 let dst_inst_name = assignment.next().unwrap();
@@ -618,6 +641,7 @@ fn handle_edges_compose_assign_list_multi_inst(
         let dst_pkg_inst_name = dst_pkg_inst_name_ast.as_str();
         let dst_pkg_inst_name_span = dst_pkg_inst_name_ast.as_span();
 
+        // parse the index modifiers. currently we don't use this.
         let dst_inst_idx: Option<Vec<Expression>> = modifier_ast
             .map(|modifier| {
                 modifier
@@ -630,6 +654,7 @@ fn handle_edges_compose_assign_list_multi_inst(
             })
             .transpose()?;
 
+        // look up destination package instance
         let (dst_offset, dst_inst) =
             ctx.get_pkg_instance(dst_pkg_inst_name)
                 .ok_or(UndefinedPackageInstanceError {
@@ -639,19 +664,7 @@ fn handle_edges_compose_assign_list_multi_inst(
                     in_game: ctx.game_name.to_string(),
                 })?;
 
-        let mut oracle_sig = dst_inst
-            .pkg
-            .oracles
-            .iter()
-            .find(|oracle_def| oracle_def.sig.name == oracle_name)
-            .ok_or(UndefinedOracleError {
-                source_code: ctx.named_source(),
-                at: (oracle_name_span.start()..oracle_name_span.end()).into(),
-                oracle_name: oracle_name.to_string(),
-            })?
-            .sig
-            .clone();
-
+        // fail if imported edge is not assigned
         let (src_pkg_inst, _) = &ctx.instances[source_pkgidx];
         if src_pkg_inst
             .pkg
@@ -669,9 +682,31 @@ fn handle_edges_compose_assign_list_multi_inst(
             }));
         }
 
-        if let Some(indices) = dst_inst_idx {
-            oracle_sig.multi_inst_idx = MultiInstanceIndices { indices };
-        }
+        // look up authorative oracle signature from destination package instance
+        let oracle_sig = dst_inst
+            .pkg
+            .oracles
+            .iter()
+            .find(|oracle_def| oracle_def.sig.name == oracle_name)
+            .ok_or(UndefinedOracleError {
+                source_code: ctx.named_source(),
+                at: (oracle_name_span.start()..oracle_name_span.end()).into(),
+                oracle_name: oracle_name.to_string(),
+            })?
+            .sig
+            .clone();
+
+        // refine the indices (not sure this is correct, but we don't do this now anyway)
+        let oracle_sig = match dst_inst_idx.map(MultiInstanceIndices::new) {
+            Some(multi_inst_idx) => OracleSig {
+                multi_inst_idx,
+                ..oracle_sig
+            },
+            None => oracle_sig,
+        };
+
+        // make the signature use the constants from the game, not the package
+        let oracle_sig = dst_inst.instantiate_oracle_signature(oracle_sig);
 
         if edges.iter().any(|existing_edge: &MultiInstanceEdge| {
             // TODO: this will probably fail for real multi-instance, handle that later

@@ -1,10 +1,16 @@
+use itertools::Itertools as _;
+
 use crate::{
     expressions::Expression,
     gamehops::{reduction::Assumption, GameHop},
-    identifier::game_ident::GameConstIdentifier,
-    package::{Composition, Package},
+    identifier::{
+        game_ident::{GameConstIdentifier, GameIdentifier},
+        proof_ident::ProofIdentifier,
+        Identifier,
+    },
+    package::{Composition, OracleSig, Package},
     packageinstance::instantiate::InstantiationContext,
-    types::Type,
+    types::{CountSpec, Type},
 };
 
 use crate::impl_Named;
@@ -25,6 +31,7 @@ mod instantiate {
     use crate::{
         package::Package,
         packageinstance::{instantiate::InstantiationContext, PackageInstance},
+        types::Type,
     };
 
     /*
@@ -131,6 +138,74 @@ impl GameInstance {
 
     pub(crate) fn game(&self) -> &Composition {
         &self.game
+    }
+
+    /// instantiates the provided type. this means that occurrences game parameters
+    /// are replaced with the assigned values.
+    ///
+    /// This also means that the types somehow don't match 100%, this will just ignore that type and
+    /// leave it as-is. But that shouldn't really happen, since we compare the types in the package
+    /// params with the types in the code. But it could be the source of annoying-to-debug bugs.
+    ///
+    /// this is needed for Bits(n), since the `n` is different in game and package.
+    pub(crate) fn instantiate_type(&self, ty: Type) -> Type {
+        // we only want the ints, because the maybe be in Bits(n)
+        let int_params = self
+            .consts
+            .iter()
+            .filter(|(_, expr)| matches!(expr.get_type(), Type::Integer))
+            .flat_map(|(ident, expr)| {
+                let assigned_countspec = match expr {
+                    Expression::Identifier(Identifier::ProofIdentifier(ident)) => CountSpec::Identifier(ident.clone().into()),
+                    Expression::IntegerLiteral(num) => CountSpec::Literal(*num as u64),
+                    other => panic!("found unexpected expression in constant assignment in game instance: {other:?}"),
+                };
+
+                // The code that we are replacing might not have been enriched with this optional
+                // information yet, so we we take it out in order for the comparison to not fail
+                // TODO: Maybe just implement comparison such that these values are ignored?
+                let noned_ident = GameConstIdentifier {
+                    game_inst_name: None,
+                    proof_name: None,
+                    inst_info: None,
+                    assigned_value: None,
+                    ..ident.clone()
+                };
+
+                vec![
+                            (
+                                Type::Bits(Box::new(crate::types::CountSpec::Identifier(
+                                    noned_ident.clone().into(),
+                                ))),
+                                Type::Bits(Box::new(assigned_countspec.clone())),
+                            ),
+                            (
+                                Type::Bits(Box::new(crate::types::CountSpec::Identifier(
+                                    ident.clone().into(),
+                                ))),
+                                Type::Bits(Box::new(assigned_countspec)),
+                            ),
+                ]
+            })
+            .collect_vec();
+
+        ty.rewrite_type(&int_params)
+    }
+
+    /// instantiates the provided oraclae signature. this means that occurrences game parameters
+    /// are replaced with the assigned values.
+    ///
+    /// this is needed for Bits(n), since the `n` is different in game and package.
+    pub(crate) fn instantiate_oracle_signature(&self, sig: OracleSig) -> OracleSig {
+        OracleSig {
+            args: sig
+                .args
+                .into_iter()
+                .map(|(name, ty)| (name, self.instantiate_type(ty)))
+                .collect(),
+            tipe: self.instantiate_type(sig.tipe),
+            ..sig
+        }
     }
 }
 

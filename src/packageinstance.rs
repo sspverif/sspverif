@@ -1,3 +1,5 @@
+use itertools::Itertools as _;
+
 use crate::{
     expressions::Expression,
     identifier::{
@@ -7,7 +9,7 @@ use crate::{
     package::{OracleDef, OracleSig, Package},
     parser::package::MultiInstanceIndices,
     statement::Statement,
-    types::Type,
+    types::{CountSpec, Type},
 };
 
 use self::instantiate::InstantiationContext;
@@ -59,6 +61,55 @@ impl PackageInstance {
             .collect();
         params.sort();
         params
+    }
+
+    /// instantiates the provided oraclae signature. this means that occurrences package parameters
+    /// are replaced with the assigned values.
+    ///
+    /// this is needed for Bits(n), since the `n` is different in game and package.
+    pub(crate) fn instantiate_oracle_signature(&self, sig: OracleSig) -> OracleSig {
+        OracleSig {
+            args: sig
+                .args
+                .into_iter()
+                .map(|(name, ty)| (name, self.instantiate_type(ty)))
+                .collect(),
+            tipe: self.instantiate_type(sig.tipe),
+            ..sig
+        }
+    }
+
+    /// instantiates the provided type. this means that occurrences package parameters
+    /// are replaced with the assigned values.
+    ///
+    /// This also means that the types somehow don't match 100%, this will just ignore that type and
+    /// leave it as-is. But that shouldn't really happen, since we compare the types in the package
+    /// params with the types in the code. But it could be the source of annoying-to-debug bugs.
+    ///
+    /// this is needed for Bits(n), since the `n` is different in game and package.
+    pub(crate) fn instantiate_type(&self, ty: Type) -> Type {
+        // we only want the ints, because the maybe be in Bits(n)
+        let int_params = self
+            .params
+            .iter()
+            .filter(|(_, expr)| matches!(expr.get_type(), Type::Integer))
+            .map(|(ident, expr)| {
+                let assigned_value = match expr {
+                    Expression::Identifier(ident) => CountSpec::Identifier(ident.clone()),
+                    Expression::IntegerLiteral(num) => CountSpec::Literal(*num as u64),
+                    _ => unreachable!(),
+                };
+
+                (
+                    Type::Bits(Box::new(crate::types::CountSpec::Identifier(
+                        ident.clone().into(),
+                    ))),
+                    Type::Bits(Box::new(assigned_value)),
+                )
+            })
+            .collect_vec();
+
+        ty.rewrite_type(&int_params)
     }
 }
 

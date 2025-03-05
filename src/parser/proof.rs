@@ -26,14 +26,11 @@ use crate::{
     },
     proof::{Claim, GameInstance, Proof},
     types::Type,
-    util::{
-        resolver::{Resolver, SliceResolver},
-        scope::{Declaration, Error as ScopeError, Scope},
-    },
+    util::scope::{Declaration, Error as ScopeError, Scope},
 };
 
 use itertools::Itertools;
-use miette::{Diagnostic, NamedSource, SourceSpan};
+use miette::{Diagnostic, NamedSource};
 use pest::{
     iterators::{Pair, Pairs},
     Span,
@@ -47,7 +44,7 @@ use super::{
         AssumptionMappingParameterMismatchError,
         AssumptionMappingRightGameInstanceIsFromAssumption, DuplicateGameParameterDefinitionError,
         InvalidGameInstanceInReductionError, MissingGameParameterDefinitionError,
-        NoSuchGameParameterError, NoSuchTypeError, ReductionInconsistentAssumptionBoundaryError,
+        NoSuchGameParameterError, ReductionInconsistentAssumptionBoundaryError,
         ReductionPackageInstanceParameterMismatchError, UndefinedAssumptionError,
         UndefinedGameError, UndefinedGameInstanceError, UndefinedPackageInstanceError,
     },
