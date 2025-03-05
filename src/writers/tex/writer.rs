@@ -647,7 +647,7 @@ fn tex_write_composition_graph(
     composition: &Composition,
     pkgmap: &[NewReductionMappingEntry],
 ) -> std::io::Result<()> {
-    let mut write_node = |mut file: &File,
+    let write_node = |mut file: &File,
                           pkgname: &str,
                           compname: &str,
                           idx,

@@ -8,7 +8,6 @@ use crate::{
     gamehops::{equivalence, GameHop},
     identifier::{
         game_ident::{GameConstIdentifier, GameIdentifier},
-        pkg_ident::{PackageConstIdentifier, PackageIdentifier},
         Identifier,
     },
     proof::{Claim, ClaimType},

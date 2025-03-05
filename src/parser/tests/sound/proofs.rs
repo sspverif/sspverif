@@ -1,9 +1,7 @@
 use crate::parser::{
     error::{
-        AssumptionExportsNotSufficientError, AssumptionMappingContainsDifferentPackagesError,
-        InconsistentReductions, ReductionPackageInstanceParameterMismatchError, TypeMismatchError,
+        AssumptionExportsNotSufficientError, AssumptionMappingContainsDifferentPackagesError, ReductionPackageInstanceParameterMismatchError,
     },
-    package::ParseExpressionError,
     proof::ParseProofError,
     tests::{games, packages, proofs, slice_source_span},
 };

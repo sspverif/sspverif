@@ -4,8 +4,7 @@ use crate::{
     expressions::Expression,
     gamehops::{reduction::Assumption, GameHop},
     identifier::{
-        game_ident::{GameConstIdentifier, GameIdentifier},
-        proof_ident::ProofIdentifier,
+        game_ident::GameConstIdentifier,
         Identifier,
     },
     package::{Composition, OracleSig, Package},
@@ -31,7 +30,6 @@ mod instantiate {
     use crate::{
         package::Package,
         packageinstance::{instantiate::InstantiationContext, PackageInstance},
-        types::Type,
     };
 
     /*

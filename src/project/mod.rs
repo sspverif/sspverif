@@ -18,7 +18,7 @@ use crate::parser::SspParser;
 use crate::util::prover_process::Communicator;
 //use crate::transforms::typecheck::wire_proofs;
 use crate::{
-    gamehops::{equivalence, reduction, GameHop},
+    gamehops::{equivalence, GameHop},
     package::{Composition, Package},
     proof::Proof,
     transforms::Transformation,

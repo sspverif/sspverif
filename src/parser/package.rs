@@ -1,7 +1,7 @@
 use super::{
     common::*,
     error::{
-        IdentifierAlreadyDeclaredError, NoSuchTypeError, TypeMismatchError,
+        IdentifierAlreadyDeclaredError, TypeMismatchError,
         UndefinedIdentifierError, UntypedNoneTypeInferenceError,
     },
     ParseContext, Rule,
@@ -24,11 +24,7 @@ use crate::{
     statement::{CodeBlock, FilePosition, IfThenElse, InvokeOracleStatement, Statement},
     types::Type,
     util::scope::{Declaration, OracleContext, Scope},
-    writers::smt::{
-        declare::declare_const,
-        exprs::{SmtAnd, SmtAssert, SmtEq2, SmtExpr, SmtIte, SmtLt, SmtLte, SmtNot},
-        sorts::Sort,
-    },
+    writers::smt::exprs::{SmtAnd, SmtEq2, SmtExpr, SmtLt, SmtLte},
 };
 
 use miette::{Diagnostic, NamedSource, SourceSpan};

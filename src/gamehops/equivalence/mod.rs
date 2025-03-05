@@ -5,7 +5,6 @@ use std::iter::FromIterator;
 use crate::util::resolver::Named;
 use crate::writers::smt::contexts::GameInstanceContext;
 use crate::writers::smt::declare::declare_const;
-use crate::writers::smt::patterns::const_mapping::PackageConstMappingFunction;
 use crate::writers::smt::patterns::functions::const_mapping::define_fun;
 use crate::writers::smt::patterns::oracle_args::{
     OldNewOracleArgPattern as _, UnitOracleArgPattern as _,
@@ -16,9 +15,8 @@ use crate::writers::smt::patterns::{
 use crate::writers::smt::sorts::Sort;
 use crate::{
     hacks,
-    package::{Export, OracleSig, SplitExport},
+    package::{Export, OracleSig},
     proof::{Claim, ClaimType, GameInstance, Proof},
-    split::{SplitOracleSig, SplitPath},
     transforms::{
         proof_transforms::EquivalenceTransform,
         samplify::{Position, SampleInfo},

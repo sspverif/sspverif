@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::{
     expressions::Expression,
@@ -6,15 +6,14 @@ use crate::{
     gamehops::reduction::Assumption,
     gamehops::GameHop,
     identifier::{
-        game_ident::{GameConstIdentifier, GameIdentifier},
-        pkg_ident::PackageConstIdentifier,
+        game_ident::GameConstIdentifier,
         proof_ident::{
             ProofConstIdentifier,
-            ProofIdentifier::{self, Const},
+            ProofIdentifier::{Const},
         },
         Identifier,
     },
-    package::{Composition, Edge, Export, Package, PackageInstance},
+    package::{Composition, Package},
     parser::{
         error::{
             AssumptionMappingContainsDifferentPackagesError,
@@ -29,7 +28,6 @@ use crate::{
     util::scope::{Declaration, Error as ScopeError, Scope},
 };
 
-use itertools::Itertools;
 use miette::{Diagnostic, NamedSource};
 use pest::{
     iterators::{Pair, Pairs},

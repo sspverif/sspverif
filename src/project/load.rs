@@ -1,5 +1,4 @@
-use std::path::Path;
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 
 use super::*;
 use error::{Error, Result};
