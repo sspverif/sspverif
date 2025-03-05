@@ -3,7 +3,7 @@ use miette::SourceSpan;
 use crate::identifier::Identifier;
 pub use crate::packageinstance::PackageInstance;
 use crate::parser::package::MultiInstanceIndices;
-use crate::split::{SplitOracleDef, SplitOracleSig};
+use crate::split::SplitOracleSig;
 use crate::statement::CodeBlock;
 use crate::types::Type;
 

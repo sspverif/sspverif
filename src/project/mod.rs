@@ -18,7 +18,7 @@ use crate::parser::SspParser;
 use crate::util::prover_process::Communicator;
 //use crate::transforms::typecheck::wire_proofs;
 use crate::{
-    gamehops::{equivalence, reduction, GameHop},
+    gamehops::{equivalence, GameHop},
     package::{Composition, Package},
     proof::Proof,
     transforms::Transformation,
@@ -279,7 +279,13 @@ impl<'a> Project<'a> {
 
         for (name, proof) in &self.proofs {
             for lossy in [true, false] {
-                crate::writers::tex::writer::tex_write_proof(&backend, lossy, proof, name, path.as_path())?;
+                crate::writers::tex::writer::tex_write_proof(
+                    &backend,
+                    lossy,
+                    proof,
+                    name,
+                    path.as_path(),
+                )?;
             }
         }
 

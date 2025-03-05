@@ -7,7 +7,6 @@ use crate::{
     },
 };
 
-
 #[derive(Debug)]
 pub struct PackageConstsPattern<'a> {
     pub pkg_name: &'a str,

@@ -3,11 +3,7 @@ use itertools::Itertools as _;
 use crate::{
     expressions::Expression,
     gamehops::{reduction::Assumption, GameHop},
-    identifier::{
-        game_ident::{GameConstIdentifier, GameIdentifier},
-        proof_ident::ProofIdentifier,
-        Identifier,
-    },
+    identifier::{game_ident::GameConstIdentifier, Identifier},
     package::{Composition, OracleSig, Package},
     packageinstance::instantiate::InstantiationContext,
     types::{CountSpec, Type},
@@ -31,7 +27,6 @@ mod instantiate {
     use crate::{
         package::Package,
         packageinstance::{instantiate::InstantiationContext, PackageInstance},
-        types::Type,
     };
 
     /*

@@ -1,8 +1,8 @@
 use super::{
     common::*,
     error::{
-        IdentifierAlreadyDeclaredError, NoSuchTypeError, TypeMismatchError,
-        UndefinedIdentifierError, UntypedNoneTypeInferenceError, WrongArgumentCountInInvocationError,
+        IdentifierAlreadyDeclaredError, TypeMismatchError, UndefinedIdentifierError,
+        UntypedNoneTypeInferenceError, WrongArgumentCountInInvocationError,
     },
     ParseContext, Rule,
 };
@@ -24,9 +24,7 @@ use crate::{
     statement::{CodeBlock, FilePosition, IfThenElse, InvokeOracleStatement, Statement},
     types::Type,
     util::scope::{Declaration, OracleContext, Scope},
-    writers::smt::{
-        exprs::{SmtAnd, SmtEq2, SmtExpr, SmtIte, SmtLt, SmtLte, SmtNot},
-    },
+    writers::smt::exprs::{SmtAnd, SmtEq2, SmtExpr, SmtLt, SmtLte},
 };
 
 use miette::{Diagnostic, NamedSource, SourceSpan};
@@ -149,7 +147,7 @@ pub enum ParsePackageError {
 
     #[error(transparent)]
     #[diagnostic(transparent)]
-    WrongArgumentCountInInvocation(#[from]WrongArgumentCountInInvocationError)
+    WrongArgumentCountInInvocation(#[from] WrongArgumentCountInInvocationError),
 }
 
 #[derive(Error, Debug)]
@@ -234,7 +232,6 @@ pub fn handle_pkg_spec(
             .collect(),
         state: ctx.state,
         //split_oracles: vec![],
-
         file_name: ctx.file_name.to_string(),
         file_contents: ctx.file_content.to_string(),
     })
@@ -738,7 +735,8 @@ pub fn handle_identifier_in_code_rhs(
 ) -> Result<Identifier, ParseIdentifierError> {
     let ident = scope
         .lookup(name)
-        .ok_or(ParseIdentifierError::Undefined(name.to_string())).unwrap()
+        .ok_or(ParseIdentifierError::Undefined(name.to_string()))
+        .unwrap()
         .into_identifier()
         .unwrap_or_else(|decl| panic!("expected an identifier, got a clone {decl:?}", decl = decl));
 
@@ -878,8 +876,14 @@ pub fn handle_code(
                     let mut inner = stmt.into_inner();
                     let expr = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), Some(&Type::Boolean))?;
 
-                    Statement::IfThenElse(IfThenElse { cond: expr, then_block: CodeBlock(vec![]), else_block: CodeBlock(vec![Statement::Abort(full_span)]), then_span: full_span, else_span: full_span, full_span })
-                    
+                    Statement::IfThenElse(IfThenElse {
+                        cond: expr,
+                        then_block: CodeBlock(vec![]),
+                        else_block: CodeBlock(vec![Statement::Abort(full_span)]),
+                        then_span: full_span,
+                        else_span: full_span,
+                        full_span
+                    })
                 }
                 Rule::abort => Statement::Abort(full_span),
                 Rule::sample => {
