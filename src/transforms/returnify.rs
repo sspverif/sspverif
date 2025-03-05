@@ -1,7 +1,7 @@
 use miette::SourceSpan;
 
 use crate::package::Composition;
-use crate::statement::{CodeBlock, FilePosition, IfThenElse, Statement};
+use crate::statement::{CodeBlock, IfThenElse, Statement};
 use crate::types::Type;
 
 #[derive(Clone, Debug)]
@@ -64,7 +64,7 @@ mod old {
 
     pub struct Transformation<'a>(pub &'a Composition);
 
-    impl<'a> TransformationTrait for Transformation<'a> {
+    impl TransformationTrait for Transformation<'_> {
         type Err = Error;
         type Aux = ();
 

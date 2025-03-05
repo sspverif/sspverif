@@ -156,12 +156,6 @@ impl PackageInstance {
             multi_instance_indices,
         }
     }
-
-    /// This returns whether the package and the parameters inside the package are the same.
-    /// TODO: also check that the type parameters are the same
-    pub(crate) fn practically_equivalent(&self, other: &PackageInstance) -> bool {
-        self.pkg.name == other.pkg.name && self.params == other.params
-    }
 }
 
 pub(crate) mod instantiate {

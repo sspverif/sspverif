@@ -11,7 +11,7 @@ use crate::identifier::Identifier;
 use crate::package::{Composition, Edge, Export, OracleDef, PackageInstance};
 use crate::parser::ast::Identifier as _;
 use crate::parser::package::ForComp;
-use crate::parser::reduction::NewReductionMappingEntry;
+use crate::parser::reduction::ReductionMappingEntry;
 use crate::proof::Proof;
 use crate::statement::{CodeBlock, InvokeOracleStatement, Statement};
 use crate::types::CountSpec;
@@ -54,14 +54,14 @@ impl<'a> BlockWriter<'a> {
 
     fn type_to_tex(&self, tipe: &Type) -> String {
         match tipe {
-            Type::Bits(n) => format!("\\bin^{{{}}}", self.countspec_to_tex(&*n)),
+            Type::Bits(n) => format!("\\bin^{{{}}}", self.countspec_to_tex(n)),
             _ => format!("\\O{{{:?}}}", tipe),
         }
     }
 
     fn type_to_tex_short(&self, tipe: &Type) -> String {
         match tipe {
-            Type::Tuple(_) => format!("\\O{{Tuple[..]}}"),
+            Type::Tuple(_) => "\\O{Tuple[..]}".to_string(),
             _ => format!("\\O{{{:?}}}", tipe),
         }
     }
@@ -73,22 +73,22 @@ impl<'a> BlockWriter<'a> {
         .to_string()
     }
 
-	fn logic_to_matrix(&self, join: &str, list: &[String]) -> String {
-		assert!(list.len() > 1);
-		let trivial = list.join(join);
-		if trivial.len() < 50 {
-			trivial
-		} else {
-			let mut it = list.iter();
-			let mut lines = vec![ format!("\\phantom{{{}}}{}", join, it.next().unwrap()) ];
-			let mut rest : Vec<_> = it.map(|s| {format!("{}{}", join, s)} ).collect();
-			lines.append(&mut rest);
-			format!(
-				"\\begin{{array}}{{c}}{}\\end{{array}}",
-				lines.join("\\pclb")
-			)
-		}
-	}
+    fn logic_to_matrix(&self, join: &str, list: &[String]) -> String {
+        assert!(list.len() > 1);
+        let trivial = list.join(join);
+        if trivial.len() < 50 {
+            trivial
+        } else {
+            let mut it = list.iter();
+            let mut lines = vec![format!("\\phantom{{{}}}{}", join, it.next().unwrap())];
+            let mut rest: Vec<_> = it.map(|s| format!("{}{}", join, s)).collect();
+            lines.append(&mut rest);
+            format!(
+                "\\begin{{array}}{{c}}{}\\end{{array}}",
+                lines.join("\\pclb")
+            )
+        }
+    }
 
     fn list_to_matrix(&self, list: &[String]) -> String {
         let mut it = list.iter();
@@ -99,7 +99,7 @@ impl<'a> BlockWriter<'a> {
             // maybe this should be a minipage and latex figures linesbreaking ...
             match it.next() {
                 None => {
-                    if line.len() > 0 {
+                    if !line.is_empty() {
                         lines.push(line.join(", "));
                     }
                     break;
@@ -133,7 +133,10 @@ impl<'a> BlockWriter<'a> {
                 if self.lossy {
                     self.expression_to_tex(expr)
                 } else {
-                    format!("\\O{{unwrap}}\\left({}\\right)", self.expression_to_tex(expr))
+                    format!(
+                        "\\O{{unwrap}}\\left({}\\right)",
+                        self.expression_to_tex(expr)
+                    )
                 }
             }
             Expression::Some(expr) => {
@@ -167,21 +170,23 @@ impl<'a> BlockWriter<'a> {
                 .join(" = "),
             Expression::Or(exprs) => format!(
                 "\\left({}\\right)",
-				self.logic_to_matrix(
-					" \\vee ",
-					&exprs
-						.iter()
-						.map(|expr| self.expression_to_tex(expr))
-						.collect::<Vec<_>>())
+                self.logic_to_matrix(
+                    " \\vee ",
+                    &exprs
+                        .iter()
+                        .map(|expr| self.expression_to_tex(expr))
+                        .collect::<Vec<_>>()
+                )
             ),
             Expression::And(exprs) => format!(
                 "\\left({}\\right)",
-				self.logic_to_matrix(
-					" \\wedge ",
-					&exprs
-						.iter()
-						.map(|expr| self.expression_to_tex(expr))
-						.collect::<Vec<_>>())
+                self.logic_to_matrix(
+                    " \\wedge ",
+                    &exprs
+                        .iter()
+                        .map(|expr| self.expression_to_tex(expr))
+                        .collect::<Vec<_>>()
+                )
             ),
             Expression::Tuple(exprs) => {
                 format!(
@@ -461,7 +466,10 @@ pub fn tex_write_package(
 }
 
 fn tex_write_document_header(mut file: &File) -> std::io::Result<()> {
-    writeln!(file, "\\documentclass[a4paper,a3paper,landscape]{{article}}")?;
+    writeln!(
+        file,
+        "\\documentclass[a4paper,a3paper,landscape]{{article}}"
+    )?;
     writeln!(file, "\\usepackage[margin=.25in]{{geometry}}")?;
     writeln!(file, "\\usepackage[sets,operators]{{cryptocode}}")?;
     writeln!(file, "\\usepackage{{tikz}}")?;
@@ -645,15 +653,15 @@ fn tex_write_composition_graph(
     backend: &Option<ProverBackend>,
     mut file: &File,
     composition: &Composition,
-    pkgmap: &[NewReductionMappingEntry],
+    pkgmap: &[ReductionMappingEntry],
 ) -> std::io::Result<()> {
-    let mut write_node = |mut file: &File,
-                          pkgname: &str,
-                          compname: &str,
-                          idx,
-                          top,
-                          bottom,
-                          column|
+    let write_node = |mut file: &File,
+                      pkgname: &str,
+                      _compname: &str,
+                      idx,
+                      top,
+                      bottom,
+                      column|
      -> std::io::Result<()> {
         let fill = if pkgmap
             .iter()
@@ -762,7 +770,7 @@ fn tex_write_composition_graph(
             let SmtModelEntry::IntEntry { value: height, .. } =
                 model.get_value(&format!("edge---{pkgb}-height")).unwrap();
             let SmtModelEntry::IntEntry { value: acolumn, .. } =
-                model.get_value(&format!("--column")).unwrap();
+                model.get_value("--column").unwrap();
             let SmtModelEntry::IntEntry { value: bcolumn, .. } =
                 model.get_value(&format!("{pkgb}-column")).unwrap();
 
@@ -941,26 +949,21 @@ pub fn tex_write_proof(
         )?;
         writeln!(file, "\\input{{{}}}", graphfname)?;
         writeln!(file, "\\end{{minipage}}")?;
-        fill = fill + 1;
+        fill += 1;
         if fill == 3 {
             fill = 0;
             writeln!(file, "\\\\")?;
-        }            
+        }
     }
-    
-    writeln!(file, "\\clearpage")?;    
+
+    writeln!(file, "\\clearpage")?;
     for instance in &proof.instances {
         writeln!(
             file,
             "\\subsection{{{} Game}}",
             instance.name().replace('_', "\\_")
         )?;
-        writeln!(
-            file,
-            "\\label{{{} Game}}",
-            instance.name()
-        )?;
-        
+        writeln!(file, "\\label{{{} Game}}", instance.name())?;
 
         let graphfname = format!(
             "CompositionGraph_{}.tex",

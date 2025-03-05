@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
 
-use miette::{Diagnostic, NamedSource, SourceSpan};
+use miette::{Diagnostic, SourceSpan};
 use pest::error::ErrorVariant;
 use thiserror::Error;
 

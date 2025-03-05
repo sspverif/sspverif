@@ -3,17 +3,11 @@ use itertools::Itertools as _;
 use crate::{
     expressions::Expression,
     gamehops::{reduction::Assumption, GameHop},
-    identifier::{
-        game_ident::{GameConstIdentifier, GameIdentifier},
-        proof_ident::ProofIdentifier,
-        Identifier,
-    },
+    identifier::{game_ident::GameConstIdentifier, Identifier},
     package::{Composition, OracleSig, Package},
     packageinstance::instantiate::InstantiationContext,
     types::{CountSpec, Type},
 };
-
-use crate::impl_Named;
 
 ////////////////////////////////////////////////////
 
@@ -25,13 +19,10 @@ pub(crate) struct GameInstance {
     pub(crate) consts: Vec<(GameConstIdentifier, Expression)>,
 }
 
-impl_Named!(GameInstance);
-
 mod instantiate {
     use crate::{
         package::Package,
         packageinstance::{instantiate::InstantiationContext, PackageInstance},
-        types::Type,
     };
 
     /*
@@ -126,10 +117,6 @@ impl GameInstance {
 
     pub(crate) fn name(&self) -> &str {
         &self.name
-    }
-
-    pub(crate) fn types(&self) -> &[(String, Type)] {
-        &self.types
     }
 
     pub(crate) fn game_name(&self) -> &str {
@@ -260,12 +247,6 @@ impl Claim {
     }
 }
 
-impl crate::util::resolver::Named for Claim {
-    fn as_name(&self) -> &str {
-        self.name()
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct Proof<'a> {
     pub(crate) name: String,
@@ -277,24 +258,6 @@ pub struct Proof<'a> {
 }
 
 impl Proof<'_> {
-    pub(crate) fn new(
-        name: String,
-        consts: Vec<(String, Type)>,
-        instances: Vec<GameInstance>,
-        assumptions: Vec<Assumption>,
-        game_hops: Vec<GameHop>,
-        pkgs: Vec<Package>,
-    ) -> Proof {
-        Proof {
-            name,
-            consts,
-            instances,
-            assumptions,
-            game_hops,
-            pkgs,
-        }
-    }
-
     pub(crate) fn with_new_instances(&self, instances: Vec<GameInstance>) -> Proof {
         Proof {
             instances,
@@ -312,14 +275,6 @@ impl Proof<'_> {
 
     pub(crate) fn instances(&self) -> &[GameInstance] {
         &self.instances
-    }
-
-    pub(crate) fn assumptions(&self) -> &[Assumption] {
-        &self.assumptions
-    }
-
-    pub(crate) fn packages(&self) -> &[Package] {
-        &self.pkgs
     }
 
     pub(crate) fn find_game_instance(&self, game_inst_name: &str) -> Option<&GameInstance> {

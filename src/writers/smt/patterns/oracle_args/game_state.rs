@@ -13,7 +13,7 @@ pub struct GameStatePattern<'a> {
     pub game_params: &'a [(GameConstIdentifier, Expression)],
 }
 
-impl<'a> OracleArgPattern for GameStatePattern<'a> {
+impl OracleArgPattern for GameStatePattern<'_> {
     type Variant = OldNewVariant;
 
     fn global_const_name(&self, game_inst_name: &str, variant: &OldNewVariant) -> String {

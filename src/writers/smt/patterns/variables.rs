@@ -115,7 +115,7 @@ impl<'a> VariablePattern for &'a GameStatePattern {
 
 pub struct LocalVariablePattern<'a>(&'a str);
 
-impl<'a> VariablePattern for LocalVariablePattern<'a> {
+impl VariablePattern for LocalVariablePattern<'_> {
     type SpecInfo = Type;
 
     fn name(&self) -> String {

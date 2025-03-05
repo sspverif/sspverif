@@ -1,9 +1,8 @@
 use crate::parser::{
     error::{
         AssumptionExportsNotSufficientError, AssumptionMappingContainsDifferentPackagesError,
-        InconsistentReductions, ReductionPackageInstanceParameterMismatchError, TypeMismatchError,
+        ReductionPackageInstanceParameterMismatchError,
     },
-    package::ParseExpressionError,
     proof::ParseProofError,
     tests::{games, packages, proofs, slice_source_span},
 };
@@ -354,7 +353,7 @@ fn fail_reduction_changes_fail() {
         &pkgs,
     );
 
-    let err = proofs::parse_file_fails("reduction-changes-should-fail.ssp", &pkgs, &games);
+    let _err = proofs::parse_file_fails("reduction-changes-should-fail.ssp", &pkgs, &games);
 
     //    let ParseProofError::InconsistentReductions(
     //        InconsistentReductions {

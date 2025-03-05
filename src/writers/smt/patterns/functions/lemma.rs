@@ -19,7 +19,7 @@ struct LemmaFunction<'a> {
     oracle_name: &'a str,
 }
 
-impl<'a> FunctionPattern for LemmaFunction<'a> {
+impl FunctionPattern for LemmaFunction<'_> {
     fn function_name(&self) -> String {
         let Self {
             left_game_inst_name,

@@ -15,15 +15,6 @@ pub struct SplitOracleSig {
     pub tipe: Type,
 }
 
-impl SplitOracleSig {
-    pub(crate) fn name_with_path(&self) -> String {
-        let oracle_name = &self.name;
-        let path = self.path.smt_name();
-
-        format!("{oracle_name}/{path}")
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SplitOracleDef {
     pub sig: SplitOracleSig,

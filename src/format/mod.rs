@@ -88,7 +88,7 @@ fn format_type(tipe_ast: Pair<Rule>) -> Result<String, project::error::Error> {
 }
 
 fn format_expr(expr_ast: Pair<Rule>) -> Result<String, project::error::Error> {
-    return Ok(match expr_ast.as_rule() {
+    Ok(match expr_ast.as_rule() {
         Rule::expr_add => {
             let mut inner = expr_ast.into_inner();
             let lhs = format_expr(inner.next().unwrap())?;
@@ -198,7 +198,7 @@ fn format_expr(expr_ast: Pair<Rule>) -> Result<String, project::error::Error> {
             format!("{ident}[{idx_expr}]")
         }
         _ => unreachable!("Unhandled expression {:#?}", expr_ast),
-    });
+    })
 }
 
 fn format_code(ctx: &mut FormatContext, code_ast: Pair<Rule>) -> Result<(), project::error::Error> {

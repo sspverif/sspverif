@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::{
     expressions::Expression,
@@ -6,15 +6,11 @@ use crate::{
     gamehops::reduction::Assumption,
     gamehops::GameHop,
     identifier::{
-        game_ident::{GameConstIdentifier, GameIdentifier},
-        pkg_ident::PackageConstIdentifier,
-        proof_ident::{
-            ProofConstIdentifier,
-            ProofIdentifier::{self, Const},
-        },
+        game_ident::GameConstIdentifier,
+        proof_ident::{ProofConstIdentifier, ProofIdentifier::Const},
         Identifier,
     },
-    package::{Composition, Edge, Export, Package, PackageInstance},
+    package::{Composition, Package},
     parser::{
         error::{
             AssumptionMappingContainsDifferentPackagesError,
@@ -29,7 +25,6 @@ use crate::{
     util::scope::{Declaration, Error as ScopeError, Scope},
 };
 
-use itertools::Itertools;
 use miette::{Diagnostic, NamedSource};
 use pest::{
     iterators::{Pair, Pairs},
@@ -111,7 +106,7 @@ impl<'a> ParseProofContext<'a> {
     }
 }
 
-impl<'a> ParseProofContext<'a> {
+impl ParseProofContext<'_> {
     fn declare(&mut self, name: &str, clone: Declaration) -> Result<(), ScopeError> {
         self.scope.declare(name, clone)
     }
@@ -455,7 +450,7 @@ fn handle_equivalence<'a>(
         .map(|(oracle_name, inv_paths, _)| (oracle_name, inv_paths))
         .collect();
 
-    if ctx.game_instance(&left_name.as_str()).is_none() {
+    if ctx.game_instance(left_name.as_str()).is_none() {
         return Err(UndefinedGameInstanceError {
             source_code: ctx.named_source(),
             at: (left_name.as_span().start()..left_name.as_span().end()).into(),
@@ -463,7 +458,7 @@ fn handle_equivalence<'a>(
         }
         .into());
     }
-    if ctx.game_instance(&right_name.as_str()).is_none() {
+    if ctx.game_instance(right_name.as_str()).is_none() {
         return Err(UndefinedGameInstanceError {
             source_code: ctx.named_source(),
             at: (right_name.as_span().start()..right_name.as_span().end()).into(),
