@@ -874,14 +874,7 @@ pub fn handle_code(
                     let mut inner = stmt.into_inner();
                     let expr = handle_expression(&ctx.parse_ctx(), inner.next().unwrap(), Some(&Type::Boolean))?;
 
-                    Statement::IfThenElse(IfThenElse {
-                        cond: expr,
-                        then_block: CodeBlock(vec![]),
-                        else_block: CodeBlock(vec![Statement::Abort(full_span)]),
-                        then_span: full_span,
-                        else_span: full_span,
-                        full_span
-                    })
+                    Statement::IfThenElse(IfThenElse { cond: expr, then_block: CodeBlock(vec![]), else_block: CodeBlock(vec![Statement::Abort(full_span)]), then_span: full_span, else_span: full_span, full_span })
                 }
                 Rule::abort => Statement::Abort(full_span),
                 Rule::sample => {
@@ -1455,12 +1448,12 @@ impl MultiInstanceIndicesGroup {
 //                     ForComp::Lt => SmtLt((*game_loop_var.start).clone(), varname).into(),
 //                     ForComp::Lte => SmtLte((*game_loop_var.start).clone(), varname).into(),
 //                 };
-// 
+//
 //                 let upper_comp: SmtExpr = match game_loop_var.end_comp {
 //                     ForComp::Lt => SmtLt((*game_loop_var.end).clone(), varname).into(),
 //                     ForComp::Lte => SmtLte((*game_loop_var.end).clone(), varname).into(),
 //                 };
-// 
+//
 //                 SmtAnd(vec![lower_comp, upper_comp]).into()
 //             }
 //             other => unreachable!(
@@ -1470,7 +1463,6 @@ impl MultiInstanceIndicesGroup {
 //         }
 //     }
 // }
-
 
 impl std::convert::TryFrom<&str> for ForComp {
     type Error = ForCompError;
