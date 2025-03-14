@@ -8,6 +8,7 @@
 use std::io::ErrorKind;
 use std::path::Path;
 use std::{collections::HashMap, path::PathBuf};
+use walkdir;
 
 use error::{Error, Result};
 
@@ -46,9 +47,8 @@ pub struct Files {
 impl Files {
     pub fn load(root: &Path) -> Result<Self> {
         fn load_files(path: impl AsRef<Path>) -> Result<Vec<(String, String)>> {
-            std::fs::read_dir(path.as_ref())?
+            walkdir::WalkDir::new(path.as_ref()).into_iter().filter_map(|e| e.ok())
                 .map(|dir_entry| {
-                    let dir_entry = dir_entry?;
                     let file_name = dir_entry.file_name();
                     let Some(file_name) = file_name.to_str() else {
                         return Ok(None);

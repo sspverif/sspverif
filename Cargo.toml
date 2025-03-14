@@ -38,3 +38,4 @@ miette = { version = "7.2.0", features = ["fancy"] }
 tempfile = "3"
 sspverif-smtlib = { workspace = true }
 log = "0.4.22"
+walkdir = "2"
