@@ -33,14 +33,6 @@ composition KemAssumption {
     }
   }
 
-  instance kem_rand = RandomKeysWithKeyID {
-    params {
-      is_ideal: true,
-      key_len: kem_encaps_coins_len,
-    }
-  }
-
-  
   instance output = KemSymKeys {
     params {
         is_ideal: is_ideal,
@@ -60,7 +52,6 @@ composition KemAssumption {
     },
     kem: {
       Get: asym_keys,
-      GetRand: kem_rand,
       Set: output,
     }
   }

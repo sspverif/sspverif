@@ -5,11 +5,11 @@ package Fwd {
     }
 
     import oracles {
-        Encaps(key_id: Integer, pk: Bits(kem_pk_len)) -> Bits(kem_ct_len),
+        Encaps(pk: Bits(kem_pk_len)) -> Bits(kem_ct_len),
     }
 
-    oracle Encaps(key_id: Integer, pk: Bits(kem_pk_len)) -> Bits(kem_ct_len)  {
-        y  <- invoke Encaps(key_id, pk);
+    oracle Encaps(pk: Bits(kem_pk_len)) -> Bits(kem_ct_len)  {
+        y  <- invoke Encaps(pk);
         return y;
     }
 }

@@ -12,26 +12,15 @@ package KEM {
   import oracles {
     Set(ct: Bits(ct_len), pk: Bits(pk_len), shk: Bits(shk_len), is_hon: Bool),
     Get(pk: Bits(pk_len)) -> (Bits(sk_len), Bool),
-    GetRand(key_id: Integer) -> (Bits(encaps_coins_len), Bool),
   }
 
-  state {
-    /* Remember the public key used with a particular key ID to detect random number generator corruption */
-    /* The same key id must never be used with a different public key for security */
-    key_ids_used_for: Table(Integer, Bits(pk_len))
-  }
-
-  oracle Encaps(key_id: Integer, pk: Bits(pk_len)) -> Bits(ct_len) {
-    assert ((key_ids_used_for[key_id] == Some(pk)) or (key_ids_used_for[key_id] == None));
-    key_ids_used_for[key_id] <- Some(pk);
-
+  oracle Encaps(pk: Bits(pk_len)) -> Bits(ct_len) {
     get <-invoke Get(pk);
     (_sk, sk_is_honest) <-parse get;
 
     coins <-$ Bits(encaps_coins_len);
     (k, ct) <-parse encaps(coins, pk);
 
-    /* TODO this is the Set from RandomKeysWithKeyID, not from AsymmetricKeys */
     _unit <-invoke Set(ct, pk, k, sk_is_honest);
 
     return ct;

@@ -79,14 +79,12 @@ proof NoopKemProof {
       map kem_real proto_real {
         kem: kem
         asym_keys: asym_keys
-        kem_rand: kem_rand
         output: output
       }
 
       map kem_ideal proto_ideal {
         kem: kem
         asym_keys: asym_keys
-        kem_rand: kem_rand
         output: output
       }
     }
