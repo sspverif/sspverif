@@ -2,10 +2,17 @@ package Fwd {
     params {
         kem_ct_len: Integer,
         kem_pk_len: Integer,
+        kem_shk_len: Integer,
     }
 
     import oracles {
         Encaps(pk: Bits(kem_pk_len)) -> Bits(kem_ct_len),
+        Decaps(pk: Bits(kem_pk_len), ct: Bits(kem_ct_len)) -> Maybe(Bits(kem_shk_len)),
+    }
+
+    oracle Decaps(pk: Bits(kem_pk_len), ct: Bits(kem_ct_len)) -> Maybe(Bits(kem_shk_len))  {
+        y  <- invoke Decaps(pk, ct);
+        return y;
     }
 
     oracle Encaps(pk: Bits(kem_pk_len)) -> Bits(kem_ct_len)  {

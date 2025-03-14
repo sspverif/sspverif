@@ -6,6 +6,7 @@ proof NoopKemProof {
   const kem_encaps_coins_len: Integer;
 
   const encaps: fn (Bits(kem_encaps_coins_len), Bits(kem_pk_len)) -> (Bits(kem_shk_len), Bits(kem_ct_len));
+  const decaps: fn (Bits(kem_sk_len), Bits(kem_ct_len)) -> Maybe(Bits(kem_shk_len));
   const keygen: fn Bits(kem_sk_len) -> Bits(kem_pk_len);
 
   instance kem_real = KemAssumption {
@@ -19,6 +20,7 @@ proof NoopKemProof {
       kem_encaps_coins_len: kem_encaps_coins_len,
 
       encaps: encaps,
+      decaps: decaps,
       keygen: keygen,
     }
   }
@@ -34,6 +36,7 @@ proof NoopKemProof {
       kem_encaps_coins_len: kem_encaps_coins_len,
 
       encaps: encaps,
+      decaps: decaps,
       keygen: keygen,
     }
   }
@@ -49,6 +52,7 @@ proof NoopKemProof {
       kem_encaps_coins_len: kem_encaps_coins_len,
 
       encaps: encaps,
+      decaps: decaps,
       keygen: keygen,
     }
   }
@@ -64,6 +68,7 @@ proof NoopKemProof {
       kem_encaps_coins_len: kem_encaps_coins_len,
 
       encaps: encaps,
+      decaps: decaps,
       keygen: keygen,
     }
   }

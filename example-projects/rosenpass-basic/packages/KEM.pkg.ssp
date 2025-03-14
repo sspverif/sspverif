@@ -7,11 +7,28 @@ package KEM {
     encaps_coins_len: Integer,
 
     encaps: fn (Bits(encaps_coins_len), Bits(pk_len)) -> (Bits(shk_len), Bits(ct_len)),
+    decaps: fn (Bits(sk_len), Bits(ct_len)) -> Maybe(Bits(shk_len)),
   }
 
   import oracles {
     Set(ct: Bits(ct_len), pk: Bits(pk_len), shk: Bits(shk_len), is_hon: Bool),
     Get(pk: Bits(pk_len)) -> (Bits(sk_len), Bool),
+  }
+
+  state {
+    /* (ct, pk) act as key handle */
+    challenges: Table((Bits(ct_len), Bits(pk_len)) , Bool)
+  }
+
+  oracle Decaps(pk: Bits(pk_len), ct: Bits(ct_len)) -> Maybe(Bits(shk_len)) {
+    get <-invoke Get(pk);
+    (sk, sk_is_honest) <-parse get;
+
+    /* Check whether ct is a challenge ciphertext for pk */
+    assert(challenges[(ct, pk)] != Some(true));
+
+    k <- decaps(sk, ct);
+    return k;
   }
 
   oracle Encaps(pk: Bits(pk_len)) -> Bits(ct_len) {
@@ -22,9 +39,8 @@ package KEM {
     (k, ct) <-parse encaps(coins, pk);
 
     _unit <-invoke Set(ct, pk, k, sk_is_honest);
+    challenges[(ct, pk)] <- Some(true);
 
     return ct;
   }
 }
-
-

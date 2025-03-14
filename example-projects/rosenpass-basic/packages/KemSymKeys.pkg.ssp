@@ -8,6 +8,7 @@ package KemSymKeys {
     }
 
     state {
+	/* Bool is is_hon */
         T: Table((Bits(ct_len), Bits(pk_len)) , (Bits(shk_len), Bool))
     }
 

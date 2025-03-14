@@ -8,6 +8,7 @@ composition KemAssumption {
   const is_ideal: Bool;
 
   const encaps: fn (Bits(kem_encaps_coins_len), Bits(kem_pk_len)) -> (Bits(kem_shk_len), Bits(kem_ct_len));
+  const decaps: fn (Bits(kem_sk_len), Bits(kem_ct_len)) -> Maybe(Bits(kem_shk_len));
   const keygen: fn Bits(kem_sk_len) -> Bits(kem_pk_len);
 
   instance kem = KEM {
@@ -19,6 +20,7 @@ composition KemAssumption {
       encaps_coins_len: kem_encaps_coins_len,
 
       encaps: encaps,
+      decaps: decaps,
     }
   }
 
@@ -48,6 +50,7 @@ composition KemAssumption {
     adversary: {
       Set: asym_keys,
       Encaps: kem,
+      Decaps: kem,
       Get: output,
     },
     kem: {

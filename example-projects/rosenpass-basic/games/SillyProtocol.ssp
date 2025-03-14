@@ -7,7 +7,9 @@ composition SillyProtocol {
 
   const is_ideal: Bool;
   
-  const encaps: fn (Bits(kem_encaps_coins_len), Bits(kem_pk_len)) -> (Bits(kem_shk_len), Bits(kem_ct_len)); const keygen: fn Bits(kem_sk_len) -> Bits(kem_pk_len);
+  const encaps: fn (Bits(kem_encaps_coins_len), Bits(kem_pk_len)) -> (Bits(kem_shk_len), Bits(kem_ct_len));
+  const decaps: fn (Bits(kem_sk_len), Bits(kem_ct_len)) -> Maybe(Bits(kem_shk_len));
+  const keygen: fn Bits(kem_sk_len) -> Bits(kem_pk_len);
 
   instance kem = KEM {
     params {
@@ -18,6 +20,7 @@ composition SillyProtocol {
       encaps_coins_len: kem_encaps_coins_len,
 
       encaps: encaps,
+      decaps: decaps,
     }
   }
 
@@ -46,6 +49,7 @@ composition SillyProtocol {
       params {
         kem_pk_len: kem_pk_len,
         kem_ct_len: kem_ct_len,
+        kem_shk_len: kem_shk_len,
       }
   }
 
@@ -54,9 +58,11 @@ composition SillyProtocol {
       Set: asym_keys,
       Get: output,
       Encaps: fwd,
+      Decaps: fwd,
     },
     fwd: {
       Encaps: kem,
+      Decaps: kem,
     }
     kem: {
       Get: asym_keys,
