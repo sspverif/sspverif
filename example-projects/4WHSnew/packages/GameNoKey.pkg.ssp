@@ -233,8 +233,8 @@ oracle Reveal(ctr: Integer) -> Bits(n)
 	/* mark key as revealed */
     RevTested[Unwrap(sid)] <- Some(false);    
 
-    k <- invoke PRF(ltk,U,V,Unwrap(ni),nr,true);
-    return Unwrap(k);
+    k <- invoke PRF(ltk,U,V,Unwrap(ni),Unwrap(nr) ,true);
+    return k;
     }
 
 oracle Test(ctr: Integer) -> Bits(n)
@@ -251,7 +251,7 @@ oracle Test(ctr: Integer) -> Bits(n)
 	/* mark key as tested */
     RevTested[Unwrap(sid)] <- Some(true);
 	
-    k <- invoke PRF(ltk,U,V,Unwrap(ni),nr,true);
+    k <- invoke PRF(ltk,U,V,Unwrap(ni),Unwrap(nr),true);
     if b {
 	    k_ <-$ Bits(n);
 	}

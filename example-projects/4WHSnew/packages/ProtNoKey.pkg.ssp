@@ -1,4 +1,4 @@
-package ReductionNonce {
+package ProtNoKey {
     params {
         n: Integer,
         zeron: Bits(n),
