@@ -21,8 +21,8 @@
   (and
     (= scr-1 base-ctr-1)
     (= scr-0 base-ctr-0)
-    (= id-0      2)  ; Sampling of ni in Nonces
-    (= id-1      2)  ; Sampling of ni in Nonces
+    (= id-0      2)  ; This is the 2nd sampling in KX and samples ni.
+    (= id-1      2)  ; This sampling happens in the Nonces package and is the 2nd sampling (in fact the last sampling, because Nonces is defined last).
     ))
 
 (define-fun Send2
@@ -36,8 +36,8 @@
   (and
     (= scr-1 base-ctr-1)
     (= scr-0 base-ctr-0)
-    (= id-0      2)  ; Sampling of nr in Nonces
-    (= id-1      2)  ; Sampling of nr in Nonces
+    (= id-0     3)   ; This is the 3rd sampling in KX and samples nr.
+    (= id-1     2)   ; This sampling happens in the Nonces package and is the 2nd sampling (in fact the last sampling, because Nonces is defined last).
   ))
 
 (define-fun Send3
@@ -94,8 +94,8 @@
   Bool
   (and
     (= scr-1 base-ctr-1)
-    (= id-0     1)   ; This is the 1st sampling in H1_1 and samples the random key in Test.
-    (= id-1     1)   ; This is the 1st sampling in H2_0 and samples the random key in Test.
+    (= id-0     1)   ; This is the 1st sampling in KX   and samples the random key in Test.
+    (= id-1     1)   ; This is the 1st sampling in H1_0 and samples the random key in Test.
 ))
 
 (define-fun NewKey
@@ -109,8 +109,8 @@
   (and
     (= scr-1 base-ctr-1)
     (= scr-0 base-ctr-0)
-    (= id-0     0)   ; This is the 0th sampling in H1_1 and samples the random key in NewKey.
-    (= id-1     0)   ; This is the 0th sampling in H2_0 and samples the random key in NewKey.
+    (= id-0     0)   ; This is the 0th sampling in KX   and samples the random key in NewKey.
+    (= id-1     0)   ; This is the 0th sampling in H1_0 and samples the random key in NewKey.
   ))
 
 (define-fun NewSession
