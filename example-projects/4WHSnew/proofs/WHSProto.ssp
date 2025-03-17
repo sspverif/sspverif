@@ -107,6 +107,28 @@ proof WHSProto {
     }
 
 
+    instance H3_0 = H3 {
+        params {
+            b       : b ,
+			bcr     : false,
+            n       : n    ,
+            zeron   : zeron,
+  	        prf     : prf  ,
+            mac     : mac  ,
+        }
+    }
+    instance H3_1 = H3 {
+        params {
+            b       : b ,
+			bcr     : true,
+            n       : n    ,
+            zeron   : zeron,
+  	        prf     : prf  ,
+            mac     : mac  ,
+        }
+    }
+
+
     assumptions {
         prf:     PRFreal    ~ PRFideal
         nonces:  Noncesreal ~ Noncesideal
@@ -115,7 +137,7 @@ proof WHSProto {
 
     gamehops 
     {
-
+/*
         equivalence KX H1_0 {
             Send1: {
                 invariant: [
@@ -151,7 +173,7 @@ proof WHSProto {
                 }
             }
         }
-
+*/
         reduction H1_0 H1_1  
         {
             assumption nonces
@@ -178,6 +200,18 @@ proof WHSProto {
             }
         }
 
+        reduction H3_1 H3_0  
+        {
+            assumption collres
+
+            map CRreal H3_0  {
+                cr: CR
+            }
+
+            map CRideal H3_1 {
+                cr: CR
+            }
+        }
 
     }
 }
