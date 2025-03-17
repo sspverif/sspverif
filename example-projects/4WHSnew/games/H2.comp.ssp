@@ -48,8 +48,6 @@ composition H2 {
 			SameKey:	Game,
  			AtMost:		Game,
  			AtLeast:	Game,
-			  MAC:      CR,
-			  PRF:      CR,
        },
 
         Game: {

@@ -6,14 +6,14 @@ composition H4 {
         const b: Bool;
         const bcr: Bool;
     
-    instance Game_nokey = Game_nokey {
+    instance Game_nochecks = Game_nochecks {
         params {
         b: b,
         n: n,
         zeron: zeron,
         }
     }
-    instance Prot = ProtNoKey {
+    instance Prot = ReductionNonce {
         params {
         n: n,
         zeron: zeron,
@@ -25,14 +25,6 @@ composition H4 {
 			b: true,
 		}
 	}
-    instance CR = CR {
-        params {
-        n: n,
-        b: bcr,
-        prf: prf,
-        mac: mac,
-        }
-    }
 
     compose {
         adversary: {
@@ -48,8 +40,6 @@ composition H4 {
 			SameKey:	Game_nochecks,
  			AtMost:		Game_nochecks,
  			AtLeast:	Game_nochecks,
-			  MAC:      CR,
-			  PRF:      CR,
        },
 
         Game_nochecks: {

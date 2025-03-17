@@ -1,4 +1,4 @@
-composition H3 {
+composition H5 {
         const n: Integer;
         const zeron: Bits(n);
         const prf: fn Bits(n), Integer, Integer, Bits(n), Bits(n), Bool ->  Bits(n);
@@ -6,14 +6,14 @@ composition H3 {
         const b: Bool;
         const bcr: Bool;
     
-    instance Game_nochecks = Game_nochecks {
+    instance Game_nokey = Game_nokey {
         params {
         b: b,
         n: n,
         zeron: zeron,
         }
     }
-    instance Prot = ReductionCR {
+    instance Prot = ProtNoKey {
         params {
         n: n,
         zeron: zeron,
@@ -25,32 +25,24 @@ composition H3 {
 			b: true,
 		}
 	}
-    instance CR = CR {
-        params {
-        n: n,
-        b: bcr,
-        prf: prf,
-        mac: mac,
-        }
-    }
 
     compose {
         adversary: {
-            NewKey:     Game_nochecks,
-            NewSession: Game_nochecks,
-            Send1:      Game_nochecks,
-            Send2:      Game_nochecks,
-            Send3:      Game_nochecks,
-            Send4:      Game_nochecks,
-            Send5:      Game_nochecks,
-            Reveal:     Game_nochecks,
-            Test:       Game_nochecks,
-			SameKey:	Game_nochecks,
- 			AtMost:		Game_nochecks,
- 			AtLeast:	Game_nochecks,
+            NewKey:     Game_nokey,
+            NewSession: Game_nokey,
+            Send1:      Game_nokey,
+            Send2:      Game_nokey,
+            Send3:      Game_nokey,
+            Send4:      Game_nokey,
+            Send5:      Game_nokey,
+            Reveal:     Game_nokey,
+            Test:       Game_nokey,
+			SameKey:	Game_nokey,
+ 			AtMost:		Game_nokey,
+ 			AtLeast:	Game_nokey,
        },
 
-        Game_nochecks: {
+        Game_nokey: {
             Run1:      Prot,
             Run2:      Prot,
             Run3:      Prot,
@@ -60,8 +52,6 @@ composition H3 {
 
 		Prot: {
 			  Sample:	Nonces,
-			  MAC:      CR,
-			  PRF:      CR,
 		}
     }
 }
