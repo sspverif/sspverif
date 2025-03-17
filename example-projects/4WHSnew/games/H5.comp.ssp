@@ -11,12 +11,16 @@ composition H5 {
         b: b,
         n: n,
         zeron: zeron,
+        prf: prf,
+        mac: mac,
         }
     }
     instance Prot = ProtNoKey {
         params {
         n: n,
         zeron: zeron,
+        prf: prf,
+        mac: mac,
         }
     }
 	instance Nonces = Nonces {

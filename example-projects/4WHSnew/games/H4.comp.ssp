@@ -17,6 +17,8 @@ composition H4 {
         params {
         n: n,
         zeron: zeron,
+        prf: prf,
+        mac: mac,
         }
     }
 	instance Nonces = Nonces {
@@ -52,8 +54,6 @@ composition H4 {
 
 		Prot: {
 			  Sample:	Nonces,
-			  MAC:      CR,
-			  PRF:      CR,
 		}
     }
 }
