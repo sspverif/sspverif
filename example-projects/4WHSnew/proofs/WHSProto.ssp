@@ -116,6 +116,42 @@ proof WHSProto {
     gamehops 
     {
 
+        equivalence KX H1_0 {
+            Send1: {
+                invariant: [
+                    ./proofs/invariant-KX-Red-H1.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+             Send2: {
+                invariant: [
+                    ./proofs/invariant-KX-Red-H1.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+             Send3: {
+                invariant: [
+                    ./proofs/invariant-KX-Red-H1.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+        }
+
         reduction H1_0 H1_1  
         {
             assumption nonces
