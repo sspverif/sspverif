@@ -379,15 +379,11 @@ pub fn find_project_root() -> std::result::Result<std::path::PathBuf, FindProjec
         }
 
         match dir.parent() {
-            None => return Err(NotInProjectError.into()),
+            None => return Err(FindProjectRootError::NotInProject),
             Some(parent) => dir = parent.into(),
         }
     }
 }
-
-#[derive(Debug, thiserror::Error)]
-#[error("Not in project: no ssp.toml file in this or any parent directory")]
-pub struct NotInProjectError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum FindProjectRootError {
@@ -395,6 +391,6 @@ pub enum FindProjectRootError {
     CurrentDir(std::io::Error),
     #[error("Error reading directory:")]
     ReadDir(std::io::Error),
-    #[error(transparent)]
-    NotInProject(#[from] NotInProjectError),
+    #[error("Not in project: no ssp.toml file in this or any parent directory")]
+    NotInProject,
 }
