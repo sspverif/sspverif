@@ -171,6 +171,105 @@ proof WHSProto {
                     same-output:  [no-abort]
                 }
             }
+            Send4: {
+                invariant: [
+                    ./proofs/invariant-KX-Red-H1.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+            Send5: {
+                invariant: [
+                    ./proofs/invariant-KX-Red-H1.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+            NewKey: {
+                invariant: [
+                    ./proofs/invariant-KX-Red-H1.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+            NewSession: {
+                invariant: [
+                    ./proofs/invariant-KX-Red-H1.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+            Test: {
+                invariant: [
+                    ./proofs/invariant-KX-Red-H1.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+            Reveal: {
+                invariant: [
+                    ./proofs/invariant-KX-Red-H1.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+            SameKey: {
+                invariant: [
+                    ./proofs/invariant-KX-Red-H1.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+            AtLeast: {
+                invariant: [
+                    ./proofs/invariant-KX-Red-H1.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+            AtMost: {
+                invariant: [
+                    ./proofs/invariant-KX-Red-H1.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
         }
 
         reduction H1_0 H1_1  
