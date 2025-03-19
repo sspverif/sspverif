@@ -254,9 +254,9 @@ oracle Test(ctr: Integer) -> Bits(n)
 	
     k <- prf(ltk,U,V,Unwrap(ni),Unwrap(nr),true);
     if b {
-	    k_ <-$ Bits(n);
+	    k <-$ Bits(n);
 	}
-    return k_;
+    return k;
     }
 
 oracle SameKey(ctr1: Integer, ctr2: Integer) -> Bool {
