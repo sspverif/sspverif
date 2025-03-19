@@ -3,13 +3,15 @@ use miette::Diagnostic;
 use std::io::Error as IOError;
 use thiserror::Error;
 
+use super::FindProjectRootError;
+
 #[derive(Debug, Error, Diagnostic)]
 pub enum Error {
-    #[error("error showing equivalence: {0}")]
+    #[error("error showing equivalence")]
     EquivalenceError(#[from] crate::gamehops::equivalence::error::Error),
     #[error("consistency check failed with {0}")]
     ProofCheck(String),
-    #[error("io error: {0}")]
+    #[error("io error")]
     IOError(#[from] IOError),
     #[error("package {0} defined in both {1} and {2}")]
     RedefinedPackage(String, String, String),
@@ -17,16 +19,18 @@ pub enum Error {
     RedefinedGame(String, String, String),
     #[error("proof {0} defined in both {1} and {2}")]
     RedefinedProof(String, String, String),
-    #[error("error parsing utf-8: {0}")]
+    #[error("error parsing utf-8")]
     FromUtf8Error(#[from] std::string::FromUtf8Error),
-    #[error("error in interaction with child process: {0}")]
+    #[error("error in interaction with child process")]
     ChildProcessInteractionError(#[from] expectrl::Error),
-    #[error("error interactiv with prover process: {0}")]
+    #[error("error interactiv with prover process")]
     ProcessError(#[from] crate::util::process::Error),
-    #[error("error interactiv with prover process: {0}")]
+    #[error("error interactiv with prover process")]
     ProverProcessError(#[from] crate::util::prover_process::Error),
     //#[error("got a formatting error")]
     //FmtError(#[from] std::fmt::Error),
+    #[error("error finding project root")]
+    FindProjectRoot(#[from] FindProjectRootError),
 
     // confirmed needed errors are below:
     #[error("syntax error: {0} at {1:?} / {2:?}")]

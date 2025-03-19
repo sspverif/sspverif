@@ -1,3 +1,4 @@
+use miette::Diagnostic;
 /**
  *  project is the high-level structure of sspverif.
  *
@@ -47,7 +48,9 @@ pub struct Files {
 impl Files {
     pub fn load(root: &Path) -> Result<Self> {
         fn load_files(path: impl AsRef<Path>) -> Result<Vec<(String, String)>> {
-            walkdir::WalkDir::new(path.as_ref()).into_iter().filter_map(|e| e.ok())
+            walkdir::WalkDir::new(path.as_ref())
+                .into_iter()
+                .filter_map(|e| e.ok())
                 .map(|dir_entry| {
                     let file_name = dir_entry.file_name();
                     let Some(file_name) = file_name.to_str() else {
@@ -359,13 +362,13 @@ impl<'a> Project<'a> {
     }
 }
 
-pub fn find_project_root() -> std::io::Result<std::path::PathBuf> {
-    let mut dir = std::env::current_dir()?;
+pub fn find_project_root() -> std::result::Result<std::path::PathBuf, FindProjectRootError> {
+    let mut dir = std::env::current_dir().map_err(FindProjectRootError::CurrentDir)?;
 
     loop {
-        let lst = dir.read_dir()?;
+        let lst = dir.read_dir().map_err(FindProjectRootError::ReadDir)?;
         for entry in lst {
-            let entry = entry?;
+            let entry = entry.map_err(FindProjectRootError::ReadDir)?;
             let file_name = match entry.file_name().into_string() {
                 Err(_) => continue,
                 Ok(name) => name,
@@ -376,8 +379,22 @@ pub fn find_project_root() -> std::io::Result<std::path::PathBuf> {
         }
 
         match dir.parent() {
-            None => return Err(std::io::Error::from(ErrorKind::NotFound)),
+            None => return Err(NotInProjectError.into()),
             Some(parent) => dir = parent.into(),
         }
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("Not in project: no ssp.toml file in this or any parent directory")]
+pub struct NotInProjectError;
+
+#[derive(Debug, thiserror::Error)]
+pub enum FindProjectRootError {
+    #[error("Error determining current directory:")]
+    CurrentDir(std::io::Error),
+    #[error("Error reading directory:")]
+    ReadDir(std::io::Error),
+    #[error(transparent)]
+    NotInProject(#[from] NotInProjectError),
 }
