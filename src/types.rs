@@ -64,7 +64,6 @@ impl Type {
     }
 
     pub(crate) fn types_match(&self, other: &Self) -> bool {
-        println!("matching types");
         match (self, other) {
             (Type::Bits(l), Type::Bits(r)) => dbg!(l.countspecs_match(r.as_ref())),
 
