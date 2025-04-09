@@ -1,4 +1,4 @@
-use crate::identifier::Identifier;
+use crate::identifier::{pkg_ident::PackageIdentifier, Identifier};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
@@ -26,11 +26,21 @@ impl Type {
             replace.clone()
         } else {
             match self {
+                Type::Bits(count_spec) if matches!(count_spec.as_ref(), CountSpec::Identifier(Identifier::PackageIdentifier(PackageIdentifier::Const(pkg_const_ident ))) if &pkg_const_ident.name == "n" && pkg_const_ident.tipe == Type::Integer) => {
+                    if rules.is_empty() {
+                        print!(".");
+                        panic!();
+                    } else {
+                        //println!("called the rewriter on the target type with rules {rules:#?}");
+                    }
+                    self.clone()
+                }
+
                 Type::Empty
                 | Type::Integer
                 | Type::String
                 | Type::Boolean
-                | Type::Bits(_)
+                | Type::Bits(_) // NB: This is a fallthrough, the Identifier case is handled above
                 | Type::AddiGroupEl(_)
                 | Type::MultGroupEl(_) => self.clone(),
 
@@ -52,6 +62,35 @@ impl Type {
             }
         }
     }
+
+    pub(crate) fn types_match(&self, other: &Self) -> bool {
+        println!("matching types");
+        match (self, other) {
+            (Type::Bits(l), Type::Bits(r)) => dbg!(l.countspecs_match(r.as_ref())),
+
+            (Type::List(l), Type::List(r))
+            | (Type::Set(l), Type::Set(r))
+            | (Type::Maybe(l), Type::Maybe(r)) => l.types_match(r.as_ref()),
+
+            (Type::Table(lk, lv), Type::Table(rk, rv)) => {
+                lk.types_match(rk.as_ref()) && lv.types_match(rv)
+            }
+
+            (Type::Tuple(l), Type::Tuple(r)) => {
+                l.iter().zip(r.iter()).all(|(l, r)| Type::types_match(l, r))
+            }
+
+            (Type::Fn(largs, lty), Type::Fn(rargs, rty)) => {
+                largs
+                    .iter()
+                    .zip(rargs.iter())
+                    .all(|(l, r)| Type::types_match(l, r))
+                    && lty.types_match(rty.as_ref())
+            }
+
+            (lother, rother) => lother == rother,
+        }
+    }
 }
 
 /// Describes the length of Bits types
@@ -60,4 +99,14 @@ pub enum CountSpec {
     Identifier(Identifier),
     Literal(u64),
     Any,
+}
+
+impl CountSpec {
+    pub(crate) fn countspecs_match(&self, other: &Self) -> bool {
+        if let (Self::Identifier(l), Self::Identifier(r)) = (self, other) {
+            l.identifiers_match(r)
+        } else {
+            self == other
+        }
+    }
 }
