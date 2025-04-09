@@ -227,14 +227,7 @@ impl GameInstance {
                             ]
                         })
                         .collect_vec();
-                    println!("rewrite rules: {more:?}");
-                    let res = ty.rewrite_type(&more);
-                    println!("<<<");
-                    println!("{ty:#?}");
-                    println!("===");
-                    println!("{res:#?}");
-                    println!(">>>");
-                    res
+                    ty.rewrite_type(&more)
                 }
                 CountSpec::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(_))) => {
                     let more = int_params
@@ -250,24 +243,11 @@ impl GameInstance {
                             ))
                         })
                         .collect_vec();
-                    println!("rewrite rules: {more:?}");
-                    let res = ty.rewrite_type(&more);
-                    println!("<<<");
-                    println!("{ty:#?}");
-                    println!("===");
-                    println!("{res:#?}");
-                    println!(">>>");
-                    res
+                    ty.rewrite_type(&more)
                 }
-                other => {
-                    println!("not rewriting type {other:?}: not the right identifier");
-                    ty
-                }
+                _ => ty,
             },
-            other => {
-                println!("not rewriting type {other:?}: not bits");
-                ty
-            }
+            _ => ty,
         }
     }
 

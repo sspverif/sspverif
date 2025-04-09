@@ -31,7 +31,6 @@ impl Identifier {
                 Identifier::PackageIdentifier(PackageIdentifier::Const(l)),
                 Identifier::PackageIdentifier(PackageIdentifier::Const(r)),
             ) => {
-                println!("csm1");
                 if let (Some(l), Some(r)) = (l.game_assignment.as_ref(), r.game_assignment.as_ref())
                 {
                     match (l.as_ref(), r.as_ref()) {
@@ -49,7 +48,6 @@ impl Identifier {
                 Identifier::GameIdentifier(GameIdentifier::Const(l)),
                 Identifier::GameIdentifier(GameIdentifier::Const(r)),
             ) => {
-                println!("csm2");
                 if let (Some(l), Some(r)) = (l.assigned_value.as_ref(), r.assigned_value.as_ref()) {
                     match (l.as_ref(), r.as_ref()) {
                         (Expression::Identifier(l), Expression::Identifier(r)) => {
@@ -65,10 +63,7 @@ impl Identifier {
             (
                 Identifier::ProofIdentifier(ProofIdentifier::Const(l)),
                 Identifier::ProofIdentifier(ProofIdentifier::Const(r)),
-            ) => {
-                println!("csm3");
-                l.name == r.name
-            }
+            ) => l.name == r.name,
 
             _ => todo!(),
         }
