@@ -3,7 +3,12 @@ use itertools::Itertools as _;
 use crate::{
     expressions::Expression,
     gamehops::{reduction::Assumption, GameHop},
-    identifier::{game_ident::GameConstIdentifier, Identifier},
+    identifier::{
+        game_ident::{GameConstIdentifier, GameIdentifier},
+        pkg_ident::{PackageConstIdentifier, PackageIdentifier},
+        proof_ident::{ProofConstIdentifier, ProofIdentifier},
+        Identifier,
+    },
     package::{Composition, OracleSig, Package},
     packageinstance::instantiate::InstantiationContext,
     types::{CountSpec, Type},
@@ -143,7 +148,12 @@ impl GameInstance {
             .filter(|(_, expr)| matches!(expr.get_type(), Type::Integer))
             .flat_map(|(ident, expr)| {
                 let assigned_countspec = match expr {
-                    Expression::Identifier(Identifier::ProofIdentifier(ident)) => CountSpec::Identifier(ident.clone().into()),
+                    Expression::Identifier(Identifier::ProofIdentifier(_)) => {
+                        CountSpec::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(GameConstIdentifier {
+                            assigned_value: Some(Box::new(expr.clone())),
+                            ..ident.clone()
+                        }))).into()
+                    },
                     Expression::IntegerLiteral(num) => CountSpec::Literal(*num as u64),
                     other => panic!("found unexpected expression in constant assignment in game instance: {other:?}"),
                 };
@@ -160,23 +170,105 @@ impl GameInstance {
                 };
 
                 vec![
-                            (
-                                Type::Bits(Box::new(crate::types::CountSpec::Identifier(
-                                    noned_ident.clone().into(),
-                                ))),
+                        (
+                                noned_ident.clone(),
                                 Type::Bits(Box::new(assigned_countspec.clone())),
                             ),
                             (
-                                Type::Bits(Box::new(crate::types::CountSpec::Identifier(
-                                    ident.clone().into(),
-                                ))),
+                                ident.clone(),
                                 Type::Bits(Box::new(assigned_countspec)),
                             ),
                 ]
-            })
-            .collect_vec();
+            }).collect_vec();
 
-        ty.rewrite_type(&int_params)
+        match &ty {
+            Type::Bits(cs) => match cs.as_ref() {
+                CountSpec::Identifier(Identifier::PackageIdentifier(PackageIdentifier::Const(
+                    pkg_ident,
+                ))) => {
+                    if pkg_ident.game_name.as_ref().map(String::as_str) != Some(self.game_name()) {
+                        println!("found possible instantiation bug - game name or game instance name not set. skipping");
+                        println!("ty:   {ty:?}");
+                        println!("self: {self:?}");
+                        return ty;
+                    }
+
+                    let more = int_params
+                        .into_iter()
+                        .flat_map(|(game_ident, new_ty)| {
+                            vec![
+                                (
+                                    Type::Bits(Box::new(CountSpec::Identifier(
+                                        Identifier::PackageIdentifier(PackageIdentifier::Const(
+                                            PackageConstIdentifier {
+                                                game_assignment: Some(Box::new(
+                                                    Expression::Identifier(
+                                                        Identifier::GameIdentifier(
+                                                            GameIdentifier::Const(
+                                                                game_ident.clone(),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                )),
+                                                ..pkg_ident.clone()
+                                            },
+                                        )),
+                                    ))),
+                                    new_ty.clone(),
+                                ),
+                                (
+                                    Type::Bits(Box::new(CountSpec::Identifier(
+                                        Identifier::GameIdentifier(GameIdentifier::Const(
+                                            game_ident.clone(),
+                                        )),
+                                    ))),
+                                    new_ty.clone(),
+                                ),
+                            ]
+                        })
+                        .collect_vec();
+                    println!("rewrite rules: {more:?}");
+                    let res = ty.rewrite_type(&more);
+                    println!("<<<");
+                    println!("{ty:#?}");
+                    println!("===");
+                    println!("{res:#?}");
+                    println!(">>>");
+                    res
+                }
+                CountSpec::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(_))) => {
+                    let more = int_params
+                        .into_iter()
+                        .flat_map(|(game_ident, new_ty)| {
+                            Some((
+                                Type::Bits(Box::new(CountSpec::Identifier(
+                                    Identifier::GameIdentifier(GameIdentifier::Const(
+                                        game_ident.clone(),
+                                    )),
+                                ))),
+                                new_ty.clone(),
+                            ))
+                        })
+                        .collect_vec();
+                    println!("rewrite rules: {more:?}");
+                    let res = ty.rewrite_type(&more);
+                    println!("<<<");
+                    println!("{ty:#?}");
+                    println!("===");
+                    println!("{res:#?}");
+                    println!(">>>");
+                    res
+                }
+                other => {
+                    println!("not rewriting type {other:?}: not the right identifier");
+                    ty
+                }
+            },
+            other => {
+                println!("not rewriting type {other:?}: not bits");
+                ty
+            }
+        }
     }
 
     /// instantiates the provided oraclae signature. this means that occurrences game parameters

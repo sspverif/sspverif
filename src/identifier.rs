@@ -21,6 +21,61 @@ pub enum Identifier {
 }
 
 impl Identifier {
+    pub(crate) fn identifiers_match(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Identifier::Generated(_, _), _) | (_, Identifier::Generated(_, _)) => {
+                todo!("i don't think this should ever happen")
+            }
+
+            (
+                Identifier::PackageIdentifier(PackageIdentifier::Const(l)),
+                Identifier::PackageIdentifier(PackageIdentifier::Const(r)),
+            ) => {
+                println!("csm1");
+                if let (Some(l), Some(r)) = (l.game_assignment.as_ref(), r.game_assignment.as_ref())
+                {
+                    match (l.as_ref(), r.as_ref()) {
+                        (Expression::Identifier(l), Expression::Identifier(r)) => {
+                            l.identifiers_match(r)
+                        }
+                        _ => l == r,
+                    }
+                } else {
+                    l.name == r.name && l.pkg_name == r.pkg_name
+                }
+            }
+
+            (
+                Identifier::GameIdentifier(GameIdentifier::Const(l)),
+                Identifier::GameIdentifier(GameIdentifier::Const(r)),
+            ) => {
+                println!("csm2");
+                if let (Some(l), Some(r)) = (l.assigned_value.as_ref(), r.assigned_value.as_ref()) {
+                    match (l.as_ref(), r.as_ref()) {
+                        (Expression::Identifier(l), Expression::Identifier(r)) => {
+                            l.identifiers_match(r)
+                        }
+                        _ => l == r,
+                    }
+                } else {
+                    l.name == r.name && l.game_name == r.game_name
+                }
+            }
+
+            (
+                Identifier::ProofIdentifier(ProofIdentifier::Const(l)),
+                Identifier::ProofIdentifier(ProofIdentifier::Const(r)),
+            ) => {
+                println!("csm3");
+                l.name == r.name
+            }
+
+            _ => todo!(),
+        }
+        // 1. find common root context
+        // 2. compare value at shared context
+    }
+
     pub(crate) fn is_const(&self) -> bool {
         matches!(
             self,

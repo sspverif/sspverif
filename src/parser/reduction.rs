@@ -742,14 +742,20 @@ fn handle_mapspec_assumption<'a>(
                 .into());
             };
 
-            // rewrite the destination oracle signature as welll and compare to check that they
+            // rewrite the destination oracle signature as well and compare to check that they
             // match
             let assump_sig_fixed =
                 assumption_game_inst.instantiate_oracle_signature(assump_dst_export.sig().clone());
             let constr_sig_fixed =
                 construction_game_inst.instantiate_oracle_signature(constr_sig.clone());
 
-            debug_assert_eq!(constr_sig_fixed, assump_sig_fixed);
+            let oracle_sigs_match = constr_sig_fixed.types_match(&assump_sig_fixed);
+
+            debug_assert_eq!(constr_sig_fixed.name, assump_sig_fixed.name);
+            debug_assert!(
+                oracle_sigs_match,
+                "oracle signature mismatch:  \n  {constr_sig_fixed:#?}\n  !=\n  {assump_sig_fixed:#?}"
+            );
 
             // check that the destination packages in construction and assumption are equivalent
 
@@ -799,7 +805,7 @@ fn handle_mapspec_assumption<'a>(
 
                         assumption_game_edge.from() == *assump_src_pkg_inst_offs
                             && assumption_game_edge.to() == *assumption_game_to
-                            && constr_sig_fixed == assump_sig_fixed
+                            && constr_sig_fixed.types_match(&assump_sig_fixed)
                     });
 
             if !edge_exists_in_assumption {

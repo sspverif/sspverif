@@ -25,6 +25,18 @@ pub struct OracleSig {
     pub tipe: Type,
 }
 
+impl OracleSig {
+    pub(crate) fn types_match(&self, other: &Self) -> bool {
+        self.tipe.types_match(&other.tipe)
+            && self.args.len() == other.args.len()
+            && self
+                .args
+                .iter()
+                .zip(&other.args)
+                .all(|((_, l), (_, r))| l.types_match(r))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OracleDef {
     pub sig: OracleSig,
