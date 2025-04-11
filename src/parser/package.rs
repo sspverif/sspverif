@@ -998,8 +998,6 @@ pub fn handle_code(
                     let oracle_name_span = oracle_name_ast.as_span();
                     let oracle_name = oracle_name_ast.as_str();
 
-                    println!("found invocation of oracle {oracle_name}");
-
                     let mut args = vec![];
                     let mut dst_inst_index = None;
 

@@ -2,6 +2,11 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fmt::Write;
 use std::iter::FromIterator;
 
+use crate::expressions::Expression;
+use crate::identifier::game_ident::GameIdentifier;
+use crate::identifier::pkg_ident::PackageIdentifier;
+use crate::identifier::proof_ident::ProofIdentifier;
+use crate::identifier::Identifier;
 use crate::writers::smt::contexts::GameInstanceContext;
 use crate::writers::smt::declare::declare_const;
 use crate::writers::smt::patterns::functions::const_mapping::define_fun;
@@ -151,19 +156,39 @@ impl<'a> EquivalenceContext<'a> {
     fn emit_base_declarations(&self, comm: &mut Communicator) -> Result<()> {
         let mut base_declarations: Vec<SmtExpr> = vec![("set-logic", "ALL").into()];
 
-        println!("types {:?}", self.types());
-
         for tipe in self.types() {
             if let Type::Bits(id) = &tipe {
-                let smt_expr: SmtExpr = match &**id {
-                    crate::types::CountSpec::Literal(num) => format!("{num}").into(),
-                    crate::types::CountSpec::Any => "*".into(),
-                    crate::types::CountSpec::Identifier(ident) => {
-						ident.ident().into()
-                        //ident.resolve_value().unwrap().into()
-                    }
+                let bits_sort_suffix = match &**id {
+                    crate::types::CountSpec::Literal(num) => format!("{num}"),
+                    crate::types::CountSpec::Any => "*".to_string(),
+                    crate::types::CountSpec::Identifier(ident) => match ident {
+                        Identifier::ProofIdentifier(ident) => ident.ident(),
+                        Identifier::GameIdentifier(GameIdentifier::Const(game_const_ident)) => {
+                            match game_const_ident.assigned_value.as_ref().map(Box::as_ref) {
+                                Some(Expression::Identifier(ident@Identifier::ProofIdentifier(ProofIdentifier::Const(_)))) => ident.ident(),
+                                Some(Expression::Identifier(_)) => unreachable!("other identifiers can't occur here"),
+                                Some(other) => todo!("ADD ERR MSG: no complex expressions allowed for now, found {other:?}"),
+                                None => {println!("skipping identifier {id:?} since it is not fully resolved"); ident.ident()}
+                            }
+                        } ,
+                        Identifier::PackageIdentifier(PackageIdentifier::Const(pkg_const_ident)) => match pkg_const_ident.game_assignment.as_ref().unwrap_or_else(|| panic!("the assigned value for this identifier should have been resolved at this point:\n  {pkg_const_ident:#?}")).as_ref() {
+                            Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(game_const_ident))) => {
+                                match game_const_ident.assigned_value.as_ref().map(Box::as_ref) {
+                                    Some(Expression::Identifier(ident@Identifier::ProofIdentifier(ProofIdentifier::Const(_))) )=> ident.ident(),
+                                    Some(Expression::Identifier(_) )=> unreachable!("other identifiers can't occur here"),
+                                    Some(other) => todo!("ADD ERR MSG: no complex expressions allowed for now, found {other:?}"),
+                                    None => {println!("skipping identifier {id:?} since it is not fully resolved"); ident.ident()}
+                                }
+                            },
+                            Expression::Identifier(_) => unreachable!("other identifiers can't occur here"),
+                            other => todo!("ADD ERR MSG: no complex expressions allowed for now, found {other:?}"),
+                        }
+                        Identifier::PackageIdentifier(_) => unreachable!("non-const package identifiers can't occur here"),
+                        Identifier::GameIdentifier(_) => unreachable!("non-const game identifiers can't occur here"),
+                        Identifier::Generated(_, _) => unreachable!("generated identifiers can't occur here"),
+                    },
                 };
-                base_declarations.extend(hacks::BitsDeclaration(smt_expr.to_string()).into_iter());
+                base_declarations.extend(hacks::BitsDeclaration(bits_sort_suffix).into_iter());
             }
         }
 
