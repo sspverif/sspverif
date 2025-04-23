@@ -27,12 +27,7 @@ impl Type {
         } else {
             match self {
                 Type::Bits(count_spec) if matches!(count_spec.as_ref(), CountSpec::Identifier(Identifier::PackageIdentifier(PackageIdentifier::Const(pkg_const_ident ))) if &pkg_const_ident.name == "n" && pkg_const_ident.tipe == Type::Integer) => {
-                    if rules.is_empty() {
-                        print!(".");
-                        panic!();
-                    } else {
-                        //println!("called the rewriter on the target type with rules {rules:#?}");
-                    }
+                    assert!(!rules.is_empty(), "no type rewrite rules found despite identifier in CountSpec: {count_spec:?}");
                     self.clone()
                 }
 

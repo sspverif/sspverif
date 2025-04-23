@@ -306,6 +306,11 @@ pub(crate) mod instantiate {
             }
         }
 
+        /// Returns rewrite rules for three cases:
+        /// - Rewrites user-defined types to what they are assigned (which is currently not really supported)
+        /// - Rewrite Bits(some_ident) such that some_ident has the instantiation information set, both
+        ///   - for package instantiation
+        ///   - for game instatiantion
         pub(crate) fn base_rewrite_rules(&self) -> Vec<(Type, Type)> {
             let mut type_rewrite_rules = self
                 .type_assignments
