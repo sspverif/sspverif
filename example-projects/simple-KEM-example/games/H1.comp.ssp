@@ -4,7 +4,7 @@ composition H1 {
     const  encaps: fn (Bits(256),Bits(256)) -> (Bits(256),Bits(256)); /* (pk,rand) -> (ctxt,k) */
     const  decaps: fn (Bits(256),Bits(256)) ->  Bits(256);            /* (sk,ctxt) -> k        */
 
-    instance Corr_reduction = Corr_reduction {
+    instance Corr_KEM = Corr_KEM {
         params {
           isideal:   isideal,
              kgen:   kgen,
@@ -13,7 +13,7 @@ composition H1 {
         }
     }
 
-    instance Corr_KEM = Corr_KEM {
+    instance Corr_reduction = Corr_reduction {
         params {
           isideal:   isideal,
              kgen:   kgen,

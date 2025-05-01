@@ -31,8 +31,8 @@ oracle ENC_and_DEC() -> (Bits(256),Bits(256),Bits(256))  /* samples rand and ret
         pk  <- kgen(sk_);
       }
       rand <-$ Bits(256);                          /* sample randomness               */
-      (ctxt,ksent)  <- parse encaps(pk,rand);      /* encapsulate key                 */
-      kreceived     <- decaps(sk,ctxt);            /* decapsulate ctxt                */
+      (ctxt,ksent)  <- parse encaps((pk,rand));    /* encapsulate key                 */
+      kreceived     <- decaps((Unwrap(sk),ctxt));          /* decapsulate ctxt                */
         if isideal { 
              kreceived <- ksent;                   /* in ideal game, replace          */
        }                                           /* received key by sent key        */

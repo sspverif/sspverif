@@ -75,6 +75,50 @@ proof KEM_Proof {
                     same-output:  [no-abort]
                 }
             }
+            GetPK: {
+                invariant: [
+                    ./proofs/invariant-KX-Red-H1.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+              }
+            Run: {
+                invariant: [
+                    ./proofs/invariant-KX-Red-H1.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+              }
+            TestSender: {
+                invariant: [
+                    ./proofs/invariant-KX-Red-H1.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+              }
+            TestReceiver: {
+                invariant: [
+                    ./proofs/invariant-KX-Red-H1.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+              }
         }
     }
 }
