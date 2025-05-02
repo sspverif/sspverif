@@ -23,6 +23,7 @@ use crate::{
     transforms::Transformation,
     util::prover_process::ProverBackend,
 };
+use crate::parser::ast::Identifier;
 
 pub const PROJECT_FILE: &str = "ssp.toml";
 
@@ -150,15 +151,46 @@ impl<'a> Project<'a> {
         Ok(project)
     }
 
-    // we might want to return a proof trace here instead
-    // we could then extract the proof viewer output and other useful info trom the trace
-    pub fn prove(&self, backend: ProverBackend, transcript: bool) -> Result<()> {
+
+    pub fn proofsteps(&self) -> Result<()> {
         let mut proof_keys: Vec<_> = self.proofs.keys().collect();
         proof_keys.sort();
 
         for proof_key in proof_keys.into_iter() {
             let proof = &self.proofs[proof_key];
+			println!("{proof_key}:");
             for (i, game_hop) in proof.game_hops().iter().enumerate() {
+				match game_hop {
+					GameHop::Equivalence(eq) => {
+						println!("{i}: Equivalence {} = {}", eq.left_name(), eq.right_name());
+					}
+					GameHop::Reduction(red) => {
+						println!("{i}: Reduction   {} = {} using {}",
+								 red.left().construction_game_instance_name().as_str(),
+								 red.right().construction_game_instance_name().as_str(),
+								 red.assumption_name());
+					}
+				}
+			}
+		}
+		Ok(())
+	}
+
+    // we might want to return a proof trace here instead
+    // we could then extract the proof viewer output and other useful info trom the trace
+    pub fn prove(&self, backend: ProverBackend, transcript: bool, req_proof: &Option<String>, req_proofstep: Option<usize>) -> Result<()> {
+        let mut proof_keys: Vec<_> = self.proofs.keys().collect();
+        proof_keys.sort();
+
+        for proof_key in proof_keys.into_iter() {
+            let proof = &self.proofs[proof_key];
+			if let Some(ref req_proof) = req_proof {
+				if proof_key != req_proof { continue; }
+			}
+            for (i, game_hop) in proof.game_hops().iter().enumerate() {
+				if let Some(ref req_proofstep) = req_proofstep {
+					if i != *req_proofstep { continue; }
+				}
                 match game_hop {
                     GameHop::Reduction(_) => { /* the reduction has been verified at parse time */ }
                     GameHop::Equivalence(eq) => {
