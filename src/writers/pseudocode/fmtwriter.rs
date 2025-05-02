@@ -80,6 +80,17 @@ impl<W: Write> FmtWriter<W> {
             }
             Type::UserDefined(type_name) => self.write_string(type_name),
             Type::Unknown => self.write_string("Unknown"),
+            Type::Fn(arg_types, ret_type) => {
+                self.write_string("fn ")?;
+                let mut maybe_comma = "";
+                for tipe in arg_types {
+                    self.write_string(maybe_comma)?;
+                    self.write_type(tipe)?;
+                    maybe_comma = ", ";
+                }
+                self.write_string(" -> ")?;
+                self.write_type(ret_type)
+            }
             _ => todo!("{:#?}", t),
         }
     }
