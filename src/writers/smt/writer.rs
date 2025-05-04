@@ -6,7 +6,11 @@ use crate::statement::{CodeBlock, InvokeOracleStatement, Statement};
 use crate::transforms::samplify::SampleInfo;
 use crate::types::Type;
 
-use crate::writers::smt::exprs::{smt_to_string, SmtExpr, SmtIte, SmtLet};
+use crate::writers::smt::{
+	exprs::{smt_to_string, SmtExpr, SmtIte, SmtLet, SmtAssert},
+	sorts::Sort,
+	declare::declare_const,
+};
 
 use super::contexts::{
     GameInstanceContext, GenericOracleContext, OracleContext, PackageInstanceContext,
@@ -1104,6 +1108,23 @@ impl<'a> CompositionSmtWriter<'a> {
             )
             .collect()
     }
+
+    pub(crate) fn smt_composition_sample_names(&mut self) -> Vec<SmtExpr> {
+        let game_inst_ctx = self.context();
+        let game_inst = game_inst_ctx.game_inst();
+		self
+            .sample_info.positions.iter().map(|pos| {
+				if let Some(sample_name) = &pos.sample_name {
+					let inst_name = &pos.inst_name;
+					let game_name = &pos.game_name;
+					let variable_name = format!("<$sample-name-{game_name}-{inst_name}-{sample_name}$>");
+					vec![
+						declare_const(&variable_name, Sort::Int),
+						SmtAssert(SmtEq2{lhs: variable_name, rhs: pos.sample_id}).into(),
+					]
+				} else { vec![] }
+			}).flatten().collect()
+	}
 
     pub(crate) fn smt_composition_randomness(&mut self) -> Vec<SmtExpr> {
         let game_inst_ctx = self.context();
