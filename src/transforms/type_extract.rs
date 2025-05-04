@@ -54,11 +54,11 @@ fn extract_types_from_codeblock(set: &mut HashSet<Type>, cb: CodeBlock) {
                 set.insert(upper_bound.get_type());
                 extract_types_from_codeblock(set, body)
             }
-            Statement::Sample(_, Some(expr_idx), _, t, _) => {
+            Statement::Sample(_, Some(expr_idx), _, t, _, _) => {
                 set.insert(expr_idx.get_type());
                 set.insert(t);
             }
-            Statement::Sample(_, _, _, t, _) => {
+            Statement::Sample(_, _, _, t, _, _) => {
                 set.insert(t);
             }
             Statement::InvokeOracle(InvokeOracleStatement {
