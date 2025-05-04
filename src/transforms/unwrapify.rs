@@ -89,7 +89,7 @@ impl Unwrapifier {
         for stmt in cb.0.clone() {
             match stmt {
                 Statement::Abort(_)
-                | Statement::Sample(_, None, _, _, _)
+                | Statement::Sample(_, None, _, _, _, _)
                 | Statement::Return(None, _) => {
                     newcode.push(stmt);
                 }
@@ -149,7 +149,14 @@ impl Unwrapifier {
                         file_pos,
                     ))
                 }
-                Statement::Sample(ref id, Some(ref expr), ref sample_id, ref ty, file_pos) => {
+                Statement::Sample(
+                    ref id,
+                    Some(ref expr),
+                    ref sample_id,
+                    ref ty,
+                    ref sample_name,
+                    file_pos,
+                ) => {
                     let (newexpr, unwraps) = self.replace_unwrap(expr);
                     if unwraps.is_empty() {
                         newcode.push(stmt);
@@ -160,6 +167,7 @@ impl Unwrapifier {
                             Some(newexpr),
                             *sample_id,
                             ty.clone(),
+                            sample_name.clone(),
                             file_pos,
                         ));
                     }

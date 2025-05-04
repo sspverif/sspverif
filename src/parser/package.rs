@@ -978,7 +978,7 @@ pub fn handle_code(
                         ty.clone(),
                     )
                     ?;
-                    Statement::Sample(ident, None, None, ty, full_span)
+                    Statement::Sample(ident, None, None, ty, None, full_span)
                 }
 
                 Rule::assign => {
@@ -1016,7 +1016,7 @@ pub fn handle_code(
                         Type::Table(Box::new(index.get_type()),  Box::new(ty.clone())),
                     )
                         ?;
-                    Statement::Sample(ident, Some(index), None, ty, full_span)
+                    Statement::Sample(ident, Some(index), None, ty, None, full_span)
                 }
 
                 Rule::table_assign => {

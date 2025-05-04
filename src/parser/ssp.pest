@@ -21,6 +21,7 @@ kw_assert = _{ "assert" }
 kw_abort = _{ "abort" }
 kw_invoke = _{ "invoke" }
 kw_for = _{ "for" }
+kw_sample_name = _{ "sample-name" }
 
 kw_true  = _{ "true" }
 kw_false = _{ "false" }
@@ -170,12 +171,12 @@ stmt = _{ table_sample | table_assign | sample | parse | invocation | assign | r
 
 ite = {"if" ~ expression ~ "{" ~ code ~ "}" ~ ( "else" ~ "{" ~ code ~ "}" )? }
 
-sample = { identifier ~ "<-$" ~ tipe ~ ";" }
+sample = { identifier ~ "<-$" ~ tipe ~ (kw_sample_name ~ identifier)? ~ ";" }
 assign = { identifier ~ "<-" ~ expression ~ ";" }
 invocation = { identifier ~ ( "[" ~ table_index ~ "]" )? ~ "<-" ~ kw_invoke ~ oracle_call ~ ";" }
 parse = { parse_tuple ~ "<-" ~  kw_parse ~ expression ~ ";" }
   parse_tuple = { "(" ~ identifier ~ ("," ~ identifier )+ ~ ")" }
-table_sample = { identifier ~ "[" ~ expression ~ "]" ~ "<-$" ~ tipe ~ ";" }
+table_sample = { identifier ~ "[" ~ expression ~ "]" ~ "<-$" ~ tipe ~ (kw_sample_name ~ identifier)? ~ ";" }
 table_assign = { identifier ~ "[" ~ expression ~ "]" ~ "<-" ~ expression ~ ";" }
 return_stmt = { kw_return ~ expression? ~ ";" }
 assert = { kw_assert ~ expression ~ ";" }

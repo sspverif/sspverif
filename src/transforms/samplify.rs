@@ -129,7 +129,7 @@ pub fn samplify(
                 file_pos,
             )),
 
-            Statement::Sample(id, expr, None, ty, file_pos) => {
+            Statement::Sample(id, expr, None, ty, sample_name, file_pos) => {
                 let pos = Position {
                     game_name: game_name.to_string(),
                     inst_name: inst_name.to_string(),
@@ -146,6 +146,7 @@ pub fn samplify(
                     expr,
                     Some(*ctr),
                     ty.clone(),
+                    sample_name,
                     file_pos,
                 ));
                 *ctr += 1;

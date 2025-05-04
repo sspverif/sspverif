@@ -112,7 +112,7 @@ impl<'a> CompositionSmtWriter<'a> {
                                  game:{game_inst_name}(game_name) pkg:{pkg_inst_name}({pkg_name}) oracle:{oracle_name}", game_inst_name = game_inst_name, pkg_inst_name = pkg_inst_name, pkg_name = pkg_name, oracle_name = oracle_name)
                 }
                 // TODO actually use the type that we sample to know how far to advance the randomness tape
-                Statement::Sample(ident, opt_idx, sample_id, ty, _) => {
+                Statement::Sample(ident, opt_idx, sample_id, ty, _, _) => {
                     self.smt_build_sample(oracle_ctx, result, ident, opt_idx, sample_id, ty)
                 }
                 Statement::Parse(idents, expr, _) => {

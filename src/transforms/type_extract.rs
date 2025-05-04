@@ -133,11 +133,11 @@ fn extract_types_from_codeblock(set: &mut HashSet<Type>, cb: CodeBlock) {
                 record_type(set, upper_bound.get_type());
                 extract_types_from_codeblock(set, body)
             }
-            Statement::Sample(_, Some(expr_idx), _, ty, _) => {
+            Statement::Sample(_, Some(expr_idx), _, ty, _, _) => {
                 record_type(set, expr_idx.get_type());
                 record_type(set, ty);
             }
-            Statement::Sample(_, _, _, ty, _) => {
+            Statement::Sample(_, _, _, ty, _, _) => {
                 record_type(set, ty);
             }
             Statement::InvokeOracle(InvokeOracleStatement {

@@ -316,7 +316,7 @@ impl<'a> BlockWriter<'a> {
                     unreachable!();
                 }
             }
-            Statement::Sample(ident, None, maybecnt, ty, _) => {
+            Statement::Sample(ident, None, maybecnt, ty, _, _) => {
                 let cnt = maybecnt.expect("Expected samplified input");
 
                 writeln!(
@@ -328,7 +328,7 @@ impl<'a> BlockWriter<'a> {
                     self.type_to_tex(ty)
                 )?;
             }
-            Statement::Sample(ident, Some(idxexpr), maybecnt, ty, _) => {
+            Statement::Sample(ident, Some(idxexpr), maybecnt, ty, _, _) => {
                 let cnt = maybecnt.expect("Expected samplified input");
 
                 writeln!(

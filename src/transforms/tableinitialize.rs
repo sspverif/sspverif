@@ -85,6 +85,7 @@ pub fn tableinitialize(
                 Some(ref idxexpr),
                 _,
                 ref ty,
+                _,
                 ref file_pos,
             ) => {
                 let indextype = idxexpr.get_type();
