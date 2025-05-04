@@ -984,9 +984,12 @@ pub fn handle_code(
                         name_ast,
                         oracle_name,
                         tipe.clone(),
-                    )
-                    ?;
-                    Statement::Sample(ident, None, None, tipe, None, full_span)
+                    )?;
+                    let sample_name = match inner.next() {
+                        None => None,
+                        Some(sample_name) => Some(sample_name.as_str().to_string()),
+                    };
+                    Statement::Sample(ident, None, None, tipe, sample_name, full_span)
                 }
 
                 Rule::assign => {
@@ -1024,7 +1027,11 @@ pub fn handle_code(
                         Type::Table(Box::new(index.get_type()),  Box::new(tipe.clone())),
                     )
                         ?;
-                    Statement::Sample(ident, Some(index), None, tipe, None, full_span)
+                    let sample_name = match inner.next() {
+                        None => None,
+                        Some(sample_name) => Some(sample_name.as_str().to_string()),
+                    };
+                    Statement::Sample(ident, Some(index), None, tipe, sample_name, full_span)
                 }
 
                 Rule::table_assign => {
