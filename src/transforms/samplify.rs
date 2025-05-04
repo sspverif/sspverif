@@ -21,6 +21,7 @@ pub struct Position {
 
     pub sample_id: usize,
     pub tipe: Type,
+	pub sample_name: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -138,6 +139,7 @@ pub fn samplify(
                     dst_index: expr.clone(),
                     sample_id: *ctr,
                     tipe: tipe.clone(),
+					sample_name: sample_name.clone(),
                 };
                 sampletypes.insert(tipe.clone());
                 positions.push(pos);
