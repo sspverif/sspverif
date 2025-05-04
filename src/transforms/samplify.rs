@@ -10,17 +10,19 @@ use std::iter::FromIterator;
 
 pub struct Transformation<'a>(pub &'a Composition);
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Position {
     pub game_name: String,
     pub inst_name: String,
     pub pkg_name: String,
+    pub oracle_name: String,
 
     pub dst_name: String,
     pub dst_index: Option<Expression>,
 
     pub sample_id: usize,
     pub ty: Type,
+    pub sample_name: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -56,6 +58,7 @@ impl super::Transformation for Transformation<'_> {
                         game_name,
                         pkg_name,
                         inst_name,
+                        &oracle.sig.name,
                         &mut ctr,
                         &mut samplings,
                         &mut positions,
@@ -83,6 +86,7 @@ pub fn samplify(
     game_name: &str,
     pkg_name: &str,
     inst_name: &str,
+    oracle_name: &str,
     ctr: &mut usize,
     sampletypes: &mut HashSet<Type>,
     positions: &mut Vec<Position>,
@@ -97,6 +101,7 @@ pub fn samplify(
                         game_name,
                         pkg_name,
                         inst_name,
+                        oracle_name,
                         ctr,
                         sampletypes,
                         positions,
@@ -106,6 +111,7 @@ pub fn samplify(
                         game_name,
                         pkg_name,
                         inst_name,
+                        oracle_name,
                         ctr,
                         sampletypes,
                         positions,
@@ -122,6 +128,7 @@ pub fn samplify(
                     game_name,
                     pkg_name,
                     inst_name,
+                    oracle_name,
                     ctr,
                     sampletypes,
                     positions,
@@ -134,10 +141,12 @@ pub fn samplify(
                     game_name: game_name.to_string(),
                     inst_name: inst_name.to_string(),
                     pkg_name: pkg_name.to_string(),
+                    oracle_name: oracle_name.to_string(),
                     dst_name: id.ident(),
                     dst_index: expr.clone(),
                     sample_id: *ctr,
                     ty: ty.clone(),
+                    sample_name: sample_name.clone(),
                 };
                 sampletypes.insert(ty.clone());
                 positions.push(pos);
