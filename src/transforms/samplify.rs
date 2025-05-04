@@ -21,6 +21,7 @@ pub struct Position {
 
     pub sample_id: usize,
     pub tipe: Type,
+	pub sample_name: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -129,7 +130,7 @@ pub fn samplify(
                 file_pos,
             )),
 
-            Statement::Sample(id, expr, None, tipe, file_pos) => {
+            Statement::Sample(id, expr, None, tipe, sample_name, file_pos) => {
                 let pos = Position {
                     game_name: game_name.to_string(),
                     inst_name: inst_name.to_string(),
@@ -138,6 +139,7 @@ pub fn samplify(
                     dst_index: expr.clone(),
                     sample_id: *ctr,
                     tipe: tipe.clone(),
+					sample_name: sample_name.clone(),
                 };
                 sampletypes.insert(tipe.clone());
                 positions.push(pos);
@@ -146,6 +148,7 @@ pub fn samplify(
                     expr,
                     Some(*ctr),
                     tipe.clone(),
+					sample_name,
                     file_pos,
                 ));
                 *ctr += 1;

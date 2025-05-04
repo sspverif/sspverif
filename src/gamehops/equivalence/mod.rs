@@ -262,6 +262,8 @@ impl<'a> EquivalenceContext<'a> {
         out.append(&mut right_writer.smt_composition_randomness());
         out.append(&mut left_writer.smt_composition_paramfuncs());
         out.append(&mut right_writer.smt_composition_paramfuncs());
+        out.append(&mut left_writer.smt_composition_sample_names());
+        out.append(&mut right_writer.smt_composition_sample_names());
 
         out.extend(self.smt_package_const_definitions());
         out.extend(self.smt_package_state_definitions());

@@ -483,11 +483,12 @@ pub(crate) mod instantiate {
                     self.rewrite_expression(&expr),
                     pos,
                 ),
-                Statement::Sample(ident, index, sample_id, tipe, pos) => Statement::Sample(
+                Statement::Sample(ident, index, sample_id, tipe, sample_name, pos) => Statement::Sample(
                     self.rewrite_identifier(ident),
                     index.clone().map(|expr| self.rewrite_expression(&expr)),
                     sample_id,
                     tipe.rewrite_type(&type_rewrite_rules),
+					sample_name,
                     pos,
                 ),
                 Statement::InvokeOracle(InvokeOracleStatement {

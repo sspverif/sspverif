@@ -6,7 +6,11 @@ use crate::statement::{CodeBlock, InvokeOracleStatement, Statement};
 use crate::transforms::samplify::SampleInfo;
 use crate::types::Type;
 
-use crate::writers::smt::exprs::{smt_to_string, SmtExpr, SmtIte, SmtLet};
+use crate::writers::smt::{
+	exprs::{smt_to_string, SmtExpr, SmtIte, SmtLet, SmtAssert},
+	sorts::Sort,
+	declare::declare_const,
+};
 
 use super::contexts::{
     GameInstanceContext, GenericOracleContext, OracleContext, PackageInstanceContext,
@@ -110,7 +114,7 @@ impl<'a> CompositionSmtWriter<'a> {
                                  game:{game_inst_name}(game_name) pkg:{pkg_inst_name}({pkg_name}) oracle:{oracle_name}", game_inst_name = game_inst_name, pkg_inst_name = pkg_inst_name, pkg_name = pkg_name, oracle_name = oracle_name)
                 }
                 // TODO actually use the type that we sample to know how far to advance the randomness tape
-                Statement::Sample(ident, opt_idx, sample_id, tipe, _) => {
+                Statement::Sample(ident, opt_idx, sample_id, tipe, _, _) => {
                     self.smt_build_sample(oracle_ctx, result, ident, opt_idx, sample_id, tipe)
                 }
                 Statement::Parse(idents, expr, _) => {
@@ -1104,6 +1108,23 @@ impl<'a> CompositionSmtWriter<'a> {
             )
             .collect()
     }
+
+    pub(crate) fn smt_composition_sample_names(&mut self) -> Vec<SmtExpr> {
+        let game_inst_ctx = self.context();
+        let game_inst = game_inst_ctx.game_inst();
+		self
+            .sample_info.positions.iter().map(|pos| {
+				if let Some(sample_name) = &pos.sample_name {
+					let inst_name = &pos.inst_name;
+					let game_name = &pos.game_name;
+					let variable_name = format!("<$sample-name-{game_name}-{inst_name}-{sample_name}$>");
+					vec![
+						declare_const(&variable_name, Sort::Int),
+						SmtAssert(SmtEq2{lhs: variable_name, rhs: pos.sample_id}).into(),
+					]
+				} else { vec![] }
+			}).flatten().collect()
+	}
 
     pub(crate) fn smt_composition_randomness(&mut self) -> Vec<SmtExpr> {
         let game_inst_ctx = self.context();
