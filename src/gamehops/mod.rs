@@ -1,6 +1,8 @@
 use equivalence::Equivalence;
 use reduction::Reduction;
 
+use crate::parser::ast::Identifier;
+
 pub mod equivalence;
 pub mod reduction;
 //
@@ -41,6 +43,24 @@ impl<'a> GameHop<'a> {
             Some(v)
         } else {
             None
+        }
+    }
+
+    pub fn left_game_instance_name(&self) -> &str {
+        match self {
+            GameHop::Reduction(reduction) => {
+                reduction.left().construction_game_instance_name().as_str()
+            }
+            GameHop::Equivalence(equivalence) => equivalence.left_name(),
+        }
+    }
+
+    pub fn right_game_instance_name(&self) -> &str {
+        match self {
+            GameHop::Reduction(reduction) => {
+                reduction.right().construction_game_instance_name().as_str()
+            }
+            GameHop::Equivalence(equivalence) => equivalence.right_name(),
         }
     }
 }

@@ -157,15 +157,26 @@ impl<'a> Project<'a> {
 
         for proof_key in proof_keys.into_iter() {
             let proof = &self.proofs[proof_key];
+            let max_width_left = proof
+                .game_hops()
+                .iter()
+                .map(GameHop::left_game_instance_name)
+                .map(str::len)
+                .max()
+                .unwrap_or(0);
+
             println!("{proof_key}:");
             for (i, game_hop) in proof.game_hops().iter().enumerate() {
                 match game_hop {
                     GameHop::Equivalence(eq) => {
-                        println!("{i}: Equivalence {} = {}", eq.left_name(), eq.right_name());
+                        let left_name = eq.left_name();
+                        let right_name = eq.right_name();
+                        let spaces = " ".repeat(max_width_left - left_name.len());
+                        println!("{i}: Equivalence {left_name}{spaces} == {right_name}");
                     }
                     GameHop::Reduction(red) => {
                         println!(
-                            "{i}: Reduction   {} = {} using {}",
+                            "{i}: Reduction   {} ~= {} using {}",
                             red.left().construction_game_instance_name().as_str(),
                             red.right().construction_game_instance_name().as_str(),
                             red.assumption_name()
