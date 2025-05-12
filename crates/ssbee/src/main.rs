@@ -140,7 +140,7 @@ enum Commands {
     /// Reformat file or directory
     Format(Format),
 
-	Proofsteps,
+    Proofsteps,
 }
 
 #[derive(clap::Args, Debug)]
@@ -189,7 +189,7 @@ struct WireCheck {
     dst_idx: usize,
 }
 
-fn proofsteps()  -> Result<(), project::error::Error> {
+fn proofsteps() -> Result<(), project::error::Error> {
     let project_root = project::find_project_root()?;
     let files = project::Files::load(&project_root)?;
     let project = project::Project::load(&files)?;
@@ -202,7 +202,7 @@ fn prove(p: &Prove) -> Result<(), project::error::Error> {
     let files = project::Files::load(&project_root)?;
     let project = project::Project::load(&files)?;
 
-	assert!(p.proofstep == None || p.proof != None);
+    assert!(p.proofstep == None || p.proof != None);
 
     project.prove(p.prover, p.transcript, &p.proof, p.proofstep)
 }
@@ -252,7 +252,7 @@ fn main() -> miette::Result<()> {
 
     let result = match &cli.command {
         Commands::Prove(p) => prove(p),
-		Commands::Proofsteps => proofsteps(),
+        Commands::Proofsteps => proofsteps(),
         Commands::Latex(l) => latex(l),
         Commands::Explain(Explain { game_name, output }) => explain(game_name, output),
         Commands::WireCheck(args) => wire_check(&args.game_name, args.dst_idx),
