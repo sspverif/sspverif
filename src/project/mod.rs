@@ -1,4 +1,3 @@
-use miette::Diagnostic;
 /**
  *  project is the high-level structure of sspverif.
  *
@@ -6,7 +5,6 @@ use miette::Diagnostic;
  *  we also facilitate individual proof steps here, and provide an interface for doing the whole proof.
  *
  */
-use std::io::ErrorKind;
 use std::path::Path;
 use std::{collections::HashMap, path::PathBuf};
 use walkdir;

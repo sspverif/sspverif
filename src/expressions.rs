@@ -454,6 +454,14 @@ impl Expression {
     pub fn new_equals(exprs: Vec<&Expression>) -> Expression {
         Expression::Equals(exprs.into_iter().cloned().collect())
     }
+
+    pub fn as_identifier(&self) -> Option<&Identifier> {
+        if let Self::Identifier(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
 #[macro_export]

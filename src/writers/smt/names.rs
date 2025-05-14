@@ -10,22 +10,6 @@ pub(crate) fn concat_kebab_case<'a>(parts: impl IntoIterator<Item = &'a &'a str>
     format!("<{}>", parts.into_iter().join("-"))
 }
 
-pub(crate) fn return_constructor_abort_name(
-    game_name: &str,
-    inst_name: &str,
-    oracle_name: &str,
-) -> String {
-    format!("mk-abort-{game_name}-{inst_name}-{oracle_name}")
-}
-
-pub(crate) fn gamestate_sort_name(game_name: &str) -> String {
-    format!("CompositionState-{game_name}")
-}
-
-pub(crate) fn var_selfstate_name() -> String {
-    "__self_state".to_string()
-}
-
 pub(crate) fn var_globalstate_name() -> String {
     "<game-state>".to_string()
 }
@@ -40,8 +24,4 @@ pub(crate) fn fn_sample_rand_name<S: Into<SmtExpr>>(game_name: &str, rand_sort: 
 
 pub(crate) fn oracle_nonsplit_arg_name(oracle_name: &str, arg_name: &str) -> String {
     format!("<arg-{oracle_name}-{arg_name}>")
-}
-
-pub(crate) fn oracle_split_arg_name(game_name: &str, oracle_name: &str, arg_name: &str) -> String {
-    format!("<arg-{game_name}-{oracle_name}-{arg_name}>")
 }

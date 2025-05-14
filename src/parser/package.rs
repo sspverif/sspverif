@@ -1011,7 +1011,7 @@ pub fn handle_code(
                             }
                             )?;
 
-                    let Declaration::Oracle(target_oracle_ctx, target_oracle_sig) = oracle_decl else {
+                    let Declaration::Oracle(_target_oracle_ctx, target_oracle_sig) = oracle_decl else {
                             // XXX: we could also give notice that there exists an identifier of
                             // that name; but saying "there is no oracle of that name" isn't wrong
                             // either

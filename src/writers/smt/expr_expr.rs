@@ -1,9 +1,5 @@
 use super::exprs::SmtExpr;
 use crate::expressions::Expression;
-use crate::identifier::game_ident::{GameConstIdentifier, GameIdentifier};
-use crate::identifier::pkg_ident::{PackageConstIdentifier, PackageIdentifier};
-use crate::identifier::proof_ident::{ProofConstIdentifier, ProofIdentifier};
-use crate::identifier::Identifier;
 use crate::types::Type;
 
 impl From<Expression> for SmtExpr {
@@ -160,33 +156,8 @@ impl From<Expression> for SmtExpr {
             }
              */
             Expression::FnCall(id, exprs) => {
-                let func_name = match id {
-                    Identifier::PackageIdentifier(PackageIdentifier::Const(
-                        PackageConstIdentifier {
-                            name,
-                            game_inst_name: Some(game_inst_name),
-                            pkg_inst_name: Some(pkg_inst_name),
-                            ..
-                        },
-                    )) => {
-                        format!("<<func-pkg-{game_inst_name}-{pkg_inst_name}-{name}>>")
-                    }
-
-                    Identifier::GameIdentifier(GameIdentifier::Const(GameConstIdentifier {
-                        name,
-                        game_inst_name: Some(game_inst_name),
-                        ..
-                    })) => {
-                        format!("<<func-game-{game_inst_name}-{name}>>")
-                    }
-                    Identifier::ProofIdentifier(ProofIdentifier::Const(ProofConstIdentifier {
-                        name,
-                        ..
-                    })) => {
-                        format!("<<func-proof-{name}>>")
-                    }
-                    other => unreachable!("unexpected identifier in function call: {other:?}"),
-                };
+                let name_in_proof = id.as_proof_identifier().unwrap().ident_ref();
+                let func_name = format!("<<func-{name_in_proof}>>");
 
                 SmtExpr::List(
                     Some(func_name.into())

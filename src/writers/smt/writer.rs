@@ -1084,27 +1084,6 @@ impl<'a> CompositionSmtWriter<'a> {
     //         .into()
     // }
 
-    pub(crate) fn smt_composition_paramfuncs(&self) -> Vec<SmtExpr> {
-        let game_inst_ctx = self.context();
-
-        None.into_iter()
-            .chain(
-                // add the game instance level functions
-                game_inst_ctx
-                    .smt_define_param_functions()
-                    .into_iter()
-                    .map(|x| x.into()),
-            )
-            .chain(
-                // add the package instance level functions
-                game_inst_ctx
-                    .pkg_inst_contexts()
-                    .flat_map(|pkg_inst_ctx| pkg_inst_ctx.smt_define_param_functions())
-                    .map(|x| x.into()),
-            )
-            .collect()
-    }
-
     pub(crate) fn smt_composition_randomness(&mut self) -> Vec<SmtExpr> {
         let game_inst_ctx = self.context();
         let game_inst = game_inst_ctx.game_inst();
