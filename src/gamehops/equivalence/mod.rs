@@ -234,7 +234,7 @@ impl<'a> EquivalenceContext<'a> {
 
             let smt = (
                 "declare-fun",
-                format!("<<func-proof-{func_name}>>"),
+                format!("<<func-{func_name}>>"),
                 arg_types,
                 ret_type,
             );
@@ -260,8 +260,6 @@ impl<'a> EquivalenceContext<'a> {
 
         out.append(&mut left_writer.smt_composition_randomness());
         out.append(&mut right_writer.smt_composition_randomness());
-        out.append(&mut left_writer.smt_composition_paramfuncs());
-        out.append(&mut right_writer.smt_composition_paramfuncs());
 
         out.extend(self.smt_package_const_definitions());
         out.extend(self.smt_package_state_definitions());

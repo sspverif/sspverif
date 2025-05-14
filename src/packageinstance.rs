@@ -8,7 +8,6 @@ use crate::{
     },
     package::{OracleDef, OracleSig, Package},
     parser::package::MultiInstanceIndices,
-    statement::Statement,
     types::{CountSpec, Type},
 };
 
@@ -162,13 +161,11 @@ pub(crate) mod instantiate {
     use super::*;
     use crate::{
         identifier::{
-            game_ident::{GameConstIdentifier, GameIdentInstanciationInfo, GameIdentifier},
+            game_ident::{GameConstIdentifier, GameIdentifier},
             pkg_ident::{
                 PackageLocalIdentifier, PackageOracleArgIdentifier, PackageStateIdentifier,
             },
-            proof_ident::{ProofIdentInstanciationInfo, ProofIdentifier},
         },
-        parser::error::UndefinedIdentifierError,
         statement::*,
     };
 
@@ -542,82 +539,6 @@ pub(crate) mod instantiate {
                     Expression::Identifier(self.rewrite_identifier(ident))
                 }
 
-                // XXX: Are we sure these should all be unreachable???
-                (
-                    InstantiationSource::Package { const_assignments },
-                    Expression::Identifier(Identifier::PackageIdentifier(
-                        PackageIdentifier::Const(pkg_const_ident),
-                    )),
-                ) => const_assignments
-                    .iter()
-                    .find_map(|(search, replace)| {
-                        if search.name == pkg_const_ident.name {
-                            let new_expr = replace.map(|expr| match expr {
-                                Expression::Identifier(Identifier::GameIdentifier(game_ident)) => {
-                                    let inst_info = GameIdentInstanciationInfo {
-                                        lower: pkg_const_ident.clone(),
-                                        pkg_inst_name: self.inst_name.to_string(),
-                                    };
-
-                                    Expression::Identifier(Identifier::GameIdentifier(
-                                        game_ident.with_instance_info(inst_info),
-                                    ))
-                                }
-                                other => other,
-                            });
-                            Some(new_expr)
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap(),
-                (
-                    InstantiationSource::Game { const_assignments },
-                    Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(
-                        game_const_ident,
-                    ))),
-                ) => const_assignments
-                    .iter()
-                    .find_map(|(search, replace)| {
-                        if search.name == game_const_ident.name {
-                            let new_expr = replace.map(|mut expr| match expr {
-                                Expression::Identifier(ref mut ident) => match self.src {
-                                    InstantiationSource::Package { .. } => {
-                                        ident.set_pkg_inst_info(
-                                            self.inst_name.to_string(),
-                                            self.parent_name.to_string(),
-                                        );
-                                        expr
-                                    }
-                                    InstantiationSource::Game { .. } => {
-                                        ident.set_game_inst_info(
-                                            self.inst_name.to_string(),
-                                            self.parent_name.to_string(),
-                                        );
-                                        expr
-                                    }
-                                },
-                                Expression::Identifier(Identifier::ProofIdentifier(
-                                    proof_ident,
-                                )) => {
-                                    let inst_info = ProofIdentInstanciationInfo {
-                                        lower: game_const_ident.clone(),
-                                        game_inst_name: self.inst_name.to_string(),
-                                    };
-
-                                    Expression::Identifier(Identifier::ProofIdentifier(
-                                        proof_ident.with_instance_info(inst_info),
-                                    ))
-                                }
-                                other => other,
-                            });
-                            Some(new_expr)
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap(),
-
                 // can only happen in oracle code, i.e. package code
                 (_, Expression::TableAccess(ident, expr)) => {
                     Expression::TableAccess(self.rewrite_identifier(ident), expr)
@@ -630,48 +551,98 @@ pub(crate) mod instantiate {
             })
         }
 
-        pub(crate) fn rewrite_identifier(&self, ident: Identifier) -> Identifier {
-            let type_rewrite_rules = self.base_rewrite_rules();
-
-            // extend the identifier with the instance and parent names
-            let ident = match (self.src, ident) {
-                (
-                    InstantiationSource::Package { .. },
-                    Identifier::PackageIdentifier(mut pkg_ident),
-                ) => {
+        pub(crate) fn rewrite_pkg_identifier(
+            &self,
+            mut pkg_ident: PackageIdentifier,
+        ) -> PackageIdentifier {
+            match self.src {
+                InstantiationSource::Package { const_assignments } => {
                     pkg_ident.set_pkg_inst_info(
                         self.inst_name.to_string(),
                         self.parent_name.to_string(),
                     );
-                    pkg_ident.into()
+
+                    if let PackageIdentifier::Const(pkg_const_ident) = &mut pkg_ident {
+                        let (_, ref assignment) = const_assignments
+                            .iter()
+                            .find(|(assignment_const_ident, _)| {
+                                assignment_const_ident.name == pkg_const_ident.name
+                            })
+                            .unwrap();
+
+                        pkg_const_ident.set_assignment(assignment.clone());
+                    }
+
+                    pkg_ident
                 }
-                (
-                    InstantiationSource::Game { .. },
-                    Identifier::PackageIdentifier(mut pkg_ident),
-                ) => {
+                InstantiationSource::Game { .. } => {
+                    if let PackageIdentifier::Const(PackageConstIdentifier {
+                        game_assignment,
+                        ..
+                    }) = &mut pkg_ident
+                    {
+                        let assignment = game_assignment.as_mut().unwrap().as_mut();
+                        if let Expression::Identifier(ident) = assignment {
+                            *ident = self.rewrite_identifier(ident.clone())
+                        }
+                    }
+
                     pkg_ident.set_game_inst_info(
                         self.inst_name.to_string(),
                         self.parent_name.to_string(),
                     );
                     pkg_ident.into()
                 }
-                (InstantiationSource::Game { .. }, Identifier::GameIdentifier(mut game_ident)) => {
+            }
+        }
+
+        pub(crate) fn rewrite_game_identifier(
+            &self,
+            mut game_ident: GameIdentifier,
+        ) -> GameIdentifier {
+            match self.src {
+                InstantiationSource::Game { const_assignments } => {
                     game_ident.set_game_inst_info(
                         self.inst_name.to_string(),
                         self.parent_name.to_string(),
                     );
+                    if let GameIdentifier::Const(game_const_ident) = &mut game_ident {
+                        let (_, ref assignment) = const_assignments
+                            .iter()
+                            .find(|(assignment_const_ident, _)| {
+                                assignment_const_ident.name == game_const_ident.name
+                            })
+                            .unwrap();
+
+                        game_const_ident.set_assignment(assignment.clone());
+                    }
                     game_ident.into()
                 }
-
-                (InstantiationSource::Package { .. }, ident @ Identifier::GameIdentifier(_))
-                | (InstantiationSource::Package { .. }, ident @ Identifier::ProofIdentifier(_))
-                | (InstantiationSource::Game { .. }, ident @ Identifier::ProofIdentifier(_)) => {
+                InstantiationSource::Package { .. } => {
                     unreachable!(
-                        "found\n    {ident:?}\n  when instantiating with context\n    {self:?}",
+                        r#"found game identifier `{name}' when instantiating package
+    identifier: {game_ident:?}
+    inst ctx:   {self:?}"#,
+                        name = game_ident.ident(),
                     )
                 }
-                (InstantiationSource::Package { .. }, ident @ Identifier::Generated(_, _))
-                | (InstantiationSource::Game { .. }, ident @ Identifier::Generated(_, _)) => ident,
+            }
+        }
+
+        pub(crate) fn rewrite_identifier(&self, ident: Identifier) -> Identifier {
+            let type_rewrite_rules = self.base_rewrite_rules();
+
+            // extend the identifier with the instance and parent names
+            let ident = match (self.src, ident) {
+                (_, Identifier::PackageIdentifier(pkg_ident)) => {
+                    self.rewrite_pkg_identifier(pkg_ident).into()
+                }
+                (_, Identifier::GameIdentifier(game_ident)) => {
+                    self.rewrite_game_identifier(game_ident).into()
+                }
+
+                (_, ident @ Identifier::ProofIdentifier(_))
+                | (_, ident @ Identifier::Generated(_, _)) => ident,
             };
 
             // rewrite the types

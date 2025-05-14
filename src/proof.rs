@@ -6,7 +6,6 @@ use crate::{
     identifier::{
         game_ident::{GameConstIdentifier, GameIdentifier},
         pkg_ident::{PackageConstIdentifier, PackageIdentifier},
-        proof_ident::{ProofConstIdentifier, ProofIdentifier},
         Identifier,
     },
     package::{Composition, OracleSig, Package},
