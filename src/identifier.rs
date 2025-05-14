@@ -41,6 +41,7 @@ impl Identifier {
             Identifier::Generated(_, _) => None,
         }
     }
+
     pub(crate) fn identifiers_match(&self, other: &Self) -> bool {
         match (self, other) {
             (Identifier::Generated(_, _), _) | (_, Identifier::Generated(_, _)) => {
@@ -98,22 +99,6 @@ impl Identifier {
                 | Identifier::GameIdentifier(GameIdentifier::Const(_))
                 | Identifier::ProofIdentifier(ProofIdentifier::Const(_))
         )
-    }
-
-    pub fn as_package_identifier(&self) -> Option<&pkg_ident::PackageIdentifier> {
-        if let Self::PackageIdentifier(v) = self {
-            Some(v)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_game_identifier(&self) -> Option<&game_ident::GameIdentifier> {
-        if let Self::GameIdentifier(v) = self {
-            Some(v)
-        } else {
-            None
-        }
     }
 }
 
