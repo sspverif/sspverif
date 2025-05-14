@@ -1,13 +1,17 @@
 use std::fmt::Write;
+use std::io::Write as OterWrite;
 
 use crate::{
     gamehops::equivalence::{
-        error::{Error, Result},
+        error::{Error, Result, aux_info_claim_failed},
         Equivalence,
     },
     proof::Proof,
     transforms::{proof_transforms::EquivalenceTransform, ProofTransform},
-    util::prover_process::{Communicator, ProverResponse},
+    util::{
+        smtmodel::SmtModel,
+        prover_process::{Communicator, ProverResponse},
+    },
     writers::smt::exprs::SmtExpr,
 };
 
@@ -50,11 +54,29 @@ pub fn verify(eq: &Equivalence, proof: &Proof, mut prover: Communicator) -> Resu
             match prover.check_sat()? {
                 ProverResponse::Unsat => {}
                 response => {
-                    return Err(Error::ClaimProofFailed {
-                        claim_name: claim.name().to_string(),
-                        response,
-                        model: prover.get_model(),
-                    });
+                    let maybe_model = prover.get_model();
+                    match maybe_model {
+                        Ok(ref model) => {
+                            let mut modelfile = tempfile::NamedTempFile::new().unwrap();
+                            modelfile.write_all(model.as_bytes());
+                            let (_, fname) = modelfile.keep().unwrap();
+                            let fuzzy_model = SmtModel::fuzzy_from_string(&model);
+                            return Err(Error::ClaimProofFailed {
+                                claim_name: claim.name().to_string(),
+                                response,
+                                modelfile: Ok(fname),
+                                auxinfo: aux_info_claim_failed(&claim, &fuzzy_model, &eqctx, &oracle_sig),
+                            });
+                        }
+                        Err(err) => {
+                            return Err(Error::ClaimProofFailed {
+                                claim_name: claim.name().to_string(),
+                                response,
+                                modelfile: Err(err),
+                                auxinfo: "".to_string(),
+                            });
+                        }
+                    }
                 }
             }
             write!(prover, "(pop 1)").unwrap();

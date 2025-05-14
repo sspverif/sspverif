@@ -30,17 +30,67 @@ impl SmtModelParser {
             })
             .collect()
     }
+
+    pub fn fuzzy_parse_model(content: &str) -> Vec<(String,String,String)> {
+        let full_content = content.to_string();
+        let mut content = &full_content[..];
+        let mut result = vec![];
+
+        while true {
+            if &content[..2] == "(\n" {
+                content = &content[2..];
+                continue;
+            }
+            if &content[..1] == ";" {
+                let mut split = content.splitn(2, "\n");
+                if let Some(stuff) = split.nth(1) {
+                    content = stuff;
+                    continue;
+                } else {
+                    break;
+                }
+            }
+            if content.len() < 12 { break; }
+            if &content[..12] == "(define-fun " {
+                if let Ok(mut ast) = SmtModelParser::parse(Rule::modelline, content){
+                    let mut inner = ast.next().unwrap().into_inner();
+                    let name = inner.next().unwrap();
+                    debug_assert_matches!(name.as_rule(), Rule::name);
+                    let tipe = inner.next().unwrap();
+                    debug_assert_matches!(tipe.as_rule(), Rule::tipe);
+                    let value = inner.next().unwrap();
+                    debug_assert_matches!(value.as_rule(), Rule::value);
+                    result.push((
+                        String::from(name.as_str()),
+                        String::from(tipe.as_str()),
+                        String::from(value.as_str()),
+                    ));
+                }
+                let mut split = content.splitn(2, "\n");
+                if let Some(stuff) = split.nth(1) {
+                    content = stuff;
+                    continue;
+                } else {
+                    break;
+                }
+            }
+        }
+        dbg!(&result);
+        result
+    }
 }
 
 #[derive(Debug, Clone)]
 pub enum SmtModelEntry {
     IntEntry { name: String, value: i32 },
+    BoolEntry { name: String, value: bool },
 }
 
 impl SmtModelEntry {
     pub fn name(&self) -> &str {
         match &self {
             SmtModelEntry::IntEntry { name, .. } => name,
+            SmtModelEntry::BoolEntry { name, .. } => name,
         }
     }
 }
@@ -57,6 +107,31 @@ impl SmtModel {
             .into_iter()
             .map(|(name, tipe, value)| match tipe.as_str() {
                 "Int" => SmtModelEntry::IntEntry {
+                    name,
+                    value: value.parse().unwrap(),
+                },
+                "Bool" => SmtModelEntry::BoolEntry {
+                    name,
+                    value: value.parse().unwrap(),
+                },
+                _ => unimplemented!(),
+            })
+            .collect();
+        Self {
+            values: transformed,
+        }
+    }
+
+    pub fn fuzzy_from_string(from: &str) -> Self {
+        let parsed = SmtModelParser::fuzzy_parse_model(from);
+        let transformed = parsed
+            .into_iter()
+            .map(|(name, tipe, value)| match tipe.as_str() {
+                "Int" => SmtModelEntry::IntEntry {
+                    name,
+                    value: value.parse().unwrap(),
+                },
+                "Bool" => SmtModelEntry::BoolEntry {
                     name,
                     value: value.parse().unwrap(),
                 },
