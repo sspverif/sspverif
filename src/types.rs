@@ -60,7 +60,7 @@ impl Type {
 
     pub(crate) fn types_match(&self, other: &Self) -> bool {
         match (self, other) {
-            (Type::Bits(l), Type::Bits(r)) => dbg!(l.countspecs_match(r.as_ref())),
+            (Type::Bits(l), Type::Bits(r)) => l.countspecs_match(r.as_ref()),
 
             (Type::List(l), Type::List(r))
             | (Type::Set(l), Type::Set(r))

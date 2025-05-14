@@ -499,7 +499,7 @@ fn tex_solve_composition_graph(
 ) -> Option<SmtModel> {
     use std::fmt::Write;
 
-    let mut model = String::new();
+    let mut model;
     let write_model = |comm: &mut crate::util::prover_process::Communicator| {
         let mut edges: HashSet<(usize, usize)> = HashSet::new();
 
@@ -615,28 +615,28 @@ fn tex_solve_composition_graph(
         }
     };
 
-    let mut min_width = 50;
+    let _min_width = 50;
 
     // Check if it is at all solvable
     let mut comm = Communicator::new(backend.unwrap()).unwrap();
     write_model(&mut comm);
 
-    let mut max_width = 0;
+    let mut max_width;
     let mut min_width = 0;
     if comm.check_sat().unwrap() != ProverResponse::Sat {
         return None;
     } else {
         model = comm.get_model().unwrap();
         let model = SmtModel::from_string(&model);
-        if let SmtModelEntry::IntEntry { name, value } = model.get_value("width").unwrap() {
-            max_width = value;
-        }
+        let SmtModelEntry::IntEntry { value, .. } = model.get_value("width").unwrap();
+
+        max_width = value;
     }
 
     let mut max_height = 0;
     let mut min_height = 0;
-    let mut opt_width = 0;
-    while true {
+    let opt_width;
+    loop {
         let mut comm = Communicator::new(backend.unwrap()).unwrap();
 
         let width = min_width + (max_width - min_width) / 2;
@@ -647,9 +647,9 @@ fn tex_solve_composition_graph(
             max_width = width;
             model = comm.get_model().unwrap();
             let model = SmtModel::from_string(&model);
-            if let SmtModelEntry::IntEntry { name, value } = model.get_value("height").unwrap() {
-                max_height = value;
-            }
+            let SmtModelEntry::IntEntry { value, .. } = model.get_value("height").unwrap();
+
+            max_height = value;
         } else {
             min_width = width;
         }
@@ -660,7 +660,7 @@ fn tex_solve_composition_graph(
     }
 
     if min_height != max_height {
-        while true {
+        loop {
             let mut comm = Communicator::new(backend.unwrap()).unwrap();
 
             let height = min_height + (max_height - min_height) / 2;

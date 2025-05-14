@@ -241,7 +241,7 @@ pub(crate) mod instantiate {
                 ) => {
                     let (_, assigned_expr) = const_assignments
                         .iter()
-                        .find(|(ident, expr)| ident.name == pkg_const_ident.name)
+                        .find(|(ident, _)| ident.name == pkg_const_ident.name)
                         .expect("TODO todo: this should be a propoer error");
 
                     pkg_const_ident.set_pkg_inst_info(
@@ -262,7 +262,7 @@ pub(crate) mod instantiate {
                 ) => {
                     let (_, assigned_expr) = const_assignments
                         .iter()
-                        .find(|(ident, expr)| ident.name == game_const_ident.name)
+                        .find(|(ident, _)| ident.name == game_const_ident.name)
                         .expect("TODO todo: this should be a propoer error");
 
                     game_const_ident.set_game_inst_info(
@@ -283,7 +283,7 @@ pub(crate) mod instantiate {
                 ) => {
                     let (_, assigned_expr) = const_assignments
                         .iter()
-                        .find(|(ident, expr)| ident.name == pkg_const_ident.name)
+                        .find(|(ident, _)| ident.name == pkg_const_ident.name)
                         .expect("TODO todo: this should be a propoer error");
 
                     pkg_const_ident.set_game_inst_info(
@@ -459,16 +459,15 @@ pub(crate) mod instantiate {
 
         pub(crate) fn rewrite_statement(&self, stmt: Statement) -> Statement {
             let type_rewrite_rules = self.base_rewrite_rules();
-
             match stmt {
                 Statement::Abort(_) => stmt.clone(),
                 Statement::Return(expr, pos) => {
-                    Statement::Return(expr.clone().map(|expr| self.rewrite_expression(&expr)), pos)
+                    Statement::Return(expr.as_ref().map(|expr| self.rewrite_expression(expr)), pos)
                 }
 
                 Statement::Assign(ident, index, value, pos) => Statement::Assign(
                     self.rewrite_identifier(ident),
-                    index.clone().map(|expr| self.rewrite_expression(&expr)),
+                    index.as_ref().map(|expr| self.rewrite_expression(expr)),
                     self.rewrite_expression(&value),
                     pos,
                 ),
@@ -482,7 +481,7 @@ pub(crate) mod instantiate {
                 ),
                 Statement::Sample(ident, index, sample_id, tipe, pos) => Statement::Sample(
                     self.rewrite_identifier(ident),
-                    index.clone().map(|expr| self.rewrite_expression(&expr)),
+                    index.as_ref().map(|expr| self.rewrite_expression(expr)),
                     sample_id,
                     tipe.rewrite_type(&type_rewrite_rules),
                     pos,
@@ -502,16 +501,16 @@ pub(crate) mod instantiate {
                     file_pos,
 
                     id: self.rewrite_identifier(id),
-                    opt_idx: opt_idx.clone().map(|expr| self.rewrite_expression(&expr)),
+                    opt_idx: opt_idx.as_ref().map(|expr| self.rewrite_expression(expr)),
                     opt_dst_inst_idx: opt_dst_inst_idx
-                        .clone()
-                        .map(|expr| self.rewrite_expression(&expr)),
+                        .as_ref()
+                        .map(|expr| self.rewrite_expression(expr)),
                     args: args
-                        .into_iter()
-                        .map(|expr| self.rewrite_expression(&expr))
+                        .iter()
+                        .map(|expr| self.rewrite_expression(expr))
                         .collect(),
                     tipe: tipe
-                        .clone()
+                        .as_ref()
                         .map(|tipe| tipe.rewrite_type(&type_rewrite_rules)),
                 }),
 
