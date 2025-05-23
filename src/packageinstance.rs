@@ -254,6 +254,7 @@ pub(crate) mod instantiate {
                         pkg_const_ident,
                     )))
                 }
+
                 (
                     InstantiationSource::Game { const_assignments },
                     CountSpec::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(
@@ -275,27 +276,38 @@ pub(crate) mod instantiate {
                         game_const_ident,
                     )))
                 }
+
+                // In this case we don't want to look up the value for the package const itself,
+                // but for the game const that is inside. We also make sure the names are set
+                // correctly. One thing we cannot do is set the assigned value on the package const
+                // itself: we can only look up values in the assignment of the game instance.
+                //
                 (
-                    InstantiationSource::Game { const_assignments },
+                    InstantiationSource::Game { .. },
                     CountSpec::Identifier(Identifier::PackageIdentifier(PackageIdentifier::Const(
                         mut pkg_const_ident,
                     ))),
                 ) => {
-                    let (_, assigned_expr) = const_assignments
-                        .iter()
-                        .find(|(ident, _)| ident.name == pkg_const_ident.name)
-                        .expect("TODO todo: this should be a propoer error");
-
                     pkg_const_ident.set_game_inst_info(
                         self.inst_name.to_string(),
                         self.parent_name.to_string(),
                     );
-                    pkg_const_ident.game_assignment = Some(Box::new(assigned_expr.clone()));
-
                     CountSpec::Identifier(Identifier::PackageIdentifier(PackageIdentifier::Const(
-                        pkg_const_ident,
+                        if let Some(expr) = pkg_const_ident.game_assignment {
+                            PackageConstIdentifier {
+                                game_assignment: Some(Box::new(
+                                    self.rewrite_expression(expr.as_ref()),
+                                )),
+                                ..pkg_const_ident
+                            }
+                        } else {
+                            // XXX: is this a valid case, o should we be expect that every package
+                            // instance is already resolved up to the game at this point?
+                            pkg_const_ident
+                        },
                     )))
                 }
+
                 (_, other @ (CountSpec::Any | CountSpec::Literal(_))) => other,
 
                 // not entirely sure about this one:
@@ -369,19 +381,36 @@ pub(crate) mod instantiate {
             type_rewrite_rules
         }
 
+        pub(crate) fn rewrite_type(&self, ty: Type) -> Type {
+            let fix_box = |bxty: Box<Type>| -> Box<Type> { Box::new(self.rewrite_type(*bxty)) };
+            let fix_vec = |tys: Vec<Type>| -> Vec<Type> {
+                tys.into_iter().map(|ty| self.rewrite_type(ty)).collect()
+            };
+
+            match ty {
+                Type::Bits(cs) => Type::Bits(Box::new(self.rewrite_count_spec(*cs))),
+                Type::Tuple(tys) => Type::Tuple(fix_vec(tys)),
+                Type::Table(kty, vty) => Type::Table(fix_box(kty), fix_box(vty)),
+                Type::Fn(arg_tys, ret_ty) => Type::Fn(fix_vec(arg_tys), fix_box(ret_ty)),
+
+                Type::List(ty) => Type::List(fix_box(ty)),
+                Type::Maybe(ty) => Type::Maybe(fix_box(ty)),
+                Type::Set(ty) => Type::Set(fix_box(ty)),
+                other => other,
+            }
+        }
+
         pub(crate) fn rewrite_oracle_sig(&self, oracle_sig: OracleSig) -> OracleSig {
             {
-                let type_rewrite_rules = self.base_rewrite_rules();
-
                 OracleSig {
                     name: oracle_sig.name,
                     multi_inst_idx: oracle_sig.multi_inst_idx,
                     args: oracle_sig
                         .args
                         .into_iter()
-                        .map(|(name, tipe)| (name.clone(), tipe.rewrite_type(&type_rewrite_rules)))
+                        .map(|(name, ty)| (name.clone(), self.rewrite_type(ty)))
                         .collect(),
-                    tipe: oracle_sig.tipe.rewrite_type(&type_rewrite_rules),
+                    tipe: self.rewrite_type(oracle_sig.tipe),
                 }
             }
         }

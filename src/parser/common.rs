@@ -334,48 +334,47 @@ pub(crate) fn handle_proof_params_def_list(
 
     // ... then we parse the ints and add populate a list of rewrite rules
     //     for all the Bits types ...
-    let ints: Vec<_> = ints
-        .into_iter()
-        .map(|res| {
-            res.and_then(|(pair_span, name_ast, value_ast, expected_type)| {
-                // parse the assigned value, and set the expected type to what the clone
-                // prescribes.
-                let value = super::package::handle_expression(
-                    &ctx.parse_ctx(),
-                    value_ast.clone(),
-                    Some(&expected_type),
-                )?;
+    for res in &ints {
+        // skip entries with errors. We'll catch the error when we iterate over the combined
+        // iterator below.
+        let Ok((_, name_ast, value_ast, expected_type)) = res.as_ref() else {
+            continue;
+        };
 
-                let assigned_countspec = match value {
-                    Expression::Identifier(ident) => CountSpec::Identifier(ident),
-                    // TODO:: enforce somehow that this number is not negative
-                    Expression::IntegerLiteral(num) => CountSpec::Literal(num as u64),
-                    _ => {
-                        return Err(todo!());
-                    }
-                };
+        // parse the assigned value, and set the expected type to what the clone
+        // prescribes.
+        let value = super::package::handle_expression(
+            &ctx.parse_ctx(),
+            value_ast.clone(),
+            Some(&expected_type),
+        )?;
 
-                let name: &str = name_ast.as_str();
+        let assigned_countspec = match value {
+            Expression::Identifier(ident) => CountSpec::Identifier(ident),
+            // TODO:: enforce somehow that this number is not negative
+            Expression::IntegerLiteral(num) => CountSpec::Literal(num as u64),
+            _ => {
+                return Err(todo!());
+            }
+        };
 
-                bits_rewrite_rules.push((
-                    Type::Bits(Box::new(CountSpec::Identifier(Identifier::GameIdentifier(
-                        GameIdentifier::Const(GameConstIdentifier {
-                            game_name: game.name.clone(),
-                            name: name.to_string(),
-                            tipe: Type::Integer,
-                            game_inst_name: None,
-                            proof_name: None,
-                            inst_info: None,
-                            assigned_value: None,
-                        }),
-                    )))),
-                    Type::Bits(Box::new(assigned_countspec)),
-                ));
+        let name: &str = name_ast.as_str();
 
-                Ok((pair_span, name_ast, value_ast, expected_type))
-            })
-        })
-        .collect();
+        bits_rewrite_rules.push((
+            Type::Bits(Box::new(CountSpec::Identifier(Identifier::GameIdentifier(
+                GameIdentifier::Const(GameConstIdentifier {
+                    game_name: game.name.clone(),
+                    name: name.to_string(),
+                    tipe: Type::Integer,
+                    game_inst_name: None,
+                    proof_name: None,
+                    inst_info: None,
+                    assigned_value: None,
+                }),
+            )))),
+            Type::Bits(Box::new(assigned_countspec)),
+        ));
+    }
 
     // ... then we map the other values to rewrite the types according to the rules defined
     //     above ...
