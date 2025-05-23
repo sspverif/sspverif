@@ -12,7 +12,7 @@ impl OracleArgPattern for ProofConstsPattern<'_> {
     type Variant = ();
 
     fn global_const_name(&self, _game_inst_name: &str, _variant: &()) -> String {
-        format!("<<proof-consts>>")
+        "<<proof-consts>>".to_string()
     }
 
     fn local_arg_name(&self) -> String {

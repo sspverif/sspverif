@@ -11,7 +11,7 @@ pub struct SExprWriter<'a, W: std::fmt::Write> {
     max_width: usize,
 }
 
-impl<'a, W: std::fmt::Write> SExprWriter<'a, W> {
+impl<W: std::fmt::Write> SExprWriter<'_, W> {
     pub fn write(&mut self, s_expr: &SExpr) -> Result<(usize, usize, bool)> {
         self.write_inner(s_expr, 0, 0, None, false, false)
     }

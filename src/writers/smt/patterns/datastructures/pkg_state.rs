@@ -31,7 +31,7 @@ impl<'a> PackageInstanceContext<'a> {
     }
 }
 
-impl<'a> Datatype for PackageStateDatatype<'a> {
+impl Datatype for PackageStateDatatype<'_> {
     type Constructor = ();
 
     type Selector = usize;

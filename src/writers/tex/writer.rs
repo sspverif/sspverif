@@ -20,7 +20,7 @@ use crate::util::prover_process::ProverBackend;
 use crate::util::prover_process::{Communicator, ProverResponse};
 use crate::util::smtmodel::{SmtModel, SmtModelEntry};
 
-/// TODO: Move to struct so we can have verbose versions (e.g. writing types to expressions)
+// TODO: Move to struct so we can have verbose versions (e.g. writing types to expressions)
 
 fn genindentation(cnt: u8) -> String {
     let mut acc = String::new();
@@ -679,7 +679,7 @@ fn tex_solve_composition_graph(
         }
     }
 
-    if model == "" {
+    if model.is_empty() {
         None
     } else {
         let model = SmtModel::from_string(&model);

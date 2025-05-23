@@ -16,6 +16,7 @@ use crate::{
         Identifier,
     },
     package::{Edge, PackageInstance},
+    packageinstance::instantiate::InstantiationContext,
     parser::error::{
         AssumptionMappingLeftGameInstanceIsNotFromAssumption,
         AssumptionMappingRightGameInstanceIsFromAssumption, InvalidGameInstanceInReductionError,
@@ -707,8 +708,17 @@ fn handle_mapspec_assumption<'a>(
             //
             // Okay, now at least both are game const identifiers. I still need to make them proof
             //  indentifers
-            let constr_sig_owned =
-                construction_game_inst.instantiate_oracle_signature(constr_sig.clone());
+            let constr_sig_owned = {
+                let this = &construction_game_inst;
+                let sig = constr_sig.clone();
+                let inst_ctx = InstantiationContext::new_game_instantiation_context(
+                    this.name(),
+                    ctx.proof_name,
+                    &this.consts,
+                    &this.types,
+                );
+                inst_ctx.rewrite_oracle_sig(sig)
+            };
             let constr_sig = &constr_sig_owned;
 
             // if it's cross-cut, it needs to be exported, else error out
@@ -742,12 +752,25 @@ fn handle_mapspec_assumption<'a>(
                 .into());
             };
 
+            let assump_inst_ctx = InstantiationContext::new_game_instantiation_context(
+                assumption_game_inst_name.as_str(),
+                ctx.proof_name,
+                &assumption_game_inst.consts,
+                &assumption_game_inst.types,
+            );
+            let constr_inst_ctx = InstantiationContext::new_game_instantiation_context(
+                construction_game_inst_name.as_str(),
+                ctx.proof_name,
+                &construction_game_inst.consts,
+                &construction_game_inst.types,
+            );
+
+            let assump_sig = assump_dst_export.sig();
+
             // rewrite the destination oracle signature as well and compare to check that they
             // match
-            let assump_sig_fixed =
-                assumption_game_inst.instantiate_oracle_signature(assump_dst_export.sig().clone());
-            let constr_sig_fixed =
-                construction_game_inst.instantiate_oracle_signature(constr_sig.clone());
+            let assump_sig_fixed = assump_inst_ctx.rewrite_oracle_sig(assump_sig.clone());
+            let constr_sig_fixed = constr_inst_ctx.rewrite_oracle_sig(constr_sig.clone());
 
             let oracle_sigs_match = constr_sig_fixed.types_match(&assump_sig_fixed);
 
@@ -798,10 +821,28 @@ fn handle_mapspec_assumption<'a>(
                     .edges
                     .iter()
                     .any(|assumption_game_edge| {
-                        let constr_sig_fixed = construction_game_inst
-                            .instantiate_oracle_signature(construction_edge.sig().clone());
-                        let assump_sig_fixed = assumption_game_inst
-                            .instantiate_oracle_signature(assumption_game_edge.sig().clone());
+                        let constr_sig_fixed = {
+                            let this = &construction_game_inst;
+                            let sig = construction_edge.sig().clone();
+                            let inst_ctx = InstantiationContext::new_game_instantiation_context(
+                                this.name(),
+                                ctx.proof_name,
+                                &this.consts,
+                                &this.types,
+                            );
+                            inst_ctx.rewrite_oracle_sig(sig)
+                        };
+                        let assump_sig_fixed = {
+                            let this = &assumption_game_inst;
+                            let sig = assumption_game_edge.sig().clone();
+                            let inst_ctx = InstantiationContext::new_game_instantiation_context(
+                                this.name(),
+                                ctx.proof_name,
+                                &this.consts,
+                                &this.types,
+                            );
+                            inst_ctx.rewrite_oracle_sig(sig)
+                        };
 
                         assumption_game_edge.from() == *assump_src_pkg_inst_offs
                             && assumption_game_edge.to() == *assumption_game_to
