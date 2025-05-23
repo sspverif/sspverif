@@ -1,16 +1,11 @@
-use itertools::Itertools as _;
 
 use crate::{
     expressions::Expression,
     gamehops::{reduction::Assumption, GameHop},
-    identifier::{
-        game_ident::{GameConstIdentifier, GameIdentifier},
-        pkg_ident::{PackageConstIdentifier, PackageIdentifier},
-        Identifier,
-    },
-    package::{Composition, OracleSig, Package},
+    identifier::game_ident::GameConstIdentifier,
+    package::{Composition, Package},
     packageinstance::instantiate::InstantiationContext,
-    types::{CountSpec, Type},
+    types::Type,
 };
 
 ////////////////////////////////////////////////////

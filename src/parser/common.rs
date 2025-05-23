@@ -346,7 +346,7 @@ pub(crate) fn handle_proof_params_def_list(
         let value = super::package::handle_expression(
             &ctx.parse_ctx(),
             value_ast.clone(),
-            Some(&expected_type),
+            Some(expected_type),
         )?;
 
         let assigned_countspec = match value {

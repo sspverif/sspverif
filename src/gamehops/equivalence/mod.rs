@@ -488,13 +488,13 @@ impl<'a> EquivalenceContext<'a> {
 
         let proof_game_const_mapping_left = GameConstMappingFunction {
             proof_name: &self.proof().name,
-            game_name: &left_game_name,
+            game_name: left_game_name,
             game_inst_name: left_game_inst_name,
         };
 
         let proof_game_const_mapping_right = GameConstMappingFunction {
             proof_name: &self.proof().name,
-            game_name: &right_game_name,
+            game_name: right_game_name,
             game_inst_name: right_game_inst_name,
         };
 

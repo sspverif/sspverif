@@ -619,7 +619,7 @@ pub(crate) mod instantiate {
                         self.inst_name.to_string(),
                         self.parent_name.to_string(),
                     );
-                    pkg_ident.into()
+                    pkg_ident
                 }
             }
         }
@@ -644,7 +644,7 @@ pub(crate) mod instantiate {
 
                         game_const_ident.set_assignment(assignment.clone());
                     }
-                    game_ident.into()
+                    game_ident
                 }
                 InstantiationSource::Package { .. } => {
                     unreachable!(
