@@ -1,0 +1,37 @@
+package PkeScheme {
+    params {
+        secret_key_length: Integer,
+        public_key_length: Integer,
+        output_key_length: Integer,
+        encapsulation_length: Integer,
+        concatenate: fn Bits(encapsulation_length), Bits(*) -> Bits(*),
+        deconcatenate: fn Bits(*) -> (Bits(encapsulation_length), Bits(*))
+    }
+
+    import oracles {
+        KEM_GEN() -> (Bits(public_key_length), Bits(secret_key_length)),
+        KEM_ENCAPS(pk: Bits(public_key_length)) -> (Bits(output_key_length), Bits(encapsulation_length)),
+        KEM_DECAPS(sk: Bits(secret_key_length), ek: Bits(encapsulation_length)) -> Bits(output_key_length),
+        DEM_ENC(k: Bits(output_key_length), m: Bits(*)) -> Bits(*) /* ciphertext length */,
+        DEM_DEC(k: Bits(output_key_length), c: Bits(*) /* ciphertext length */) -> Bits(*),
+    }
+
+    oracle GEN() -> (Bits(public_key_length), Bits(secret_key_length)) {
+        pk_sk <- invoke KEM_GEN();
+        return pk_sk;
+    }
+
+    oracle ENC(pk: Bits(public_key_length), m: Bits(*)) -> Bits(*) {
+        k_ek <- invoke KEM_ENCAPS(pk);
+        (k, ek) <- parse k_ek;
+        c <- invoke DEM_ENC(k, m);
+        return concatenate(ek, c);
+    }
+
+    oracle DEC(sk: Bits(secret_key_length), c: Bits(*)) -> Bits(*) {
+        (ek, ctxt) <- parse deconcatenate(c);
+        k <- invoke KEM_DECAPS(sk, ek);
+        m <- invoke DEM_DEC(k, ctxt);
+        return m;
+    }
+}
