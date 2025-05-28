@@ -734,11 +734,11 @@ fn tex_write_composition_graph(
         for i in 0..composition.pkgs.len() {
             let pkgname = &composition.pkgs[i].name;
             let SmtModelEntry::IntEntry { value: top, .. } =
-                model.get_value(&format!("{pkgname}-top")).unwrap();
+                model.get_value(&format!("{pkgname}-top")).unwrap() else { unreachable!() };
             let SmtModelEntry::IntEntry { value: bottom, .. } =
-                model.get_value(&format!("{pkgname}-bottom")).unwrap();
+                model.get_value(&format!("{pkgname}-bottom")).unwrap() else { unreachable!() };
             let SmtModelEntry::IntEntry { value: column, .. } =
-                model.get_value(&format!("{pkgname}-column")).unwrap();
+                model.get_value(&format!("{pkgname}-column")).unwrap() else { unreachable!() };
 
             write_node(file, pkgname, &composition.name, i, top, bottom, column)?;
         }
@@ -764,11 +764,11 @@ fn tex_write_composition_graph(
 
                 let SmtModelEntry::IntEntry { value: height, .. } = model
                     .get_value(&format!("edge-{pkga}-{pkgb}-height"))
-                    .unwrap();
+                    .unwrap() else { unreachable!() };
                 let SmtModelEntry::IntEntry { value: acolumn, .. } =
-                    model.get_value(&format!("{pkga}-column")).unwrap();
+                    model.get_value(&format!("{pkga}-column")).unwrap() else { unreachable!() };
                 let SmtModelEntry::IntEntry { value: bcolumn, .. } =
-                    model.get_value(&format!("{pkgb}-column")).unwrap();
+                    model.get_value(&format!("{pkgb}-column")).unwrap() else { unreachable!() };
 
                 let height = f64::from(height) / 2.0;
                 let oracles = oracles
@@ -807,11 +807,11 @@ fn tex_write_composition_graph(
             let pkgb = &composition.pkgs[to].name;
 
             let SmtModelEntry::IntEntry { value: height, .. } =
-                model.get_value(&format!("edge---{pkgb}-height")).unwrap();
+                model.get_value(&format!("edge---{pkgb}-height")).unwrap() else { unreachable!() };
             let SmtModelEntry::IntEntry { value: acolumn, .. } =
-                model.get_value("--column").unwrap();
+                model.get_value("--column").unwrap() else { unreachable!() };
             let SmtModelEntry::IntEntry { value: bcolumn, .. } =
-                model.get_value(&format!("{pkgb}-column")).unwrap();
+                model.get_value(&format!("{pkgb}-column")).unwrap() else { unreachable!() };
 
             let height = f64::from(height) / 2.0;
             let oracles = oracles
