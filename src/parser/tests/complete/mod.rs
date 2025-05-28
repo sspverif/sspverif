@@ -221,7 +221,17 @@ fn game_instantiating_with_literal_works() {
             .find(|(id, _expr)| id.name == "n")
             .unwrap()
             .1,
-        Expression::IntegerLiteral(1)
+        Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(
+            GameConstIdentifier {
+                game_name: "ConstructionReal".to_string(),
+                name: "n".to_string(),
+                tipe: Type::Integer,
+                game_inst_name: None,
+                proof_name: None,
+                inst_info: None,
+                assigned_value: None
+            }
+        )))
     );
 }
 

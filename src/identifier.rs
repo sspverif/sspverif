@@ -1,4 +1,6 @@
+
 use game_ident::GameIdentifier;
+use pkg_ident::PackageConstIdentifier;
 use proof_ident::ProofIdentifier;
 
 use crate::{expressions::Expression, parser::package::ForComp, types::Type};
@@ -86,7 +88,30 @@ impl Identifier {
                 Identifier::ProofIdentifier(ProofIdentifier::Const(r)),
             ) => l.name == r.name,
 
-            _ => todo!(),
+            (
+                Identifier::PackageIdentifier(PackageIdentifier::Const(PackageConstIdentifier {
+                    game_assignment,
+                    ..
+                })),
+                game_ident @ Identifier::GameIdentifier(_),
+            )
+            | (
+                game_ident @ Identifier::GameIdentifier(_),
+                Identifier::PackageIdentifier(PackageIdentifier::Const(PackageConstIdentifier {
+                    game_assignment,
+                    ..
+                })),
+            ) => {
+                let assignment = &**game_assignment.as_ref().unwrap();
+                match assignment {
+                    Expression::Identifier(inner_ident) => {
+                        game_ident.identifiers_match(inner_ident)
+                    }
+                    _ => false,
+                }
+            }
+
+            other => todo!("{other:?}"),
         }
         // 1. find common root context
         // 2. compare value at shared context

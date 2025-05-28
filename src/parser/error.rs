@@ -557,6 +557,22 @@ pub struct UnusedEdgeError {
 }
 
 #[derive(Error, Diagnostic, Debug)]
+#[error("oracle {oracle_name} wired to incompatible oracle signature")]
+#[diagnostic(code(ssbee::code::game::unused_edge))]
+pub struct OracleSigMismatchError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    // this should be the package instance definition
+    #[label("signature of oracle {oracle_name} imported by {src_pkg_inst_name} does not match the one exposed by {dst_pkg_inst_name}")]
+    pub at: SourceSpan,
+
+    pub oracle_name: String,
+    pub src_pkg_inst_name: String,
+    pub dst_pkg_inst_name: String,
+}
+
+#[derive(Error, Diagnostic, Debug)]
 #[error("game {game_name} assigns an edge from package instance {pkg_inst_name} for oracle {oracle_name} twice")]
 #[diagnostic(code(ssbee::code::game::unused_edge))]
 pub struct DuplicateEdgeDefinitionError {

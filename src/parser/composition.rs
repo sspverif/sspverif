@@ -3,8 +3,8 @@ use super::{
     error::{
         DuplicateEdgeDefinitionError, DuplicatePackageParameterDefinitionError,
         MissingEdgeForImportedOracleError, MissingPackageParameterDefinitionError,
-        NoSuchPackageParameterError, UndefinedOracleError, UndefinedPackageError,
-        UndefinedPackageInstanceError, UnusedEdgeError,
+        NoSuchPackageParameterError, OracleSigMismatchError, UndefinedOracleError,
+        UndefinedPackageError, UndefinedPackageInstanceError, UnusedEdgeError,
     },
     package::{handle_expression, ForComp, MultiInstanceIndices, ParsePackageError},
     ParseContext, Rule,
@@ -218,6 +218,10 @@ pub enum ParseGameError {
     #[diagnostic(transparent)]
     #[error(transparent)]
     DuplicateEdgeDefinition(#[from] DuplicateEdgeDefinitionError),
+
+    #[diagnostic[transparent]]
+    #[error[transparent]]
+    ConnectedOraclesDontMatch(#[from] OracleSigMismatchError),
 }
 
 pub fn handle_composition(
@@ -615,6 +619,7 @@ fn handle_edges_compose_assign_list_multi_inst(
         // compose_assign = { compose_assign_modifier? ~ identifier ~ ":" ~ identifier }
         assert_eq!(assignment.as_rule(), Rule::compose_assign);
 
+        let assignment_span = assignment.as_span();
         let mut assignment = assignment.into_inner();
 
         // extract the base information from the parse tree. This is a bit tricky, because we may
@@ -666,24 +671,24 @@ fn handle_edges_compose_assign_list_multi_inst(
 
         // fail if imported edge is not assigned
         let (src_pkg_inst, _) = &ctx.instances[source_pkgidx];
-        if src_pkg_inst
+        let (src_oracle_sig, _span) = src_pkg_inst
             .pkg
             .imports
             .iter()
-            .all(|(osig, _)| oracle_name != osig.name)
-        {
-            return Err(ParseGameError::UnusedEdge(UnusedEdgeError {
-                source_code: ctx.named_source(),
-                at: (oracle_name_span.start()..oracle_name_span.end()).into(),
-                pkg_inst_name: src_pkg_inst.name.clone(),
-                pkg_name: src_pkg_inst.pkg.name.clone(),
-                oracle_name: oracle_name.to_string(),
-                game_name: ctx.game_name.to_string(),
-            }));
-        }
+            .find(|(osig, _)| oracle_name == osig.name)
+            .ok_or_else(|| {
+                ParseGameError::UnusedEdge(UnusedEdgeError {
+                    source_code: ctx.named_source(),
+                    at: (oracle_name_span.start()..oracle_name_span.end()).into(),
+                    pkg_inst_name: src_pkg_inst.name.clone(),
+                    pkg_name: src_pkg_inst.pkg.name.clone(),
+                    oracle_name: oracle_name.to_string(),
+                    game_name: ctx.game_name.to_string(),
+                })
+            })?;
 
         // look up authorative oracle signature from destination package instance
-        let oracle_sig = dst_inst
+        let dst_oracle_sig = dst_inst
             .pkg
             .oracles
             .iter()
@@ -697,16 +702,31 @@ fn handle_edges_compose_assign_list_multi_inst(
             .clone();
 
         // refine the indices (not sure this is correct, but we don't do this now anyway)
-        let oracle_sig = match dst_inst_idx.map(MultiInstanceIndices::new) {
+        let dst_oracle_sig = match dst_inst_idx.map(MultiInstanceIndices::new) {
             Some(multi_inst_idx) => OracleSig {
                 multi_inst_idx,
-                ..oracle_sig
+                ..dst_oracle_sig
             },
-            None => oracle_sig,
+            None => dst_oracle_sig,
         };
 
         // make the signature use the constants from the game, not the package
-        let oracle_sig = dst_inst.instantiate_oracle_signature(oracle_sig);
+        let dst_oracle_sig = dst_inst.instantiate_oracle_signature(dst_oracle_sig);
+        let src_oracle_sig = src_pkg_inst.instantiate_oracle_signature(src_oracle_sig.clone());
+
+        if !dst_oracle_sig.types_match(&src_oracle_sig) {
+            dbg!(src_oracle_sig);
+            dbg!(dst_oracle_sig);
+            return Err(ParseGameError::ConnectedOraclesDontMatch(
+                OracleSigMismatchError {
+                    source_code: ctx.named_source(),
+                    at: (assignment_span.start()..assignment_span.end()).into(),
+                    oracle_name: oracle_name.to_string(),
+                    src_pkg_inst_name: src_pkg_inst.name.to_string(),
+                    dst_pkg_inst_name: dst_pkg_inst_name.to_string(),
+                },
+            ));
+        }
 
         if edges.iter().any(|existing_edge: &MultiInstanceEdge| {
             // TODO: this will probably fail for real multi-instance, handle that later
@@ -726,7 +746,7 @@ fn handle_edges_compose_assign_list_multi_inst(
 
         edges.push(MultiInstanceEdge {
             dest_pkgidx: dst_offset,
-            oracle_sig,
+            oracle_sig: dst_oracle_sig,
             source_pkgidx,
             source_instance_idx: source_instance_idx.to_vec(),
         });

@@ -74,7 +74,18 @@ impl<W: Write> Writer<W> {
                 self.write_string(")")
             }
             Type::Unknown => self.write_string("Unknown"),
-            _ => todo!("{:?}", t),
+            Type::Fn(args, ret) => {
+                self.write_string("fn ")?;
+                let mut maybe_comma = "";
+                for tipe in args {
+                    self.write_string(maybe_comma)?;
+                    self.write_type(tipe)?;
+                    maybe_comma = ", ";
+                }
+                self.write_string(" -> ")?;
+                self.write_type(ret)
+            }
+            _ => todo!("`{t:?}'"),
         }
     }
 

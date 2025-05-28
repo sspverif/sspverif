@@ -41,7 +41,7 @@ use super::{
 pub(crate) fn handle_reduction<'a>(
     ctx: &mut ParseProofContext<'a>,
     ast: Pair<'a, Rule>,
-) -> Result<Vec<GameHop<'a>>, ParseProofError> {
+) -> Result<GameHop<'a>, ParseProofError> {
     let mut ast = ast.into_inner();
 
     let left_name_ast = ast.next().unwrap();
@@ -49,7 +49,7 @@ pub(crate) fn handle_reduction<'a>(
     let body_ast = ast.next().unwrap();
 
     let reduction = handle_reduction_body(ctx, left_name_ast, right_name_ast, body_ast)?;
-    Ok(vec![GameHop::Reduction(reduction)])
+    Ok(GameHop::Reduction(reduction))
 }
 
 fn compare_reduction(

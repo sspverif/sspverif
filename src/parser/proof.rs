@@ -416,7 +416,7 @@ fn handle_game_hops<'a>(
             Rule::reduction => super::reduction::handle_reduction(ctx, hop_ast)?,
             otherwise => unreachable!("found {:?} in game_hops", otherwise),
         };
-        ctx.game_hops.extend(game_hop)
+        ctx.game_hops.push(game_hop)
     }
 
     Ok(())
@@ -425,11 +425,9 @@ fn handle_game_hops<'a>(
 fn handle_equivalence<'a>(
     ctx: &mut ParseProofContext,
     ast: Pair<'a, Rule>,
-) -> Result<Vec<GameHop<'a>>, ParseProofError> {
+) -> Result<GameHop<'a>, ParseProofError> {
     let mut ast = ast.into_inner();
     let (left_name, right_name) = handle_string_pair(&mut ast);
-
-    let mut equivalences = vec![];
 
     let equivalence_data: Vec<_> = ast.map(handle_equivalence_oracle).collect();
 
@@ -467,16 +465,14 @@ fn handle_equivalence<'a>(
         .into());
     }
 
-    let eq = GameHop::Equivalence(Equivalence::new(
+    let eq = Equivalence::new(
         left_name.as_str().to_string(),
         right_name.as_str().to_string(),
         invariants,
         trees,
-    ));
+    );
 
-    equivalences.push(eq);
-
-    Ok(equivalences)
+    Ok(GameHop::Equivalence(eq))
 }
 
 fn handle_equivalence_oracle(ast: Pair<Rule>) -> (String, Vec<String>, Vec<(String, Vec<String>)>) {
