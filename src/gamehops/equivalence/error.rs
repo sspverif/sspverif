@@ -1,4 +1,10 @@
-use crate::{gamehops::equivalence::Equivalence, util::prover_process::ProverResponse};
+use crate::{
+	gamehops::equivalence::Equivalence,
+	util::prover_process::{
+		ProverResponse,
+		Result as ProverResponseResult
+	}};
+use std::path::PathBuf;
 
 #[derive(Debug)]
 pub enum Error {
@@ -20,7 +26,7 @@ pub enum Error {
     ClaimProofFailed {
         claim_name: String,
         response: ProverResponse,
-        model: crate::util::prover_process::Result<String>,
+        modelfile: ProverResponseResult<PathBuf>,
     },
 }
 
@@ -66,10 +72,13 @@ impl std::fmt::Display for Error {
             Error::ClaimProofFailed {
                 claim_name,
                 response,
-                model,
+                modelfile,
             } => {
-                match model {
-                    Ok(model) => write!(f, "error proving claim {claim_name}. status: {response}. model: {model}"),
+                match modelfile {
+                    Ok(model) => {
+                        let model = model.as_path().display();
+                        write!(f, "error proving claim {claim_name}. status: {response}. model file: {model}.")
+                    }
                     Err(model_err) => write!(f, "error proving claim {claim_name}. status: {response}. \
                                              Also, encountered the following error when trying to get the model: {model_err}"),
                 }

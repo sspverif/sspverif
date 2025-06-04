@@ -1,4 +1,5 @@
 use std::fmt::Write;
+use std::io::Write as _;
 
 use crate::{
     gamehops::equivalence::{
@@ -50,10 +51,16 @@ pub fn verify(eq: &Equivalence, proof: &Proof, mut prover: Communicator) -> Resu
             match prover.check_sat()? {
                 ProverResponse::Unsat => {}
                 response => {
-                    return Err(Error::ClaimProofFailed {
+                    let modelfile = prover.get_model().map(|model| {
+                        let mut modelfile = tempfile::NamedTempFile::new().unwrap();
+                        modelfile.write_all(model.as_bytes());
+                        let (_, fname) = modelfile.keep().unwrap();
+                        fname
+					});
+					return Err(Error::ClaimProofFailed {
                         claim_name: claim.name().to_string(),
                         response,
-                        model: prover.get_model(),
+                        modelfile: modelfile,
                     });
                 }
             }
