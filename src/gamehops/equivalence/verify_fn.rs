@@ -53,14 +53,14 @@ pub fn verify(eq: &Equivalence, proof: &Proof, mut prover: Communicator) -> Resu
                 response => {
                     let modelfile = prover.get_model().map(|model| {
                         let mut modelfile = tempfile::NamedTempFile::new().unwrap();
-                        modelfile.write_all(model.as_bytes());
+                        modelfile.write_all(model.as_bytes()).unwrap();
                         let (_, fname) = modelfile.keep().unwrap();
                         fname
                     });
                     return Err(Error::ClaimProofFailed {
                         claim_name: claim.name().to_string(),
                         response,
-                        modelfile: modelfile,
+                        modelfile,
                     });
                 }
             }
