@@ -1,4 +1,3 @@
-
 use game_ident::GameIdentifier;
 use pkg_ident::PackageConstIdentifier;
 use proof_ident::ProofIdentifier;

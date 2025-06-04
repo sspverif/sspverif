@@ -1,4 +1,3 @@
-
 use crate::{
     expressions::Expression,
     gamehops::{reduction::Assumption, GameHop},

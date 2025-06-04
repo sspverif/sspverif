@@ -1,9 +1,7 @@
 use crate::{
-	gamehops::equivalence::Equivalence,
-	util::prover_process::{
-		ProverResponse,
-		Result as ProverResponseResult
-	}};
+    gamehops::equivalence::Equivalence,
+    util::prover_process::{ProverResponse, Result as ProverResponseResult},
+};
 use std::path::PathBuf;
 
 #[derive(Debug)]

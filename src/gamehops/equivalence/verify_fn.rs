@@ -56,8 +56,8 @@ pub fn verify(eq: &Equivalence, proof: &Proof, mut prover: Communicator) -> Resu
                         modelfile.write_all(model.as_bytes());
                         let (_, fname) = modelfile.keep().unwrap();
                         fname
-					});
-					return Err(Error::ClaimProofFailed {
+                    });
+                    return Err(Error::ClaimProofFailed {
                         claim_name: claim.name().to_string(),
                         response,
                         modelfile: modelfile,
