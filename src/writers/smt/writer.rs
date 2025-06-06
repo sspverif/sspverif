@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::expressions::Expression;
 use crate::identifier::Identifier;
 use crate::package::{OracleDef, PackageInstance};
@@ -1087,26 +1089,30 @@ impl<'a> CompositionSmtWriter<'a> {
     pub(crate) fn smt_composition_randomness(&mut self) -> Vec<SmtExpr> {
         let game_inst_ctx = self.context();
         let game_inst = game_inst_ctx.game_inst();
-        let mut result: Vec<_> = self
+
+        // ensure the sorts are unique so they all just exist once
+        let smt_sorts: HashSet<SmtExpr> = self
             .sample_info
             .tipes
             .iter()
-            .map(|tipe| {
-                let tipeexpr: SmtExpr = tipe.clone().into();
+            .map(|tipe| tipe.clone().into())
+            .collect();
 
+        // turn them to function declarations
+        let mut result: Vec<_> = smt_sorts
+            .into_iter()
+            .map(|smt_sort| {
                 (
                     "declare-fun",
-                    format!(
-                        "__sample-rand-{}-{}",
-                        game_inst.name,
-                        smt_to_string(tipeexpr.clone())
-                    ),
+                    format!("__sample-rand-{}-{}", game_inst.name, smt_sort.to_string()),
                     (SmtExpr::Atom("Int".into()), SmtExpr::Atom("Int".into())),
-                    tipeexpr,
+                    smt_sort,
                 )
                     .into()
             })
             .collect();
+
+        // sort them so the order is deterministic
         result.sort();
         result
     }
