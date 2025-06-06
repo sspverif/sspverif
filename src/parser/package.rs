@@ -562,16 +562,9 @@ pub fn handle_expression(
         Rule::fn_call => {
             let span = ast.as_span();
             let mut inner = ast.into_inner();
-            let ident = inner.next().unwrap().as_str();
-            // TODO:look up the function signature and pass argument types into
-            //       the expected_type arguemnts to handle_expression below
-            let args = match inner.next() {
-                None => vec![],
-                Some(inner_args) => inner_args
-                    .into_inner()
-                    .map(|expr| handle_expression(ctx, expr, None))
-                    .collect::<Result<_, _>>()?,
-            };
+            let ident_ast = inner.next().unwrap();
+            let ident_span = ident_ast.as_span();
+            let ident = ident_ast.as_str();
             let decl = ctx
                 .scope
                 .lookup(ident)
@@ -583,6 +576,52 @@ pub fn handle_expression(
                     },
                 ))?;
             let ident = decl.into_identifier().unwrap();
+            let Type::Fn(exp_args_tys, ret_ty) = ident.get_type() else {
+                // callee is not a function
+                return Err(TypeMismatchError {
+                    at: (ident_span.start()..ident_span.end()).into(),
+                    expected: Type::Fn(vec![], Box::new(Type::Unknown)),
+                    got: ident.get_type(),
+                    source_code: ctx.named_source(),
+                }
+                .into());
+            };
+            let arg_asts = match inner.next() {
+                None => vec![],
+                Some(inner_args) => inner_args.into_inner().collect(),
+            };
+            if let Some(expected_type) = expected_type {
+                if expected_type != ret_ty.as_ref() {
+                    // the function's return type doesn't match what we expect
+                    return Err(TypeMismatchError {
+                        at: (ident_span.start()..ident_span.end()).into(),
+                        expected: expected_type.clone(),
+                        got: *ret_ty,
+                        source_code: ctx.named_source(),
+                    }
+                    .into());
+                }
+            }
+            if exp_args_tys.len() != arg_asts.len() {
+                // callee has wrong number of args
+                // TODO: introduce a new error type for this
+                return Err(TypeMismatchError {
+                    at: (span.start()..span.end()).into(),
+                    expected: Type::Fn(exp_args_tys, ret_ty),
+                    got: Type::Fn(
+                        vec![Type::Unknown; arg_asts.len()],
+                        Box::new(expected_type.cloned().unwrap_or(Type::Unknown)),
+                    ),
+                    source_code: ctx.named_source(),
+                }
+                .into());
+            }
+            let args = arg_asts
+                .into_iter()
+                .zip(exp_args_tys)
+                .map(|(arg_ast, exp_ty)| handle_expression(ctx, arg_ast, Some(&exp_ty)))
+                .collect::<Result<Vec<_>, _>>()?;
+
             Expression::FnCall(ident, args)
         }
 
