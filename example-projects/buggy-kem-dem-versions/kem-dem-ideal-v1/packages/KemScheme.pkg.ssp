@@ -1,0 +1,25 @@
+package KemScheme {
+    params {
+        secret_key_length: Integer,
+        public_key_length: Integer,
+        output_key_length: Integer,
+        encapsulation_length: Integer,
+        gen_randomness_length: Integer,
+        kem_gen: fn Bits(gen_randomness_length) -> (Bits(public_key_length), Bits(secret_key_length)),
+        kem_encaps: fn Bits(public_key_length) -> (Bits(output_key_length), Bits(encapsulation_length)),
+        kem_decaps: fn Bits(secret_key_length), Bits(encapsulation_length) -> Bits(output_key_length),
+    }
+
+    oracle KEM_GEN() -> (Bits(public_key_length), Bits(secret_key_length)) {
+        r <-$ Bits(gen_randomness_length);
+        return kem_gen(r);
+    }
+
+    oracle KEM_ENCAPS(pk: Bits(public_key_length)) -> (Bits(output_key_length), Bits(encapsulation_length)) {
+        return kem_encaps(pk);
+    }
+
+    oracle KEM_DECAPS(sk: Bits(secret_key_length), ek: Bits(encapsulation_length)) -> Bits(output_key_length) {
+        return kem_decaps(sk, ek);
+    }
+}

@@ -1,0 +1,49 @@
+package PKE_CCA {
+    params {
+        b: Bool,
+        len: fn Bits(*) -> Integer,
+        zeros: fn Integer -> Bits(*),
+        public_key_length: Integer,
+        secret_key_length: Integer
+    }
+
+    import oracles {
+        GEN() -> (Bits(public_key_length), Bits(secret_key_length)),
+        ENC(pk: Bits(public_key_length), m: Bits(*)) -> Bits(*) /* ciphertext length */,
+        DEC(sk: Bits(secret_key_length), c: Bits(*) /* ciphertext length */) -> Bits(*),
+    }
+
+    state {
+        pk: Maybe(Bits(public_key_length)),
+        sk: Maybe(Bits(secret_key_length)),
+        c: Maybe(Bits(*))
+    }
+
+    oracle PKGEN() -> Bits(public_key_length) {
+        assert (sk == None);
+        pk_sk <- invoke GEN();
+        (pk1, sk1) <- parse pk_sk;
+        pk <- Some(pk1);
+        sk <- Some(sk1);
+        return pk1;
+    }
+
+    oracle PKENC(m: Bits(*)) -> Bits(*) {
+        assert (pk != None as Bits(public_key_length));
+        assert (c == None);
+        if b {
+            c1 <- invoke ENC(Unwrap(pk), zeros(len(m)));
+        } else {
+            c1 <- invoke ENC(Unwrap(pk), m);
+        }
+        c <- Some(c1);
+        return c1;
+    }
+
+    oracle PKDEC(ctxt: Bits(*)) -> Bits(*) {
+        assert (sk != None as Bits(secret_key_length));
+        assert (Unwrap(c) != ctxt);
+        m <- invoke DEC(Unwrap(sk), ctxt);
+        return m;
+    }
+}

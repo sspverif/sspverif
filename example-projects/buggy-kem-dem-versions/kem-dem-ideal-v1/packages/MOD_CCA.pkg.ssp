@@ -1,0 +1,56 @@
+package MOD_CCA {
+    params {
+        public_key_length: Integer,
+        secret_key_length: Integer,
+        output_key_length: Integer,
+        encapsulation_length: Integer,
+        concatenate: fn Bits(encapsulation_length), Bits(*) -> Bits(*),
+        deconcatenate: fn Bits(*) -> (Bits(encapsulation_length), Bits(*))
+    }
+
+    import oracles {
+        KEMGEN() -> Bits(public_key_length),
+        ENCAPS() -> Bits(encapsulation_length),
+        DECAPS(ek: Bits(encapsulation_length)) -> Bits(output_key_length),
+        ENC(m: Bits(*)) -> Bits(*),
+        DEC(c: Bits(*)) -> Bits(*),
+        DEM_DEC(k: Bits(output_key_length), c: Bits(*) /* ciphertext length */) -> Bits(*),
+    }
+
+    state {
+        pk: Maybe(Bits(public_key_length)),
+        c: Maybe(Bits(*)),
+        ek: Maybe(Bits(encapsulation_length))
+    }
+
+    oracle PKGEN() -> Bits(public_key_length) {
+        assert (pk == None);
+        pk1 <- invoke KEMGEN();
+        pk <- Some(pk1);
+        return pk1;
+    }
+
+    oracle PKENC(m: Bits(*)) -> Bits(*) {
+        assert (pk != None as Bits(public_key_length));
+        assert (c == None);
+        ek1 <- invoke ENCAPS();
+        ek <- Some(ek1);
+        ctxt <- invoke ENC(m);
+        c1 <- concatenate(ek1, ctxt);
+        c <- Some(c1);
+        return c1;
+    }
+
+    oracle PKDEC(ek_ctxt: Bits(*)) -> Bits(*) {
+        assert (pk != None as Bits(public_key_length));
+        assert (c != ek_ctxt);
+        (encapsk, ctxt) <- parse deconcatenate(ek_ctxt);
+        if (encapsk == Unwrap(ek)) {
+            m <- invoke DEC(ctxt); 
+        } else {
+            k <- invoke DECAPS(encapsk);
+            m <- invoke DEM_DEC(k, ctxt);
+        }
+        return m;
+    }
+}
