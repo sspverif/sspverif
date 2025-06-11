@@ -5,7 +5,7 @@ use crate::{
     writers::smt::{
         patterns::{
             self,
-            instance_names::{encode_params, only_non_function_expression},
+            instance_names::{encode_params, only_ints_and_funs},
             oracle_args::OracleArgPattern as _,
             DatastructurePattern as _, FunctionPattern, ReturnPattern,
         },
@@ -34,8 +34,8 @@ impl FunctionPattern for OraclePattern<'_> {
             ..
         } = self;
 
-        let encoded_game_params = encode_params(only_non_function_expression(self.game_params));
-        let encoded_pkg_params = encode_params(only_non_function_expression(self.pkg_params));
+        let encoded_game_params = encode_params(only_ints_and_funs(self.game_params));
+        let encoded_pkg_params = encode_params(only_ints_and_funs(self.pkg_params));
 
         format!("<oracle-{game_name}-{encoded_game_params}-{pkg_name}-{encoded_pkg_params}-{oracle_name}>")
     }

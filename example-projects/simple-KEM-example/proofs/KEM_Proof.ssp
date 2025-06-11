@@ -1,6 +1,7 @@
 proof KEM_Proof {
     const    kgen: fn Bits(256)             ->  Bits(256);            /* takes sk, returns pk  */
     const  encaps: fn Bits(256),Bits(256) -> (Bits(256),Bits(256)); /* (pk,rand) -> (ctxt,k) */
+    const  encaps2: fn Bits(256),Bits(256) -> (Bits(256),Bits(256)); /* (pk,rand) -> (ctxt,k) */
     const  decaps: fn Bits(256),Bits(256) ->  Bits(256);            /* (sk,ctxt) -> k        */
 
     instance CPA_real = CPA {
@@ -26,6 +27,15 @@ proof KEM_Proof {
         isideal: false,
            kgen: kgen,
          encaps: encaps,
+         decaps: decaps,
+        }
+    }
+
+    instance Prot_real2 = Prot {
+        params {
+        isideal: false,
+           kgen: kgen,
+         encaps: encaps2,
          decaps: decaps,
         }
     }
@@ -63,6 +73,53 @@ proof KEM_Proof {
 
     gamehops 
     {
+        equivalence Prot_real Prot_real2 {
+            GetPK: {
+                invariant: [
+                    ./proofs/invariant2.smt
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+            Run: {
+                invariant: [
+                    ./proofs/invariant2.smt
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+            TestSender: {
+                invariant: [
+                    ./proofs/invariant2.smt
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+            TestReceiver: {
+                invariant: [
+                    ./proofs/invariant2.smt
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+        }
+
         equivalence Prot_real H1_real {
             GetPK: {
                 invariant: [
