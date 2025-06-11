@@ -4,7 +4,7 @@ use crate::identifier::game_ident::GameConstIdentifier;
 use crate::identifier::pkg_ident::PackageConstIdentifier;
 use crate::types::Type;
 use crate::writers::smt::exprs::SmtExpr;
-use crate::writers::smt::patterns::instance_names::{encode_params, only_non_function_expression};
+use crate::writers::smt::patterns::instance_names::{encode_params, only_ints};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ReturnPattern<'a> {
@@ -42,8 +42,8 @@ impl<'a> DatastructurePattern<'a> for ReturnPattern<'a> {
             pkg_params,
         } = self;
 
-        let game_encoded_params = encode_params(only_non_function_expression(*game_params));
-        let pkg_encoded_params = encode_params(only_non_function_expression(*pkg_params));
+        let game_encoded_params = encode_params(only_ints(*game_params));
+        let pkg_encoded_params = encode_params(only_ints(*pkg_params));
         format!("<{camel_case}-{game_name}-{game_encoded_params}-{pkg_name}-{pkg_encoded_params}-{oracle_name}>")
     }
 
@@ -56,8 +56,8 @@ impl<'a> DatastructurePattern<'a> for ReturnPattern<'a> {
             ..
         } = self;
 
-        let game_encoded_params = encode_params(only_non_function_expression(self.game_params));
-        let pkg_encoded_params = encode_params(only_non_function_expression(self.pkg_params));
+        let game_encoded_params = encode_params(only_ints(self.game_params));
+        let pkg_encoded_params = encode_params(only_ints(self.pkg_params));
 
         format!("<mk-{kebab_case}-{game_name}-{game_encoded_params}-{pkg_name}-{pkg_encoded_params}-{oracle_name}>")
     }
@@ -71,8 +71,8 @@ impl<'a> DatastructurePattern<'a> for ReturnPattern<'a> {
             ..
         } = self;
 
-        let game_encoded_params = encode_params(only_non_function_expression(self.game_params));
-        let pkg_encoded_params = encode_params(only_non_function_expression(self.pkg_params));
+        let game_encoded_params = encode_params(only_ints(self.game_params));
+        let pkg_encoded_params = encode_params(only_ints(self.pkg_params));
 
         let field_name = match sel {
             ReturnSelector::GameState => "game-state",
@@ -131,8 +131,8 @@ impl ReturnPattern<'_> {
             ..
         } = self;
 
-        let game_encoded_params = encode_params(only_non_function_expression(self.game_params));
-        let pkg_encoded_params = encode_params(only_non_function_expression(self.pkg_params));
+        let game_encoded_params = encode_params(only_ints(self.game_params));
+        let pkg_encoded_params = encode_params(only_ints(self.pkg_params));
 
         format!("<!return-{game_name}-{game_encoded_params}-{pkg_name}-{pkg_encoded_params}-{oracle_name}>")
     }

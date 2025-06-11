@@ -6,7 +6,7 @@ use crate::{
     writers::smt::{
         contexts::PackageInstanceContext,
         names,
-        patterns::instance_names::{encode_params, only_non_function_expression},
+        patterns::instance_names::{encode_params, only_ints},
     },
 };
 
@@ -41,7 +41,7 @@ impl Datatype for PackageStateDatatype<'_> {
     const KEBAB_CASE: &'static str = "pkg-state";
 
     fn sort_symbol(&self) -> sspverif_smtlib::syntax::tokens::Symbol {
-        let encoded_params = encode_params(only_non_function_expression(self.0.pkg_params()));
+        let encoded_params = encode_params(only_ints(self.0.pkg_params()));
 
         names::concat_camel_case(&[Self::CAMEL_CASE, self.0.pkg_name(), &encoded_params]).into()
     }
@@ -62,7 +62,7 @@ impl Datatype for PackageStateDatatype<'_> {
         &self,
         _cons: &Self::Constructor,
     ) -> sspverif_smtlib::syntax::tokens::Symbol {
-        let encoded_params = encode_params(only_non_function_expression(self.0.pkg_params()));
+        let encoded_params = encode_params(only_ints(self.0.pkg_params()));
 
         names::concat_kebab_case(&["mk", Self::KEBAB_CASE, self.0.pkg_name(), &encoded_params])
             .into()
@@ -70,7 +70,7 @@ impl Datatype for PackageStateDatatype<'_> {
 
     fn selector_symbol(&self, sel: &Self::Selector) -> sspverif_smtlib::syntax::tokens::Symbol {
         let (param_name, _, _) = &self.0.pkg().state[*sel];
-        let encoded_params = encode_params(only_non_function_expression(self.0.pkg_params()));
+        let encoded_params = encode_params(only_ints(self.0.pkg_params()));
 
         names::concat_kebab_case(&[
             Self::KEBAB_CASE,
@@ -100,7 +100,7 @@ impl<'a> DatastructurePattern<'a> for PackageStatePattern<'a> {
         let camel_case = Self::CAMEL_CASE;
         let Self { pkg_name, params } = self;
 
-        let encoded_params = encode_params(only_non_function_expression(*params));
+        let encoded_params = encode_params(only_ints(*params));
 
         format!("<{camel_case}_{pkg_name}_{encoded_params}>")
     }
@@ -108,7 +108,7 @@ impl<'a> DatastructurePattern<'a> for PackageStatePattern<'a> {
     fn constructor_name(&self, _cons: &Self::Constructor) -> String {
         let kebab_case = Self::KEBAB_CASE;
         let Self { pkg_name, params } = self;
-        let encoded_params = encode_params(only_non_function_expression(*params));
+        let encoded_params = encode_params(only_ints(*params));
 
         format!("<mk-{kebab_case}-{pkg_name}-{encoded_params}>")
     }
@@ -116,7 +116,7 @@ impl<'a> DatastructurePattern<'a> for PackageStatePattern<'a> {
     fn selector_name(&self, sel: &Self::Selector) -> String {
         let kebab_case = Self::KEBAB_CASE;
         let Self { pkg_name, params } = self;
-        let encoded_params = encode_params(only_non_function_expression(*params));
+        let encoded_params = encode_params(only_ints(*params));
 
         let PackageStateSelector {
             name: field_name, ..
