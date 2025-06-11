@@ -7,7 +7,7 @@ use crate::{
     writers::smt::{
         exprs::SmtExpr,
         patterns::{
-            instance_names::{encode_params, only_non_function_expression},
+            instance_names::{encode_params, only_ints},
             DatastructurePattern, DatastructureSpec, PackageStatePattern,
         },
         sorts::Sort,
@@ -43,7 +43,7 @@ impl<'a> DatastructurePattern<'a> for GameStatePattern<'a> {
     fn sort_name(&self) -> String {
         let Self { game_name, params } = self;
         let camel_case = <GameStatePattern as DatastructurePattern>::CAMEL_CASE;
-        let encoded_params = encode_params(only_non_function_expression(*params));
+        let encoded_params = encode_params(only_ints(*params));
 
         format!("<{camel_case}_{game_name}_{encoded_params}>")
     }
@@ -51,7 +51,7 @@ impl<'a> DatastructurePattern<'a> for GameStatePattern<'a> {
     fn constructor_name(&self, _cons: &Self::Constructor) -> String {
         let kebab_case = Self::KEBAB_CASE;
         let Self { game_name, .. } = self;
-        let encoded_params = encode_params(only_non_function_expression(self.params));
+        let encoded_params = encode_params(only_ints(self.params));
 
         format!("<mk-{kebab_case}-{game_name}-{encoded_params}>")
     }
@@ -59,7 +59,7 @@ impl<'a> DatastructurePattern<'a> for GameStatePattern<'a> {
     fn selector_name(&self, sel: &Self::Selector) -> String {
         let kebab_case = Self::KEBAB_CASE;
         let Self { game_name, .. } = self;
-        let encoded_params = encode_params(only_non_function_expression(self.params));
+        let encoded_params = encode_params(only_ints(self.params));
 
         let (kind_name, field_name) = match sel {
             GameStateSelector::PackageInstance { pkg_inst_name, .. } => {
