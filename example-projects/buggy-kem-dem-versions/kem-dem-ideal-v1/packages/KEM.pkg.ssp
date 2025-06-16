@@ -1,0 +1,53 @@
+package KEM {
+    params {
+        b: Bool,
+        public_key_length: Integer,
+        secret_key_length: Integer,
+        output_key_length: Integer,
+        encapsulation_length: Integer,
+    }
+
+    state {
+        pk: Maybe(Bits(public_key_length)),
+        sk: Maybe(Bits(secret_key_length)),
+        ek: Maybe(Bits(encapsulation_length))
+    }
+
+    import oracles {
+        GEN(),
+        SET(k: Bits(output_key_length)),
+        KEM_GEN() -> (Bits(public_key_length), Bits(secret_key_length)),
+        KEM_ENCAPS(pk: Bits(public_key_length)) -> (Bits(output_key_length), Bits(encapsulation_length)),
+        KEM_DECAPS(sk: Bits(secret_key_length), ek: Bits(encapsulation_length)) -> Bits(output_key_length),
+    }
+
+    oracle KEMGEN() -> Bits(public_key_length) {
+        assert (sk == None);
+        pk_sk <- invoke KEM_GEN();
+        (pk1, sk1) <- parse pk_sk;
+        pk <- Some(pk1);
+        sk <- Some(sk1);
+        return pk1;
+    }
+
+    oracle ENCAPS() -> Bits(encapsulation_length) {
+        assert (pk != None as Bits(public_key_length));
+        assert (ek == None);
+        k_ek <- invoke KEM_ENCAPS(Unwrap(pk));
+        (k, ek1) <- parse k_ek;
+        ek <- Some(ek1);
+        if b {
+            _ <- invoke GEN();
+        } else {
+            _ <- invoke SET(k);
+        }
+        return ek1;
+    }
+
+    oracle DECAPS(encapsk: Bits(encapsulation_length)) -> Bits(output_key_length) {
+        assert (sk != None as Bits(secret_key_length));
+        assert (encapsk != Unwrap(ek));
+        k <- invoke KEM_DECAPS(Unwrap(sk), encapsk);
+        return k;
+    }
+}

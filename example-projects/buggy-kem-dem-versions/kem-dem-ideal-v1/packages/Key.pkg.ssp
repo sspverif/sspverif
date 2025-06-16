@@ -1,0 +1,25 @@
+package Key {
+    params {
+        n: Integer
+    }
+
+    state {
+        k: Maybe(Bits(n))
+    }
+
+    oracle GEN() {
+        assert (k == None);
+        k1 <-$ Bits(n);
+        k <- Some(k1);
+    }
+
+    oracle SET(kp: Bits(n)) {
+        assert (k == None);
+        k <- Some(kp);
+    }
+
+    oracle GET() -> Bits(n) {
+        assert (k != None as Bits(n));
+        return Unwrap(k);
+    }
+}
