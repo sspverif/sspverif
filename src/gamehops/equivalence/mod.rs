@@ -1658,7 +1658,7 @@ impl<'a> EquivalenceContext<'a> {
                 .push(pos);
         }
 
-        let mut body: SmtExpr = false.into();
+        let mut body: SmtExpr = true.into();
 
         for tipe in types {
             let sort: SmtExpr = tipe.into();
