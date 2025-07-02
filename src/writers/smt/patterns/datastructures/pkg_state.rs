@@ -6,7 +6,7 @@ use crate::{
     writers::smt::{
         contexts::PackageInstanceContext,
         names,
-        patterns::instance_names::{encode_params, only_ints},
+        patterns::instance_names::{encode_params, only_ints, Separated},
     },
 };
 
@@ -41,9 +41,11 @@ impl Datatype for PackageStateDatatype<'_> {
     const KEBAB_CASE: &'static str = "pkg-state";
 
     fn sort_symbol(&self) -> sspverif_smtlib::syntax::tokens::Symbol {
+        let base_elems: &[&str] = &[Self::CAMEL_CASE, self.0.pkg_name()];
         let encoded_params = encode_params(only_ints(self.0.pkg_params()));
+        let encoded_params_ref = encoded_params.as_ref().map(String::as_str);
 
-        names::concat_camel_case(&[Self::CAMEL_CASE, self.0.pkg_name(), &encoded_params]).into()
+        names::concat_camel_case(base_elems.iter().copied().chain(encoded_params_ref)).into()
     }
 
     fn sort_par_sort_symbols(&self) -> Vec<sspverif_smtlib::syntax::tokens::Symbol> {
@@ -62,22 +64,26 @@ impl Datatype for PackageStateDatatype<'_> {
         &self,
         _cons: &Self::Constructor,
     ) -> sspverif_smtlib::syntax::tokens::Symbol {
+        let base_elems = &["mk", Self::KEBAB_CASE, self.0.pkg_name()];
         let encoded_params = encode_params(only_ints(self.0.pkg_params()));
+        let encoded_params_ref = encoded_params.as_ref().map(String::as_str);
 
-        names::concat_kebab_case(&["mk", Self::KEBAB_CASE, self.0.pkg_name(), &encoded_params])
-            .into()
+        names::concat_kebab_case(base_elems.iter().copied().chain(encoded_params_ref)).into()
     }
 
     fn selector_symbol(&self, sel: &Self::Selector) -> sspverif_smtlib::syntax::tokens::Symbol {
-        let (param_name, _, _) = &self.0.pkg().state[*sel];
+        let base_elems = &[Self::KEBAB_CASE, self.0.pkg_name()];
         let encoded_params = encode_params(only_ints(self.0.pkg_params()));
+        let encoded_params_ref = encoded_params.as_ref().map(String::as_str);
+        let (param_name, _, _) = &self.0.pkg().state[*sel];
 
-        names::concat_kebab_case(&[
-            Self::KEBAB_CASE,
-            self.0.pkg_name(),
-            &encoded_params,
-            param_name,
-        ])
+        names::concat_kebab_case(
+            base_elems
+                .iter()
+                .copied()
+                .chain(encoded_params_ref)
+                .chain(Some(param_name.as_str())),
+        )
         .into()
     }
 
@@ -101,28 +107,31 @@ impl<'a> DatastructurePattern<'a> for PackageStatePattern<'a> {
         let Self { pkg_name, params } = self;
 
         let encoded_params = encode_params(only_ints(*params));
+        let separated_params = Separated::new(encoded_params, "_");
 
-        format!("<{camel_case}_{pkg_name}_{encoded_params}>")
+        format!("<{camel_case}_{pkg_name}{separated_params}>")
     }
 
     fn constructor_name(&self, _cons: &Self::Constructor) -> String {
         let kebab_case = Self::KEBAB_CASE;
         let Self { pkg_name, params } = self;
         let encoded_params = encode_params(only_ints(*params));
+        let separated_params = Separated::new(encoded_params, "-");
 
-        format!("<mk-{kebab_case}-{pkg_name}-{encoded_params}>")
+        format!("<mk-{kebab_case}-{pkg_name}{separated_params}>")
     }
 
     fn selector_name(&self, sel: &Self::Selector) -> String {
         let kebab_case = Self::KEBAB_CASE;
         let Self { pkg_name, params } = self;
         let encoded_params = encode_params(only_ints(*params));
+        let separated_params = Separated::new(encoded_params, "-");
 
         let PackageStateSelector {
             name: field_name, ..
         } = sel;
 
-        format!("<{kebab_case}-{pkg_name}-{encoded_params}-{field_name}>")
+        format!("<{kebab_case}-{pkg_name}{separated_params}-{field_name}>")
     }
 
     fn matchfield_name(&self, sel: &Self::Selector) -> String {

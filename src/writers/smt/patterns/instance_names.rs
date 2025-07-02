@@ -32,7 +32,27 @@ pub fn only_non_function_expression<'a, T: 'a, I: IntoIterator<Item = &'a (T, Ex
         })
 }
 
-pub fn encode_params<'a, I>(params_iter: I) -> String
+pub struct Separated<'a, T> {
+    item: Option<T>,
+    sep: &'a str,
+}
+
+impl<'a, T> Separated<'a, T> {
+    pub fn new(item: Option<T>, sep: &'a str) -> Self {
+        Self { item, sep }
+    }
+}
+impl<'a, T: std::fmt::Display> std::fmt::Display for Separated<'a, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(item) = &self.item {
+            write!(f, "{}{}", self.sep, item)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+pub fn encode_params<'a, I>(params_iter: I) -> Option<String>
 where
     I: IntoIterator<Item = &'a Expression>,
 {
@@ -45,23 +65,31 @@ where
 
 pub fn encode_smt_exprs<Ref: Borrow<SmtExpr>, Iter: IntoIterator<Item = Ref>>(
     exprs: Iter,
-) -> String {
+) -> Option<String> {
     let mut out = String::with_capacity(64);
 
+    // Don't print the angle brackets if there are no parames
+    let mut peekable = exprs.into_iter().peekable();
+    if peekable.peek().is_none() {
+        return None;
+    }
+
     out.push_str("<$");
-    let mut out = exprs.into_iter().fold(out, |mut acc, expr| {
-        acc.push_str(&encode_smt_expr(expr.borrow()));
+    let mut out = peekable.fold(out, |mut acc, expr| {
+        if let Some(encoding) = encode_smt_expr(expr.borrow()) {
+            acc.push_str(&encoding);
+        }
         acc
     });
     out.push_str("$>");
 
-    out
+    Some(out)
 }
 
-fn encode_smt_expr(expr: &SmtExpr) -> String {
+fn encode_smt_expr(expr: &SmtExpr) -> Option<String> {
     match expr {
-        SmtExpr::Comment(_) => "".to_string(),
-        SmtExpr::Atom(atom) => format!("<!{atom}!>"),
+        SmtExpr::Comment(_) => None,
+        SmtExpr::Atom(atom) => Some(format!("<!{atom}!>")),
         SmtExpr::List(exprs) => encode_smt_exprs(exprs),
     }
 }

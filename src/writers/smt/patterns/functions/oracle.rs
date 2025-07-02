@@ -5,7 +5,7 @@ use crate::{
     writers::smt::{
         patterns::{
             self,
-            instance_names::{encode_params, only_ints_and_funs},
+            instance_names::{encode_params, only_ints_and_funs, Separated},
             oracle_args::OracleArgPattern as _,
             DatastructurePattern as _, FunctionPattern, ReturnPattern,
         },
@@ -34,10 +34,12 @@ impl FunctionPattern for OraclePattern<'_> {
             ..
         } = self;
 
-        let encoded_game_params = encode_params(only_ints_and_funs(self.game_params));
-        let encoded_pkg_params = encode_params(only_ints_and_funs(self.pkg_params));
+        let game_encoded_params = encode_params(only_ints_and_funs(self.game_params));
+        let game_separated_params = Separated::new(game_encoded_params, "-");
+        let pkg_encoded_params = encode_params(only_ints_and_funs(self.pkg_params));
+        let pkg_separated_params = Separated::new(pkg_encoded_params, "-");
 
-        format!("<oracle-{game_name}-{encoded_game_params}-{pkg_name}-{encoded_pkg_params}-{oracle_name}>")
+        format!("<oracle-{game_name}{game_separated_params}-{pkg_name}{pkg_separated_params}-{oracle_name}>")
     }
 
     fn function_args(&self) -> Vec<(String, Sort)> {
