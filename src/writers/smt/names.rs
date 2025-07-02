@@ -2,11 +2,11 @@ use itertools::Itertools;
 
 use super::exprs::SmtExpr;
 
-pub(crate) fn concat_camel_case<'a>(parts: impl IntoIterator<Item = &'a &'a str>) -> String {
+pub(crate) fn concat_camel_case<'a>(parts: impl IntoIterator<Item = &'a str>) -> String {
     format!("<{}>", parts.into_iter().join("_"))
 }
 
-pub(crate) fn concat_kebab_case<'a>(parts: impl IntoIterator<Item = &'a &'a str>) -> String {
+pub(crate) fn concat_kebab_case<'a>(parts: impl IntoIterator<Item = &'a str>) -> String {
     format!("<{}>", parts.into_iter().join("-"))
 }
 

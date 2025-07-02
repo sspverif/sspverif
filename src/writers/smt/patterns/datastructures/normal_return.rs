@@ -4,7 +4,7 @@ use crate::identifier::game_ident::GameConstIdentifier;
 use crate::identifier::pkg_ident::PackageConstIdentifier;
 use crate::types::Type;
 use crate::writers::smt::exprs::SmtExpr;
-use crate::writers::smt::patterns::instance_names::{encode_params, only_non_function_expression};
+use crate::writers::smt::patterns::instance_names::{encode_params, only_ints, Separated};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ReturnPattern<'a> {
@@ -42,9 +42,11 @@ impl<'a> DatastructurePattern<'a> for ReturnPattern<'a> {
             pkg_params,
         } = self;
 
-        let game_encoded_params = encode_params(only_non_function_expression(*game_params));
-        let pkg_encoded_params = encode_params(only_non_function_expression(*pkg_params));
-        format!("<{camel_case}-{game_name}-{game_encoded_params}-{pkg_name}-{pkg_encoded_params}-{oracle_name}>")
+        let game_encoded_params = encode_params(only_ints(*game_params));
+        let game_separated_params = Separated::new(game_encoded_params, "-");
+        let pkg_encoded_params = encode_params(only_ints(*pkg_params));
+        let pkg_separated_params = Separated::new(pkg_encoded_params, "-");
+        format!("<{camel_case}-{game_name}{game_separated_params}-{pkg_name}{pkg_separated_params}-{oracle_name}>")
     }
 
     fn constructor_name(&self, _cons: &Self::Constructor) -> String {
@@ -56,10 +58,12 @@ impl<'a> DatastructurePattern<'a> for ReturnPattern<'a> {
             ..
         } = self;
 
-        let game_encoded_params = encode_params(only_non_function_expression(self.game_params));
-        let pkg_encoded_params = encode_params(only_non_function_expression(self.pkg_params));
+        let game_encoded_params = encode_params(only_ints(self.game_params));
+        let game_separated_params = Separated::new(game_encoded_params, "-");
+        let pkg_encoded_params = encode_params(only_ints(self.pkg_params));
+        let pkg_separated_params = Separated::new(pkg_encoded_params, "-");
 
-        format!("<mk-{kebab_case}-{game_name}-{game_encoded_params}-{pkg_name}-{pkg_encoded_params}-{oracle_name}>")
+        format!("<mk-{kebab_case}-{game_name}{game_separated_params}-{pkg_name}{pkg_separated_params}-{oracle_name}>")
     }
 
     fn selector_name(&self, sel: &Self::Selector) -> String {
@@ -71,15 +75,17 @@ impl<'a> DatastructurePattern<'a> for ReturnPattern<'a> {
             ..
         } = self;
 
-        let game_encoded_params = encode_params(only_non_function_expression(self.game_params));
-        let pkg_encoded_params = encode_params(only_non_function_expression(self.pkg_params));
+        let game_encoded_params = encode_params(only_ints(self.game_params));
+        let game_separated_params = Separated::new(game_encoded_params, "-");
+        let pkg_encoded_params = encode_params(only_ints(self.pkg_params));
+        let pkg_separated_params = Separated::new(pkg_encoded_params, "-");
 
         let field_name = match sel {
             ReturnSelector::GameState => "game-state",
             ReturnSelector::ReturnValueOrAbort { .. } => "return-value-or-abort",
         };
 
-        format!("<{kebab_case}-{game_name}-{game_encoded_params}-{pkg_name}-{pkg_encoded_params}-{oracle_name}-{field_name}>")
+        format!("<{kebab_case}-{game_name}{game_separated_params}-{pkg_name}{pkg_separated_params}-{oracle_name}-{field_name}>")
     }
 
     fn matchfield_name(&self, sel: &Self::Selector) -> String {
@@ -131,9 +137,11 @@ impl ReturnPattern<'_> {
             ..
         } = self;
 
-        let game_encoded_params = encode_params(only_non_function_expression(self.game_params));
-        let pkg_encoded_params = encode_params(only_non_function_expression(self.pkg_params));
+        let game_encoded_params = encode_params(only_ints(self.game_params));
+        let game_separated_params = Separated::new(game_encoded_params, "-");
+        let pkg_encoded_params = encode_params(only_ints(self.pkg_params));
+        let pkg_separated_params = Separated::new(pkg_encoded_params, "-");
 
-        format!("<!return-{game_name}-{game_encoded_params}-{pkg_name}-{pkg_encoded_params}-{oracle_name}>")
+        format!("<!return-{game_name}{game_separated_params}-{pkg_name}{pkg_separated_params}-{oracle_name}>")
     }
 }

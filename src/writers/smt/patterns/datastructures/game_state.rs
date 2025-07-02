@@ -7,7 +7,7 @@ use crate::{
     writers::smt::{
         exprs::SmtExpr,
         patterns::{
-            instance_names::{encode_params, only_non_function_expression},
+            instance_names::{encode_params, only_ints, Separated},
             DatastructurePattern, DatastructureSpec, PackageStatePattern,
         },
         sorts::Sort,
@@ -43,23 +43,26 @@ impl<'a> DatastructurePattern<'a> for GameStatePattern<'a> {
     fn sort_name(&self) -> String {
         let Self { game_name, params } = self;
         let camel_case = <GameStatePattern as DatastructurePattern>::CAMEL_CASE;
-        let encoded_params = encode_params(only_non_function_expression(*params));
+        let encoded_params = encode_params(only_ints(*params));
+        let separated_params = Separated::new(encoded_params.as_ref(), "_");
 
-        format!("<{camel_case}_{game_name}_{encoded_params}>")
+        format!("<{camel_case}_{game_name}{separated_params}>")
     }
 
     fn constructor_name(&self, _cons: &Self::Constructor) -> String {
         let kebab_case = Self::KEBAB_CASE;
         let Self { game_name, .. } = self;
-        let encoded_params = encode_params(only_non_function_expression(self.params));
+        let encoded_params = encode_params(only_ints(self.params));
+        let separated_params = Separated::new(encoded_params, "-");
 
-        format!("<mk-{kebab_case}-{game_name}-{encoded_params}>")
+        format!("<mk-{kebab_case}-{game_name}{separated_params}>")
     }
 
     fn selector_name(&self, sel: &Self::Selector) -> String {
         let kebab_case = Self::KEBAB_CASE;
         let Self { game_name, .. } = self;
-        let encoded_params = encode_params(only_non_function_expression(self.params));
+        let encoded_params = encode_params(only_ints(self.params));
+        let separated_params = Separated::new(encoded_params, "-");
 
         let (kind_name, field_name) = match sel {
             GameStateSelector::PackageInstance { pkg_inst_name, .. } => {
@@ -68,7 +71,7 @@ impl<'a> DatastructurePattern<'a> for GameStatePattern<'a> {
             GameStateSelector::Randomness { sample_id } => ("rand", format!("{sample_id}")),
         };
 
-        format!("<{kebab_case}-{game_name}-{encoded_params}-{kind_name}-{field_name}>")
+        format!("<{kebab_case}-{game_name}{separated_params}-{kind_name}-{field_name}>")
     }
 
     fn matchfield_name(&self, sel: &Self::Selector) -> String {
