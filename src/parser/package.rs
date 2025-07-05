@@ -430,12 +430,21 @@ pub fn handle_expression(
                     .collect::<Result<_, _>>()?,
             )
         }
-        Rule::expr_not_equals => Expression::Not(Box::new(Expression::Equals(
-            ast.into_inner()
-                .map(|expr| handle_expression(ctx, expr, None))
-                .collect::<Result<_, _>>()?,
-        ))),
+        Rule::expr_not_equals => {
+            let mut pairs = ast.into_inner();
 
+            let first = pairs.next().unwrap();
+            let first = handle_expression(ctx, first, None)?;
+
+            let first_type = first.get_type();
+
+            Expression::Not(Box::new(Expression::Equals(
+                vec![Ok(first)]
+                    .into_iter()
+                    .chain(pairs.map(|expr| handle_expression(ctx, expr, Some(&first_type))))
+                    .collect::<Result<_, _>>()?,
+            )))
+        }
         Rule::expr_none => {
             let tipe = handle_type(ctx, ast.into_inner().next().unwrap())?;
             Expression::None(tipe)
