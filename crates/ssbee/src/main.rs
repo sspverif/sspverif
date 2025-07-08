@@ -178,6 +178,8 @@ struct Prove {
     proofstep: Option<usize>,
     #[clap(long)]
     proof: Option<String>,
+    #[clap(long)]
+    oracle: Option<String>,
 }
 
 #[derive(clap::Args, Debug)]
@@ -204,7 +206,7 @@ fn prove(p: &Prove) -> Result<(), project::error::Error> {
 
     assert!(p.proofstep == None || p.proof != None);
 
-    project.prove(p.prover, p.transcript, &p.proof, p.proofstep)
+    project.prove(p.prover, p.transcript, &p.proof, p.proofstep, &p.oracle)
 }
 
 fn explain(_game_name: &str, _dst: &Option<String>) -> Result<(), project::error::Error> {

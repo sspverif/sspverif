@@ -194,6 +194,7 @@ impl<'a> Project<'a> {
         transcript: bool,
         req_proof: &Option<String>,
         req_proofstep: Option<usize>,
+        req_oracle: &Option<String>,
     ) -> Result<()> {
         let mut proof_keys: Vec<_> = self.proofs.keys().collect();
         proof_keys.sort();
@@ -222,7 +223,7 @@ impl<'a> Project<'a> {
                         } else {
                             Communicator::new(backend)?
                         };
-                        equivalence::verify(eq, proof, prover)?;
+                        equivalence::verify(eq, proof, prover, &req_oracle)?;
                     }
                 }
 

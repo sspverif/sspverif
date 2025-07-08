@@ -14,7 +14,7 @@ use crate::{
 
 use super::EquivalenceContext;
 
-pub fn verify(eq: &Equivalence, proof: &Proof, mut prover: Communicator) -> Result<()> {
+pub fn verify(eq: &Equivalence, proof: &Proof, mut prover: Communicator, req_oracle: &Option<String>) -> Result<()> {
     let (proof, auxs) = EquivalenceTransform.transform_proof(proof).unwrap();
 
     let eqctx = EquivalenceContext {
@@ -37,6 +37,11 @@ pub fn verify(eq: &Equivalence, proof: &Proof, mut prover: Communicator) -> Resu
     eqctx.emit_constant_declarations(&mut prover)?;
 
     for oracle_sig in eqctx.oracle_sequence() {
+        if let Some(ref req_oracle) = req_oracle {
+            if *req_oracle != oracle_sig.name {
+                continue;
+            }
+        }
         println!("verify: oracle:{oracle_sig:?}");
         write!(prover, "(push 1)").unwrap();
         eqctx.emit_return_value_helpers(&mut prover, &oracle_sig.name)?;
