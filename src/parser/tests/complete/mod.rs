@@ -194,7 +194,7 @@ fn equivalence_gamehome_generates_code() {
     let backend = ProverBackend::Cvc5;
     let transcript = SharedVecWriter::default();
     let prover = Communicator::new_with_transcript(backend, transcript.clone()).unwrap();
-    equivalence::verify(eq, &proof, prover).unwrap_or_else(|err| {
+    equivalence::verify(eq, &proof, prover, &None).unwrap_or_else(|err| {
         panic!(
             "got error {err}.\n\ntranscript:\n{transcript}",
             err = err,
