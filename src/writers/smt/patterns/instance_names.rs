@@ -32,26 +32,6 @@ pub fn only_non_function_expression<'a, T: 'a, I: IntoIterator<Item = &'a (T, Ex
         })
 }
 
-pub struct Separated<'a, T> {
-    item: Option<T>,
-    sep: &'a str,
-}
-
-impl<'a, T> Separated<'a, T> {
-    pub fn new(item: Option<T>, sep: &'a str) -> Self {
-        Self { item, sep }
-    }
-}
-impl<'a, T: std::fmt::Display> std::fmt::Display for Separated<'a, T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(item) = &self.item {
-            write!(f, "{}{}", self.sep, item)
-        } else {
-            Ok(())
-        }
-    }
-}
-
 pub fn encode_params<'a, I>(params_iter: I) -> Option<String>
 where
     I: IntoIterator<Item = &'a Expression>,

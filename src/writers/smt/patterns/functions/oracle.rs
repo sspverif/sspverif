@@ -3,9 +3,10 @@ use crate::{
     identifier::{game_ident::GameConstIdentifier, pkg_ident::PackageConstIdentifier},
     types::Type,
     writers::smt::{
+        names::FunctionNameBuilder,
         patterns::{
             self,
-            instance_names::{encode_params, only_ints_and_funs, Separated},
+            instance_names::{encode_params, only_ints_and_funs},
             oracle_args::OracleArgPattern as _,
             DatastructurePattern as _, FunctionPattern, ReturnPattern,
         },
@@ -27,19 +28,17 @@ pub struct OraclePattern<'a> {
 
 impl FunctionPattern for OraclePattern<'_> {
     fn function_name(&self) -> String {
-        let Self {
-            game_name,
-            pkg_name,
-            oracle_name,
-            ..
-        } = self;
-
         let game_encoded_params = encode_params(only_ints_and_funs(self.game_params));
-        let game_separated_params = Separated::new(game_encoded_params, "-");
         let pkg_encoded_params = encode_params(only_ints_and_funs(self.pkg_params));
-        let pkg_separated_params = Separated::new(pkg_encoded_params, "-");
 
-        format!("<oracle-{game_name}{game_separated_params}-{pkg_name}{pkg_separated_params}-{oracle_name}>")
+        FunctionNameBuilder::new()
+            .push("oracle")
+            .push(self.game_name)
+            .maybe_extend(&game_encoded_params)
+            .push(self.pkg_name)
+            .maybe_extend(&pkg_encoded_params)
+            .push(self.oracle_name)
+            .build()
     }
 
     fn function_args(&self) -> Vec<(String, Sort)> {

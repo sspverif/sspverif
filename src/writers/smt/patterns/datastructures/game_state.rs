@@ -6,8 +6,9 @@ use crate::{
     types::Type,
     writers::smt::{
         exprs::SmtExpr,
+        names::{Delimiter, FunctionNameBuilder, NameBuilderStage, NameSection, SortNameBuilder},
         patterns::{
-            instance_names::{encode_params, only_ints, Separated},
+            instance_names::{encode_params, only_ints},
             DatastructurePattern, DatastructureSpec, PackageStatePattern,
         },
         sorts::Sort,
@@ -25,6 +26,23 @@ pub enum GameStateSelector<'a> {
     PackageInstance { pkg_inst_name: &'a str, sort: Sort },
     Randomness { sample_id: usize },
 }
+impl<'a> NameSection for GameStateSelector<'a> {
+    fn push_into<Delim, Stage>(
+        &self,
+        builder: crate::writers::smt::names::NameBuilder<Delim, Stage>,
+    ) -> crate::writers::smt::names::NameBuilder<Delim, crate::writers::smt::names::NotEmpty>
+    where
+        Delim: Delimiter,
+        Stage: NameBuilderStage,
+    {
+        match self {
+            GameStateSelector::PackageInstance { pkg_inst_name, .. } => {
+                builder.push("pkgstate").push(pkg_inst_name)
+            }
+            GameStateSelector::Randomness { sample_id } => builder.push("rand").push(sample_id),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct GameStateDeclareInfo<'a> {
@@ -41,48 +59,39 @@ impl<'a> DatastructurePattern<'a> for GameStatePattern<'a> {
     const KEBAB_CASE: &'static str = "game";
 
     fn sort_name(&self) -> String {
-        let Self { game_name, params } = self;
-        let camel_case = <GameStatePattern as DatastructurePattern>::CAMEL_CASE;
-        let encoded_params = encode_params(only_ints(*params));
-        let separated_params = Separated::new(encoded_params.as_ref(), "_");
+        let encoded_params = encode_params(only_ints(self.params));
 
-        format!("<{camel_case}_{game_name}{separated_params}>")
+        SortNameBuilder::new()
+            .push(Self::CAMEL_CASE)
+            .push(self.game_name)
+            .maybe_extend(&encoded_params)
+            .build()
     }
 
     fn constructor_name(&self, _cons: &Self::Constructor) -> String {
-        let kebab_case = Self::KEBAB_CASE;
-        let Self { game_name, .. } = self;
         let encoded_params = encode_params(only_ints(self.params));
-        let separated_params = Separated::new(encoded_params, "-");
 
-        format!("<mk-{kebab_case}-{game_name}{separated_params}>")
+        FunctionNameBuilder::new()
+            .push("mk")
+            .push(Self::KEBAB_CASE)
+            .push(self.game_name)
+            .maybe_extend(&encoded_params)
+            .build()
     }
 
     fn selector_name(&self, sel: &Self::Selector) -> String {
-        let kebab_case = Self::KEBAB_CASE;
-        let Self { game_name, .. } = self;
         let encoded_params = encode_params(only_ints(self.params));
-        let separated_params = Separated::new(encoded_params, "-");
 
-        let (kind_name, field_name) = match sel {
-            GameStateSelector::PackageInstance { pkg_inst_name, .. } => {
-                ("pkgstate", pkg_inst_name.to_string())
-            }
-            GameStateSelector::Randomness { sample_id } => ("rand", format!("{sample_id}")),
-        };
-
-        format!("<{kebab_case}-{game_name}{separated_params}-{kind_name}-{field_name}>")
+        FunctionNameBuilder::new()
+            .push(Self::KEBAB_CASE)
+            .push(self.game_name)
+            .maybe_extend(&encoded_params)
+            .extend(sel)
+            .build()
     }
 
     fn matchfield_name(&self, sel: &Self::Selector) -> String {
-        let (kind_name, field_name) = match sel {
-            GameStateSelector::PackageInstance { pkg_inst_name, .. } => {
-                ("pkgstate", pkg_inst_name.to_string())
-            }
-            GameStateSelector::Randomness { sample_id } => ("rand", format!("{sample_id}")),
-        };
-
-        format!("match-{kind_name}-{field_name}")
+        FunctionNameBuilder::new().push("match").extend(sel).build()
     }
 
     fn selector_sort(&self, sel: &Self::Selector) -> SmtExpr {
