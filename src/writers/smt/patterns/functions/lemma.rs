@@ -2,6 +2,7 @@ use crate::{
     expressions::Expression,
     identifier::game_ident::GameConstIdentifier,
     writers::smt::{
+        names::FunctionNameBuilder,
         patterns::{FunctionPattern, GameStatePattern},
         sorts::Sort,
     },
@@ -21,13 +22,12 @@ struct LemmaFunction<'a> {
 
 impl FunctionPattern for LemmaFunction<'_> {
     fn function_name(&self) -> String {
-        let Self {
-            left_game_inst_name,
-            right_game_inst_name,
-            oracle_name,
-            ..
-        } = self;
-        format!("lemma-auto-{left_game_inst_name}-{right_game_inst_name}-{oracle_name}")
+        FunctionNameBuilder::new()
+            .push("lemma-auto")
+            .push(self.left_game_inst_name)
+            .push(self.right_game_inst_name)
+            .push(self.oracle_name)
+            .build()
     }
 
     fn function_args(&self) -> Vec<(String, Sort)> {

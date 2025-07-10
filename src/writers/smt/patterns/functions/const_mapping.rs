@@ -3,6 +3,7 @@ use crate::{
     proof::Proof,
     writers::smt::{
         exprs::{SmtExpr, SmtLet},
+        names::FunctionNameBuilder,
         patterns::{
             datastructures::game_consts::GameConstsPattern as GameConstsDatatypePattern,
             game_consts::{bind_game_consts, bind_proof_consts},
@@ -24,13 +25,11 @@ pub struct PackageConstMappingFunction<'a> {
 
 impl FunctionPattern for PackageConstMappingFunction<'_> {
     fn function_name(&self) -> String {
-        let Self {
-            game_name,
-            pkg_inst_name,
-            ..
-        } = self;
-
-        format!("<pkgconsts-{game_name}-{pkg_inst_name}>")
+        FunctionNameBuilder::new()
+            .push("pkgconsts")
+            .push(self.game_name)
+            .push(self.pkg_inst_name)
+            .build()
     }
 
     fn function_args(&self) -> Vec<(String, Sort)> {
@@ -60,13 +59,11 @@ pub struct GameConstMappingFunction<'a> {
 
 impl FunctionPattern for GameConstMappingFunction<'_> {
     fn function_name(&self) -> String {
-        let Self {
-            proof_name,
-            game_inst_name,
-            ..
-        } = self;
-
-        format!("gameconsts-{proof_name}-{game_inst_name}>")
+        FunctionNameBuilder::new()
+            .push("gameconsts")
+            .push(self.proof_name)
+            .push(self.game_inst_name)
+            .build()
     }
 
     fn function_args(&self) -> Vec<(String, Sort)> {

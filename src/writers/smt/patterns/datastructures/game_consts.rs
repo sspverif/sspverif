@@ -4,6 +4,7 @@ use crate::{
     types::Type,
     writers::smt::{
         exprs::{SmtExpr, SmtLet},
+        names::{FunctionNameBuilder, SortNameBuilder},
         patterns::{DatastructurePattern, DatastructureSpec},
     },
 };
@@ -33,24 +34,26 @@ impl<'a> DatastructurePattern<'a> for GameConstsPattern<'a> {
     const KEBAB_CASE: &'static str = "game-consts";
 
     fn sort_name(&self) -> String {
-        let camel_case = Self::CAMEL_CASE;
-        let game_name = self.game_name;
-        format!("<{camel_case}_{game_name}>")
+        SortNameBuilder::new()
+            .push(Self::CAMEL_CASE)
+            .push(self.game_name)
+            .build()
     }
 
     fn constructor_name(&self, _cons: &Self::Constructor) -> String {
-        let kebab_case = Self::KEBAB_CASE;
-        let Self { game_name } = self;
-
-        format!("mk-{kebab_case}-{game_name}")
+        FunctionNameBuilder::new()
+            .push("mk")
+            .push(Self::KEBAB_CASE)
+            .push(self.game_name)
+            .build()
     }
 
     fn selector_name(&self, sel: &Self::Selector) -> String {
-        let kebab_case = Self::KEBAB_CASE;
-        let const_name = sel.name;
-        let Self { game_name } = self;
-
-        format!("{kebab_case}-{game_name}-{const_name}")
+        FunctionNameBuilder::new()
+            .push(Self::KEBAB_CASE)
+            .push(self.game_name)
+            .push(sel.name)
+            .build()
     }
 
     fn selector_sort(&self, sel: &Self::Selector) -> crate::writers::smt::exprs::SmtExpr {
@@ -72,8 +75,10 @@ impl<'a> DatastructurePattern<'a> for GameConstsPattern<'a> {
     }
 
     fn matchfield_name(&self, sel: &Self::Selector) -> String {
-        let const_name = sel.name;
-        format!("<match-{const_name}>")
+        FunctionNameBuilder::new()
+            .push("match")
+            .push(sel.name)
+            .build()
     }
 }
 
