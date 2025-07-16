@@ -4,7 +4,8 @@ use crate::identifier::game_ident::GameConstIdentifier;
 use crate::identifier::pkg_ident::PackageConstIdentifier;
 use crate::types::Type;
 use crate::writers::smt::exprs::SmtExpr;
-use crate::writers::smt::patterns::instance_names::{encode_params, only_non_function_expression};
+use crate::writers::smt::names::{FunctionNameBuilder, SortNameBuilder};
+use crate::writers::smt::patterns::instance_names::{encode_params, only_ints};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ReturnPattern<'a> {
@@ -33,53 +34,52 @@ impl<'a> DatastructurePattern<'a> for ReturnPattern<'a> {
     const KEBAB_CASE: &'static str = "oracle-return";
 
     fn sort_name(&self) -> String {
-        let camel_case = ReturnPattern::CAMEL_CASE;
-        let Self {
-            game_name,
-            pkg_name,
-            oracle_name,
-            game_params,
-            pkg_params,
-        } = self;
+        let game_encoded_params = encode_params(only_ints(self.game_params));
+        let pkg_encoded_params = encode_params(only_ints(self.pkg_params));
 
-        let game_encoded_params = encode_params(only_non_function_expression(*game_params));
-        let pkg_encoded_params = encode_params(only_non_function_expression(*pkg_params));
-        format!("<{camel_case}-{game_name}-{game_encoded_params}-{pkg_name}-{pkg_encoded_params}-{oracle_name}>")
+        SortNameBuilder::new()
+            .push(Self::CAMEL_CASE)
+            .push(self.game_name)
+            .maybe_extend(&game_encoded_params)
+            .push(self.pkg_name)
+            .maybe_extend(&pkg_encoded_params)
+            .push(self.oracle_name)
+            .build()
     }
 
     fn constructor_name(&self, _cons: &Self::Constructor) -> String {
-        let kebab_case = Self::KEBAB_CASE;
-        let Self {
-            game_name,
-            pkg_name,
-            oracle_name,
-            ..
-        } = self;
+        let game_encoded_params = encode_params(only_ints(self.game_params));
+        let pkg_encoded_params = encode_params(only_ints(self.pkg_params));
 
-        let game_encoded_params = encode_params(only_non_function_expression(self.game_params));
-        let pkg_encoded_params = encode_params(only_non_function_expression(self.pkg_params));
-
-        format!("<mk-{kebab_case}-{game_name}-{game_encoded_params}-{pkg_name}-{pkg_encoded_params}-{oracle_name}>")
+        FunctionNameBuilder::new()
+            .push("mk")
+            .push(Self::KEBAB_CASE)
+            .push(self.game_name)
+            .maybe_extend(&game_encoded_params)
+            .push(self.pkg_name)
+            .maybe_extend(&pkg_encoded_params)
+            .push(self.oracle_name)
+            .build()
     }
 
     fn selector_name(&self, sel: &Self::Selector) -> String {
-        let kebab_case = Self::KEBAB_CASE;
-        let Self {
-            game_name,
-            pkg_name,
-            oracle_name,
-            ..
-        } = self;
-
-        let game_encoded_params = encode_params(only_non_function_expression(self.game_params));
-        let pkg_encoded_params = encode_params(only_non_function_expression(self.pkg_params));
+        let game_encoded_params = encode_params(only_ints(self.game_params));
+        let pkg_encoded_params = encode_params(only_ints(self.pkg_params));
 
         let field_name = match sel {
             ReturnSelector::GameState => "game-state",
             ReturnSelector::ReturnValueOrAbort { .. } => "return-value-or-abort",
         };
 
-        format!("<{kebab_case}-{game_name}-{game_encoded_params}-{pkg_name}-{pkg_encoded_params}-{oracle_name}-{field_name}>")
+        FunctionNameBuilder::new()
+            .push(Self::KEBAB_CASE)
+            .push(self.game_name)
+            .maybe_extend(&game_encoded_params)
+            .push(self.pkg_name)
+            .maybe_extend(&pkg_encoded_params)
+            .push(self.oracle_name)
+            .push(field_name)
+            .build()
     }
 
     fn matchfield_name(&self, sel: &Self::Selector) -> String {
@@ -88,7 +88,10 @@ impl<'a> DatastructurePattern<'a> for ReturnPattern<'a> {
             ReturnSelector::ReturnValueOrAbort { .. } => "return-value-or-abort",
         };
 
-        format!("match-{field_name}")
+        FunctionNameBuilder::new()
+            .push("match")
+            .push(field_name)
+            .build()
     }
 
     fn datastructure_spec(&self, return_type: &'a Type) -> DatastructureSpec<'a, Self> {
@@ -124,16 +127,16 @@ impl<'a> DatastructurePattern<'a> for ReturnPattern<'a> {
 
 impl ReturnPattern<'_> {
     pub fn global_const_name(&self) -> String {
-        let Self {
-            game_name,
-            pkg_name,
-            oracle_name,
-            ..
-        } = self;
+        let game_encoded_params = encode_params(only_ints(self.game_params));
+        let pkg_encoded_params = encode_params(only_ints(self.pkg_params));
 
-        let game_encoded_params = encode_params(only_non_function_expression(self.game_params));
-        let pkg_encoded_params = encode_params(only_non_function_expression(self.pkg_params));
-
-        format!("<!return-{game_name}-{game_encoded_params}-{pkg_name}-{pkg_encoded_params}-{oracle_name}>")
+        FunctionNameBuilder::new()
+            .push("!return")
+            .push(self.game_name)
+            .maybe_extend(&game_encoded_params)
+            .push(self.pkg_name)
+            .maybe_extend(&pkg_encoded_params)
+            .push(self.oracle_name)
+            .build()
     }
 }
