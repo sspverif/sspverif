@@ -21,6 +21,46 @@ pub enum Identifier {
 }
 
 impl Identifier {
+    pub(crate) fn into_proof_identifier(self) -> Option<ProofIdentifier> {
+        match self {
+            Identifier::PackageIdentifier(package_identifier) => package_identifier
+                .into_const()?
+                .game_assignment?
+                .into_identifier()?
+                .into_proof_identifier(),
+
+            Identifier::GameIdentifier(game_identifier) => game_identifier
+                .into_const()?
+                .assigned_value?
+                .into_identifier()?
+                .into_proof_identifier(),
+            Identifier::ProofIdentifier(proof_identifier) => Some(proof_identifier),
+            Identifier::Generated(_, _) => None,
+        }
+    }
+
+    pub(crate) fn as_proof_identifier_mut(&mut self) -> Option<&mut ProofIdentifier> {
+        match self {
+            Identifier::PackageIdentifier(package_identifier) => package_identifier
+                .as_const_mut()?
+                .game_assignment
+                .as_mut()?
+                .as_mut()
+                .as_identifier_mut()?
+                .as_proof_identifier_mut(),
+
+            Identifier::GameIdentifier(game_identifier) => game_identifier
+                .as_const_mut()?
+                .assigned_value
+                .as_mut()?
+                .as_mut()
+                .as_identifier_mut()?
+                .as_proof_identifier_mut(),
+            Identifier::ProofIdentifier(proof_identifier) => Some(proof_identifier),
+            Identifier::Generated(_, _) => None,
+        }
+    }
+
     pub(crate) fn as_proof_identifier(&self) -> Option<&ProofIdentifier> {
         match self {
             Identifier::PackageIdentifier(package_identifier) => package_identifier
@@ -234,6 +274,20 @@ pub mod pkg_ident {
         }
 
         pub fn as_const(&self) -> Option<&PackageConstIdentifier> {
+            if let Self::Const(v) = self {
+                Some(v)
+            } else {
+                None
+            }
+        }
+        pub fn as_const_mut(&mut self) -> Option<&mut PackageConstIdentifier> {
+            if let Self::Const(v) = self {
+                Some(v)
+            } else {
+                None
+            }
+        }
+        pub fn into_const(self) -> Option<PackageConstIdentifier> {
             if let Self::Const(v) = self {
                 Some(v)
             } else {
@@ -457,6 +511,22 @@ pub mod game_ident {
             match self {
                 GameIdentifier::Const(const_ident) => const_ident.tipe.clone(),
                 GameIdentifier::LoopVar(_local_ident) => Type::Integer,
+            }
+        }
+
+        pub fn into_const(self) -> Option<GameConstIdentifier> {
+            if let Self::Const(v) = self {
+                Some(v)
+            } else {
+                None
+            }
+        }
+
+        pub fn as_const_mut(&mut self) -> Option<&mut GameConstIdentifier> {
+            if let Self::Const(v) = self {
+                Some(v)
+            } else {
+                None
             }
         }
 

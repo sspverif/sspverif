@@ -455,6 +455,21 @@ impl Expression {
         Expression::Equals(exprs.into_iter().cloned().collect())
     }
 
+    pub fn into_identifier(self) -> Option<Identifier> {
+        if let Self::Identifier(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_identifier_mut(&mut self) -> Option<&mut Identifier> {
+        if let Self::Identifier(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
     pub fn as_identifier(&self) -> Option<&Identifier> {
         if let Self::Identifier(v) = self {
             Some(v)
