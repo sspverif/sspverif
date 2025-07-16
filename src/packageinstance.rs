@@ -604,14 +604,11 @@ pub(crate) mod instantiate {
                     pkg_ident
                 }
                 InstantiationSource::Game { .. } => {
-                    if let PackageIdentifier::Const(PackageConstIdentifier {
-                        game_assignment,
-                        ..
-                    }) = &mut pkg_ident
-                    {
-                        let assignment = game_assignment.as_mut().unwrap().as_mut();
-                        if let Expression::Identifier(ident) = assignment {
-                            *ident = self.rewrite_identifier(ident.clone())
+                    if let Some(ident) = &mut pkg_ident.as_const_mut() {
+                        if let Some(assignment) = ident.game_assignment.as_mut() {
+                            if let Expression::Identifier(ident) = assignment.as_mut() {
+                                *ident = self.rewrite_identifier(ident.clone())
+                            }
                         }
                     }
 
@@ -661,16 +658,17 @@ pub(crate) mod instantiate {
             let type_rewrite_rules = self.base_rewrite_rules();
 
             // extend the identifier with the instance and parent names
-            let ident = match (self.src, ident) {
-                (_, Identifier::PackageIdentifier(pkg_ident)) => {
+            let ident = match ident {
+                Identifier::PackageIdentifier(pkg_ident) => {
                     self.rewrite_pkg_identifier(pkg_ident).into()
                 }
-                (_, Identifier::GameIdentifier(game_ident)) => {
+                Identifier::GameIdentifier(game_ident) => {
                     self.rewrite_game_identifier(game_ident).into()
                 }
 
-                (_, ident @ Identifier::ProofIdentifier(_))
-                | (_, ident @ Identifier::Generated(_, _)) => ident,
+                ident @ Identifier::ProofIdentifier(_) | ident @ Identifier::Generated(_, _) => {
+                    ident
+                }
             };
 
             // rewrite the types
