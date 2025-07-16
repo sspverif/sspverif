@@ -7,6 +7,7 @@ use crate::identifier::game_ident::GameIdentifier;
 use crate::identifier::pkg_ident::PackageIdentifier;
 use crate::identifier::proof_ident::ProofIdentifier;
 use crate::identifier::Identifier;
+use crate::types::CountSpec;
 use crate::writers::smt::contexts::GameInstanceContext;
 use crate::writers::smt::declare::declare_const;
 use crate::writers::smt::patterns::const_mapping::{
@@ -1634,12 +1635,36 @@ impl<'a> EquivalenceContext<'a> {
         let left_positions = &self.sample_info_left().positions;
         let right_positions = &self.sample_info_right().positions;
 
-        let left_types: HashSet<Type> =
-            HashSet::from_iter(self.sample_info_left().tipes.iter().cloned());
+        let left_types: HashSet<Type> = HashSet::from_iter(
+            self.sample_info_left()
+                .tipes
+                .iter()
+                .cloned()
+                .map(|ty| match ty {
+                    Type::Bits(mut count_spec) => {
+                        if let CountSpec::Identifier(identifier) = count_spec.as_mut() {
+                            let proof_ident = identifier.as_proof_identifier();
+                            assert!(
+                                proof_ident.is_some(),
+                                "expected {identifier:?} to be completely resolved"
+                            );
+                            *identifier =
+                                Identifier::ProofIdentifier(proof_ident.cloned().unwrap());
+                        }
+                        Type::Bits(count_spec)
+                    }
+                    _ => ty,
+                }),
+        );
         let right_types: HashSet<Type> =
             HashSet::from_iter(self.sample_info_right().tipes.iter().cloned());
 
+        println!("randeq: types found in left:  {left_types:?}");
+        println!("randeq: types found in right: {right_types:?}");
+
         let types: Vec<&Type> = left_types.intersection(&right_types).collect();
+
+        println!("randeq: intersection: {types:?}");
 
         let mut left_positions_by_type: HashMap<_, Vec<_>> = HashMap::new();
         let mut right_positions_by_type: HashMap<_, Vec<_>> = HashMap::new();
