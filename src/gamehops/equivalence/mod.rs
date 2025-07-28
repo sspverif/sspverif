@@ -178,18 +178,21 @@ impl<'a> EquivalenceContext<'a> {
                                 None => {log::debug!("skipping identifier {id:?} since it is not fully resolved"); ident.ident()}
                             }
                         } ,
-                        Identifier::PackageIdentifier(PackageIdentifier::Const(pkg_const_ident)) => match pkg_const_ident.game_assignment.as_ref().unwrap_or_else(|| panic!("the assigned value for this identifier should have been resolved at this point:\n  {pkg_const_ident:#?}")).as_ref() {
-                            Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(game_const_ident))) => {
-                                match game_const_ident.assigned_value.as_ref().map(Box::as_ref) {
-                                    Some(Expression::Identifier(ident@Identifier::ProofIdentifier(ProofIdentifier::Const(_))) )=> ident.ident(),
-                                    Some(Expression::Identifier(_) )=> unreachable!("other identifiers can't occur here"),
-                                    Some(other) => todo!("ADD ERR MSG: no complex expressions allowed for now, found {other:?}"),
-                                    None => {log::debug!("skipping identifier {id:?} since it is not fully resolved"); ident.ident()}
-                                }
-                            },
-                            Expression::Identifier(_) => unreachable!("other identifiers can't occur here"),
-                            other => todo!("ADD ERR MSG: no complex expressions allowed for now, found {other:?}"),
-                        }
+                        Identifier::PackageIdentifier(PackageIdentifier::Const(pkg_const_ident)) =>
+                            match pkg_const_ident.game_assignment.as_ref().unwrap_or_else(
+                                || panic!("the assigned value for this identifier should have been resolved at this point:\n  {pkg_const_ident:#?}"))
+                            .as_ref() {
+                                Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(game_const_ident))) => {
+                                    match game_const_ident.assigned_value.as_ref().map(Box::as_ref) {
+                                        Some(Expression::Identifier(ident@Identifier::ProofIdentifier(ProofIdentifier::Const(_))) )=> ident.ident(),
+                                        Some(Expression::Identifier(_) )=> unreachable!("other identifiers can't occur here"),
+                                        Some(other) => todo!("ADD ERR MSG: no complex expressions allowed for now, found {other:?}"),
+                                        None => {log::debug!("skipping identifier {id:?} since it is not fully resolved"); ident.ident()}
+                                    }
+                                },
+                                Expression::Identifier(_) => unreachable!("other identifiers can't occur here"),
+                                other => todo!("ADD ERR MSG: no complex expressions allowed for now, found {other:?}"),
+                            }
                         Identifier::PackageIdentifier(_) => unreachable!("non-const package identifiers can't occur here"),
                         Identifier::GameIdentifier(_) => unreachable!("non-const game identifiers can't occur here"),
                         Identifier::Generated(_, _) => unreachable!("generated identifiers can't occur here"),
@@ -210,6 +213,7 @@ impl<'a> EquivalenceContext<'a> {
         base_declarations.push(hacks::ReturnValueDeclaration.into());
         base_declarations.extend(hacks::TuplesDeclaration(1..32));
         base_declarations.extend(hacks::EmptyDeclaration);
+        base_declarations.push(hacks::SampleIdDeclaration.into());
 
         for decl in base_declarations {
             comm.write_smt(decl)?
