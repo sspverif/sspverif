@@ -1235,9 +1235,9 @@ impl<'a> EquivalenceContext<'a> {
 
         let randomness_mapping = SmtForall {
             bindings: vec![
-                ("randmap-sample-id-left".into(), Type::Integer.into()),
+                ("randmap-sample-id-left".into(), "SampleId".into()),
                 ("randmap-sample-ctr-left".into(), Type::Integer.into()),
-                ("randmap-sample-id-right".into(), Type::Integer.into()),
+                ("randmap-sample-id-right".into(), "SampleId".into()),
                 ("randmap-sample-ctr-right".into(), Type::Integer.into()),
             ],
             body: (
@@ -1641,8 +1641,8 @@ impl<'a> EquivalenceContext<'a> {
 
         for selector in selectors {
             body = match selector {
-                patterns::GameStateSelector::Randomness { sample_id } => SmtIte {
-                    cond: ("=", "sample-id", *sample_id),
+                patterns::GameStateSelector::Randomness { sample_pos } => SmtIte {
+                    cond: ("=", "sampleid", sample_pos),
                     then: (pattern.selector_name(selector), state_name.clone()),
                     els: body,
                 }
@@ -1654,7 +1654,7 @@ impl<'a> EquivalenceContext<'a> {
         (
             "define-fun",
             format!("get-rand-ctr-{game_inst_name}"),
-            (("sample-id", Type::Integer),),
+            (("sampleid", "SampleId"),),
             "Int",
             body,
         )
@@ -1747,7 +1747,7 @@ impl<'a> EquivalenceContext<'a> {
                 .get(ty)
                 .expect("expected that left sample info has positions for type {ty:?}")
                 .iter()
-                .map(|Position { sample_id, .. }| ("=", *sample_id, "sample-id-left").into());
+                .map(|sample_pos| ("=", *sample_pos, "sample-id-left").into());
             let mut left_or_case: Vec<SmtExpr> = vec!["or".into()];
             left_or_case.extend(left_has_type);
 
@@ -1755,7 +1755,7 @@ impl<'a> EquivalenceContext<'a> {
                 .get(ty)
                 .expect("expected that right sample info has positions for type {ty:?}")
                 .iter()
-                .map(|Position { sample_id, .. }| ("=", *sample_id, "sample-id-right").into());
+                .map(|sample_pos| ("=", *sample_pos, "sample-id-right").into());
 
             let mut right_or_case: Vec<SmtExpr> = vec!["or".into()];
             right_or_case.extend(right_has_type);
@@ -1787,8 +1787,8 @@ impl<'a> EquivalenceContext<'a> {
             "define-fun",
             "rand-is-eq",
             (
-                ("sample-id-left", Type::Integer),
-                ("sample-id-right", Type::Integer),
+                ("sample-id-left", "SampleId"),
+                ("sample-id-right", "SampleId"),
                 ("sample-ctr-left", Type::Integer),
                 ("sample-ctr-right", Type::Integer),
             ),
@@ -1957,7 +1957,7 @@ fn build_rands(
             .into();
 
             // apply respective randomness function (based on type) to the given counter
-            let randval = gctx.smt_eval_randfn(sample_id, ("+", 0, randctr_name.as_str()), ty);
+            let randval = gctx.smt_eval_randfn(sample_item, ("+", 0, randctr_name.as_str()), ty);
 
             let constrain_randval: SmtExpr = SmtAssert(SmtEq2 {
                 lhs: randval_name,
