@@ -8,12 +8,12 @@ pub mod reduction;
 //
 // TODO: add a HybridArgument variant
 #[derive(Debug, Clone)]
-pub enum GameHop<'a> {
-    Reduction(Reduction<'a>),
+pub enum GameHop {
+    Reduction(Reduction),
     Equivalence(Equivalence),
 }
 
-impl<'a> GameHop<'a> {
+impl GameHop {
     /// Returns `true` if the game hop is [`Reduction`].
     ///
     /// [`Reduction`]: GameHop::Reduction
@@ -30,7 +30,7 @@ impl<'a> GameHop<'a> {
         matches!(self, Self::Equivalence(..))
     }
 
-    pub fn as_reduction(&self) -> Option<&Reduction<'a>> {
+    pub fn as_reduction(&self) -> Option<&Reduction> {
         if let Self::Reduction(v) = self {
             Some(v)
         } else {
@@ -49,7 +49,7 @@ impl<'a> GameHop<'a> {
     pub fn left_game_instance_name(&self) -> &str {
         match self {
             GameHop::Reduction(reduction) => {
-                reduction.left().construction_game_instance_name().as_str()
+                reduction.left().construction_game_instance_name()
             }
             GameHop::Equivalence(equivalence) => equivalence.left_name(),
         }
@@ -58,7 +58,7 @@ impl<'a> GameHop<'a> {
     pub fn right_game_instance_name(&self) -> &str {
         match self {
             GameHop::Reduction(reduction) => {
-                reduction.right().construction_game_instance_name().as_str()
+                reduction.right().construction_game_instance_name()
             }
             GameHop::Equivalence(equivalence) => equivalence.right_name(),
         }

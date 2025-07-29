@@ -178,16 +178,16 @@ impl Claim {
 }
 
 #[derive(Clone, Debug)]
-pub struct Proof<'a> {
+pub struct Proof {
     pub(crate) name: String,
     pub(crate) consts: Vec<(String, Type)>,
     pub(crate) instances: Vec<GameInstance>,
     pub(crate) assumptions: Vec<Assumption>,
-    pub(crate) game_hops: Vec<GameHop<'a>>,
+    pub(crate) game_hops: Vec<GameHop>,
     pub(crate) pkgs: Vec<Package>,
 }
 
-impl Proof<'_> {
+impl Proof {
     pub(crate) fn with_new_instances(&self, instances: Vec<GameInstance>) -> Proof {
         Proof {
             instances,

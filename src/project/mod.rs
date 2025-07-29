@@ -98,15 +98,15 @@ impl Files {
 }
 
 #[derive(Debug)]
-pub struct Project<'a> {
+pub struct Project {
     root_dir: PathBuf,
     packages: HashMap<String, Package>,
     games: HashMap<String, Composition>,
-    proofs: HashMap<String, Proof<'a>>,
+    proofs: HashMap<String, Proof>,
 }
 
-impl<'a> Project<'a> {
-    pub fn load(files: &'a Files) -> Result<Project<'a>> {
+impl Project {
+    pub fn load(files: &Files) -> Result<Project> {
         let root_dir = find_project_root()?;
 
         let packages: HashMap<_, _> = files
@@ -175,8 +175,8 @@ impl<'a> Project<'a> {
                     GameHop::Reduction(red) => {
                         println!(
                             "{i}: Reduction   {} ~= {} using {}",
-                            red.left().construction_game_instance_name().as_str(),
-                            red.right().construction_game_instance_name().as_str(),
+                            red.left().construction_game_instance_name(),
+                            red.right().construction_game_instance_name(),
                             red.assumption_name()
                         );
                     }

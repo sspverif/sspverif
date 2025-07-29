@@ -1,7 +1,13 @@
 use miette::Diagnostic;
 use thiserror::Error;
 
-use crate::parser::reduction::ReductionMapping;
+use crate::parser::{
+    reduction::{
+        ReductionMapping as ParserReductionMapping,
+        ReductionMappingEntry as ParserReductionMappingEntry
+    },
+    ast::Identifier,
+};
 
 /*
 approach:
@@ -37,32 +43,86 @@ pub(crate) struct Assumption {
     pub right_name: String,
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct ReductionMappingEntry {
+    assumption: String,
+    construction: String,
+}
+
+impl ReductionMappingEntry {
+    pub(crate) fn new(from: &ParserReductionMappingEntry) -> Self {
+        Self {
+            assumption: from.assumption().as_str().to_string(),
+            construction: from.construction().as_str().to_string(),
+        }
+    }
+
+    pub(crate) fn assumption(&self) -> &str {
+        &self.assumption
+    }
+
+    pub(crate) fn construction(&self) -> &str {
+        &self.construction
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct ReductionMapping {
+    assumption: String,
+    construction: String,
+
+    entries: Vec<ReductionMappingEntry>,
+}
+
+impl ReductionMapping {
+    pub(crate) fn new(from: ParserReductionMapping) -> Self {
+        Self {
+            assumption: from.assumption_game_instance_name().as_str().to_string(),
+            construction: from.construction_game_instance_name().as_str().to_string(),
+            entries: from.entries().iter().map(|entry| {ReductionMappingEntry::new(entry)}).collect(),
+        }
+    }
+    
+    pub(crate) fn assumption_game_instance_name(&self) -> &str {
+        &self.assumption
+    }
+
+    pub(crate) fn construction_game_instance_name(&self) -> &str {
+        &self.construction
+    }
+
+    pub(crate) fn entries(&self) -> &[ReductionMappingEntry] {
+        &self.entries
+    }
+}
+
+
 #[derive(Debug, Clone)]
-pub(crate) struct Reduction<'a> {
-    left: ReductionMapping<'a>,
-    right: ReductionMapping<'a>,
+pub(crate) struct Reduction {
+    left: ReductionMapping,
+    right: ReductionMapping,
 
     assumption_name: String,
 }
 
-impl<'a> Reduction<'a> {
+impl Reduction {
     pub(crate) fn new(
-        left: ReductionMapping<'a>,
-        right: ReductionMapping<'a>,
+        left: ParserReductionMapping,
+        right: ParserReductionMapping,
         assumption_name: String,
     ) -> Self {
         Self {
-            left,
-            right,
+            left: ReductionMapping::new(left),
+            right: ReductionMapping::new(right),
             assumption_name,
         }
     }
 
-    pub(crate) fn left(&self) -> &ReductionMapping<'a> {
+    pub(crate) fn left(&self) -> &ReductionMapping {
         &self.left
     }
 
-    pub(crate) fn right(&self) -> &ReductionMapping<'a> {
+    pub(crate) fn right(&self) -> &ReductionMapping {
         &self.right
     }
 

@@ -23,7 +23,7 @@ impl<'a> DatastructurePattern<'a> for ProofConstsPattern<'a> {
 
     type Selector = ProofConstsSelector<'a>;
 
-    type DeclareInfo = Proof<'a>;
+    type DeclareInfo = Proof;
 
     const CAMEL_CASE: &'static str = "ProofConsts";
 

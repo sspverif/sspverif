@@ -11,7 +11,7 @@ use crate::identifier::Identifier;
 use crate::package::{Composition, Edge, Export, OracleDef, PackageInstance};
 use crate::parser::ast::Identifier as _;
 use crate::parser::package::ForComp;
-use crate::parser::reduction::ReductionMappingEntry;
+use crate::gamehops::reduction::ReductionMappingEntry;
 use crate::proof::Proof;
 use crate::statement::{CodeBlock, InvokeOracleStatement, Statement};
 use crate::types::CountSpec;
@@ -705,7 +705,7 @@ fn tex_write_composition_graph(
      -> std::io::Result<()> {
         let fill = if pkgmap
             .iter()
-            .any(|entry| pkgname == entry.assumption().as_str())
+            .any(|entry| pkgname == entry.assumption())
         {
             "red!50"
         } else {
@@ -1044,11 +1044,9 @@ pub fn tex_write_proof(
                     "\\subsection{{Game {} with Assumption Game {} highlighted in red}}",
                     red.left()
                         .construction_game_instance_name()
-                        .as_str()
                         .replace('_', "\\_"),
                     red.left()
                         .assumption_game_instance_name()
-                        .as_str()
                         .replace('_', "\\_")
                 )?;
                 writeln!(file, "\\begin{{center}}")?;
@@ -1056,7 +1054,7 @@ pub fn tex_write_proof(
                     .instances
                     .iter()
                     .find(|instance| {
-                        instance.name() == red.left().construction_game_instance_name().as_str()
+                        instance.name() == red.left().construction_game_instance_name()
                     })
                     .unwrap();
                 tex_write_composition_graph(
@@ -1072,11 +1070,9 @@ pub fn tex_write_proof(
                     "\\subsection{{Game {} with Assumption Game {} highlighted  in red}}",
                     red.right()
                         .construction_game_instance_name()
-                        .as_str()
                         .replace('_', "\\_"),
                     red.right()
                         .assumption_game_instance_name()
-                        .as_str()
                         .replace('_', "\\_"),
                 )?;
                 writeln!(file, "\\begin{{center}}")?;
@@ -1084,7 +1080,7 @@ pub fn tex_write_proof(
                     .instances
                     .iter()
                     .find(|instance| {
-                        instance.name() == red.right().construction_game_instance_name().as_str()
+                        instance.name() == red.right().construction_game_instance_name()
                     })
                     .unwrap();
                 tex_write_composition_graph(

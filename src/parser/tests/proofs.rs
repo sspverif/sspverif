@@ -14,7 +14,7 @@ pub fn parse<'a>(
     name: &'a str,
     pkgs: &'a HashMap<String, Package>,
     games: &'a HashMap<String, Composition>,
-) -> Proof<'a> {
+) -> Proof {
     let mut proof_pairs = SspParser::parse_proof(code).unwrap();
     handle_proof(
         name,

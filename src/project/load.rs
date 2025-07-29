@@ -30,7 +30,7 @@ pub(crate) fn proofs(
     files: &[(String, String)],
     pkgs: HashMap<String, Package>,
     games: HashMap<String, Composition>,
-) -> Result<HashMap<String, Proof<'_>>> {
+) -> Result<HashMap<String, Proof>> {
     let mut proofs = HashMap::new();
 
     for (file_name, file_content) in files {

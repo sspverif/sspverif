@@ -131,7 +131,7 @@ pub fn define_pkg_const_mapping_fun<'a>(
 }
 
 pub fn define_game_const_mapping_fun<'a>(
-    proof: &'a Proof<'a>,
+    proof: &'a Proof,
     game: &'a Composition,
     game_inst_name: &'a str,
 ) -> Option<SmtDefineFun<SmtLet<SmtExpr>>> {

@@ -25,10 +25,10 @@ pub(crate) trait ProofTransform {
     type Err;
     type Aux;
 
-    fn transform_proof<'a>(
+    fn transform_proof(
         &self,
-        proof: &'a Proof<'a>,
-    ) -> Result<(Proof<'a>, Self::Aux), Self::Err>;
+        proof: &Proof,
+    ) -> Result<(Proof, Self::Aux), Self::Err>;
 }
 
 pub(crate) trait Transformation {

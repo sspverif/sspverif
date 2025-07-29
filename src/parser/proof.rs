@@ -61,7 +61,7 @@ pub(crate) struct ParseProofContext<'a> {
     pub instances: Vec<GameInstance>,
     pub instances_table: HashMap<String, (usize, GameInstance)>,
     pub assumptions: Vec<Assumption>,
-    pub game_hops: Vec<GameHop<'a>>,
+    pub game_hops: Vec<GameHop>,
 }
 
 impl<'a> ParseContext<'a> {
@@ -230,7 +230,7 @@ pub fn handle_proof<'a>(
     ast: Pair<'a, Rule>,
     pkgs: HashMap<String, Package>,
     games: HashMap<String, Composition>,
-) -> Result<Proof<'a>, ParseProofError> {
+) -> Result<Proof, ParseProofError> {
     let mut iter = ast.into_inner();
     let proof_name = iter.next().unwrap().as_str();
     let proof_ast = iter.next().unwrap();
@@ -425,7 +425,7 @@ fn handle_game_hops<'a>(
 fn handle_equivalence<'a>(
     ctx: &mut ParseProofContext,
     ast: Pair<'a, Rule>,
-) -> Result<GameHop<'a>, ParseProofError> {
+) -> Result<GameHop, ParseProofError> {
     let mut ast = ast.into_inner();
     let (left_name, right_name) = handle_string_pair(&mut ast);
 

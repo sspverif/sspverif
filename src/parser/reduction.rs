@@ -41,7 +41,7 @@ use super::{
 pub(crate) fn handle_reduction<'a>(
     ctx: &mut ParseProofContext<'a>,
     ast: Pair<'a, Rule>,
-) -> Result<GameHop<'a>, ParseProofError> {
+) -> Result<GameHop, ParseProofError> {
     let mut ast = ast.into_inner();
 
     let left_name_ast = ast.next().unwrap();
@@ -198,7 +198,7 @@ fn handle_reduction_body<'a>(
     left_name: Pair<'a, Rule>,
     right_name: Pair<'a, Rule>,
     body: Pair<'a, Rule>,
-) -> Result<Reduction<'a>, ParseProofError> {
+) -> Result<Reduction, ParseProofError> {
     let reduction_span = body.as_span();
     let mut ast = body.into_inner();
     let assumptions_spec_ast = ast.next().unwrap();
