@@ -57,7 +57,7 @@ impl NameBuilderStage for NotEmpty {
 
 /// The core NameBuilder. Has a String that we append to when stuff is added.
 pub(crate) struct NameBuilder<Delim, Stage: NameBuilderStage> {
-    sort_name: String,
+    name: String,
     _delim: PhantomData<(Delim, Stage)>,
 }
 
@@ -76,7 +76,7 @@ impl<Delim: Delimiter> NameBuilder<Delim, Empty> {
         sort_name.push_str("<");
 
         Self {
-            sort_name,
+            name: sort_name,
             _delim: PhantomData,
         }
     }
@@ -86,12 +86,15 @@ impl<Delim: Delimiter> NameBuilder<Delim, Empty> {
 impl<Delim: Delimiter, Stage: NameBuilderStage> NameBuilder<Delim, Stage> {
     /// Push a single displayable thing
     pub(crate) fn push(self, part: impl std::fmt::Display) -> NameBuilder<Delim, NotEmpty> {
-        let Self { mut sort_name, .. } = self;
+        let Self {
+            name: mut sort_name,
+            ..
+        } = self;
         Stage::write_delimiter(&mut sort_name, Delim::DELIMITER);
         write!(&mut sort_name, "{part}").unwrap();
 
         NameBuilder {
-            sort_name,
+            name: sort_name,
             _delim: PhantomData,
         }
     }
@@ -107,8 +110,8 @@ impl<Delim: Delimiter, Stage: NameBuilderStage> NameBuilder<Delim, Stage> {
 
     /// Returns the built string.
     pub(crate) fn build(mut self) -> String {
-        self.sort_name.push_str(">");
-        self.sort_name
+        self.name.push_str(">");
+        self.name
     }
 }
 

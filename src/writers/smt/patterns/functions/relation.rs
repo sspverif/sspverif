@@ -41,6 +41,7 @@ impl Relation<'_> {
 impl FunctionPattern for Relation<'_> {
     fn function_name(&self) -> String {
         FunctionNameBuilder::new()
+            .push("relation")
             .push(self.relation_name)
             .push(self.game_inst_name_left)
             .push(self.game_inst_name_right)
