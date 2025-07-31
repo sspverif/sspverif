@@ -53,6 +53,7 @@ impl super::Transformation for Transformation<'_> {
 
                 let mut newinst = inst.clone();
                 for (i, oracle) in newinst.pkg.oracles.clone().iter().enumerate() {
+                    let mut oracle_ctr = 1usize;
                     newinst.pkg.oracles[i].code = samplify(
                         &oracle.code,
                         game_name,
@@ -60,6 +61,7 @@ impl super::Transformation for Transformation<'_> {
                         inst_name,
                         &oracle.sig.name,
                         &mut ctr,
+                        &mut oracle_ctr,
                         &mut samplings,
                         &mut positions,
                     )?;
@@ -88,6 +90,7 @@ pub fn samplify(
     inst_name: &str,
     oracle_name: &str,
     ctr: &mut usize,
+    oracle_ctr: &mut usize,
     sampletypes: &mut HashSet<Type>,
     positions: &mut Vec<Position>,
 ) -> Result<CodeBlock, Infallible> {
@@ -103,6 +106,7 @@ pub fn samplify(
                         inst_name,
                         oracle_name,
                         ctr,
+                        oracle_ctr,
                         sampletypes,
                         positions,
                     )?,
@@ -113,6 +117,7 @@ pub fn samplify(
                         inst_name,
                         oracle_name,
                         ctr,
+                        oracle_ctr,
                         sampletypes,
                         positions,
                     )?,
@@ -130,6 +135,7 @@ pub fn samplify(
                     inst_name,
                     oracle_name,
                     ctr,
+                    oracle_ctr,
                     sampletypes,
                     positions,
                 )?,
@@ -137,6 +143,7 @@ pub fn samplify(
             )),
 
             Statement::Sample(id, expr, None, ty, sample_name, file_pos) => {
+                let sample_name = sample_name.or(Some(format!("{oracle_ctr}")));
                 let pos = Position {
                     game_name: game_name.to_string(),
                     inst_name: inst_name.to_string(),
@@ -159,6 +166,7 @@ pub fn samplify(
                     file_pos,
                 ));
                 *ctr += 1;
+                *oracle_ctr += 1;
             }
             _ => newcode.push(stmt),
         }
