@@ -173,3 +173,117 @@ pub fn samplify(
     }
     Ok(CodeBlock(newcode))
 }
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashSet;
+
+    use miette::SourceSpan;
+
+    use crate::{
+        block,
+        identifier::{
+            pkg_ident::{PackageIdentifier, PackageLocalIdentifier},
+            Identifier,
+        },
+        statement::{CodeBlock, Statement},
+        types::Type,
+    };
+
+    use super::samplify;
+
+    fn test_run_samplify(cb: &CodeBlock) -> CodeBlock {
+        let mut ctr = 0usize;
+        let mut oracle_ctr = 1usize;
+        let mut sampletypes = HashSet::new();
+        let mut positions = vec![];
+
+        samplify(
+            cb,
+            "test",
+            "test",
+            "test",
+            "test",
+            &mut ctr,
+            &mut oracle_ctr,
+            &mut sampletypes,
+            &mut positions,
+        )
+        .unwrap()
+    }
+
+    fn local_ident(name: &str, ty: Type) -> Identifier {
+        Identifier::PackageIdentifier(PackageIdentifier::Local(PackageLocalIdentifier {
+            pkg_name: "TestPackage".to_string(),
+            oracle_name: "TestOracle".to_string(),
+            name: name.to_string(),
+            tipe: ty,
+            pkg_inst_name: None,
+            game_name: None,
+            game_inst_name: None,
+            proof_name: None,
+        }))
+    }
+
+    #[test]
+    fn name_and_id_set() {
+        let pos: SourceSpan = (0..0).into();
+        let d = local_ident("d", Type::Integer);
+
+        let code = block! {
+            Statement::Sample(d.clone(),     // identifier
+                              None,          // tableindex
+                              None,          // sample-id
+                              Type::Integer, // type
+                              None,          // sample-name
+                              pos)           // source-position
+
+        };
+        let new_code = test_run_samplify(&code);
+
+        assert!(matches!(new_code.0[0], Statement::Sample(_, _, _, _, _, _)));
+        if let Statement::Sample(_, _, sample_id, _, sample_name, _) = &new_code.0[0] {
+            assert_eq!(sample_id, &Some(0usize));
+            assert_eq!(sample_name, &Some("1".to_string()));
+        } else {
+            unreachable!()
+        };
+    }
+
+    #[test]
+    fn name_counts_named() {
+        let pos: SourceSpan = (0..0).into();
+        let d = local_ident("d", Type::Integer);
+
+        let code = block! {
+            Statement::Sample(d.clone(),             // identifier
+                              None,                  // tableindex
+                              None,                  // sample-id
+                              Type::Integer,         // type
+                              Some("a".to_string()), // sample-name
+                              pos),                  // source-position
+            Statement::Sample(d.clone(),     // identifier
+                              None,          // tableindex
+                              None,          // sample-id
+                              Type::Integer, // type
+                              None,          // sample-name
+                              pos)           // source-position
+        };
+        let new_code = test_run_samplify(&code);
+
+        assert!(matches!(new_code.0[0], Statement::Sample(_, _, _, _, _, _)));
+        assert!(matches!(new_code.0[1], Statement::Sample(_, _, _, _, _, _)));
+        if let Statement::Sample(_, _, sample_id, _, sample_name, _) = &new_code.0[0] {
+            assert_eq!(sample_id, &Some(0usize));
+            assert_eq!(sample_name, &Some("a".to_string()));
+        } else {
+            unreachable!()
+        };
+        if let Statement::Sample(_, _, sample_id, _, sample_name, _) = &new_code.0[1] {
+            assert_eq!(sample_id, &Some(1usize));
+            assert_eq!(sample_name, &Some("2".to_string()));
+        } else {
+            unreachable!()
+        };
+    }
+}
