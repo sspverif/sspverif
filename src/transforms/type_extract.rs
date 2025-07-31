@@ -3,7 +3,7 @@ use std::convert::Infallible;
 
 use crate::package::Composition;
 use crate::statement::{CodeBlock, InvokeOracleStatement, Statement};
-use crate::types::Type;
+use crate::types::{CountSpec, Type};
 
 pub struct Transformation<'a>(pub &'a Composition);
 
@@ -14,8 +14,13 @@ impl super::Transformation for Transformation<'_> {
     fn transform(&self) -> Result<(Composition, HashSet<Type>), Infallible> {
         let mut set = HashSet::new();
 
+        // TODO: extract types of game state, params, oracle args, oracle return
+
         let insts = &self.0.pkgs.iter();
         let oracles = insts.clone().flat_map(|inst| inst.pkg.oracles.clone());
+
+        // TODO: extract types of package state, params, oracle args, oracle return
+
         let codeblocks = oracles.map(|odef| odef.code);
 
         for cb in codeblocks {
@@ -26,40 +31,52 @@ impl super::Transformation for Transformation<'_> {
     }
 }
 
+fn record_type(set: &mut HashSet<Type>, ty: Type) {
+    if let Type::Bits(cs) = &ty {
+        if let CountSpec::Identifier(ident) = cs.as_ref() {
+            println!(
+                "type extract: found Bits ident {:?}",
+                ident.as_proof_identifier()
+            )
+        }
+    }
+    set.insert(ty);
+}
+
 fn extract_types_from_codeblock(set: &mut HashSet<Type>, cb: CodeBlock) {
     for stmt in cb.0 {
         match stmt {
             Statement::Abort(_) => {}
             Statement::Return(Some(expr), _) => {
-                set.insert(expr.get_type());
+                record_type(set, expr.get_type());
             }
             Statement::Return(None, _) => {}
             Statement::Assign(_, Some(expr_idx), expr_val, _) => {
-                set.insert(expr_idx.get_type());
-                set.insert(expr_val.get_type());
+                record_type(set, expr_idx.get_type());
+                record_type(set, expr_val.get_type());
             }
             Statement::Assign(_, _, expr_val, _) => {
-                set.insert(expr_val.get_type());
+                record_type(set, expr_val.get_type());
             }
             Statement::Parse(_, expr, _) => {
-                set.insert(expr.get_type());
+                record_type(set, expr.get_type());
             }
             Statement::IfThenElse(ite) => {
-                set.insert(ite.cond.get_type());
+                record_type(set, ite.cond.get_type());
                 extract_types_from_codeblock(set, ite.then_block);
                 extract_types_from_codeblock(set, ite.else_block);
             }
             Statement::For(_, lower_bound, upper_bound, body, _) => {
-                set.insert(lower_bound.get_type());
-                set.insert(upper_bound.get_type());
+                record_type(set, lower_bound.get_type());
+                record_type(set, upper_bound.get_type());
                 extract_types_from_codeblock(set, body)
             }
-            Statement::Sample(_, Some(expr_idx), _, t, _) => {
-                set.insert(expr_idx.get_type());
-                set.insert(t);
+            Statement::Sample(_, Some(expr_idx), _, ty, _) => {
+                record_type(set, expr_idx.get_type());
+                record_type(set, ty);
             }
-            Statement::Sample(_, _, _, t, _) => {
-                set.insert(t);
+            Statement::Sample(_, _, _, ty, _) => {
+                record_type(set, ty);
             }
             Statement::InvokeOracle(InvokeOracleStatement {
                 opt_idx,
@@ -68,15 +85,15 @@ fn extract_types_from_codeblock(set: &mut HashSet<Type>, cb: CodeBlock) {
                 ..
             }) => {
                 if let Some(expr) = opt_idx {
-                    set.insert(expr.get_type());
+                    record_type(set, expr.get_type());
                 }
 
-                if let Some(t) = tipe {
-                    set.insert(t);
+                if let Some(ty) = tipe {
+                    record_type(set, ty);
                 }
 
                 for arg in args {
-                    set.insert(arg.get_type());
+                    record_type(set, arg.get_type());
                 }
             }
         }

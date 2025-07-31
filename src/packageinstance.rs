@@ -512,7 +512,7 @@ pub(crate) mod instantiate {
                     self.rewrite_identifier(ident),
                     index.as_ref().map(|expr| self.rewrite_expression(expr)),
                     sample_id,
-                    tipe.rewrite_type(&type_rewrite_rules),
+                    self.rewrite_type(tipe),
                     pos,
                 ),
                 Statement::InvokeOracle(InvokeOracleStatement {
