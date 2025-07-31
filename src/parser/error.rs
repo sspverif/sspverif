@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::types::Type;
 
-use super::Rule;
+use super::ast::Identifier as _;
 
 pub enum NewError {}
 
@@ -622,18 +622,18 @@ pub struct InvalidGameInstanceInReductionError {
 impl InvalidGameInstanceInReductionError {
     pub(crate) fn new(
         source: miette::NamedSource<String>,
-        name_pair: &pest::iterators::Pair<Rule>,
+        name: &crate::parser::ast::GameInstanceName,
         header_span: impl Into<miette::SourceSpan>,
     ) -> Self {
-        let name_start = name_pair.as_span().start();
-        let name_end = name_pair.as_span().end();
+        let name_start = name.as_span().start();
+        let name_end = name.as_span().end();
         let span = (name_start..name_end).into();
 
         Self {
             source_code: source,
             span,
             header_span: header_span.into(),
-            name: name_pair.as_str().to_string(),
+            name: name.as_str().to_string(),
         }
     }
 }

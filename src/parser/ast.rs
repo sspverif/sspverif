@@ -1,44 +1,53 @@
 use pest::{iterators::Pair, Span};
 
-use super::Rule;
+#[derive(Clone, Debug)]
+struct IdentifierData<'a> {
+    str: &'a str,
+    span: Span<'a>,
+}
+
+impl<'a> IdentifierData<'a> {
+    fn new(ast: Pair<'a, super::Rule>) -> Self {
+        Self {
+            str: ast.as_str(),
+            span: ast.as_span(),
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
-pub(crate) struct PackageName<'a>(Pair<'a, Rule>);
+pub(crate) struct PackageName<'a>(IdentifierData<'a>);
 
 #[derive(Clone, Debug)]
-pub(crate) struct PackageInstanceName<'a>(Pair<'a, Rule>);
+pub(crate) struct PackageInstanceName<'a>(IdentifierData<'a>);
 
 #[derive(Clone, Debug)]
-pub(crate) struct GameName<'a>(Pair<'a, Rule>);
+pub(crate) struct GameName<'a>(IdentifierData<'a>);
 
 #[derive(Clone, Debug)]
-pub(crate) struct GameInstanceName<'a>(Pair<'a, Rule>);
+pub(crate) struct GameInstanceName<'a>(IdentifierData<'a>);
 
 #[derive(Clone, Debug)]
-pub(crate) struct ProofName<'a>(Pair<'a, Rule>);
+pub(crate) struct ProofName<'a>(IdentifierData<'a>);
 
 #[derive(Clone, Debug)]
-pub(crate) struct AssumptionName<'a>(Pair<'a, Rule>);
+pub(crate) struct AssumptionName<'a>(IdentifierData<'a>);
 
 macro_rules! impl_ast {
     ($struct:ty) => {
         impl<'a> $struct {
             pub fn new(ast: Pair<'a, $crate::parser::Rule>) -> Self {
-                Self(ast)
+                Self(IdentifierData::new(ast))
             }
         }
 
         impl<'a> $crate::parser::ast::Identifier<'a> for $struct {
             fn as_str(&self) -> &'a str {
-                self.0.as_str()
+                &self.0.str
             }
 
             fn as_span(&self) -> Span<'a> {
-                self.0.as_span()
-            }
-
-            fn as_pair(&self) -> &Pair<'a, Rule> {
-                &self.0
+                self.0.span
             }
         }
 
@@ -62,5 +71,4 @@ pub(crate) trait Identifier<'a>:
 {
     fn as_str(&self) -> &'a str;
     fn as_span(&self) -> Span<'a>;
-    fn as_pair(&self) -> &Pair<'a, Rule>;
 }
