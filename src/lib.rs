@@ -26,6 +26,8 @@ pub mod util;
 
 pub mod proof;
 
+pub mod ui;
+
 pub mod error {
     use crate::statement::FilePosition;
 
