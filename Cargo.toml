@@ -39,3 +39,4 @@ tempfile = "3"
 sspverif-smtlib = { workspace = true }
 log = "0.4.22"
 walkdir = "2"
+indicatif = "0.18"
