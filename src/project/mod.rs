@@ -14,12 +14,12 @@ use error::{Error, Result};
 use crate::parser::ast::Identifier;
 use crate::parser::package::handle_pkg;
 use crate::parser::SspParser;
-use crate::util::prover_process::Communicator;
 use crate::{
     gamehops::{equivalence, GameHop},
     package::{Composition, Package},
     proof::Proof,
     transforms::Transformation,
+    ui::ProofUI,
     util::prover_process::ProverBackend,
 };
 
@@ -192,6 +192,7 @@ impl<'a> Project<'a> {
         &self,
         backend: ProverBackend,
         transcript: bool,
+        parallel: usize,
         req_proof: &Option<String>,
         req_proofstep: Option<usize>,
         req_oracle: &Option<String>,
@@ -199,38 +200,48 @@ impl<'a> Project<'a> {
         let mut proof_keys: Vec<_> = self.proofs.keys().collect();
         proof_keys.sort();
 
+        let mut ui = ProofUI::new(proof_keys.len().try_into().unwrap());
+
         for proof_key in proof_keys.into_iter() {
             let proof = &self.proofs[proof_key];
+            ui.start_proof(proof.as_name(), proof.game_hops().len().try_into().unwrap());
+
             if let Some(ref req_proof) = req_proof {
                 if proof_key != req_proof {
+                    ui.finish_proof(proof.as_name());
                     continue;
                 }
             }
+
             for (i, game_hop) in proof.game_hops().iter().enumerate() {
+                ui.start_proofstep(proof.as_name(), &format!("{game_hop}"));
+
                 if let Some(ref req_proofstep) = req_proofstep {
                     if i != *req_proofstep {
+                        ui.finish_proofstep(proof.as_name(), &format!("{game_hop}"));
                         continue;
                     }
                 }
+
                 match game_hop {
                     GameHop::Reduction(_) => { /* the reduction has been verified at parse time */ }
                     GameHop::Equivalence(eq) => {
-                        let transcript_file: std::fs::File;
-                        let prover = if transcript {
-                            transcript_file =
-                                self.get_joined_smt_file(eq.left_name(), eq.right_name())?;
-                            Communicator::new_with_transcript(backend, transcript_file)?
-                        } else {
-                            Communicator::new(backend)?
-                        };
-                        equivalence::verify(eq, proof, prover, &req_oracle)?;
+                        equivalence::verify(
+                            self,
+                            &mut ui,
+                            eq,
+                            proof,
+                            backend,
+                            transcript,
+                            parallel,
+                            &req_oracle,
+                        )?;
                     }
                 }
-
-                let proof_name = proof.as_name();
-
-                println!("proof {proof_name}: step {i}: checked");
+                ui.finish_proofstep(proof.as_name(), &format!("{game_hop}"));
             }
+
+            ui.finish_proof(proof.as_name());
         }
 
         Ok(())
@@ -391,6 +402,7 @@ impl<'a> Project<'a> {
         &self,
         left_game_name: &str,
         right_game_name: &str,
+        oracle_name: Option<&str>,
     ) -> Result<std::fs::File> {
         let mut path = self.root_dir.clone();
 
