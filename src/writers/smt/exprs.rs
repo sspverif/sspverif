@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use sspverif_smtlib::syntax::s_expr::SExpr;
 
+use crate::transforms::samplify::Position as SamplePosition;
 use crate::types::Type;
 
 use super::sorts::Sort;
@@ -74,6 +75,24 @@ impl From<usize> for SmtExpr {
 impl From<bool> for SmtExpr {
     fn from(value: bool) -> Self {
         SmtExpr::Atom(format!("{value}"))
+    }
+}
+
+impl From<&SamplePosition> for SmtExpr {
+    fn from(position: &SamplePosition) -> Self {
+        let sample_identifier = if let Some(sample_name) = &position.sample_name {
+            sample_name
+        } else {
+            &format!("{}", position.sample_id)
+        };
+
+        (
+            "sample-id",
+            format!("\"{}\"", position.inst_name),
+            format!("\"{}\"", position.oracle_name),
+            format!("\"{}\"", sample_identifier),
+        )
+            .into()
     }
 }
 

@@ -2,7 +2,7 @@ use crate::{
     expressions::Expression,
     identifier::game_ident::GameConstIdentifier,
     proof::GameInstance,
-    transforms::samplify::SampleInfo,
+    transforms::samplify::{Position as SamplePosition, SampleInfo},
     types::Type,
     writers::smt::{
         exprs::SmtExpr,
@@ -24,8 +24,9 @@ pub struct GameStatePattern<'a> {
 #[derive(Debug, PartialEq, Eq)]
 pub enum GameStateSelector<'a> {
     PackageInstance { pkg_inst_name: &'a str, sort: Sort },
-    Randomness { sample_id: usize },
+    Randomness { sample_pos: SamplePosition },
 }
+
 impl<'a> NameSection for GameStateSelector<'a> {
     fn push_into<Delim, Stage>(
         &self,
@@ -39,7 +40,7 @@ impl<'a> NameSection for GameStateSelector<'a> {
             GameStateSelector::PackageInstance { pkg_inst_name, .. } => {
                 builder.push("pkgstate").push(pkg_inst_name)
             }
-            GameStateSelector::Randomness { sample_id } => builder.push("rand").push(sample_id),
+            GameStateSelector::Randomness { sample_pos } => builder.push("rand").push(sample_pos.sample_id),
         }
     }
 }
@@ -118,8 +119,13 @@ impl<'a> DatastructurePattern<'a> for GameStatePattern<'a> {
             }
         });
 
-        let rand_selectors = (0..info.sample_info.count)
-            .map(|sample_id| GameStateSelector::Randomness { sample_id });
+        let rand_selectors =
+            info.sample_info
+                .positions
+                .iter()
+                .map(|sample_pos| GameStateSelector::Randomness {
+                    sample_pos: sample_pos.clone(),
+                });
 
         let fields = pkgstate_selectors.chain(rand_selectors).collect();
 
