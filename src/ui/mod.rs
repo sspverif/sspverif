@@ -31,6 +31,10 @@ impl ProofUI {
         }
     }
 
+    pub(crate) fn println(&self, line: &str) -> std::io::Result<()> {
+        self.main_progress.println(line)
+    }
+
     pub(crate) fn start_proof(&mut self, proof_name: &str, num_proofsteps: u64) {
         let proof_progress = self.main_progress.add(ProgressBar::new(num_proofsteps));
 

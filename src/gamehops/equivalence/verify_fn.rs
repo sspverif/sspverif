@@ -179,6 +179,11 @@ pub fn verify(
                         )
                     })
                     .collect();
+                for result in results {
+                    if let Err(e) = result {
+                        ui.lock().unwrap().println(&format!("{e}"))
+                    }
+                }
             });
         return Ok(());
     } else {
