@@ -1667,12 +1667,7 @@ impl<'a> EquivalenceContext<'a> {
                 .map(type_use_proof_ident),
         );
 
-        println!("randeq: types found in left:  {left_types:?}");
-        println!("randeq: types found in right: {right_types:?}");
-
         let types: Vec<&Type> = left_types.intersection(&right_types).collect();
-
-        println!("randeq: intersection: {types:?}");
 
         let mut left_positions_by_type: HashMap<_, Vec<_>> = HashMap::new();
         let mut right_positions_by_type: HashMap<_, Vec<_>> = HashMap::new();

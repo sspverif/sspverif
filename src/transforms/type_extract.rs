@@ -3,7 +3,7 @@ use std::convert::Infallible;
 
 use crate::package::Composition;
 use crate::statement::{CodeBlock, InvokeOracleStatement, Statement};
-use crate::types::{CountSpec, Type};
+use crate::types::Type;
 
 pub struct Transformation<'a>(pub &'a Composition);
 
@@ -14,12 +14,12 @@ impl super::Transformation for Transformation<'_> {
     fn transform(&self) -> Result<(Composition, HashSet<Type>), Infallible> {
         let mut set = HashSet::new();
 
-        // TODO: extract types of game state, params, oracle args, oracle return
+        // TODO: https://github.com/sspverif/sspverif/issues/118: extract types of game state, params, oracle args, oracle return
 
         let insts = &self.0.pkgs.iter();
         let oracles = insts.clone().flat_map(|inst| inst.pkg.oracles.clone());
 
-        // TODO: extract types of package state, params, oracle args, oracle return
+        // TODO: https://github.com/sspverif/sspverif/issues/118: extract types of package state, params, oracle args, oracle return
 
         let codeblocks = oracles.map(|odef| odef.code);
 
@@ -31,15 +31,9 @@ impl super::Transformation for Transformation<'_> {
     }
 }
 
+// This is a separate function so it's easier to inject debug printing that should happen in all
+// cases.
 fn record_type(set: &mut HashSet<Type>, ty: Type) {
-    if let Type::Bits(cs) = &ty {
-        if let CountSpec::Identifier(ident) = cs.as_ref() {
-            println!(
-                "type extract: found Bits ident {:?}",
-                ident.as_proof_identifier()
-            )
-        }
-    }
     set.insert(ty);
 }
 
