@@ -80,17 +80,11 @@ impl From<bool> for SmtExpr {
 
 impl From<&SamplePosition> for SmtExpr {
     fn from(position: &SamplePosition) -> Self {
-        let sample_identifier = if let Some(sample_name) = &position.sample_name {
-            sample_name
-        } else {
-            &format!("{}", position.sample_id)
-        };
-
         (
             "sample-id",
             format!("\"{}\"", position.inst_name),
             format!("\"{}\"", position.oracle_name),
-            format!("\"{}\"", sample_identifier),
+            format!("\"{}\"", position.sample_name),
         )
             .into()
     }
