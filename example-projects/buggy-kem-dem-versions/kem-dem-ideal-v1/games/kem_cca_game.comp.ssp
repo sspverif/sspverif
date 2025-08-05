@@ -1,0 +1,59 @@
+composition KemCcaGame {
+    const b: Bool;
+    
+    const secret_key_length: Integer;
+    const public_key_length: Integer;
+    const output_key_length: Integer;
+    const encapsulation_length: Integer;
+
+    const gen_randomness_length: Integer;
+
+    const kem_gen: fn Bits(gen_randomness_length) -> (Bits(public_key_length), Bits(secret_key_length));
+    const kem_encaps: fn Bits(public_key_length) -> (Bits(output_key_length), Bits(encapsulation_length));
+    const kem_decaps: fn Bits(secret_key_length), Bits(encapsulation_length) -> Bits(output_key_length);
+
+    instance pkg_KemScheme = KemScheme {
+        params {
+            secret_key_length: secret_key_length,
+            public_key_length: public_key_length,
+            output_key_length: output_key_length,
+            encapsulation_length: encapsulation_length,
+            gen_randomness_length: gen_randomness_length,
+            kem_gen: kem_gen,
+            kem_encaps: kem_encaps,
+            kem_decaps: kem_decaps,
+        }
+    }
+
+    instance pkg_Key = Key {
+        params {
+            n: output_key_length
+        }
+    }
+
+    instance pkg_KEM = KEM {
+        params {
+            b: b,
+            public_key_length: public_key_length,
+            secret_key_length: secret_key_length,
+            output_key_length: output_key_length,
+            encapsulation_length: encapsulation_length,
+        }
+    }
+
+    compose {
+        pkg_KEM: {
+            SET: pkg_Key,
+            GEN: pkg_Key,
+            KEM_GEN: pkg_KemScheme,
+            KEM_ENCAPS: pkg_KemScheme,
+            KEM_DECAPS: pkg_KemScheme
+        }
+        adversary: {
+            KEMGEN: pkg_KEM,
+            ENCAPS: pkg_KEM,
+            DECAPS: pkg_KEM,
+            GET: pkg_Key
+        }
+    }
+}

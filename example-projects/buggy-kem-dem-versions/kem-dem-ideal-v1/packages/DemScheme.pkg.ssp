@@ -1,0 +1,17 @@
+package DemScheme {
+    params {
+        enc_randomness_length: Integer,
+        output_key_length: Integer,
+        dem_enc: fn Bits(enc_randomness_length), Bits(output_key_length), Bits(*) -> Bits(*),
+        dem_dec: fn Bits(output_key_length), Bits(*) -> Bits(*)
+    }
+
+    oracle DEM_ENC(k: Bits(output_key_length), m: Bits(*)) -> Bits(*) {
+        r <-$ Bits(enc_randomness_length);
+        return dem_enc(r, k, m);
+    }
+
+    oracle DEM_DEC(k: Bits(output_key_length), c: Bits(*)) -> Bits(*) {
+        return dem_dec(k, c);
+    }
+}

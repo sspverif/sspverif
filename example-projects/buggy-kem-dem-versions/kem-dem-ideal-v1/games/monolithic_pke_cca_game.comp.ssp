@@ -1,0 +1,92 @@
+composition MonolithicPkeCcaGame {
+    const b: Bool;
+
+    const secret_key_length: Integer;
+    const public_key_length: Integer;
+    const output_key_length: Integer;
+    const encapsulation_length: Integer;
+
+    const gen_randomness_length: Integer;
+    const enc_randomness_length: Integer;
+    
+    const len: fn Bits(*) -> Integer;
+    const zeros: fn Integer -> Bits(*);
+    const concatenate: fn Bits(encapsulation_length), Bits(*) -> Bits(*);
+    const deconcatenate: fn Bits(*) -> (Bits(encapsulation_length), Bits(*));
+    const kem_gen: fn Bits(gen_randomness_length) -> (Bits(public_key_length), Bits(secret_key_length));
+    const kem_encaps: fn Bits(public_key_length) -> (Bits(output_key_length), Bits(encapsulation_length));
+    const kem_decaps: fn Bits(secret_key_length), Bits(encapsulation_length) -> Bits(output_key_length);
+    const dem_enc: fn Bits(enc_randomness_length), Bits(output_key_length), Bits(*) -> Bits(*);
+    const dem_dec: fn Bits(output_key_length), Bits(*) -> Bits(*);
+
+    /* 
+        public_key_length: 100
+        secret_key_length: 1000
+        output_key_length: 256
+        encapsulation_length: 300
+    */
+
+    instance pkg_KemScheme = KemScheme {
+        params {
+            secret_key_length: secret_key_length,
+            public_key_length: public_key_length,
+            output_key_length: output_key_length,
+            encapsulation_length: encapsulation_length,
+            gen_randomness_length: gen_randomness_length,
+            kem_gen: kem_gen,
+            kem_encaps: kem_encaps,
+            kem_decaps: kem_decaps,
+        }
+    }
+
+    instance pkg_DemScheme = DemScheme {
+        params {
+            enc_randomness_length: enc_randomness_length,
+            output_key_length: output_key_length,
+            dem_enc: dem_enc,
+            dem_dec: dem_dec
+        }
+    }
+
+    instance pkg_PkeScheme = PkeScheme {
+        params {
+            secret_key_length: secret_key_length,
+            public_key_length: public_key_length,
+            output_key_length: output_key_length,
+            encapsulation_length: encapsulation_length,
+            concatenate: concatenate,
+            deconcatenate: deconcatenate
+        }
+    }
+
+    instance pkg_PKE_CCA = PKE_CCA {
+        params {
+            b: b,
+            len: len,
+            zeros: zeros,
+            public_key_length: public_key_length,
+            secret_key_length: secret_key_length
+        }
+    }
+
+    compose {
+        pkg_PkeScheme: {
+            KEM_GEN: pkg_KemScheme,
+            KEM_ENCAPS: pkg_KemScheme,
+            KEM_DECAPS: pkg_KemScheme,
+            DEM_ENC: pkg_DemScheme,
+            DEM_DEC: pkg_DemScheme
+        }
+        pkg_PKE_CCA: {
+            GEN: pkg_PkeScheme,
+            ENC: pkg_PkeScheme,
+            DEC: pkg_PkeScheme
+        }
+        adversary: {
+            PKGEN: pkg_PKE_CCA,
+            PKENC: pkg_PKE_CCA,
+            PKDEC: pkg_PKE_CCA
+        }
+    }
+
+}
