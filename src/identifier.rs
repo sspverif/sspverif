@@ -294,6 +294,13 @@ pub mod pkg_ident {
                 None
             }
         }
+        pub fn into_state(self) -> Option<PackageStateIdentifier> {
+            if let Self::State(v) = self {
+                Some(v)
+            } else {
+                None
+            }
+        }
     }
 
     #[derive(Debug, Clone, Hash, PartialOrd, Eq, Ord, PartialEq)]

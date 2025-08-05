@@ -135,6 +135,20 @@ impl PackageInstance {
             .map(|oracle_def| inst_ctx.rewrite_oracle_def(oracle_def.clone()))
             .collect();
 
+        let new_state = pkg
+            .state
+            .iter()
+            .cloned()
+            .map(|(name, ty, span)| (name, inst_ctx.rewrite_type(ty), span))
+            .collect();
+
+        let new_params = pkg
+            .params
+            .iter()
+            .cloned()
+            .map(|(name, ty, span)| (name, inst_ctx.rewrite_type(ty), span))
+            .collect();
+
         // let new_split_oracles = pkg
         //     .split_oracles
         //     .iter()
@@ -143,6 +157,8 @@ impl PackageInstance {
 
         let pkg = Package {
             oracles: new_oracles,
+            state: new_state,
+            params: new_params,
             //split_oracles: new_split_oracles,
             ..pkg.clone()
         };

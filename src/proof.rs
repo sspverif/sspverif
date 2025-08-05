@@ -50,6 +50,38 @@ mod instantiate {
         //     .map(|split_oracle_def| inst_ctx.rewrite_split_oracle_def(split_oracle_def.clone()))
         //     .collect();
 
+        let new_state = pkg_inst
+            .pkg
+            .state
+            .iter()
+            .cloned()
+            .map(|(ident, ty, span)| (ident, inst_ctx.rewrite_type(ty), span))
+            .collect();
+
+        let new_params = pkg_inst
+            .pkg
+            .params
+            .iter()
+            .cloned()
+            .map(|(ident, ty, span)| (ident, inst_ctx.rewrite_type(ty), span))
+            .collect();
+
+        let pkg = Package {
+            oracles: new_oracles,
+            state: new_state,
+            params: new_params,
+            // split_oracles: new_split_oracles,
+            ..pkg_inst.pkg.clone()
+        };
+
+        for (_, expr) in &mut pkg_inst.params {
+            *expr = inst_ctx.rewrite_expression(expr)
+        }
+
+        for index in &mut pkg_inst.multi_instance_indices.indices {
+            *index = inst_ctx.rewrite_expression(index);
+        }
+
         let new_params = pkg_inst
             .params
             .iter()
@@ -65,20 +97,6 @@ mod instantiate {
                 )
             })
             .collect();
-
-        let pkg = Package {
-            oracles: new_oracles,
-            // split_oracles: new_split_oracles,
-            ..pkg_inst.pkg.clone()
-        };
-
-        for (_, expr) in &mut pkg_inst.params {
-            *expr = inst_ctx.rewrite_expression(expr)
-        }
-
-        for index in &mut pkg_inst.multi_instance_indices.indices {
-            *index = inst_ctx.rewrite_expression(index);
-        }
 
         PackageInstance {
             pkg,
