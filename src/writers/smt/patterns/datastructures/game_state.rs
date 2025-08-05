@@ -40,7 +40,7 @@ impl<'a> NameSection for GameStateSelector<'a> {
             GameStateSelector::PackageInstance { pkg_inst_name, .. } => {
                 builder.push("pkgstate").push(pkg_inst_name)
             }
-            GameStateSelector::Randomness { sample_pos } => builder.push("rand").push(sample_pos.sample_id),
+            GameStateSelector::Randomness { sample_pos } => builder.push("rand").extend(sample_pos),
         }
     }
 }
