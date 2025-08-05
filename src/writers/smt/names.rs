@@ -214,6 +214,6 @@ impl NameSection for SamplePosition {
         builder
             .push(&self.inst_name)
             .push(&self.oracle_name)
-            .push(&self.sample_name.as_ref().unwrap())
+            .push(&self.sample_name)
     }
 }
