@@ -977,10 +977,7 @@ pub fn handle_code(
                         oracle_name,
                         ty.clone(),
                     )?;
-                    let sample_name = match inner.next() {
-                        None => None,
-                        Some(sample_name) => Some(sample_name.as_str().to_string()),
-                    };
+                    let sample_name = inner.next().map(|ast| ast.as_str().to_string());
                     Statement::Sample(ident, None, None, ty, sample_name, full_span)
                 }
 
@@ -1019,10 +1016,7 @@ pub fn handle_code(
                         Type::Table(Box::new(index.get_type()),  Box::new(ty.clone())),
                     )
                         ?;
-                    let sample_name = match inner.next() {
-                        None => None,
-                        Some(sample_name) => Some(sample_name.as_str().to_string()),
-                    };
+                    let sample_name = inner.next().map(|ast| ast.as_str().to_string());
                     Statement::Sample(ident, Some(index), None, ty, sample_name, full_span)
                 }
 

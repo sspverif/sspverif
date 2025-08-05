@@ -205,12 +205,12 @@ impl GameInstanceContext<'_> {
 
     pub(crate) fn smt_eval_randfn<CTR: Into<SmtExpr>>(
         &self,
-        sample_info: &SamplePosition,
+        sample_pos: &SamplePosition,
         ctr: CTR,
         ty: &Type,
     ) -> SmtExpr {
         let rand_fn_name = names::fn_sample_rand_name(&self.game_inst.name, ty);
-        (rand_fn_name, sample_info, ctr).into()
+        (rand_fn_name, sample_pos, ctr).into()
     }
 }
 

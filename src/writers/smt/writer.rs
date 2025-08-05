@@ -649,11 +649,11 @@ impl<'a> CompositionSmtWriter<'a> {
         sample_name: &Option<String>,
     ) -> SmtExpr {
         let sample_id = sample_id.expect("found a None sample_id");
-        let sample_identifier = if let Some(sname) = sample_name {
-            sname
-        } else {
-            &format!("{}", sample_id)
-        };
+        let sample_pos = &self.sample_info.positions[sample_id];
+        debug_assert!(sample_name
+            .as_ref()
+            .is_some_and(|name| *name == sample_pos.sample_name));
+
         let game_inst_ctx = self.context();
 
         let game_inst_name = game_inst_ctx.game_inst_name();
@@ -669,16 +669,9 @@ impl<'a> CompositionSmtWriter<'a> {
                 )
             });
 
-        let rand_fn_name = names::fn_sample_rand_name(game_inst_name, ty);
-        let sample_id_struct: SmtExpr = (
-            "sample-id",
-            format!("\"{}\"", oracle_ctx.pkg_inst_ctx().pkg_inst_name()),
-            format!("\"{}\"", oracle_ctx.oracle_name()),
-            format!("\"{}\"", sample_identifier),
-        )
-            .into();
+        let rand_fn_name = names::fn_sample_rand_name(game_inst_name, tipe);
 
-        let rand_val: SmtExpr = (rand_fn_name, sample_id_struct, ctr.clone()).into();
+        let rand_val: SmtExpr = (rand_fn_name, sample_pos, ctr.clone()).into();
 
         let new_val = if let Some(idx) = opt_idx {
             ("store", ident.clone(), idx.clone(), rand_val.clone()).into()

@@ -22,7 +22,7 @@ pub struct Position {
 
     pub sample_id: usize,
     pub ty: Type,
-    pub sample_name: Option<String>,
+    pub sample_name: String,
 }
 
 #[derive(Clone, Debug)]
@@ -143,7 +143,7 @@ pub fn samplify(
             )),
 
             Statement::Sample(id, expr, None, ty, sample_name, file_pos) => {
-                let sample_name = sample_name.or(Some(format!("{oracle_ctr}")));
+                let sample_name = sample_name.unwrap_or(format!("{oracle_ctr}"));
                 let pos = Position {
                     game_name: game_name.to_string(),
                     inst_name: inst_name.to_string(),
@@ -162,7 +162,7 @@ pub fn samplify(
                     expr,
                     Some(*ctr),
                     ty.clone(),
-                    sample_name,
+                    Some(sample_name),
                     file_pos,
                 ));
                 *ctr += 1;
