@@ -50,8 +50,26 @@ mod instantiate {
         //     .map(|split_oracle_def| inst_ctx.rewrite_split_oracle_def(split_oracle_def.clone()))
         //     .collect();
 
+        let new_state = pkg_inst
+            .pkg
+            .state
+            .iter()
+            .cloned()
+            .map(|(ident, ty, span)| (ident, inst_ctx.rewrite_type(ty), span))
+            .collect();
+
+        let new_params = pkg_inst
+            .pkg
+            .params
+            .iter()
+            .cloned()
+            .map(|(ident, ty, span)| (ident, inst_ctx.rewrite_type(ty), span))
+            .collect();
+
         let pkg = Package {
             oracles: new_oracles,
+            state: new_state,
+            params: new_params,
             // split_oracles: new_split_oracles,
             ..pkg_inst.pkg.clone()
         };
@@ -64,7 +82,27 @@ mod instantiate {
             *index = inst_ctx.rewrite_expression(index);
         }
 
-        PackageInstance { pkg, ..pkg_inst }
+        let new_params = pkg_inst
+            .params
+            .iter()
+            .map(|(ident, expr)| {
+                (
+                    inst_ctx
+                        .rewrite_pkg_identifier(
+                            crate::identifier::pkg_ident::PackageIdentifier::Const(ident.clone()),
+                        )
+                        .into_const()
+                        .unwrap(),
+                    inst_ctx.rewrite_expression(expr),
+                )
+            })
+            .collect();
+
+        PackageInstance {
+            pkg,
+            params: new_params,
+            ..pkg_inst
+        }
     }
 }
 
@@ -91,9 +129,16 @@ impl GameInstance {
             })
             .collect();
 
+        let resolved_params = game
+            .consts
+            .iter()
+            .map(|(ident, ty)| (ident.clone(), inst_ctx.rewrite_type(ty.clone())))
+            .collect();
+
         let game = Composition {
             name: game.name.clone(),
             pkgs: new_pkg_instances,
+            consts: resolved_params,
 
             ..game
         };

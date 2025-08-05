@@ -1,0 +1,11 @@
+proof TrivialC {
+  const c: Integer;
+
+  instance trivial_b = TrivialB {
+    params {
+      b: c,
+    }
+  }
+
+  gamehops {}
+}

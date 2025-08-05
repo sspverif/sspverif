@@ -7,6 +7,7 @@ use crate::identifier::game_ident::GameIdentifier;
 use crate::identifier::pkg_ident::PackageIdentifier;
 use crate::identifier::proof_ident::ProofIdentifier;
 use crate::identifier::Identifier;
+use crate::types::CountSpec;
 use crate::writers::smt::contexts::GameInstanceContext;
 use crate::writers::smt::declare::declare_const;
 use crate::writers::smt::patterns::const_mapping::{
@@ -1631,13 +1632,40 @@ impl<'a> EquivalenceContext<'a> {
          *
          */
 
+        fn type_use_proof_ident(ty: Type) -> Type {
+            match ty {
+                Type::Bits(mut count_spec) => {
+                    if let CountSpec::Identifier(identifier) = count_spec.as_mut() {
+                        let proof_ident = identifier.as_proof_identifier();
+                        assert!(
+                            proof_ident.is_some(),
+                            "expected {identifier:?} to be completely resolved"
+                        );
+                        *identifier = Identifier::ProofIdentifier(proof_ident.cloned().unwrap());
+                    }
+                    Type::Bits(count_spec)
+                }
+                _ => ty,
+            }
+        }
+
         let left_positions = &self.sample_info_left().positions;
         let right_positions = &self.sample_info_right().positions;
 
-        let left_types: HashSet<Type> =
-            HashSet::from_iter(self.sample_info_left().tipes.iter().cloned());
-        let right_types: HashSet<Type> =
-            HashSet::from_iter(self.sample_info_right().tipes.iter().cloned());
+        let left_types: HashSet<Type> = HashSet::from_iter(
+            self.sample_info_left()
+                .tipes
+                .iter()
+                .cloned()
+                .map(type_use_proof_ident),
+        );
+        let right_types: HashSet<Type> = HashSet::from_iter(
+            self.sample_info_right()
+                .tipes
+                .iter()
+                .cloned()
+                .map(type_use_proof_ident),
+        );
 
         let types: Vec<&Type> = left_types.intersection(&right_types).collect();
 
@@ -1645,15 +1673,19 @@ impl<'a> EquivalenceContext<'a> {
         let mut right_positions_by_type: HashMap<_, Vec<_>> = HashMap::new();
 
         for pos in left_positions {
+            let pos_ty = pos.tipe.clone();
+            let pos_proof_ty = type_use_proof_ident(pos_ty);
             left_positions_by_type
-                .entry(&pos.tipe)
+                .entry(pos_proof_ty)
                 .or_default()
                 .push(pos);
         }
 
         for pos in right_positions {
+            let pos_ty = pos.tipe.clone();
+            let pos_proof_ty = type_use_proof_ident(pos_ty);
             right_positions_by_type
-                .entry(&pos.tipe)
+                .entry(pos_proof_ty)
                 .or_default()
                 .push(pos);
         }
@@ -1664,16 +1696,16 @@ impl<'a> EquivalenceContext<'a> {
             let sort: SmtExpr = tipe.into();
 
             let left_has_type = left_positions_by_type
-                .entry(tipe)
-                .or_default()
+                .get(tipe)
+                .expect("expected that left sample info has positions for type {tipe:?}")
                 .iter()
                 .map(|Position { sample_id, .. }| ("=", *sample_id, "sample-id-left").into());
             let mut left_or_case: Vec<SmtExpr> = vec!["or".into()];
             left_or_case.extend(left_has_type);
 
             let right_has_type = right_positions_by_type
-                .entry(tipe)
-                .or_default()
+                .get(tipe)
+                .expect("expected that right sample info has positions for type {tipe:?}")
                 .iter()
                 .map(|Position { sample_id, .. }| ("=", *sample_id, "sample-id-right").into());
 
