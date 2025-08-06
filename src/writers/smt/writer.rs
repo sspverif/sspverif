@@ -1008,7 +1008,7 @@ impl<'a> CompositionSmtWriter<'a> {
             body: const_bindwrapped,
         };
 
-        println!("pkg inst params: {:?}", &inst.params);
+        log::debug!("pkg inst params: {:?}", &inst.params);
 
         octx.oracle_pattern().define_fun(state_bindwrapped).into()
     }
