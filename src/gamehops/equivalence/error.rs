@@ -23,6 +23,7 @@ pub enum Error {
     },
     ClaimProofFailed {
         claim_name: String,
+        oracle_name: String,
         response: ProverResponse,
         modelfile: ProverResponseResult<PathBuf>,
     },
@@ -69,15 +70,16 @@ impl std::fmt::Display for Error {
             } => write!(f, "parameter {mismatching_param_name} does not match in equivalence proof of game instances {left_game_inst_name} and {right_game_inst_name}"),
             Error::ClaimProofFailed {
                 claim_name,
+                oracle_name,
                 response,
                 modelfile,
             } => {
                 match modelfile {
                     Ok(model) => {
                         let model = model.as_path().display();
-                        write!(f, "error proving claim {claim_name}. status: {response}. model file: {model}.")
+                        write!(f, "error proving claim {claim_name} oracle {oracle_name}. status: {response}. model file: {model}.")
                     }
-                    Err(model_err) => write!(f, "error proving claim {claim_name}. status: {response}. \
+                    Err(model_err) => write!(f, "error proving claim {claim_name} oracle {oracle_name}. status: {response}. \
                                              Also, encountered the following error when trying to get the model: {model_err}"),
                 }
             },

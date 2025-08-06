@@ -96,6 +96,7 @@ fn verify_oracle(
                     });
                     return Err(Error::ClaimProofFailed {
                         claim_name: claim.name().to_string(),
+                        oracle_name: oracle_sig.name.clone(),
                         response,
                         modelfile,
                     });
