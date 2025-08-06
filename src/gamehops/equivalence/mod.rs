@@ -173,7 +173,7 @@ impl<'a> EquivalenceContext<'a> {
                                 Some(Expression::Identifier(ident@Identifier::ProofIdentifier(ProofIdentifier::Const(_)))) => ident.ident(),
                                 Some(Expression::Identifier(_)) => unreachable!("other identifiers can't occur here"),
                                 Some(other) => todo!("ADD ERR MSG: no complex expressions allowed for now, found {other:?}"),
-                                None => {println!("skipping identifier {id:?} since it is not fully resolved"); ident.ident()}
+                                None => {log::debug!("skipping identifier {id:?} since it is not fully resolved"); ident.ident()}
                             }
                         } ,
                         Identifier::PackageIdentifier(PackageIdentifier::Const(pkg_const_ident)) => match pkg_const_ident.game_assignment.as_ref().unwrap_or_else(|| panic!("the assigned value for this identifier should have been resolved at this point:\n  {pkg_const_ident:#?}")).as_ref() {
@@ -182,7 +182,7 @@ impl<'a> EquivalenceContext<'a> {
                                     Some(Expression::Identifier(ident@Identifier::ProofIdentifier(ProofIdentifier::Const(_))) )=> ident.ident(),
                                     Some(Expression::Identifier(_) )=> unreachable!("other identifiers can't occur here"),
                                     Some(other) => todo!("ADD ERR MSG: no complex expressions allowed for now, found {other:?}"),
-                                    None => {println!("skipping identifier {id:?} since it is not fully resolved"); ident.ident()}
+                                    None => {log::debug!("skipping identifier {id:?} since it is not fully resolved"); ident.ident()}
                                 }
                             },
                             Expression::Identifier(_) => unreachable!("other identifiers can't occur here"),
@@ -762,14 +762,14 @@ impl<'a> EquivalenceContext<'a> {
 
     fn emit_invariant(&self, comm: &mut Communicator, oracle_name: &str) -> Result<()> {
         for file_name in &self.equivalence.invariants_by_oracle_name(oracle_name) {
-            println!("reading file {file_name}");
+            log::info!("reading file {file_name}");
             let file_contents = std::fs::read_to_string(file_name).map_err(|err| {
                 let file_name = file_name.clone();
                 error::new_invariant_file_read_error(oracle_name.to_string(), file_name, err)
             })?;
-            println!("read file {file_name}");
+            log::info!("read file {file_name}");
             write!(comm, "{file_contents}").unwrap();
-            println!("wrote contents of file {file_name}");
+            log::info!("wrote contents of file {file_name}");
 
             if comm.check_sat()? != ProverResponse::Sat {
                 return Err(Error::UnsatAfterInvariantRead {
@@ -1314,7 +1314,7 @@ impl<'a> EquivalenceContext<'a> {
             .find_game_instance(self.equivalence().left_name())
             .unwrap();
 
-        println!("oracle sequence: {:?}", game_inst.game().exports);
+        log::debug!("oracle sequence: {:?}", game_inst.game().exports);
 
         game_inst
             .game()

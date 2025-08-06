@@ -42,7 +42,7 @@ pub fn verify(eq: &Equivalence, proof: &Proof, mut prover: Communicator, req_ora
                 continue;
             }
         }
-        println!("verify: oracle:{oracle_sig:?}");
+        log::info!("verify: oracle:{oracle_sig:?}");
         write!(prover, "(push 1)").unwrap();
         eqctx.emit_return_value_helpers(&mut prover, &oracle_sig.name)?;
         eqctx.emit_invariant(&mut prover, &oracle_sig.name)?;
