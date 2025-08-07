@@ -162,10 +162,10 @@ pub fn verify(
 
     if parallel > 1 {
         rayon::ThreadPoolBuilder::new()
-            .num_threads(parallel)
+            .num_threads(parallel + 1) // one process is reserved for the "main" method
             .build()
             .unwrap()
-            .install(|| {
+            .install(|| -> Result<()> {
                 /* TODO: we should do something with results */
                 let results: Vec<_> = oracle_sequence
                     .par_iter()
@@ -182,9 +182,10 @@ pub fn verify(
                     .collect();
                 for result in results {
                     if let Err(e) = result {
-                        ui.lock().unwrap().println(&format!("{e}"))
+                        ui.lock().unwrap().println(&format!("{e}")).unwrap();
                     }
                 }
+                Ok(())
             });
         return Ok(());
     } else {
