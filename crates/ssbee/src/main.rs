@@ -111,85 +111,12 @@ This would be the contents is JSONy notation. We'll see how that looks like in t
 ]
 
 */
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use sspverif::project;
 use sspverif::util::prover_process::ProverBackend;
 
-#[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
-#[clap(propagate_version = true)]
-struct Cli {
-    #[clap(subcommand)]
-    command: Commands,
-}
-
-#[derive(Subcommand, Debug)]
-enum Commands {
-    /// Export to LaTeX
-    Latex(Latex),
-
-    /// Give information about the provided code
-    Explain(Explain),
-
-    /// Prove the whole project.
-    Prove(Prove),
-
-    /// Print Wire Check SMTLIB code
-    WireCheck(WireCheck),
-
-    /// Reformat file or directory
-    Format(Format),
-
-    Proofsteps,
-}
-
-#[derive(clap::Args, Debug)]
-#[clap(author, version, about, long_about = None)]
-struct Format {
-    /// Input to reformat
-    input: Option<std::path::PathBuf>,
-}
-
-#[derive(clap::Args, Debug)]
-#[clap(author, version, about, long_about = None)]
-struct Latex {
-    /// Solver for graph layouting
-    #[clap(short, long, default_value = "cvc5")]
-    prover: Option<ProverBackend>,
-    // TODO: given we have a default here, it seems impossible to choose none
-}
-
-#[derive(clap::Args, Debug)]
-#[clap(author, version, about, long_about = None)]
-struct Explain {
-    game_name: String,
-    #[clap(short, long)]
-    output: Option<String>,
-}
-
-#[derive(clap::Args, Debug)]
-#[clap(author, version, about, long_about = None)]
-struct Prove {
-    #[clap(short, long, default_value = "cvc5")]
-    prover: ProverBackend,
-    #[clap(short, long)]
-    transcript: bool,
-    #[clap(long)]
-    proofstep: Option<usize>,
-    #[clap(long)]
-    proof: Option<String>,
-    #[clap(long)]
-    oracle: Option<String>,
-}
-
-#[derive(clap::Args, Debug)]
-#[clap(author, version, about, long_about = None)]
-struct WireCheck {
-    #[clap(short, long)]
-    game_name: String,
-    #[clap(short, long)]
-    dst_idx: usize,
-}
+mod cli;
+use crate::cli::*;
 
 fn proofsteps() -> Result<(), project::error::Error> {
     let project_root = project::find_project_root()?;
@@ -210,7 +137,7 @@ fn prove(p: &Prove) -> Result<(), project::error::Error> {
 }
 
 fn explain(_game_name: &str, _dst: &Option<String>) -> Result<(), project::error::Error> {
-    todo!();
+    todo!("not implemented");
     /*
         let data = project::Project::load()?.explain_game(game_name)?;
 
