@@ -224,7 +224,9 @@ impl<'a> Project<'a> {
                 }
 
                 match game_hop {
-                    GameHop::Reduction(_) => { /* the reduction has been verified at parse time */ }
+                    GameHop::Reduction(_) => {
+                        ui.proofstep_is_reduction(proof.as_name(), &format!("{game_hop}"));
+                    }
                     GameHop::Equivalence(eq) => {
                         equivalence::verify(
                             self,
