@@ -7,3 +7,9 @@ edition.workspace = true
 sspverif = { workspace = true }
 clap = { version = "4.0", features = ["derive"] }
 miette = { version = "7.2.0", features = ["fancy"] }
+
+
+[build-dependencies]
+sspverif = { workspace = true }
+clap = { version = "4.0", features = ["derive"] }
+clap_complete = "*"
