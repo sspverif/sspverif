@@ -1,3 +1,5 @@
+use std::fmt;
+
 use equivalence::Equivalence;
 use reduction::Reduction;
 
@@ -61,6 +63,26 @@ impl<'a> GameHop<'a> {
                 reduction.right().construction_game_instance_name().as_str()
             }
             GameHop::Equivalence(equivalence) => equivalence.right_name(),
+        }
+    }
+}
+
+impl<'a> fmt::Display for GameHop<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            GameHop::Equivalence(eq) => {
+                let left_name = eq.left_name();
+                let right_name = eq.right_name();
+                write!(f, "{left_name} == {right_name}")?;
+                Ok(())
+            }
+            GameHop::Reduction(red) => {
+                let left_name = red.left().construction_game_instance_name().as_str();
+                let right_name = red.right().construction_game_instance_name().as_str();
+                let assumption = red.assumption_name();
+                write!(f, "{left_name} ~= {right_name} ({assumption})")?;
+                Ok(())
+            }
         }
     }
 }
