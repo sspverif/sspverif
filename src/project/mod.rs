@@ -228,16 +228,28 @@ impl<'a> Project<'a> {
                         ui.proofstep_is_reduction(proof.as_name(), &format!("{game_hop}"));
                     }
                     GameHop::Equivalence(eq) => {
-                        equivalence::verify(
-                            self,
-                            &mut ui,
-                            eq,
-                            proof,
-                            backend,
-                            transcript,
-                            parallel,
-                            &req_oracle,
-                        )?;
+                        if parallel > 1 {
+                            equivalence::verify_parallel(
+                                self,
+                                &mut ui,
+                                eq,
+                                proof,
+                                backend,
+                                transcript,
+                                parallel,
+                                &req_oracle,
+                            )?;
+                        } else {
+                            equivalence::verify(
+                                self,
+                                &mut ui,
+                                eq,
+                                proof,
+                                backend,
+                                transcript,
+                                &req_oracle,
+                            )?;
+                        }
                     }
                 }
                 ui.finish_proofstep(proof.as_name(), &format!("{game_hop}"));

@@ -115,6 +115,7 @@ mod verify_fn;
 
 use error::{Error, Result};
 pub use verify_fn::verify;
+pub use verify_fn::verify_parallel;
 
 #[derive(Clone, Copy)]
 pub(crate) struct EquivalenceContext<'a> {
