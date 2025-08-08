@@ -128,7 +128,6 @@ pub fn verify(
     orig_proof: &Proof,
     backend: ProverBackend,
     transcript: bool,
-    parallel: usize,
     req_oracle: &Option<String>,
 ) -> Result<()> {
     let (proof, auxs) = EquivalenceTransform.transform_proof(orig_proof).unwrap();
@@ -160,37 +159,79 @@ pub fn verify(
 
     let ui = Arc::new(Mutex::new(ui));
 
-    if parallel > 1 {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(parallel + 1) // one process is reserved for the "main" method
-            .build()
-            .unwrap()
-            .install(|| -> Result<()> {
-                /* TODO: we should do something with results */
-                let results: Vec<_> = oracle_sequence
-                    .par_iter()
-                    .map(|oracle_sig| -> Result<()> {
-                        verify_oracle(
-                            project,
-                            ui.clone(),
-                            &eqctx,
-                            backend,
-                            transcript,
-                            &[*oracle_sig],
-                        )
-                    })
-                    .collect();
-                for result in results {
-                    if let Err(e) = result {
-                        ui.lock().unwrap().println(&format!("{e}")).unwrap();
-                    }
-                }
-                Ok(())
-            });
-        return Ok(());
-    } else {
-        verify_oracle(project, ui, &eqctx, backend, transcript, &oracle_sequence)?;
-    }
+    verify_oracle(project, ui, &eqctx, backend, transcript, &oracle_sequence)?;
 
     Ok(())
+}
+
+pub fn verify_parallel(
+    project: &Project,
+    ui: &mut ProofUI,
+    eq: &Equivalence,
+    orig_proof: &Proof,
+    backend: ProverBackend,
+    transcript: bool,
+    parallel: usize,
+    req_oracle: &Option<String>,
+) -> crate::project::error::Result<()> {
+    let (proof, auxs) = EquivalenceTransform.transform_proof(orig_proof).unwrap();
+
+    let eqctx = EquivalenceContext {
+        equivalence: eq,
+        proof: &proof,
+        auxs: &auxs,
+    };
+
+    let proofstep_name = format!("{} == {}", eq.left_name(), eq.right_name());
+    let oracle_sequence: Vec<_> = eqctx
+        .oracle_sequence()
+        .into_iter()
+        .filter(|sig| {
+            if let Some(name) = req_oracle {
+                sig.name == *name
+            } else {
+                true
+            }
+        })
+        .collect();
+
+    ui.proofstep_set_oracles(
+        proof.as_name(),
+        &proofstep_name,
+        oracle_sequence.len().try_into().unwrap(),
+    );
+
+    let ui = Arc::new(Mutex::new(ui));
+
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(parallel + 1) // one process is reserved for the "main" method
+        .build()
+        .unwrap()
+        .install(|| -> crate::project::error::Result<()> {
+            let result_count = oracle_sequence
+                .par_iter()
+                .map(|oracle_sig| -> Result<()> {
+                    let result = verify_oracle(
+                        project,
+                        ui.clone(),
+                        &eqctx,
+                        backend,
+                        transcript,
+                        &[*oracle_sig],
+                    );
+                    if let Err(ref e) = result {
+                        ui.lock().unwrap().println(&format!("{e}")).unwrap();
+                    }
+                    result
+                })
+                .filter(Result::is_err)
+                .count();
+            if result_count == 0 {
+                Ok(())
+            } else {
+                Err(crate::project::error::Error::ParallelEquivalenceError(
+                    result_count,
+                ))
+            }
+        })
 }

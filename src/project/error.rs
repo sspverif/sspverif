@@ -9,6 +9,8 @@ use super::FindProjectRootError;
 pub enum Error {
     #[error("error showing equivalence")]
     EquivalenceError(#[from] crate::gamehops::equivalence::error::Error),
+    #[error("{0} oracles failed when showing equivalence")]
+    ParallelEquivalenceError(usize),
     #[error("consistency check failed with {0}")]
     ProofCheck(String),
     #[error("io error")]
