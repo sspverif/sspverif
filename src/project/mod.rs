@@ -423,7 +423,13 @@ impl<'a> Project<'a> {
         path.push("_build/code_eq/joined/");
         std::fs::create_dir_all(&path)?;
 
-        path.push(format!("{left_game_name}_{right_game_name}.smt2"));
+        if let Some(oracle_name) = oracle_name {
+            path.push(format!(
+                "{left_game_name}_{right_game_name}_{oracle_name}.smt2"
+            ));
+        } else {
+            path.push(format!("{left_game_name}_{right_game_name}.smt2"));
+        }
         let f = std::fs::OpenOptions::new()
             .create(true)
             .write(true)
