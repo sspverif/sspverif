@@ -7,9 +7,8 @@ on:
 
 jobs:
   check-proofs:
-    defaults:
-      runs-on: ubuntu-latest
-      shell: bash
+    runs-on: ubuntu-latest
+    shell: bash
     name: Check Proofs
     steps:
       install-cvc5:
