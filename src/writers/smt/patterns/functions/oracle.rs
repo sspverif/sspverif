@@ -19,6 +19,7 @@ pub const ORACLE_ARG_INTERMEDIATE_STATE: &str = "__intermediate_state";
 
 pub struct OraclePattern<'a> {
     pub game_name: &'a str,
+    pub game_inst_name: &'a str,
     pub pkg_name: &'a str,
     pub oracle_name: &'a str,
     pub oracle_args: &'a [(String, Type)],
@@ -28,13 +29,12 @@ pub struct OraclePattern<'a> {
 
 impl FunctionPattern for OraclePattern<'_> {
     fn function_name(&self) -> String {
-        let game_encoded_params = encode_params(only_ints_and_funs(self.game_params));
         let pkg_encoded_params = encode_params(only_ints_and_funs(self.pkg_params));
 
         FunctionNameBuilder::new()
             .push("oracle")
             .push(self.game_name)
-            .maybe_extend(&game_encoded_params)
+            .push(self.game_inst_name)
             .push(self.pkg_name)
             .maybe_extend(&pkg_encoded_params)
             .push(self.oracle_name)
