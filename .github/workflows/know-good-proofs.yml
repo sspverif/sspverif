@@ -35,8 +35,8 @@ jobs:
           while read project; do
             project_path=example-projects/$project
             # skip comments
-            if [ ! -f $project_path ]; then
-          echo "WARN: skipping non-existing project in known-good proofs: $project"
+            if [ ! -d $project_path ]; then
+              echo "WARN: skipping non-existing project in known-good proofs: $project"
               continue
             fi
             (
