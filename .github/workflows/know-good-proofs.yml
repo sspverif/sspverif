@@ -11,18 +11,15 @@ jobs:
     shell: bash
     name: Check Proofs
     steps:
-      - install-cvc5:
-        name: Install CVC5
+      - name: Install CVC5
         run: apt install cvc5
 
-      - build:
-        name: Build ssbee
+      - name: Build ssbee
         run: |
           cargo build --release -p ssbee
           echo "SSBEE=$(pwd)/target/release/ssbee">>$GITHUB_ENV
 
-      - prove:
-        name: Run proofs
+      - name: Run proofs
         run: |
           echo "# Checking Reproducers still prove...
           for project_path in example-projects/repro-*; do
