@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Check Proofs
     steps:
+      - uses: actions/checkout@v2
       - name: Install CVC5
         run: sudo apt install cvc5
 
