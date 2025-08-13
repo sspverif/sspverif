@@ -177,18 +177,21 @@ impl<'a> EquivalenceContext<'a> {
                                 None => {log::debug!("skipping identifier {id:?} since it is not fully resolved"); ident.ident()}
                             }
                         } ,
-                        Identifier::PackageIdentifier(PackageIdentifier::Const(pkg_const_ident)) => match pkg_const_ident.game_assignment.as_ref().unwrap_or_else(|| panic!("the assigned value for this identifier should have been resolved at this point:\n  {pkg_const_ident:#?}")).as_ref() {
-                            Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(game_const_ident))) => {
-                                match game_const_ident.assigned_value.as_ref().map(Box::as_ref) {
-                                    Some(Expression::Identifier(ident@Identifier::ProofIdentifier(ProofIdentifier::Const(_))) )=> ident.ident(),
-                                    Some(Expression::Identifier(_) )=> unreachable!("other identifiers can't occur here"),
-                                    Some(other) => todo!("ADD ERR MSG: no complex expressions allowed for now, found {other:?}"),
-                                    None => {log::debug!("skipping identifier {id:?} since it is not fully resolved"); ident.ident()}
-                                }
-                            },
-                            Expression::Identifier(_) => unreachable!("other identifiers can't occur here"),
-                            other => todo!("ADD ERR MSG: no complex expressions allowed for now, found {other:?}"),
-                        }
+                        Identifier::PackageIdentifier(PackageIdentifier::Const(pkg_const_ident)) =>
+                            match pkg_const_ident.game_assignment.as_ref().unwrap_or_else(
+                                || panic!("the assigned value for this identifier should have been resolved at this point:\n  {pkg_const_ident:#?}"))
+                            .as_ref() {
+                                Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(game_const_ident))) => {
+                                    match game_const_ident.assigned_value.as_ref().map(Box::as_ref) {
+                                        Some(Expression::Identifier(ident@Identifier::ProofIdentifier(ProofIdentifier::Const(_))) )=> ident.ident(),
+                                        Some(Expression::Identifier(_) )=> unreachable!("other identifiers can't occur here"),
+                                        Some(other) => todo!("ADD ERR MSG: no complex expressions allowed for now, found {other:?}"),
+                                        None => {log::debug!("skipping identifier {id:?} since it is not fully resolved"); ident.ident()}
+                                    }
+                                },
+                                Expression::Identifier(_) => unreachable!("other identifiers can't occur here"),
+                                other => todo!("ADD ERR MSG: no complex expressions allowed for now, found {other:?}"),
+                            }
                         Identifier::PackageIdentifier(_) => unreachable!("non-const package identifiers can't occur here"),
                         Identifier::GameIdentifier(_) => unreachable!("non-const game identifiers can't occur here"),
                         Identifier::Generated(_, _) => unreachable!("generated identifiers can't occur here"),
@@ -207,6 +210,7 @@ impl<'a> EquivalenceContext<'a> {
         base_declarations.push(hacks::ReturnValueDeclaration.into());
         base_declarations.extend(hacks::TuplesDeclaration(1..32));
         base_declarations.extend(hacks::EmptyDeclaration);
+        base_declarations.push(hacks::SampleIdDeclaration.into());
 
         for decl in base_declarations {
             comm.write_smt(decl)?
@@ -1210,9 +1214,9 @@ impl<'a> EquivalenceContext<'a> {
 
         let randomness_mapping = SmtForall {
             bindings: vec![
-                ("randmap-sample-id-left".into(), Type::Integer.into()),
+                ("randmap-sample-id-left".into(), "SampleId".into()),
                 ("randmap-sample-ctr-left".into(), Type::Integer.into()),
-                ("randmap-sample-id-right".into(), Type::Integer.into()),
+                ("randmap-sample-id-right".into(), "SampleId".into()),
                 ("randmap-sample-ctr-right".into(), Type::Integer.into()),
             ],
             body: (
@@ -1593,8 +1597,8 @@ impl<'a> EquivalenceContext<'a> {
 
         for selector in selectors {
             body = match selector {
-                patterns::GameStateSelector::Randomness { sample_id } => SmtIte {
-                    cond: ("=", "sample-id", *sample_id),
+                patterns::GameStateSelector::Randomness { sample_pos } => SmtIte {
+                    cond: ("=", "sampleid", sample_pos),
                     then: (pattern.selector_name(selector), state_name.clone()),
                     els: body,
                 }
@@ -1606,7 +1610,7 @@ impl<'a> EquivalenceContext<'a> {
         (
             "define-fun",
             format!("get-rand-ctr-{game_inst_name}"),
-            (("sample-id", Type::Integer),),
+            (("sampleid", "SampleId"),),
             "Int",
             body,
         )
@@ -1699,7 +1703,7 @@ impl<'a> EquivalenceContext<'a> {
                 .get(tipe)
                 .expect("expected that left sample info has positions for type {tipe:?}")
                 .iter()
-                .map(|Position { sample_id, .. }| ("=", *sample_id, "sample-id-left").into());
+                .map(|sample_pos| ("=", *sample_pos, "sample-id-left").into());
             let mut left_or_case: Vec<SmtExpr> = vec!["or".into()];
             left_or_case.extend(left_has_type);
 
@@ -1707,7 +1711,7 @@ impl<'a> EquivalenceContext<'a> {
                 .get(tipe)
                 .expect("expected that right sample info has positions for type {tipe:?}")
                 .iter()
-                .map(|Position { sample_id, .. }| ("=", *sample_id, "sample-id-right").into());
+                .map(|sample_pos| ("=", *sample_pos, "sample-id-right").into());
 
             let mut right_or_case: Vec<SmtExpr> = vec!["or".into()];
             right_or_case.extend(right_has_type);
@@ -1739,8 +1743,8 @@ impl<'a> EquivalenceContext<'a> {
             "define-fun",
             "rand-is-eq",
             (
-                ("sample-id-left", Type::Integer),
-                ("sample-id-right", Type::Integer),
+                ("sample-id-left", "SampleId"),
+                ("sample-id-right", "SampleId"),
                 ("sample-ctr-left", Type::Integer),
                 ("sample-ctr-right", Type::Integer),
             ),
@@ -1909,7 +1913,7 @@ fn build_rands(
             .into();
 
             // apply respective randomness function (based on type) to the given counter
-            let randval = gctx.smt_eval_randfn(sample_id, ("+", 0, randctr_name.as_str()), tipe);
+            let randval = gctx.smt_eval_randfn(sample_item, ("+", 0, randctr_name.as_str()), tipe);
 
             let constrain_randval: SmtExpr = SmtAssert(SmtEq2 {
                 lhs: randval_name,

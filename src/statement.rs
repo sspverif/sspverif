@@ -20,6 +20,7 @@ pub enum Statement {
         Option<Expression>,
         Option<usize>,
         Type,
+        Option<String>,
         SourceSpan,
     ),
     InvokeOracle(InvokeOracleStatement),
@@ -47,7 +48,7 @@ impl Statement {
                 full_span: file_pos,
                 ..
             })
-            | Statement::Sample(_, _, _, _, file_pos)
+            | Statement::Sample(_, _, _, _, _, file_pos)
             | Statement::InvokeOracle(InvokeOracleStatement { file_pos, .. })
             | Statement::For(_, _, _, _, file_pos) => file_pos,
         }
