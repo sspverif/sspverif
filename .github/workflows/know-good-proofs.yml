@@ -1,4 +1,4 @@
-name: Run Knonw-Good Proofs
+name: Run Known-Good Proofs
 
 on:
   pull_request:
