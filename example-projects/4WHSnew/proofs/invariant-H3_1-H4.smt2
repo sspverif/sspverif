@@ -172,22 +172,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define-fun invariant
-  ( (state-H3  <GameState_H3_<$<!n!><!b!><!false!><!zeron!>$>>)
-    (state-H4  <GameState_H4_<$<!n!><!b!><!zeron!>$>>))
+    ((state-H3  <GameState_H3_<$<!n!>$>>)
+     (state-H4  <GameState_H4_<$<!n!>$>>))
   Bool
-  (and (= (<game-H3-<$<!n!><!b!><!false!><!zeron!>$>-pkgstate-Game_nochecks> state-H3)
-          (<game-H4-<$<!n!><!b!><!zeron!>$>-pkgstate-Game_nochecks>          state-H4))
-       (= (<pkg-state-Nonces-<$<!true!><!n!>$>-Nonces>
-	       (<game-H3-<$<!n!><!b!><!false!><!zeron!>$>-pkgstate-Nonces>     state-H3))
-	      (<pkg-state-Nonces-<$<!true!><!n!>$>-Nonces>
-		   (<game-H4-<$<!n!><!b!><!zeron!>$>-pkgstate-Nonces> state-H4))))
-
-;  (let
-;    ; getting ctr out of state
-;    ( (ctr-kxred (<pkg-state-Rand-<$<!n!>$>-ctr> (<game-SmallComposition-<$<!n!>$>-pkgstate-rand> state-0)))
-;      (ctr-kx (<pkg-state-Rand-<$<!n!>$>-ctr> (<game-MediumComposition-<$<!n!>$>-pkgstate-rand> state-1))))
-;
-;    ; ctr are equal
-;    (= ctr-kxred ctr-kx))
-
-)
+  (and (= (<game-H3-<$<!n!>$>-pkgstate-Game_nochecks> state-H3)
+          (<game-H4-<$<!n!>$>-pkgstate-Game_nochecks> state-H4))
+       (= (<pkg-state-Nonces-<$<!n!>$>-Nonces> (<game-H3-<$<!n!>$>-pkgstate-Nonces> state-H3))
+	      (<pkg-state-Nonces-<$<!n!>$>-Nonces> (<game-H4-<$<!n!>$>-pkgstate-Nonces> state-H4)))))

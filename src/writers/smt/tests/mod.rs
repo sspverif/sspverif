@@ -1,6 +1,7 @@
 use super::patterns::{game_consts, pkg_consts, pkg_state, DatastructurePattern};
 use crate::{
     parser::tests::*,
+    types::{CountSpec, Type},
     writers::smt::{
         exprs::SmtExpr,
         patterns::{
@@ -179,11 +180,15 @@ fn test_const_datatypes_remap_consts() {
 #[test]
 fn test_state_datatypes_remap_consts() {
     let pkgs = packages::parse_files(&["PRF.pkg.ssp", "KeyReal.pkg.ssp"]);
-    let game = games::parse_file("small_PRF.ssp", &pkgs);
+    let games = games::parse_files(&["small_PRF.ssp"], &pkgs);
+    let proof_file_name = "simple-SmallPRFGame.ssp";
+    let proof_file = proofs::read_file(proof_file_name);
+    let proof = proofs::parse(&proof_file, proof_file_name, &pkgs, &games);
 
     // check prf package instance
 
-    let pkg_inst = &game
+    let pkg_inst = &proof.instances()[0]
+        .game()
         .pkgs
         .iter()
         .find(|pkg_inst| pkg_inst.name == "prf")
@@ -217,7 +222,8 @@ fn test_state_datatypes_remap_consts() {
 
     // check key package instance
 
-    let pkg_inst = &game
+    let pkg_inst = &proof.instances()[0]
+        .game()
         .pkgs
         .iter()
         .find(|pkg_inst| pkg_inst.name == "key")
@@ -227,7 +233,6 @@ fn test_state_datatypes_remap_consts() {
     assert_eq!(pkg.state.len(), 1);
 
     let pkg_name = &pkg.name;
-    let pkg = &pkgs[pkg_name];
     let params = &pkg_inst.params;
 
     let pkg_state_pattern = pkg_state::PackageStatePattern { pkg_name, params };
@@ -250,4 +255,42 @@ fn test_state_datatypes_remap_consts() {
     );
 
     println!("{}", declare_datatype(&pkg_state_pattern, &pkg_state_spec));
+}
+
+#[test]
+fn test_fully_resolved_idents_103() {
+    let pkgs = packages::parse_files(&["TrivialA.ssp"]);
+    let games = games::parse_files(&["TrivialB.ssp"], &pkgs);
+    let proof_file_name = "TrivialC.ssp";
+    let proof_file = proofs::read_file(proof_file_name);
+    let proof = proofs::parse(&proof_file, proof_file_name, &pkgs, &games);
+
+    for game_inst in proof.instances() {
+        for (_, ty) in &game_inst.game.consts {
+            match ty {
+                Type::Bits(cs) => match &**cs {
+                    CountSpec::Identifier(identifier) => {
+                        assert!(identifier.as_proof_identifier().is_some())
+                    }
+                    CountSpec::Literal(_) => (),
+                    CountSpec::Any => (),
+                },
+                _ => (),
+            }
+        }
+        for package_inst in &game_inst.game.pkgs {
+            for (_, ty, _) in &package_inst.pkg.params {
+                match ty {
+                    Type::Bits(cs) => match &**cs {
+                        CountSpec::Identifier(identifier) => {
+                            assert!(identifier.as_proof_identifier().is_some())
+                        }
+                        CountSpec::Literal(_) => (),
+                        CountSpec::Any => (),
+                    },
+                    _ => (),
+                }
+            }
+        }
+    }
 }

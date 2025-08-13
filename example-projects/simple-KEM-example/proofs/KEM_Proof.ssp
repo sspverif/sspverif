@@ -69,6 +69,15 @@ proof KEM_Proof {
         }
     }
 
+    instance H2 = H2 {
+        params {
+            isideal_kem_cpa_security: isideal_kem_cpa_security,
+            kgen: kgen,
+            encaps: encaps,
+            decaps: decaps,
+        }
+    }
+
     instance H2_kem_cpa_real = H2 {
         params {
             isideal_kem_cpa_security: false,
@@ -161,6 +170,52 @@ proof KEM_Proof {
                 Corr_KEM : Corr_KEM
                  /* package instance of assumption : pkg instance of H1 */
 
+            }
+        }
+        equivalence H1_kem_correctness_ideal H2 {
+            GetPK: {
+                invariant: [
+                    ./proofs/invariant-KEM_Proof-H1_kem_correctness_ideal-H2.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+            Run: {
+                invariant: [
+                    ./proofs/invariant-KEM_Proof-H1_kem_correctness_ideal-H2.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+            TestSender: {
+                invariant: [
+                    ./proofs/invariant-KEM_Proof-H1_kem_correctness_ideal-H2.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+            TestReceiver: {
+                invariant: [
+                    ./proofs/invariant-KEM_Proof-H1_kem_correctness_ideal-H2.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
             }
         }
         reduction H2_kem_cpa_real H2_kem_cpa_ideal 

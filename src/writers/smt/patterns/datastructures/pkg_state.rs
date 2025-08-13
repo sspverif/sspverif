@@ -5,8 +5,8 @@ use crate::{
     types::Type,
     writers::smt::{
         contexts::PackageInstanceContext,
-        names,
-        patterns::instance_names::{encode_params, only_non_function_expression},
+        names::{FunctionNameBuilder, SortNameBuilder},
+        patterns::instance_names::{encode_params, only_ints},
     },
 };
 
@@ -41,9 +41,14 @@ impl Datatype for PackageStateDatatype<'_> {
     const KEBAB_CASE: &'static str = "pkg-state";
 
     fn sort_symbol(&self) -> sspverif_smtlib::syntax::tokens::Symbol {
-        let encoded_params = encode_params(only_non_function_expression(self.0.pkg_params()));
+        let encoded_params = encode_params(only_ints(self.0.pkg_params()));
 
-        names::concat_camel_case(&[Self::CAMEL_CASE, self.0.pkg_name(), &encoded_params]).into()
+        SortNameBuilder::new()
+            .push(Self::CAMEL_CASE)
+            .push(self.0.pkg_name())
+            .maybe_extend(&encoded_params)
+            .build()
+            .into()
     }
 
     fn sort_par_sort_symbols(&self) -> Vec<sspverif_smtlib::syntax::tokens::Symbol> {
@@ -62,23 +67,28 @@ impl Datatype for PackageStateDatatype<'_> {
         &self,
         _cons: &Self::Constructor,
     ) -> sspverif_smtlib::syntax::tokens::Symbol {
-        let encoded_params = encode_params(only_non_function_expression(self.0.pkg_params()));
+        let encoded_params = encode_params(only_ints(self.0.pkg_params()));
 
-        names::concat_kebab_case(&["mk", Self::KEBAB_CASE, self.0.pkg_name(), &encoded_params])
+        FunctionNameBuilder::new()
+            .push("mk")
+            .push(Self::KEBAB_CASE)
+            .push(self.0.pkg_name())
+            .maybe_extend(&encoded_params)
+            .build()
             .into()
     }
 
     fn selector_symbol(&self, sel: &Self::Selector) -> sspverif_smtlib::syntax::tokens::Symbol {
+        let encoded_params = encode_params(only_ints(self.0.pkg_params()));
         let (param_name, _, _) = &self.0.pkg().state[*sel];
-        let encoded_params = encode_params(only_non_function_expression(self.0.pkg_params()));
 
-        names::concat_kebab_case(&[
-            Self::KEBAB_CASE,
-            self.0.pkg_name(),
-            &encoded_params,
-            param_name,
-        ])
-        .into()
+        FunctionNameBuilder::new()
+            .push(Self::KEBAB_CASE)
+            .push(self.0.pkg_name())
+            .maybe_extend(&encoded_params)
+            .push(param_name)
+            .build()
+            .into()
     }
 
     fn selector_sort(&self, sel: &Self::Selector) -> sspverif_smtlib::syntax::sort::Sort {
@@ -97,40 +107,42 @@ impl<'a> DatastructurePattern<'a> for PackageStatePattern<'a> {
     const KEBAB_CASE: &'static str = "pkg-state";
 
     fn sort_name(&self) -> String {
-        let camel_case = Self::CAMEL_CASE;
-        let Self { pkg_name, params } = self;
+        let encoded_params = encode_params(only_ints(self.params));
 
-        let encoded_params = encode_params(only_non_function_expression(*params));
-
-        format!("<{camel_case}_{pkg_name}_{encoded_params}>")
+        SortNameBuilder::new()
+            .push(Self::CAMEL_CASE)
+            .push(self.pkg_name)
+            .maybe_extend(&encoded_params)
+            .build()
     }
 
     fn constructor_name(&self, _cons: &Self::Constructor) -> String {
-        let kebab_case = Self::KEBAB_CASE;
-        let Self { pkg_name, params } = self;
-        let encoded_params = encode_params(only_non_function_expression(*params));
+        let encoded_params = encode_params(only_ints(self.params));
 
-        format!("<mk-{kebab_case}-{pkg_name}-{encoded_params}>")
+        FunctionNameBuilder::new()
+            .push("mk")
+            .push(Self::KEBAB_CASE)
+            .push(self.pkg_name)
+            .maybe_extend(&encoded_params)
+            .build()
     }
 
     fn selector_name(&self, sel: &Self::Selector) -> String {
-        let kebab_case = Self::KEBAB_CASE;
-        let Self { pkg_name, params } = self;
-        let encoded_params = encode_params(only_non_function_expression(*params));
+        let encoded_params = encode_params(only_ints(self.params));
 
-        let PackageStateSelector {
-            name: field_name, ..
-        } = sel;
-
-        format!("<{kebab_case}-{pkg_name}-{encoded_params}-{field_name}>")
+        FunctionNameBuilder::new()
+            .push(Self::KEBAB_CASE)
+            .push(self.pkg_name)
+            .maybe_extend(&encoded_params)
+            .push(sel.name)
+            .build()
     }
 
     fn matchfield_name(&self, sel: &Self::Selector) -> String {
-        let PackageStateSelector {
-            name: field_name, ..
-        } = sel;
-
-        format!("<match-{field_name}>")
+        FunctionNameBuilder::new()
+            .push("match")
+            .push(sel.name)
+            .build()
     }
 
     fn selector_sort(&self, sel: &Self::Selector) -> crate::writers::smt::exprs::SmtExpr {

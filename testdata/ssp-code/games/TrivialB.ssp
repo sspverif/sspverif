@@ -1,0 +1,9 @@
+composition TrivialB {
+  const b: Integer;
+
+  instance trivial_a = TrivialA {
+    params {
+      a: b,
+    }
+  }
+}

@@ -1,6 +1,7 @@
 use crate::{
     types::Type,
     writers::smt::{
+        names::FunctionNameBuilder,
         patterns::{DatastructurePattern as _, GameStatePattern, ReturnPattern},
         sorts::Sort,
     },
@@ -39,13 +40,13 @@ impl Relation<'_> {
 
 impl FunctionPattern for Relation<'_> {
     fn function_name(&self) -> String {
-        format!(
-            "<relation-{}-{}-{}-{}>",
-            self.relation_name,
-            self.game_inst_name_left,
-            self.game_inst_name_right,
-            self.oracle_name
-        )
+        FunctionNameBuilder::new()
+            .push("relation")
+            .push(self.relation_name)
+            .push(self.game_inst_name_left)
+            .push(self.game_inst_name_right)
+            .push(self.oracle_name)
+            .build()
     }
 
     fn function_args(&self) -> Vec<(String, Sort)> {

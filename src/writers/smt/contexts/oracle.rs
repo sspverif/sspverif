@@ -1,6 +1,7 @@
 use crate::package::{OracleDef, OracleSig};
 use crate::transforms::samplify::SampleInfo;
 use crate::types::Type;
+use crate::writers::smt::names::FunctionNameBuilder;
 use crate::writers::smt::patterns::oracle_args::OracleArgPattern;
 use crate::writers::smt::patterns::proof_constants::ReturnValueConst;
 use crate::writers::smt::patterns::FunctionPattern;
@@ -158,7 +159,12 @@ impl OracleContext<'_> {
         let pkg_inst = &game.pkgs[self.pkg_inst_offs];
         let odef = &pkg_inst.pkg.oracles[self.oracle_offs];
 
-        names::oracle_nonsplit_arg_name(&odef.sig.name, arg_name).into()
+        FunctionNameBuilder::new()
+            .push("arg")
+            .push(&odef.sig.name)
+            .push(arg_name)
+            .build()
+            .into()
     }
 
     pub(crate) fn smt_construct_return<S, V>(&self, state: S, value: V) -> SmtExpr

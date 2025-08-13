@@ -172,23 +172,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define-fun invariant
-  ( (state-kx     <GameState_H1_<$<!n!><!b!><!true!><!zeron!>$>>)
-    (state-kxred  <GameState_H2_<$<!n!><!b!><!false!><!zeron!>$>>))
+    ((state-left  <GameState_H1_<$<!n!>$>>)
+     (state-right <GameState_H2_<$<!n!>$>>))
   Bool
-; getting package-state out of game-state and demanding equality, they should be exactly the same in this case.
-(and (= (<game-H1-<$<!n!><!b!><!true!><!zeron!>$>-pkgstate-Game>     state-kx)    ;some params are still missing.
-        (<game-H2-<$<!n!><!b!><!false!><!zeron!>$>-pkgstate-Game> state-kxred)) ;some params are still missing.
-     (= (<pkg-state-Nonces-<$<!bnonce!><!n!>$>-Nonces>
-	        (<game-H1-<$<!n!><!b!><!true!><!zeron!>$>-pkgstate-Nonces>     state-kx))
-	    (<pkg-state-Nonces-<$<!true!><!n!>$>-Nonces>
-		    (<game-H2-<$<!n!><!b!><!false!><!zeron!>$>-pkgstate-Nonces> state-kxred))))
-
-;  (let
-;    ; getting ctr out of state
-;    ( (ctr-kxred (<pkg-state-Rand-<$<!n!>$>-ctr> (<game-SmallComposition-<$<!n!>$>-pkgstate-rand> state-0)))
-;      (ctr-kx (<pkg-state-Rand-<$<!n!>$>-ctr> (<game-MediumComposition-<$<!n!>$>-pkgstate-rand> state-1))))
-;
-;    ; ctr are equal
-;    (= ctr-kxred ctr-kx))
-
-)
+  (let ((pkg-state-Game-left (<game-H1-<$<!n!>$>-pkgstate-Game> state-left))
+        (pkg-state-Game-right (<game-H2-<$<!n!>$>-pkgstate-Game> state-right))
+        (pkg-state-Nonces-left (<game-H1-<$<!n!>$>-pkgstate-Nonces> state-left))
+        (pkg-state-Nonces-right (<game-H2-<$<!n!>$>-pkgstate-Nonces> state-right)))
+    (and (= pkg-state-Game-left pkg-state-Game-right)
+         (= pkg-state-Nonces-left pkg-state-Nonces-right))))
