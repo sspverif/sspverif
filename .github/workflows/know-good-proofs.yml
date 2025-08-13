@@ -26,20 +26,22 @@ jobs:
             project=$(basename $project_path)
             (
               echo "## Checking $project proves..."
-              cd $project;
+              cd $project_path;
               $SSBEE prove
             )
           done
 
           echo "# Checking known-good proofs still prove..."
           while read project; do
+            project_path=example-projects/$project
             # skip comments
-            if [ ! -e example-projects/$project ]; then
+            if [ ! -f $project_path ]; then
           echo "WARN: skipping non-existing project in known-good proofs: $project"
               continue
             fi
             (
-              cd example-projects/$project;
+              echo "## Checking $project proves..."
+              cd $project_path;
               $SSBEE prove
             )
           done <example-projects/known-good.txt
