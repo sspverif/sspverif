@@ -21,7 +21,7 @@ jobs:
 
       - name: Run proofs
         run: |
-          echo "# Checking Reproducers still prove...
+          echo "# Checking Reproducers still prove..."
           for project_path in example-projects/repro-*; do
             project=$(basename $project_path)
             (
