@@ -1,0 +1,17 @@
+package Simple {
+    params {
+        b: Bool,
+    }
+
+
+
+    oracle Sample() -> Bits(256){
+        if b {
+            x <-$ Bits(256);
+            return x;
+        } else {
+            x <-$ Bits(256);
+            return x;
+        }
+    }
+}
