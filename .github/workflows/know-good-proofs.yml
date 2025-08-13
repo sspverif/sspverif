@@ -8,8 +8,6 @@ on:
 jobs:
   check-proofs:
     runs-on: ubuntu-latest
-    defaults:
-      shell: bash
     name: Check Proofs
     steps:
       - name: Install CVC5
