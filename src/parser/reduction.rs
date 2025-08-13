@@ -264,7 +264,7 @@ fn handle_reduction_body<'a>(
             if mapping1.construction_game_instance_name().as_str() != left_name.as_str() {
                 return Err(InvalidGameInstanceInReductionError::new(
                     ctx.named_source(),
-                    mapping1.construction_game_instance_name().as_pair(),
+                    mapping1.construction_game_instance_name(),
                     header_span,
                 )
                 .into());
@@ -273,7 +273,7 @@ fn handle_reduction_body<'a>(
             if mapping2.construction_game_instance_name().as_str() != right_name.as_str() {
                 return Err(InvalidGameInstanceInReductionError::new(
                     ctx.named_source(),
-                    mapping2.construction_game_instance_name().as_pair(),
+                    mapping2.construction_game_instance_name(),
                     header_span,
                 )
                 .into());
@@ -286,7 +286,7 @@ fn handle_reduction_body<'a>(
             if mapping1.construction_game_instance_name().as_str() != right_name.as_str() {
                 return Err(InvalidGameInstanceInReductionError::new(
                     ctx.named_source(),
-                    mapping1.construction_game_instance_name().as_pair(),
+                    mapping1.construction_game_instance_name(),
                     header_span,
                 )
                 .into());
@@ -295,7 +295,7 @@ fn handle_reduction_body<'a>(
             if mapping2.construction_game_instance_name().as_str() != left_name.as_str() {
                 return Err(InvalidGameInstanceInReductionError::new(
                     ctx.named_source(),
-                    mapping2.construction_game_instance_name().as_pair(),
+                    mapping2.construction_game_instance_name(),
                     header_span,
                 )
                 .into());
@@ -790,7 +790,7 @@ fn handle_mapspec_assumption<'a>(
                 assumption_game_inst,
             ) {
                 PackageInstanceDiff::DifferentPackage(_, _) => todo!(),
-                PackageInstanceDiff::DifferentParams(vec) => todo!(),
+                PackageInstanceDiff::DifferentParams(_vec) => todo!(),
                 PackageInstanceDiff::Same => {}
             }
         }
@@ -921,7 +921,7 @@ fn handle_mapspec_assumption<'a>(
 }
 
 fn package_instances_diff(
-    ctx: &ParseProofContext,
+    _ctx: &ParseProofContext,
     left_pkg_inst: &PackageInstance,
     left_game_inst: &GameInstance,
     right_pkg_inst: &PackageInstance,
