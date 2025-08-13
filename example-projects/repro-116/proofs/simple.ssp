@@ -1,11 +1,10 @@
 proof Simple {
-
     instance l = Simple {
-        params{ b: true}
+        params{ b: true  }
     }
 
     instance r = Simple {
-        params{ b: false}
+        params{ b: false }
     }
 
     gamehops {

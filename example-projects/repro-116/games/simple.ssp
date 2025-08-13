@@ -2,9 +2,8 @@ composition Simple {
     const b : Bool;
 
     instance simple = Simple{
-            params {b:b}
+        params { b: b }
     }
-
 
     compose {
         adversary: {

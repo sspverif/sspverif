@@ -2,7 +2,7 @@
   ( (l <GameState_Simple>)
     (r <GameState_Simple>))
   Bool
-  (= l r))
+  true)
 
 (define-fun randomness-mapping-Sample
   ( (base-ctr-left Int) 
@@ -13,6 +13,7 @@
     (ctr-right Int))
   Bool
   (and
-    (= stmt-left stmt-right)
-    (= (- ctr-left base-ctr-left)
+    (= stmt-left  0)
+    (= stmt-right 1)
+    (= (- ctr-left  base-ctr-left)
        (- ctr-right base-ctr-right))))
