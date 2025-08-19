@@ -1,3 +1,5 @@
+use mockall_double::double;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 /**
  *  project is the high-level structure of sspverif.
  *
@@ -19,9 +21,11 @@ use crate::{
     package::{Composition, Package},
     proof::Proof,
     transforms::Transformation,
-    ui::ProofUI,
     util::prover_process::ProverBackend,
 };
+
+#[double]
+use crate::ui::ProofUI;
 
 pub const PROJECT_FILE: &str = "ssp.toml";
 
@@ -106,6 +110,16 @@ pub struct Project<'a> {
 }
 
 impl<'a> Project<'a> {
+    #[cfg(test)]
+    pub(crate) fn empty() -> Self {
+        Self {
+            root_dir: PathBuf::new(),
+            packages: HashMap::new(),
+            games: HashMap::new(),
+            proofs: HashMap::new(),
+        }
+    }
+
     pub fn load(files: &'a Files) -> Result<Project<'a>> {
         let root_dir = find_project_root()?;
 

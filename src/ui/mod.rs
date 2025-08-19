@@ -1,4 +1,5 @@
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use mockall::automock;
 use std::collections::HashMap;
 
 pub(crate) struct ProofUI {
@@ -9,6 +10,7 @@ pub(crate) struct ProofUI {
     seq_oracle_progress: HashMap<(String, String, String), ProgressBar>,
 }
 
+#[automock]
 impl ProofUI {
     pub(crate) fn new(num_proofs: u64) -> Self {
         let main_progress = MultiProgress::new();
@@ -17,6 +19,7 @@ impl ProofUI {
 
             project_progress.set_style(ProofUI::style_proof_bar());
             project_progress.set_message("Project");
+            project_progress.enable_steady_tick(std::time::Duration::from_secs(10));
             Some(project_progress)
         } else {
             None
@@ -40,6 +43,7 @@ impl ProofUI {
 
         proof_progress.set_style(ProofUI::style_proof_bar());
         proof_progress.set_message(format!("{proof_name}"));
+        proof_progress.enable_steady_tick(std::time::Duration::from_secs(10));
 
         self.seq_proof_progress
             .insert(proof_name.to_string(), proof_progress);
@@ -55,6 +59,7 @@ impl ProofUI {
         let proofstep_progress = self.main_progress.add(ProgressBar::new(1));
         proofstep_progress.set_style(ProofUI::style_proofstep_bar());
         proofstep_progress.set_message(format!("{proofstep_name}"));
+        proofstep_progress.enable_steady_tick(std::time::Duration::from_secs(10));
 
         self.seq_proofstep_progress.insert(
             (proof_name.to_string(), proofstep_name.to_string()),
@@ -117,6 +122,7 @@ impl ProofUI {
         let oracle_progress = self.main_progress.add(ProgressBar::new(num_lemmata));
         oracle_progress.set_style(ProofUI::style_oracle_bar());
         oracle_progress.set_message(format!("{oracle_name}"));
+        oracle_progress.enable_steady_tick(std::time::Duration::from_secs(10));
 
         self.seq_oracle_progress.insert(
             (

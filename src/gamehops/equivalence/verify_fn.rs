@@ -1,3 +1,4 @@
+use mockall_double::double;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::fmt::Write;
 use std::io::Write as _;
@@ -12,10 +13,12 @@ use crate::{
     project::Project,
     proof::Proof,
     transforms::{proof_transforms::EquivalenceTransform, ProofTransform},
-    ui::ProofUI,
     util::prover_process::{Communicator, ProverBackend, ProverResponse},
     writers::smt::exprs::SmtExpr,
 };
+
+#[double]
+use crate::ui::ProofUI;
 
 use super::EquivalenceContext;
 

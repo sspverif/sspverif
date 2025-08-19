@@ -22,6 +22,8 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use crate::ui::MockProofUI as ProofUI;
+
 #[test]
 fn empty_param_section_is_fine() {
     let file_name = "test_file_name.ssp";
@@ -193,8 +195,17 @@ fn equivalence_gamehome_generates_code() {
 
     let backend = ProverBackend::Cvc5;
     let transcript = SharedVecWriter::default();
-    let prover = Communicator::new_with_transcript(backend, transcript.clone()).unwrap();
-    equivalence::verify(eq, &proof, prover, &None).unwrap_or_else(|err| {
+    let project = crate::project::Project::empty();
+    equivalence::verify(
+        &project,
+        &mut ProofUI::new(2),
+        eq,
+        &proof,
+        backend,
+        false,
+        &None,
+    )
+    .unwrap_or_else(|err| {
         panic!(
             "got error {err}.\n\ntranscript:\n{transcript}",
             err = err,
