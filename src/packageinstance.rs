@@ -578,22 +578,22 @@ pub(crate) mod instantiate {
 
     impl InstantiationContext<'_> {
         pub(crate) fn rewrite_expression(&self, expr: &Expression) -> Expression {
-            expr.map(|expr| match (self.src, expr) {
-                (_, Expression::Identifier(ident)) => {
+            expr.map(|expr| match expr {
+                Expression::Identifier(ident) => {
                     Expression::Identifier(self.rewrite_identifier(ident))
                 }
 
                 // can only happen in oracle code, i.e. package code
-                (_, Expression::TableAccess(ident, expr)) => {
+                Expression::TableAccess(ident, expr) => {
                     Expression::TableAccess(self.rewrite_identifier(ident), expr)
                 }
-                (_, Expression::FnCall(ident, args)) => {
+                Expression::FnCall(ident, args) => {
                     Expression::FnCall(self.rewrite_identifier(ident), args)
                 }
-                (_, Expression::None(ty)) => Expression::None(self.rewrite_type(ty)),
-                (_, Expression::Sample(ty)) => Expression::Sample(self.rewrite_type(ty)),
+                Expression::None(ty) => Expression::None(self.rewrite_type(ty)),
+                Expression::Sample(ty) => Expression::Sample(self.rewrite_type(ty)),
 
-                (_, expr) => expr,
+                expr => expr,
             })
         }
 
