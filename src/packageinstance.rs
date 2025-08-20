@@ -590,6 +590,8 @@ pub(crate) mod instantiate {
                 (_, Expression::FnCall(ident, args)) => {
                     Expression::FnCall(self.rewrite_identifier(ident), args)
                 }
+                (_, Expression::None(ty)) => Expression::None(self.rewrite_type(ty)),
+                (_, Expression::Sample(ty)) => Expression::Sample(self.rewrite_type(ty)),
 
                 (_, expr) => expr,
             })
