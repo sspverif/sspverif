@@ -1,9 +1,9 @@
-use mockall_double::double;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::fmt::Write;
 use std::io::Write as _;
 use std::sync::{Arc, Mutex};
 
+use crate::ui::ProofUI;
 use crate::{
     gamehops::equivalence::{
         error::{Error, Result},
@@ -17,14 +17,11 @@ use crate::{
     writers::smt::exprs::SmtExpr,
 };
 
-#[double]
-use crate::ui::ProofUI;
-
 use super::EquivalenceContext;
 
-fn verify_oracle(
+fn verify_oracle<UI: ProofUI>(
     project: &Project,
-    ui: Arc<Mutex<&mut ProofUI>>,
+    ui: Arc<Mutex<&mut UI>>,
     eqctx: &EquivalenceContext,
     backend: ProverBackend,
     transcript: bool,
@@ -124,9 +121,9 @@ fn verify_oracle(
     Ok(())
 }
 
-pub fn verify(
+pub fn verify<UI: ProofUI>(
     project: &Project,
-    ui: &mut ProofUI,
+    ui: &mut UI,
     eq: &Equivalence,
     orig_proof: &Proof,
     backend: ProverBackend,
@@ -167,9 +164,9 @@ pub fn verify(
     Ok(())
 }
 
-pub fn verify_parallel(
+pub fn verify_parallel<UI: ProofUI + std::marker::Send>(
     project: &Project,
-    ui: &mut ProofUI,
+    ui: &mut UI,
     eq: &Equivalence,
     orig_proof: &Proof,
     backend: ProverBackend,

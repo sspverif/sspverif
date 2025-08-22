@@ -22,7 +22,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crate::ui::MockProofUI as ProofUI;
+use crate::ui::{mock::MockTestProofUI, ProofUI};
 
 #[test]
 fn empty_param_section_is_fine() {
@@ -198,7 +198,7 @@ fn equivalence_gamehome_generates_code() {
     let project = crate::project::Project::empty();
     equivalence::verify(
         &project,
-        &mut ProofUI::new(2),
+        &mut MockTestProofUI::new(2),
         eq,
         &proof,
         backend,

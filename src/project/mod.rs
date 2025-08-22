@@ -1,4 +1,3 @@
-use mockall_double::double;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 /**
  *  project is the high-level structure of sspverif.
@@ -24,8 +23,7 @@ use crate::{
     util::prover_process::ProverBackend,
 };
 
-#[double]
-use crate::ui::ProofUI;
+use crate::ui::{IndicatifProofUI, ProofUI};
 
 pub const PROJECT_FILE: &str = "ssp.toml";
 
@@ -214,7 +212,7 @@ impl<'a> Project<'a> {
         let mut proof_keys: Vec<_> = self.proofs.keys().collect();
         proof_keys.sort();
 
-        let mut ui = ProofUI::new(proof_keys.len().try_into().unwrap());
+        let mut ui = IndicatifProofUI::new(proof_keys.len().try_into().unwrap());
 
         for proof_key in proof_keys.into_iter() {
             let proof = &self.proofs[proof_key];

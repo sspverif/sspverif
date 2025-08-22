@@ -1,8 +1,53 @@
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use mockall::automock;
 use std::collections::HashMap;
 
-pub(crate) struct ProofUI {
+#[cfg(test)]
+pub(crate) mod mock;
+
+pub(crate) trait ProofUI {
+    fn new(num_proofs: u64) -> Self;
+    fn println(&self, line: &str) -> std::io::Result<()>;
+
+    fn start_proof(&mut self, proof_name: &str, num_proofsteps: u64);
+
+    fn finish_proof(&mut self, proof_name: &str);
+
+    fn start_proofstep(&mut self, proof_name: &str, proofstep_name: &str);
+
+    fn proofstep_is_reduction(&mut self, proof_name: &str, proofstep_name: &str);
+
+    fn proofstep_set_oracles(&mut self, proof_name: &str, proofstep_name: &str, num_oracles: u64);
+
+    fn finish_proofstep(&mut self, proof_name: &str, proofstep_name: &str);
+
+    fn start_oracle(
+        &mut self,
+        proof_name: &str,
+        proofstep_name: &str,
+        oracle_name: &str,
+        num_lemmata: u64,
+    );
+
+    fn finish_oracle(&mut self, proof_name: &str, proofstep_name: &str, oracle_name: &str);
+
+    fn start_lemma(
+        &mut self,
+        proof_name: &str,
+        proofstep_name: &str,
+        oracle_name: &str,
+        lemma_name: &str,
+    );
+
+    fn finish_lemma(
+        &mut self,
+        proof_name: &str,
+        proofstep_name: &str,
+        oracle_name: &str,
+        lemma_name: &str,
+    );
+}
+
+pub(crate) struct IndicatifProofUI {
     main_progress: MultiProgress,
     project_progress: Option<ProgressBar>,
     seq_proof_progress: HashMap<String, ProgressBar>,
@@ -10,14 +55,13 @@ pub(crate) struct ProofUI {
     seq_oracle_progress: HashMap<(String, String, String), ProgressBar>,
 }
 
-#[automock]
-impl ProofUI {
-    pub(crate) fn new(num_proofs: u64) -> Self {
+impl ProofUI for IndicatifProofUI {
+    fn new(num_proofs: u64) -> Self {
         let main_progress = MultiProgress::new();
         let project_progress = if num_proofs > 1 {
             let project_progress = main_progress.add(ProgressBar::new(num_proofs));
 
-            project_progress.set_style(ProofUI::style_proof_bar());
+            project_progress.set_style(indicatif_style::proof_bar());
             project_progress.set_message("Project");
             project_progress.enable_steady_tick(std::time::Duration::from_secs(10));
             Some(project_progress)
@@ -25,7 +69,7 @@ impl ProofUI {
             None
         };
 
-        ProofUI {
+        IndicatifProofUI {
             main_progress,
             project_progress,
             seq_proof_progress: HashMap::new(),
@@ -34,14 +78,14 @@ impl ProofUI {
         }
     }
 
-    pub(crate) fn println(&self, line: &str) -> std::io::Result<()> {
+    fn println(&self, line: &str) -> std::io::Result<()> {
         self.main_progress.println(line)
     }
 
-    pub(crate) fn start_proof(&mut self, proof_name: &str, num_proofsteps: u64) {
+    fn start_proof(&mut self, proof_name: &str, num_proofsteps: u64) {
         let proof_progress = self.main_progress.add(ProgressBar::new(num_proofsteps));
 
-        proof_progress.set_style(ProofUI::style_proof_bar());
+        proof_progress.set_style(indicatif_style::proof_bar());
         proof_progress.set_message(format!("{proof_name}"));
         proof_progress.enable_steady_tick(std::time::Duration::from_secs(10));
 
@@ -49,15 +93,15 @@ impl ProofUI {
             .insert(proof_name.to_string(), proof_progress);
     }
 
-    pub(crate) fn finish_proof(&mut self, proof_name: &str) {
+    fn finish_proof(&mut self, proof_name: &str) {
         if let Some(project_progress) = &self.project_progress {
             project_progress.inc(1);
         };
     }
 
-    pub(crate) fn start_proofstep(&mut self, proof_name: &str, proofstep_name: &str) {
+    fn start_proofstep(&mut self, proof_name: &str, proofstep_name: &str) {
         let proofstep_progress = self.main_progress.add(ProgressBar::new(1));
-        proofstep_progress.set_style(ProofUI::style_proofstep_bar());
+        proofstep_progress.set_style(indicatif_style::proofstep_bar());
         proofstep_progress.set_message(format!("{proofstep_name}"));
         proofstep_progress.enable_steady_tick(std::time::Duration::from_secs(10));
 
@@ -67,7 +111,7 @@ impl ProofUI {
         );
     }
 
-    pub(crate) fn proofstep_is_reduction(&mut self, proof_name: &str, proofstep_name: &str) {
+    fn proofstep_is_reduction(&mut self, proof_name: &str, proofstep_name: &str) {
         if let Some(proofstep_progress) = self
             .seq_proofstep_progress
             .get(&(proof_name.to_string(), proofstep_name.to_string()))
@@ -80,12 +124,7 @@ impl ProofUI {
         };
     }
 
-    pub(crate) fn proofstep_set_oracles(
-        &mut self,
-        proof_name: &str,
-        proofstep_name: &str,
-        num_oracles: u64,
-    ) {
+    fn proofstep_set_oracles(&mut self, proof_name: &str, proofstep_name: &str, num_oracles: u64) {
         if let Some(proofstep_progress) = self
             .seq_proofstep_progress
             .get(&(proof_name.to_string(), proofstep_name.to_string()))
@@ -97,7 +136,7 @@ impl ProofUI {
         };
     }
 
-    pub(crate) fn finish_proofstep(&mut self, proof_name: &str, proofstep_name: &str) {
+    fn finish_proofstep(&mut self, proof_name: &str, proofstep_name: &str) {
         if let Some(proof_progress) = self.seq_proof_progress.iter().find_map(|(name, progress)| {
             if proof_name == name {
                 Some(progress)
@@ -112,7 +151,7 @@ impl ProofUI {
             .retain(|k, _v| k.0 == proof_name && k.1 == proofstep_name)
     }
 
-    pub(crate) fn start_oracle(
+    fn start_oracle(
         &mut self,
         proof_name: &str,
         proofstep_name: &str,
@@ -120,7 +159,7 @@ impl ProofUI {
         num_lemmata: u64,
     ) {
         let oracle_progress = self.main_progress.add(ProgressBar::new(num_lemmata));
-        oracle_progress.set_style(ProofUI::style_oracle_bar());
+        oracle_progress.set_style(indicatif_style::oracle_bar());
         oracle_progress.set_message(format!("{oracle_name}"));
         oracle_progress.enable_steady_tick(std::time::Duration::from_secs(10));
 
@@ -134,12 +173,7 @@ impl ProofUI {
         );
     }
 
-    pub(crate) fn finish_oracle(
-        &mut self,
-        proof_name: &str,
-        proofstep_name: &str,
-        oracle_name: &str,
-    ) {
+    fn finish_oracle(&mut self, proof_name: &str, proofstep_name: &str, oracle_name: &str) {
         if let Some(proofstep_progress) = self
             .seq_proofstep_progress
             .get(&(proof_name.to_string(), proofstep_name.to_string()))
@@ -148,7 +182,7 @@ impl ProofUI {
         };
     }
 
-    pub(crate) fn start_lemma(
+    fn start_lemma(
         &mut self,
         proof_name: &str,
         proofstep_name: &str,
@@ -164,7 +198,7 @@ impl ProofUI {
         }
     }
 
-    pub(crate) fn finish_lemma(
+    fn finish_lemma(
         &mut self,
         proof_name: &str,
         proofstep_name: &str,
@@ -180,8 +214,12 @@ impl ProofUI {
             oracle_progress.set_message(format!("{oracle_name}"));
         }
     }
+}
 
-    fn style_proof_bar() -> ProgressStyle {
+mod indicatif_style {
+    use indicatif::ProgressStyle;
+
+    pub(super) fn proof_bar() -> ProgressStyle {
         ProgressStyle::with_template(
             "[{elapsed_precise}] {bar:80.cyan/blue} {pos:>3}/{len:3} {msg}",
         )
@@ -189,7 +227,7 @@ impl ProofUI {
         .progress_chars("#>-")
     }
 
-    fn style_proofstep_bar() -> ProgressStyle {
+    pub(super) fn proofstep_bar() -> ProgressStyle {
         ProgressStyle::with_template(
             "[{elapsed_precise}] {bar:80.yellow/white} {pos:>3}/{len:3} {msg}",
         )
@@ -197,7 +235,7 @@ impl ProofUI {
         .progress_chars("#>-")
     }
 
-    fn style_oracle_bar() -> ProgressStyle {
+    pub(super) fn oracle_bar() -> ProgressStyle {
         ProgressStyle::with_template(
             "[{elapsed_precise}] {bar:80.magenta/white} {pos:>3}/{len:3} {msg}",
         )
