@@ -1,5 +1,6 @@
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use indicatif_log_bridge::LogWrapper;
+use itertools::Itertools;
 use std::collections::HashMap;
 
 #[cfg(test)]
@@ -92,7 +93,6 @@ impl ProofUI for IndicatifProofUI {
 
         proof_progress.set_style(indicatif_style::proof_bar());
         proof_progress.set_message(format!("{proof_name}"));
-        //proof_progress.enable_steady_tick(std::time::Duration::from_secs(10));
 
         self.seq_proof_progress
             .insert(proof_name.to_string(), proof_progress);
@@ -102,13 +102,15 @@ impl ProofUI for IndicatifProofUI {
         if let Some(project_progress) = &self.project_progress {
             project_progress.inc(1);
         };
+        if let Some(proof_progress) = self.seq_proof_progress.get(&(proof_name.to_string())) {
+            proof_progress.finish();
+        }
     }
 
     fn start_proofstep(&mut self, proof_name: &str, proofstep_name: &str) {
         let proofstep_progress = self.main_progress.add(ProgressBar::new(1));
         proofstep_progress.set_style(indicatif_style::proofstep_bar());
         proofstep_progress.set_message(format!("{proofstep_name}"));
-        //proofstep_progress.enable_steady_tick(std::time::Duration::from_secs(10));
 
         self.seq_proofstep_progress.insert(
             (proof_name.to_string(), proofstep_name.to_string()),
@@ -142,15 +144,40 @@ impl ProofUI for IndicatifProofUI {
     }
 
     fn finish_proofstep(&mut self, proof_name: &str, proofstep_name: &str) {
-        if let Some(proof_progress) = self.seq_proof_progress.iter().find_map(|(name, progress)| {
-            if proof_name == name {
-                Some(progress)
-            } else {
-                None
-            }
-        }) {
+        if let Some(proof_progress) = self.seq_proof_progress.get(&(proof_name.to_string())) {
             proof_progress.inc(1);
         };
+
+        if let Some(proofstep_progress) = self
+            .seq_proofstep_progress
+            .get(&(proof_name.to_string(), proofstep_name.to_string()))
+        {
+            let duration = proofstep_progress.elapsed();
+            proofstep_progress.finish();
+        }
+
+        log::info!(
+            "Successfully finished proofstep {}; Times: {}",
+            proofstep_name,
+            self.seq_oracle_progress
+                .iter()
+                .filter_map(|(k, v)| {
+                    if (k.0 == proof_name && k.1 == proofstep_name) {
+                        let duration = v.elapsed();
+                        v.finish_and_clear();
+                        let seconds = duration.as_secs() % 60;
+                        let minutes = (duration.as_secs() / 60) % 60;
+                        let hours = (duration.as_secs() / 60) / 60;
+                        Some(format!(
+                            "{}: [{:0>2}:{:0>2}:{:0>2}]",
+                            k.2, hours, minutes, seconds
+                        ))
+                    } else {
+                        None
+                    }
+                })
+                .join("; ")
+        );
 
         self.seq_oracle_progress
             .retain(|k, _v| !(k.0 == proof_name && k.1 == proofstep_name))
@@ -166,7 +193,6 @@ impl ProofUI for IndicatifProofUI {
         let oracle_progress = self.main_progress.add(ProgressBar::new(num_lemmata));
         oracle_progress.set_style(indicatif_style::oracle_bar());
         oracle_progress.set_message(format!("{oracle_name}"));
-        //oracle_progress.enable_steady_tick(std::time::Duration::from_secs(10));
 
         self.seq_oracle_progress.insert(
             (
@@ -185,6 +211,13 @@ impl ProofUI for IndicatifProofUI {
         {
             proofstep_progress.inc(1);
         };
+        if let Some(oracle_progress) = self.seq_oracle_progress.get(&(
+            proof_name.to_string(),
+            proofstep_name.to_string(),
+            oracle_name.to_string(),
+        )) {
+            oracle_progress.finish();
+        }
     }
 
     fn start_lemma(
