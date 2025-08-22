@@ -1,4 +1,5 @@
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use indicatif_log_bridge::LogWrapper;
 use std::collections::HashMap;
 
 #[cfg(test)]
@@ -68,6 +69,10 @@ impl ProofUI for IndicatifProofUI {
         } else {
             None
         };
+        let logger = env_logger::Builder::from_default_env().build();
+        LogWrapper::new(main_progress.clone(), logger)
+            .try_init()
+            .unwrap();
 
         IndicatifProofUI {
             main_progress,

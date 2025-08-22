@@ -186,7 +186,6 @@ fn wire_check(game_name: &str, dst_idx: usize) -> Result<(), project::error::Err
 }
 
 fn main() -> miette::Result<()> {
-    env_logger::init();
     let cli = Cli::parse();
 
     let result = match &cli.command {
