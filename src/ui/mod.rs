@@ -63,7 +63,7 @@ impl ProofUI for IndicatifProofUI {
 
             project_progress.set_style(indicatif_style::proof_bar());
             project_progress.set_message("Project");
-            project_progress.enable_steady_tick(std::time::Duration::from_secs(10));
+            //project_progress.enable_steady_tick(std::time::Duration::from_secs(10));
             Some(project_progress)
         } else {
             None
@@ -87,7 +87,7 @@ impl ProofUI for IndicatifProofUI {
 
         proof_progress.set_style(indicatif_style::proof_bar());
         proof_progress.set_message(format!("{proof_name}"));
-        proof_progress.enable_steady_tick(std::time::Duration::from_secs(10));
+        //proof_progress.enable_steady_tick(std::time::Duration::from_secs(10));
 
         self.seq_proof_progress
             .insert(proof_name.to_string(), proof_progress);
@@ -103,7 +103,7 @@ impl ProofUI for IndicatifProofUI {
         let proofstep_progress = self.main_progress.add(ProgressBar::new(1));
         proofstep_progress.set_style(indicatif_style::proofstep_bar());
         proofstep_progress.set_message(format!("{proofstep_name}"));
-        proofstep_progress.enable_steady_tick(std::time::Duration::from_secs(10));
+        //proofstep_progress.enable_steady_tick(std::time::Duration::from_secs(10));
 
         self.seq_proofstep_progress.insert(
             (proof_name.to_string(), proofstep_name.to_string()),
@@ -148,7 +148,7 @@ impl ProofUI for IndicatifProofUI {
         };
 
         self.seq_oracle_progress
-            .retain(|k, _v| k.0 == proof_name && k.1 == proofstep_name)
+            .retain(|k, _v| !(k.0 == proof_name && k.1 == proofstep_name))
     }
 
     fn start_oracle(
@@ -161,7 +161,7 @@ impl ProofUI for IndicatifProofUI {
         let oracle_progress = self.main_progress.add(ProgressBar::new(num_lemmata));
         oracle_progress.set_style(indicatif_style::oracle_bar());
         oracle_progress.set_message(format!("{oracle_name}"));
-        oracle_progress.enable_steady_tick(std::time::Duration::from_secs(10));
+        //oracle_progress.enable_steady_tick(std::time::Duration::from_secs(10));
 
         self.seq_oracle_progress.insert(
             (
