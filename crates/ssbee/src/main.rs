@@ -135,7 +135,14 @@ fn prove(p: &Prove) -> Result<(), project::error::Error> {
 
     assert!(p.proofstep == None || p.proof != None);
 
-    project.prove(p.prover, p.transcript, &p.proof, p.proofstep, &p.oracle)
+    project.prove(
+        p.prover,
+        p.transcript,
+        p.parallel,
+        &p.proof,
+        p.proofstep,
+        &p.oracle,
+    )
 }
 
 fn explain(_game_name: &str, _dst: &Option<String>) -> Result<(), project::error::Error> {
@@ -179,7 +186,6 @@ fn wire_check(game_name: &str, dst_idx: usize) -> Result<(), project::error::Err
 }
 
 fn main() -> miette::Result<()> {
-    env_logger::init();
     let cli = Cli::parse();
 
     let result = match &cli.command {

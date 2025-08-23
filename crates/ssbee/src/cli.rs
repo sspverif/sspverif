@@ -66,6 +66,8 @@ pub(crate) struct Prove {
     pub(crate) proof: Option<String>,
     #[clap(long)]
     pub(crate) oracle: Option<String>,
+    #[clap(long, default_value_t = 1)]
+    pub(crate) parallel: usize,
 }
 
 #[derive(clap::Args, Debug)]
