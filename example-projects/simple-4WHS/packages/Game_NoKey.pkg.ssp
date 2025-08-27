@@ -123,8 +123,6 @@ oracle Send1(ctr: Integer) -> (Bits(256))
     {
         assert not (State[ctr] == None);     /* session has been initialized */
         state <- Unwrap(State[ctr]);
-        (U,u,V,ltk,acc,ni,nr,kmac,sid,mess) <- parse state;
-        assert (u == false);                 /* session belongs to initiator */
         return      <- invoke Run1(state);
         (state,msg) <- parse return;
         State[ctr]  <- Some(state);
@@ -135,8 +133,6 @@ oracle Send2(ctr: Integer, msg: Bits(256)) -> (Bits(256),Bits(256))
     {
         assert not (State[ctr] == None);     /* session has been initialized */
         state   <- Unwrap(State[ctr]);
-        (V,v,U,ltk,acc,ni_,nr,kmac,sid,mess) <- parse state;
-        assert (v    == true );              /* session belongs to responder */
         return         <- invoke Run2(state,msg);
         (state,msg_)   <- parse return;
         State[ctr]     <-  Some(state);
@@ -147,8 +143,6 @@ oracle Send3(ctr: Integer, msg: (Bits(256),Bits(256))) -> (Bits(256), Bits(256))
     {
         assert not (State[ctr] == None);    /* session has been initialized */
         state                                           <- Unwrap(State[ctr]);
-        (U,u,V,ltk,acc,ni_,nr_,kmac_,sid_,mess)    <- parse state;
-        assert (u    == false);              /* session belongs to initiator       */
         return         <- invoke Run3(state,msg);
         (state,msg_)   <- parse return;
 
@@ -160,10 +154,6 @@ oracle Send4(ctr: Integer, msg: (Bits(256),Bits(256))) -> (Bits(256))
     {
         assert not (State[ctr] == None);     /* session has been initialized */
         state                                          <- Unwrap(State[ctr]);
-        (V,v,U,ltk,acc,ni_,nr,kmac,sid_,mess)      <- parse state;
-		
-        assert (v    == true);                /* session belongs to responder       */
-
         return       <- invoke Run4(state,msg);
         (state,msg_) <- parse return;
         State[ctr]   <- Some(state);
@@ -175,10 +165,6 @@ oracle Send5(ctr: Integer, msg: Bits(256)) -> (Bool)
     {
         assert not (State[ctr] == None);    /* session has been initialized */
         state                                       <- Unwrap(State[ctr]);
-        (U,u,V,ltk,acc,ni,nr,kmac,sid,mess)     <- parse state;
-		
-        assert (u    == false);              /* session belongs to initiator       */
-		
         return      <- invoke Run5(state,msg);
         (state,stop) <- parse return;
         State[ctr] <- Some(state);

@@ -15,6 +15,7 @@ package Prot {
 						               Integer),
 						              (Bits(256))) {
 	    (U,u,V,ltk,acc,k,ni_,nr,kmac,sid,mess) <- parse state;
+        assert (u    == false);              /* session belongs to initiator       */
         assert (acc  == None );              /* session is still running           */
         assert (mess == 0);
 		
@@ -34,6 +35,7 @@ package Prot {
 							        Integer),
 							       (Bits(256), Bits(256))) {
 	    (V,v,U,ltk,acc,k_,ni_,nr_,kmac_,sid_,mess) <- parse state;
+        assert (v    == true );              /* session belongs to responder       */
         assert (acc  == None );              /* session is still running           */
         assert (mess == 0);
 
@@ -57,6 +59,7 @@ package Prot {
 							                Integer),
 							               (Bits(256), Bits(256))) {
 	    (U,u,V,ltk,acc,k_,ni,nr_,kmac_,sid_,mess) <- parse state;
+        assert (u    == false);              /* session belongs to initiator       */
         assert (acc  == None );              /* session is still running           */
         assert (mess == 1);
 		(nr,tau) <- parse msg;
@@ -84,6 +87,7 @@ package Prot {
 							                Integer),
 							               (Bits(256))) {
 	    (V,v,U,ltk,acc,k,ni_,nr,kmac,sid,mess) <- parse state;
+        assert (v   == true );              /* session belongs to responder       */
         assert (acc  == None );              /* session is still running           */
 		assert (mess == 1);
 		(ni,tau) <- parse msg;
@@ -113,6 +117,7 @@ package Prot {
 				                    Integer),
 				                   (Bool)) {
 	    (U,u,V,ltk,acc,k,ni,nr,kmac,sid,mess) <- parse state;
+        assert (u    == false);              /* session belongs to initiator       */
         assert (acc  == None );              /* session is still running           */
         assert (mess == 2);
 
