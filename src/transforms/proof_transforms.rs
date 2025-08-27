@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use std::{collections::HashSet, convert::Infallible};
 
 use crate::{proof::GameInstance, types::Type};

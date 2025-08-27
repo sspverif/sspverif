@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::types::Type;
 
 use super::exprs::SmtExpr;
