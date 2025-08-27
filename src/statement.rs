@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use miette::SourceSpan;
 use pest::Span;
 

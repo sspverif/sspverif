@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use std::{fmt::Write, marker::PhantomData};
 
 use super::exprs::SmtExpr;

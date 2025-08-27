@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use super::{
     s_expr::SExpr,
     tokens::{Numeral, ReservedWord, Symbol},

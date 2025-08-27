@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::package::{Composition, Edge, OracleDef, Package, PackageInstance};
 use crate::statement::{CodeBlock, IfThenElse, InvokeOracleStatement, Statement};
 

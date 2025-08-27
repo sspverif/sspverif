@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use sspverif_smtlib::syntax::term::Term;
 
 use crate::identifier::Identifier;

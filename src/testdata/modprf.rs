@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::expressions::Expression;
 use crate::identifier::Identifier;
 use crate::package::{OracleDef, OracleSig, Package, PackageInstance};
