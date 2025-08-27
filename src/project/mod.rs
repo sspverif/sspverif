@@ -23,7 +23,7 @@ use crate::{
     util::prover_process::ProverBackend,
 };
 
-use crate::ui::{IndicatifProofUI, ProofUI};
+use crate::ui::{indicatif::IndicatifProofUI, ProofUI};
 
 pub const PROJECT_FILE: &str = "ssp.toml";
 
