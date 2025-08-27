@@ -5,7 +5,7 @@ use std::iter::FromIterator;
 use crate::expressions::Expression;
 use crate::identifier::game_ident::GameIdentifier;
 use crate::identifier::pkg_ident::PackageIdentifier;
-use crate::identifier::proof_ident::ProofIdentifier;
+use crate::identifier::proof_ident::{ProofConstIdentifier, ProofIdentifier};
 use crate::identifier::Identifier;
 use crate::types::CountSpec;
 use crate::writers::smt::contexts::GameInstanceContext;
@@ -196,6 +196,8 @@ impl<'a> EquivalenceContext<'a> {
                     },
                 };
 
+                log::debug!("found {bits_sort_suffix}");
+
                 // ensure we don't write more than once. Earlier we also dedupe, but we dedupe
                 // identifiers, which contain more info than just the name.
                 if bits_sort_suffixes.insert(bits_sort_suffix.clone()) {
@@ -260,22 +262,35 @@ impl<'a> EquivalenceContext<'a> {
 
         let mut out = vec![];
 
+        // This is for debugging, so we know what section the offending thing came from
+        let mut offsets = Vec::with_capacity(16);
+
         out.append(&mut left_writer.smt_composition_randomness());
+        offsets.push((out.len(), "left writer comp rand"));
         out.append(&mut right_writer.smt_composition_randomness());
+        offsets.push((out.len(), "right writer comp rand"));
 
         out.extend(self.smt_package_const_definitions());
+        offsets.push((out.len(), "pkg const defs"));
         out.extend(self.smt_package_state_definitions());
+        offsets.push((out.len(), "pkg state defs"));
 
         out.extend(self.smt_proof_const_definition());
+        offsets.push((out.len(), "proof const defs"));
         out.extend(self.smt_game_const_definitions());
+        offsets.push((out.len(), "game const defs"));
         out.extend(self.smt_game_state_definitions());
+        offsets.push((out.len(), "game state defs"));
 
         out.extend(self.smt_proof_game_const_mapping_definitions());
+        offsets.push((out.len(), "proof to game const mapping defs"));
         out.extend(self.smt_game_pkg_const_mapping_definitions());
+        offsets.push((out.len(), "game to pkg const mapping defs"));
 
         out.extend(self.smt_package_return_definitions());
-
+        offsets.push((out.len(), "pkg return type defs"));
         out.extend(self.smt_oracle_function_definitions());
+        offsets.push((out.len(), "oracle function defs"));
         //out.append(&mut left_writer.smt_datatypes());
         // out.append(&mut right_writer.smt_datatypes());
 
@@ -287,8 +302,13 @@ impl<'a> EquivalenceContext<'a> {
         //out.append(&mut left_writer.smt_composition_all());
         //out.append(&mut right_writer.smt_composition_all());
 
-        for decl in out {
-            comm.write_smt(decl)?
+        for (i, ref decl) in out.into_iter().enumerate() {
+            comm.write_smt(decl.clone()).inspect_err(|err| {
+                let (_, section) = offsets.iter().find(|(j, _)| i <= *j).unwrap();
+                log::debug!(
+                    "failed with at item {i}(section {section}) with error {err} at decl {decl:?}"
+                )
+            })?
         }
 
         Ok(())
@@ -1271,7 +1291,30 @@ impl<'a> EquivalenceContext<'a> {
             .iter()
             .find(|(name, _aux)| name == self.equivalence().right_name())
             .unwrap();
-        let mut types: Vec<_> = types_left.union(types_right).cloned().collect();
+        let types_proof: HashSet<Type> = self
+            .proof()
+            .consts
+            .iter()
+            .filter_map(|(name, ty)| match ty {
+                Type::Integer => Some(Type::Bits(Box::new(CountSpec::Identifier(
+                    Identifier::ProofIdentifier(ProofIdentifier::Const(ProofConstIdentifier {
+                        proof_name: self.proof().name.clone(),
+                        name: name.clone(),
+                        tipe: Type::Integer,
+                        inst_info: None,
+                    })),
+                )))),
+                _ => None,
+            })
+            .collect();
+
+        let mut types: Vec<_> = types_left
+            .union(types_right)
+            .cloned()
+            .collect::<HashSet<_>>()
+            .union(&types_proof)
+            .cloned()
+            .collect();
         types.sort();
         types
     }

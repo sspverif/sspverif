@@ -119,7 +119,7 @@ impl ProofUI for IndicatifProofUI {
             self.seq_oracle_progress
                 .iter()
                 .filter_map(|(k, v)| {
-                    if (k.0 == proof_name && k.1 == proofstep_name) {
+                    if k.0 == proof_name && k.1 == proofstep_name {
                         let duration = v.elapsed();
                         v.finish_and_clear();
                         let seconds = duration.as_secs() % 60;
