@@ -198,7 +198,7 @@ fn equivalence_gamehome_generates_code() {
     let project = crate::project::Project::empty();
     equivalence::verify(
         &project,
-        &mut MockTestProofUI::new(2),
+        &mut MockTestProofUI::new(),
         eq,
         &proof,
         backend,
