@@ -1,11 +1,26 @@
 use std::collections::HashSet;
 use std::convert::Infallible;
 
+use crate::identifier::pkg_ident::PackageIdentifier;
+use crate::identifier::Identifier;
 use crate::package::{Composition, Edge, Export};
 use crate::statement::{CodeBlock, InvokeOracleStatement, Statement};
-use crate::types::Type;
+use crate::types::{CountSpec, Type};
 
 pub struct Transformation<'a>(pub &'a Composition);
+
+fn assert_is_populated(ty: &&Type) {
+    if let Type::Bits(cs) = ty {
+        if let CountSpec::Identifier(ident) = &**cs {
+            match ident {
+                Identifier::PackageIdentifier(PackageIdentifier::Const(i)) => {
+                    debug_assert!(matches!(i.game_assignment, Some(_)));
+                }
+                _ => {}
+            }
+        }
+    }
+}
 
 impl super::Transformation for Transformation<'_> {
     type Err = Infallible;
@@ -15,7 +30,14 @@ impl super::Transformation for Transformation<'_> {
         let mut set = HashSet::new();
 
         // extract game const types
-        set.extend(self.0.consts.iter().map(|(_, ty)| ty).cloned());
+        set.extend(
+            self.0
+                .consts
+                .iter()
+                .map(|(_, ty)| ty)
+                .inspect(assert_is_populated)
+                .cloned(),
+        );
 
         // extract oracle arg an return types from edges
         set.extend(self.0.edges.iter().flat_map(|Edge(_, _, sig)| {
@@ -23,6 +45,7 @@ impl super::Transformation for Transformation<'_> {
                 .iter()
                 .map(|(_, ty)| ty)
                 .chain(Some(&sig.tipe))
+                .inspect(assert_is_populated)
                 .cloned()
         }));
 
@@ -32,6 +55,7 @@ impl super::Transformation for Transformation<'_> {
                 .iter()
                 .map(|(_, ty)| ty)
                 .chain(Some(&sig.tipe))
+                .inspect(assert_is_populated)
                 .cloned()
         }));
 
@@ -43,13 +67,20 @@ impl super::Transformation for Transformation<'_> {
             // first prepare iterators for all the relevant types that are extracted
             let params = pkg.params.iter().map(|(_, ty, _)| ty);
             let state = pkg.state.iter().map(|(_, ty, _)| ty);
-            let oracle_imports = pkg
-                .imports
-                .iter()
-                .flat_map(|(sig, _)| sig.args.iter().map(|(_, ty)| ty).chain(Some(&sig.tipe)));
+            let oracle_imports = pkg.imports.iter().flat_map(|(sig, _)| {
+                sig.args
+                    .iter()
+                    .map(|(_, ty)| ty)
+                    .chain(Some(&sig.tipe))
+                    .inspect(assert_is_populated)
+            });
             let oracle_definitions = pkg.oracles.iter().flat_map(|oracle_def| {
                 let sig = &oracle_def.sig;
-                sig.args.iter().map(|(_, ty)| ty).chain(Some(&sig.tipe))
+                sig.args
+                    .iter()
+                    .map(|(_, ty)| ty)
+                    .chain(Some(&sig.tipe))
+                    .inspect(assert_is_populated)
             });
 
             // Then chain them and clone the items, because the set wants owned types
@@ -60,12 +91,12 @@ impl super::Transformation for Transformation<'_> {
                 .cloned()
         }));
 
-        let insts = &self.0.pkgs.iter();
-        let oracles = insts.clone().flat_map(|inst| inst.pkg.oracles.clone());
-
-        for oracle in oracles {
-            extract_types_from_codeblock(&mut set, oracle.code);
-        }
+        self.0.pkgs.iter().for_each(|inst| {
+            inst.pkg
+                .oracles
+                .iter()
+                .for_each(|oracle| extract_types_from_codeblock(&mut set, oracle.code.clone()))
+        });
 
         Ok((self.0.clone(), set))
     }

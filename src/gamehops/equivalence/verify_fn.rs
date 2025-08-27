@@ -48,15 +48,35 @@ fn verify_oracle<UI: ProofUI>(
     };
     std::thread::sleep(std::time::Duration::from_millis(20));
 
+    log::debug!(
+        "emitting base declarations for {}-{}",
+        eq.left_name,
+        eq.right_name
+    );
     prover.write_smt(SmtExpr::Comment("\n".to_string()))?;
     prover.write_smt(SmtExpr::Comment("base declarations:\n".to_string()))?;
     eqctx.emit_base_declarations(&mut prover)?;
+    log::debug!(
+        "emitting proof paramfuncs for {}-{}",
+        eq.left_name,
+        eq.right_name
+    );
     prover.write_smt(SmtExpr::Comment("\n".to_string()))?;
     prover.write_smt(SmtExpr::Comment("proof param funcs:\n".to_string()))?;
     eqctx.emit_proof_paramfuncs(&mut prover)?;
+    log::debug!(
+        "emitting game definitions for {}-{}",
+        eq.left_name,
+        eq.right_name
+    );
     prover.write_smt(SmtExpr::Comment("\n".to_string()))?;
     prover.write_smt(SmtExpr::Comment("game definitions:\n".to_string()))?;
     eqctx.emit_game_definitions(&mut prover)?;
+    log::debug!(
+        "emitting const declarations for {}-{}",
+        eq.left_name,
+        eq.right_name
+    );
     eqctx.emit_constant_declarations(&mut prover)?;
 
     for oracle_sig in req_oracles {

@@ -1,20 +1,20 @@
 composition Modprfreal {
     const n: Integer;
     const prf: fn Bits(n), Bits(n) -> Bits(n);
-    
+
+    instance key = KeyReal {
+        params {
+            n: n,
+        }
+    }
+
     instance mod_prf = modPRF {
         params {
             n:   n,
           prf: prf,
         }
     }
-    
-    instance key = KeyReal {
-        params {
-            n: n,
-        }
-    }
-        
+
     compose {
         adversary: {
             Eval: mod_prf,
