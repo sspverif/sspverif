@@ -21,7 +21,6 @@ impl IndicatifProofUI {
 
             project_progress.set_style(indicatif_style::proof_bar());
             project_progress.set_message("Project");
-            //project_progress.enable_steady_tick(std::time::Duration::from_secs(10));
             Some(project_progress)
         } else {
             None
