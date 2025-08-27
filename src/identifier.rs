@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use game_ident::GameIdentifier;
 use pkg_ident::PackageConstIdentifier;
 use proof_ident::ProofIdentifier;

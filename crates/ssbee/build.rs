@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use clap::{CommandFactory, ValueEnum};
 use clap_complete::{generate_to, Shell};
 use std::env;

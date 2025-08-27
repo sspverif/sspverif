@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //!  https://smt-lib.org/theories-ArrayEx.shtml
 
 use crate::syntax::{

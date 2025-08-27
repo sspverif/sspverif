@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 pub mod game_consts;
 pub mod game_state;
 //mod intermediate_state;
