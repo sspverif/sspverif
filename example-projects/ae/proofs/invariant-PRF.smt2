@@ -10,20 +10,21 @@
 ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define-fun randomness-mapping-EVAL (        
+(define-fun randomness-mapping-Eval (
         (ltk-mod     Bits_n)
-        (ltk-mon     Bits_n)
+        (ltk-mon     Bits_n))
+        Bool
         true
-))
+)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
 ; Invariant --- note that the invariant needs to be game-global 
-;               Having different variants for EVAL & GET allows to prove wrong things.
+;               Having different variants for Eval & Get allows to prove wrong things.
 ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define-fun invariant-EVAL      (
+(define-fun invariant-Eval      (
         (state-mod  CompositionState-modprfreal )
         (state-mon  CompositionState-monprfreal)
 )

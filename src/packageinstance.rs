@@ -129,10 +129,11 @@ impl PackageInstance {
                 &types,
             );
 
-        let new_oracles = pkg
-            .oracles
+        let new_params = pkg
+            .params
             .iter()
-            .map(|oracle_def| inst_ctx.rewrite_oracle_def(oracle_def.clone()))
+            .cloned()
+            .map(|(name, ty, span)| (name, inst_ctx.rewrite_type(ty), span))
             .collect();
 
         let new_state = pkg
@@ -142,24 +143,24 @@ impl PackageInstance {
             .map(|(name, ty, span)| (name, inst_ctx.rewrite_type(ty), span))
             .collect();
 
-        let new_params = pkg
-            .params
+        let new_imports = pkg
+            .imports
             .iter()
             .cloned()
-            .map(|(name, ty, span)| (name, inst_ctx.rewrite_type(ty), span))
+            .map(|(sig, span)| (inst_ctx.rewrite_oracle_sig(sig), span))
             .collect();
 
-        // let new_split_oracles = pkg
-        //     .split_oracles
-        //     .iter()
-        //     .map(|split_oracle_def| inst_ctx.rewrite_split_oracle_def(split_oracle_def.clone()))
-        //     .collect();
+        let new_oracles = pkg
+            .oracles
+            .iter()
+            .map(|oracle_def| inst_ctx.rewrite_oracle_def(oracle_def.clone()))
+            .collect();
 
         let pkg = Package {
             oracles: new_oracles,
             state: new_state,
             params: new_params,
-            //split_oracles: new_split_oracles,
+            imports: new_imports,
             ..pkg.clone()
         };
 
