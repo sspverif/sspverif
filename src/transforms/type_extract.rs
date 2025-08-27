@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::convert::Infallible;
 
-use crate::package::Composition;
+use crate::package::{Composition, Edge, Export};
 use crate::statement::{CodeBlock, InvokeOracleStatement, Statement};
 use crate::types::Type;
 
@@ -14,17 +14,57 @@ impl super::Transformation for Transformation<'_> {
     fn transform(&self) -> Result<(Composition, HashSet<Type>), Infallible> {
         let mut set = HashSet::new();
 
-        // TODO: https://github.com/sspverif/sspverif/issues/118: extract types of game state, params, oracle args, oracle return
+        // extract game const types
+        set.extend(self.0.consts.iter().map(|(_, ty)| ty).cloned());
+
+        // extract oracle arg an return types from edges
+        set.extend(self.0.edges.iter().flat_map(|Edge(_, _, sig)| {
+            sig.args
+                .iter()
+                .map(|(_, ty)| ty)
+                .chain(Some(&sig.tipe))
+                .cloned()
+        }));
+
+        // extract oracle arg an return types from exports
+        set.extend(self.0.exports.iter().flat_map(|Export(_, sig)| {
+            sig.args
+                .iter()
+                .map(|(_, ty)| ty)
+                .chain(Some(&sig.tipe))
+                .cloned()
+        }));
+
+        // extract types from package params, state, imported oracle signatures and defined oracle
+        // seignatures.
+        set.extend(self.0.pkgs.iter().flat_map(|pkg_inst| {
+            let pkg = &pkg_inst.pkg;
+
+            // first prepare iterators for all the relevant types that are extracted
+            let params = pkg.params.iter().map(|(_, ty, _)| ty);
+            let state = pkg.state.iter().map(|(_, ty, _)| ty);
+            let oracle_imports = pkg
+                .imports
+                .iter()
+                .flat_map(|(sig, _)| sig.args.iter().map(|(_, ty)| ty).chain(Some(&sig.tipe)));
+            let oracle_definitions = pkg.oracles.iter().flat_map(|oracle_def| {
+                let sig = &oracle_def.sig;
+                sig.args.iter().map(|(_, ty)| ty).chain(Some(&sig.tipe))
+            });
+
+            // Then chain them and clone the items, because the set wants owned types
+            params
+                .chain(state)
+                .chain(oracle_imports)
+                .chain(oracle_definitions)
+                .cloned()
+        }));
 
         let insts = &self.0.pkgs.iter();
         let oracles = insts.clone().flat_map(|inst| inst.pkg.oracles.clone());
 
-        // TODO: https://github.com/sspverif/sspverif/issues/118: extract types of package state, params, oracle args, oracle return
-
-        let codeblocks = oracles.map(|odef| odef.code);
-
-        for cb in codeblocks {
-            extract_types_from_codeblock(&mut set, cb);
+        for oracle in oracles {
+            extract_types_from_codeblock(&mut set, oracle.code);
         }
 
         Ok((self.0.clone(), set))
