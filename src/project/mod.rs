@@ -19,6 +19,7 @@ use crate::{
     gamehops::{equivalence, GameHop},
     package::{Composition, Package},
     proof::Proof,
+    theorem::Theorem,
     transforms::Transformation,
     util::prover_process::ProverBackend,
 };
@@ -224,6 +225,8 @@ impl<'a> Project<'a> {
         for proof_key in proof_keys.into_iter() {
             let proof = &self.proofs[proof_key];
             ui.start_proof(proof.as_name(), proof.game_hops().len().try_into().unwrap());
+
+            let theorem = Theorem::try_new(&proof);
 
             if let Some(ref req_proof) = req_proof {
                 if proof_key != req_proof {
