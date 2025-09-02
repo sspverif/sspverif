@@ -32,7 +32,7 @@ pub(crate) fn handle_countspec(
         match inner.as_rule() {
             Rule::identifier => {
                 let name = inner.as_str();
-                let ident = handle_identifier_in_code_rhs(name, &ctx.scope).map_err(Box::new)?;
+                let ident = handle_identifier_in_code_rhs(ctx, &inner, name).map_err(Box::new)?;
                 Ok(CountSpec::Identifier(ident))
             }
             Rule::num => {
