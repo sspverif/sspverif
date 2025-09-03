@@ -326,7 +326,7 @@ pub mod pkg_ident {
             Self {
                 pkg_name,
                 name,
-                ty: ty,
+                ty,
                 game_assignment: None,
                 pkg_inst_name: None,
                 game_name: None,
@@ -394,7 +394,7 @@ pub mod pkg_ident {
             Self {
                 pkg_name,
                 name,
-                ty: ty,
+                ty,
                 pkg_inst_name: None,
                 game_name: None,
                 game_inst_name: None,

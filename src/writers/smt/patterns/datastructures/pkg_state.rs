@@ -154,7 +154,7 @@ impl<'a> DatastructurePattern<'a> for PackageStatePattern<'a> {
         let selectors = pkg
             .state
             .iter()
-            .map(|(name, ty, _file_pos)| PackageStateSelector { name, ty: ty });
+            .map(|(name, ty, _file_pos)| PackageStateSelector { name, ty });
 
         DatastructureSpec(vec![((), selectors.collect())])
     }

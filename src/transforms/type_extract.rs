@@ -12,11 +12,8 @@ pub struct Transformation<'a>(pub &'a Composition);
 fn assert_is_populated(ty: &&Type) {
     if let Type::Bits(cs) = ty {
         if let CountSpec::Identifier(ident) = &**cs {
-            match ident {
-                Identifier::PackageIdentifier(PackageIdentifier::Const(i)) => {
-                    debug_assert!(matches!(i.game_assignment, Some(_)));
-                }
-                _ => {}
+            if let Identifier::PackageIdentifier(PackageIdentifier::Const(i)) = ident {
+                debug_assert!(i.game_assignment.is_some());
             }
         }
     }

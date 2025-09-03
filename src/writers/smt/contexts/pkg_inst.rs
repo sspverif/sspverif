@@ -189,7 +189,7 @@ impl<'a> PackageInstanceContext<'a> {
 
         Some(PackageStateSelector {
             name: field_name,
-            ty: ty,
+            ty,
         })
     }
 
