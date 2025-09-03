@@ -21,9 +21,7 @@ impl From<Expression> for SmtExpr {
                 }
             }
             Expression::Unwrap(inner) => {
-                panic!(
-                    "found an unwrap and don't knwo what to do with it -- {inner:?}"
-                );
+                panic!("found an unwrap and don't knwo what to do with it -- {inner:?}");
                 //panic!("unwrap expressions need to be on the right hand side of an assign!");
                 // TODO find a better way to present that error to the user.
             }

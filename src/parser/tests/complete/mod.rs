@@ -205,11 +205,7 @@ fn equivalence_gamehome_generates_code() {
         false,
         &None,
     )
-    .unwrap_or_else(|err| {
-        panic!(
-            "got error {err}.\n\ntranscript:\n{transcript}"
-        )
-    })
+    .unwrap_or_else(|err| panic!("got error {err}.\n\ntranscript:\n{transcript}"))
 }
 
 #[test]

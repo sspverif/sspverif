@@ -242,24 +242,11 @@ impl<'a> Project<'a> {
                     GameHop::Equivalence(eq) => {
                         if parallel > 1 {
                             equivalence::verify_parallel(
-                                self,
-                                &mut ui,
-                                eq,
-                                proof,
-                                backend,
-                                transcript,
-                                parallel,
-                                req_oracle,
+                                self, &mut ui, eq, proof, backend, transcript, parallel, req_oracle,
                             )?;
                         } else {
                             equivalence::verify(
-                                self,
-                                &mut ui,
-                                eq,
-                                proof,
-                                backend,
-                                transcript,
-                                req_oracle,
+                                self, &mut ui, eq, proof, backend, transcript, req_oracle,
                             )?;
                         }
                     }

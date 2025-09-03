@@ -120,9 +120,7 @@ impl<W: Write> Writer<W> {
                 self.write_string(" */ ")?;
             }
             Expression::EmptyTable(invalid_type) => {
-                panic!(
-                    "invalid type in EmptyTable expression: {invalid_type:?}"
-                );
+                panic!("invalid type in EmptyTable expression: {invalid_type:?}");
             }
 
             Expression::BooleanLiteral(x) => {

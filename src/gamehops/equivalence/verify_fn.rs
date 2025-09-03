@@ -31,7 +31,6 @@ fn verify_oracle<UI: ProofUI>(
     let proofstep_name = format!("{} == {}", eq.left_name(), eq.right_name());
 
     let mut prover = if transcript {
-        
         let oracle = if req_oracles.len() == 1 {
             Some(req_oracles[0].name.as_str())
         } else {

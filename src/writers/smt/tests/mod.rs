@@ -267,23 +267,27 @@ fn test_fully_resolved_idents_103() {
 
     for game_inst in proof.instances() {
         for (_, ty) in &game_inst.game.consts {
-            if let Type::Bits(cs) = ty { match &**cs {
-                CountSpec::Identifier(identifier) => {
-                    assert!(identifier.as_proof_identifier().is_some())
-                }
-                CountSpec::Literal(_) => (),
-                CountSpec::Any => (),
-            } }
-        }
-        for package_inst in &game_inst.game.pkgs {
-            for (_, ty, _) in &package_inst.pkg.params {
-                if let Type::Bits(cs) = ty { match &**cs {
+            if let Type::Bits(cs) = ty {
+                match &**cs {
                     CountSpec::Identifier(identifier) => {
                         assert!(identifier.as_proof_identifier().is_some())
                     }
                     CountSpec::Literal(_) => (),
                     CountSpec::Any => (),
-                } }
+                }
+            }
+        }
+        for package_inst in &game_inst.game.pkgs {
+            for (_, ty, _) in &package_inst.pkg.params {
+                if let Type::Bits(cs) = ty {
+                    match &**cs {
+                        CountSpec::Identifier(identifier) => {
+                            assert!(identifier.as_proof_identifier().is_some())
+                        }
+                        CountSpec::Literal(_) => (),
+                        CountSpec::Any => (),
+                    }
+                }
             }
         }
     }
