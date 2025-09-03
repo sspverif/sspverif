@@ -50,9 +50,7 @@ pub fn encode_smt_exprs<Ref: Borrow<SmtExpr>, Iter: IntoIterator<Item = Ref>>(
 
     // Don't print the angle brackets if there are no parames
     let mut peekable = exprs.into_iter().peekable();
-    if peekable.peek().is_none() {
-        return None;
-    }
+    peekable.peek()?;
 
     out.push_str("<$");
     let mut out = peekable.fold(out, |mut acc, expr| {

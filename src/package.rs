@@ -243,7 +243,7 @@ impl fmt::Display for OracleSig {
             self.name,
             self.args
                 .iter()
-                .map(|(name, tipe)| format!("{}: {:?}", name, tipe))
+                .map(|(name, tipe)| format!("{name}: {tipe:?}"))
                 .collect::<Vec<_>>()
                 .join(", "),
             self.tipe

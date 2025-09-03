@@ -73,7 +73,7 @@ impl<Delim: Delimiter> NameBuilder<Delim, Empty> {
     /// Create a new builder with the specified capacity preallocated.
     pub(crate) fn with_capacity(capacity: usize) -> Self {
         let mut sort_name = String::with_capacity(capacity);
-        sort_name.push_str("<");
+        sort_name.push('<');
 
         Self {
             name: sort_name,
@@ -110,7 +110,7 @@ impl<Delim: Delimiter, Stage: NameBuilderStage> NameBuilder<Delim, Stage> {
 
     /// Returns the built string.
     pub(crate) fn build(mut self) -> String {
-        self.name.push_str(">");
+        self.name.push('>');
         self.name
     }
 }
@@ -187,7 +187,7 @@ impl<'a> NameSection for String {
     }
 }
 
-impl<'a> NameSection for &'a str {
+impl NameSection for &str {
     fn push_into<Delim: Delimiter, Stage: NameBuilderStage>(
         &self,
         builder: NameBuilder<Delim, Stage>,

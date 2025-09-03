@@ -100,7 +100,7 @@ fn param_wrong_type() {
     let err = games::parse_file_fails("Game-param-wrong-type-should-fail.comp.ssp", &pkgs);
 
     let ParseGameError::ParseExpression(ParseExpressionError::TypeMismatch(err)) = &err else {
-        panic!("expected different error, got {}", err);
+        panic!("expected different error, got {err}");
     };
 
     assert_eq!(err.expected, Type::Integer);

@@ -790,7 +790,7 @@ pub fn handle_identifier_in_code_rhs(
             source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
         })?
         .into_identifier()
-        .unwrap_or_else(|decl| panic!("expected an identifier, got a clone {decl:?}", decl = decl));
+        .unwrap_or_else(|decl| panic!("expected an identifier, got a clone {decl:?}"));
 
     Ok(ident)
 }

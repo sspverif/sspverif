@@ -217,7 +217,7 @@ impl Expression {
             }
 
             _ => {
-                panic!("Expression: not implemented: {:#?}", self)
+                panic!("Expression: not implemented: {self:#?}")
             }
         }
     }
@@ -287,7 +287,7 @@ impl Expression {
                 Expression::Set(exprs.iter().map(|expr| expr.borrow_map(f)).collect())
             }
             _ => {
-                panic!("Expression: not implemented: {:#?}", self)
+                panic!("Expression: not implemented: {self:#?}")
             }
         })
     }
@@ -445,7 +445,7 @@ impl Expression {
                 (ac, Expression::Set(newexprs))
             }
             _ => {
-                panic!("Expression: not implemented: {:#?}", self)
+                panic!("Expression: not implemented: {self:#?}")
             }
         };
         f(ac, ex)

@@ -17,13 +17,12 @@ impl From<Expression> for SmtExpr {
                     )
                         .into()
                 } else {
-                    panic!("Empty table of type {:?}", t)
+                    panic!("Empty table of type {t:?}")
                 }
             }
             Expression::Unwrap(inner) => {
                 panic!(
-                    "found an unwrap and don't knwo what to do with it -- {expr:?}",
-                    expr = inner
+                    "found an unwrap and don't knwo what to do with it -- {inner:?}"
                 );
                 //panic!("unwrap expressions need to be on the right hand side of an assign!");
                 // TODO find a better way to present that error to the user.
@@ -36,7 +35,7 @@ impl From<Expression> for SmtExpr {
                 SmtExpr::Atom("mk-none".into()),
                 Type::Maybe(Box::new(inner)).into(),
             ]),
-            Expression::StringLiteral(litname) => SmtExpr::Atom(format!("\"{}\"", litname)),
+            Expression::StringLiteral(litname) => SmtExpr::Atom(format!("\"{litname}\"")),
             Expression::BooleanLiteral(litname) => SmtExpr::Atom(litname),
             Expression::IntegerLiteral(litname) => SmtExpr::Atom(format!("{litname}")),
             Expression::Equals(exprs) => {
@@ -210,7 +209,7 @@ impl From<Expression> for SmtExpr {
                 set
             }
             _ => {
-                panic!("not implemented: {:?}", expr);
+                panic!("not implemented: {expr:?}");
             }
         }
     }

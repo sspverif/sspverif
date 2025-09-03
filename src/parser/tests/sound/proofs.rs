@@ -32,7 +32,7 @@ fn fail_reduction_assumption_is_second() {
         err,
     ) = err
     else {
-        panic!("expected a different error. got error {}", err)
+        panic!("expected a different error. got error {err}")
     };
 
     let at = slice_source_span(&err.source_code, &err.at);
@@ -64,7 +64,7 @@ fn fail_reduction_construction_is_first() {
         err,
     ) = err
     else {
-        panic!("expected a different error. got error {}", err)
+        panic!("expected a different error. got error {err}")
     };
 
     let at = slice_source_span(&err.source_code, &err.at);
@@ -97,7 +97,7 @@ fn fail_reduction_construction_game_inst_not_defined() {
     );
 
     let crate::parser::proof::ParseProofError::UndefinedGameInstance(err) = err else {
-        panic!("expected a different error. got error {}", err)
+        panic!("expected a different error. got error {err}")
     };
 
     let at = slice_source_span(&err.source_code, &err.at);
@@ -130,7 +130,7 @@ fn fail_reduction_construction_game_inst_not_defined2() {
     );
 
     let crate::parser::proof::ParseProofError::UndefinedGameInstance(err) = err else {
-        panic!("expected a different error. got error {}", err)
+        panic!("expected a different error. got error {err}")
     };
 
     let at = slice_source_span(&err.source_code, &err.at);
@@ -163,7 +163,7 @@ fn fail_reduction_assumption_not_defined() {
     );
 
     let crate::parser::proof::ParseProofError::UndefinedAssumption(err) = err else {
-        panic!("expected a different error. got error {}", err)
+        panic!("expected a different error. got error {err}")
     };
 
     let at = slice_source_span(&err.source_code, &err.at);
@@ -203,7 +203,7 @@ fn fail_reduction_assumption_exposes_less() {
     );
 
     let ParseProofError::AssumptionExportsNotSufficient(inner_err) = &err else {
-        panic!("expected a different error. got {}", err)
+        panic!("expected a different error. got {err}")
     };
     let AssumptionExportsNotSufficientError {
         source_code,
@@ -218,7 +218,7 @@ fn fail_reduction_assumption_exposes_less() {
     let construction_game_inst_name = slice_source_span(&source_code, &construction_at);
 
     let report = miette::Report::new(err);
-    println!("the error prints like this:\n{:?}", report);
+    println!("the error prints like this:\n{report:?}");
 
     assert_eq!(assumption_pkg_inst_name, "key");
     assert_eq!(construction_pkg_inst_name, "key");
@@ -264,7 +264,7 @@ fn fail_reduction_inconsistent_wiring_less() {
         oracle_name,
     }) = &err
     else {
-        panic!("expected a different error. got {}", err)
+        panic!("expected a different error. got {err}")
     };
 
     let assumption_game_inst_name = slice_source_span(source_code, assumption_at);
@@ -277,7 +277,7 @@ fn fail_reduction_inconsistent_wiring_less() {
     assert_eq!(construction_game_inst_name, "prf");
 
     let report = miette::Report::new(err);
-    println!("the error prints like this:\n{:?}", report)
+    println!("the error prints like this:\n{report:?}")
 }
 
 #[test]
@@ -319,7 +319,7 @@ fn fail_reduction_non_matching_package_fail() {
         },
     ) = &err
     else {
-        panic!("expected a different error. got {}", err)
+        panic!("expected a different error. got {err}")
     };
 
     assert_eq!(assumption_pkg_inst_name, "key");
@@ -328,7 +328,7 @@ fn fail_reduction_non_matching_package_fail() {
     assert_eq!(construction_pkg_name, "KeyIdeal");
 
     let report = miette::Report::new(err);
-    println!("the error prints like this:\n{:?}", report)
+    println!("the error prints like this:\n{report:?}")
 }
 
 #[test]
@@ -421,5 +421,5 @@ fn fail_wrong_params_in_reduction_should_fail() {
     assert_eq!(param_names, "enc, m");
 
     let report = miette::Report::new(err);
-    println!("the error prints like this:\n{:?}", report)
+    println!("the error prints like this:\n{report:?}")
 }

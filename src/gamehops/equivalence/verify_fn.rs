@@ -31,14 +31,14 @@ fn verify_oracle<UI: ProofUI>(
     let proofstep_name = format!("{} == {}", eq.left_name(), eq.right_name());
 
     let mut prover = if transcript {
-        let transcript_file: std::fs::File;
+        
         let oracle = if req_oracles.len() == 1 {
             Some(req_oracles[0].name.as_str())
         } else {
             None
         };
 
-        transcript_file = project
+        let transcript_file: std::fs::File = project
             .get_joined_smt_file(eq.left_name(), eq.right_name(), oracle)
             .unwrap();
 

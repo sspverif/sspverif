@@ -1071,7 +1071,7 @@ pub fn handle_instance_decl<'a>(
         .collect();
 
     if !missing_params.is_empty() {
-        panic!("found missing params: {:?}", missing_params);
+        panic!("found missing params: {missing_params:?}");
     }
 
     /* we currently don't handle type parameters

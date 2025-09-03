@@ -58,7 +58,7 @@ fn format_oracle_sig(
             if typestr == "()" {
                 ""
             } else {
-                &format!(" -> {}", typestr)
+                &format!(" -> {typestr}")
             }
         }
     };

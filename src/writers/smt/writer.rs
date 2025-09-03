@@ -122,10 +122,10 @@ impl<'a> CompositionSmtWriter<'a> {
                     target_inst_name: None,
                     ..
                 }) => {
-                    panic!("found an unresolved oracle invocation: {:#?}", stmt);
+                    panic!("found an unresolved oracle invocation: {stmt:#?}");
                 }
                 Statement::InvokeOracle(InvokeOracleStatement { tipe: None, .. }) => {
-                    panic!("found an unresolved oracle invocation: {:#?}", stmt);
+                    panic!("found an unresolved oracle invocation: {stmt:#?}");
                 }
                 Statement::InvokeOracle(InvokeOracleStatement {
                     id,
@@ -652,8 +652,7 @@ impl<'a> CompositionSmtWriter<'a> {
             .unwrap_or_else(|| {
                 let max_known_sample_id = self.sample_info.count;
                 panic!(
-                    "found sample id {} that exceeds highest expected {}",
-                    sample_id, max_known_sample_id
+                    "found sample id {sample_id} that exceeds highest expected {max_known_sample_id}"
                 )
             });
 
@@ -1104,7 +1103,7 @@ impl<'a> CompositionSmtWriter<'a> {
             .map(|smt_sort| {
                 (
                     "declare-fun",
-                    format!("__sample-rand-{}-{}", game_inst.name, smt_sort.to_string()),
+                    format!("__sample-rand-{}-{}", game_inst.name, smt_sort),
                     (SmtExpr::Atom("Int".into()), SmtExpr::Atom("Int".into())),
                     smt_sort,
                 )

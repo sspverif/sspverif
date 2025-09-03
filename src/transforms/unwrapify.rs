@@ -66,7 +66,7 @@ impl Unwrapifier {
                 // This has the same effect, because we'd increment at exactly the same place we
                 // push to the array.
                 let unwrap_id = self.ctr + acc.len();
-                let varname: String = format!("unwrap-{}", unwrap_id);
+                let varname: String = format!("unwrap-{unwrap_id}");
                 let ty = e.get_type();
                 let ident = Identifier::Generated(varname.clone(), ty);
 

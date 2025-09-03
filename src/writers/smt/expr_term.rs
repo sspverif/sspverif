@@ -36,13 +36,12 @@ impl From<Expression> for Term {
                     let none = build_none(*ty_val.clone());
                     sspverif_smtlib::theories::array_ex::const_(*ty_idx, *ty_val, none)
                 } else {
-                    panic!("Empty table of type {:?}", t)
+                    panic!("Empty table of type {t:?}")
                 }
             }
             Expression::Unwrap(inner) => {
                 panic!(
-                    "found an unwrap and don't knwo what to do with it -- {expr:?}",
-                    expr = inner
+                    "found an unwrap and don't knwo what to do with it -- {inner:?}"
                 );
                 //panic!("unwrap expressions need to be on the right hand side of an assign!");
                 // TODO find a better way to present that error to the user.

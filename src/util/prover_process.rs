@@ -261,7 +261,7 @@ impl Communicator {
         let mut buffer = String::new();
         write!(buffer, "{}", expr.into())?;
 
-        write!(self, "{}", buffer)?;
+        write!(self, "{buffer}")?;
         Ok(())
     }
 

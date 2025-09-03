@@ -249,7 +249,7 @@ impl<'a> Project<'a> {
                                 backend,
                                 transcript,
                                 parallel,
-                                &req_oracle,
+                                req_oracle,
                             )?;
                         } else {
                             equivalence::verify(
@@ -259,7 +259,7 @@ impl<'a> Project<'a> {
                                 proof,
                                 backend,
                                 transcript,
-                                &req_oracle,
+                                req_oracle,
                             )?;
                         }
                     }

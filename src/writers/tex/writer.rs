@@ -25,7 +25,7 @@ use crate::util::smtmodel::{SmtModel, SmtModelEntry};
 fn genindentation(cnt: u8) -> String {
     let mut acc = String::new();
     for _ in 0..cnt {
-        acc = format!("{}\\pcind", acc);
+        acc = format!("{acc}\\pcind");
     }
     acc
 }
@@ -55,7 +55,7 @@ impl<'a> BlockWriter<'a> {
     fn type_to_tex(&self, tipe: &Type) -> String {
         match tipe {
             Type::Bits(n) => format!("\\bin^{{{}}}", self.countspec_to_tex(n)),
-            _ => format!("\\O{{{:?}}}", tipe),
+            _ => format!("\\O{{{tipe:?}}}"),
         }
     }
 
@@ -63,7 +63,7 @@ impl<'a> BlockWriter<'a> {
         match tipe {
             Type::Tuple(_) => "\\O{Tuple[..]}".to_string(),
             Type::Bits(n) => format!("\\bin^{{{}}}", self.countspec_to_tex(n)),
-            _ => format!("\\O{{{:?}}}", tipe),
+            _ => format!("\\O{{{tipe:?}}}"),
         }
     }
     fn forcomp_to_tex(&self, forcomp: &ForComp) -> String {
@@ -82,7 +82,7 @@ impl<'a> BlockWriter<'a> {
         } else {
             let mut it = list.iter();
             let mut lines = vec![format!("\\phantom{{{}}}{}", join, it.next().unwrap())];
-            let mut rest: Vec<_> = it.map(|s| format!("{}{}", join, s)).collect();
+            let mut rest: Vec<_> = it.map(|s| format!("{join}{s}")).collect();
             lines.append(&mut rest);
             format!(
                 "\\begin{{array}}{{c}}{}\\end{{array}}",
@@ -126,8 +126,8 @@ impl<'a> BlockWriter<'a> {
     fn expression_to_tex(&self, expr: &Expression) -> String {
         match expr {
             Expression::Bot => "\\bot".to_string(),
-            Expression::IntegerLiteral(val) => format!("{}", val),
-            Expression::BooleanLiteral(val) => format!("\\lit{{{}}}", val),
+            Expression::IntegerLiteral(val) => format!("{val}"),
+            Expression::BooleanLiteral(val) => format!("\\lit{{{val}}}"),
             Expression::Identifier(ident) => self.ident_to_tex(ident),
             Expression::Not(expr) => format!("\\neg {}", self.expression_to_tex(expr)),
             Expression::Unwrap(expr) => {
@@ -211,7 +211,7 @@ impl<'a> BlockWriter<'a> {
                 )
             }
             _ => {
-                format!("{:?}", expr)
+                format!("{expr:?}")
             }
         }
     }
@@ -292,7 +292,7 @@ impl<'a> BlockWriter<'a> {
                 }
             }
             Statement::For(var, from, to, code, _) => {
-                println!("{:?}", var);
+                println!("{var:?}");
                 if let Identifier::PackageIdentifier(PackageIdentifier::CodeLoopVar(
                     PackageOracleCodeLoopVarIdentifier {
                         start_comp,
@@ -878,8 +878,7 @@ fn tex_write_composition_graph(
 
         writeln!(
             file,
-            "\\node[package] (nodea) at ({}, {}) {{$A$}};",
-            tikzx, tikzy
+            "\\node[package] (nodea) at ({tikzx}, {tikzy}) {{$A$}};"
         )?;
         for Export(to, oracle) in &composition.exports {
             writeln!(file, "\\draw[-latex,rounded corners] (nodea) -- ($(nodea.east) + (1,0)$) |- node[onarrow] {{\\O{{{}}}}} (node{});", oracle.name, to)?;
@@ -895,7 +894,7 @@ fn tex_write_composition_graph_file(
     name: &str,
     target: &Path,
 ) -> std::io::Result<String> {
-    let fname = target.join(format!("CompositionGraph_{}.tex", name));
+    let fname = target.join(format!("CompositionGraph_{name}.tex"));
     let file = File::create(fname.clone())?;
 
     tex_write_composition_graph(backend, &file, composition, &Vec::new())?;
@@ -919,7 +918,7 @@ pub fn tex_write_composition(
 
     tex_write_document_header(&file)?;
 
-    writeln!(file, "\\title{{{} Game}}", name)?;
+    writeln!(file, "\\title{{{name} Game}}")?;
     writeln!(file, "\\begin{{document}}")?;
     writeln!(file, "\\maketitle")?;
 
@@ -987,7 +986,7 @@ pub fn tex_write_proof(
             instance.name(),
             instance.name().replace('_', "\\_")
         )?;
-        writeln!(file, "\\input{{{}}}", graphfname)?;
+        writeln!(file, "\\input{{{graphfname}}}")?;
         writeln!(file, "\\end{{minipage}}")?;
         fill += 1;
         if fill == 3 {
@@ -1010,7 +1009,7 @@ pub fn tex_write_proof(
             instance.game_name().replace('_', "\\_")
         );
         writeln!(file, "\\begin{{center}}")?;
-        writeln!(file, "\\input{{{}}}", graphfname)?;
+        writeln!(file, "\\input{{{graphfname}}}")?;
         writeln!(file, "\\end{{center}}")?;
 
         writeln!(file, "\\begin{{pchstack}}")?;
@@ -1022,7 +1021,7 @@ pub fn tex_write_proof(
                 if lossy { "_lossy" } else { "" }
             );
             //writeln!(file, "\\begin{{center}}")?;
-            writeln!(file, "\\input{{{}}}", pkgfname)?;
+            writeln!(file, "\\input{{{pkgfname}}}")?;
             //writeln!(file, "\\end{{center}}")?;
             writeln!(file, "\\pchspace")?;
         }

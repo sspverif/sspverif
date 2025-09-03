@@ -23,7 +23,7 @@ pub fn parse<'a>(
         pkgs.clone(),
         games.clone(),
     )
-    .unwrap_or_else(|err| panic!("handle error: {err}", err = err))
+    .unwrap_or_else(|err| panic!("handle error: {err}"))
 }
 
 pub fn parse_fails(
@@ -50,7 +50,7 @@ pub fn parse_fails(
 
 pub fn read_file(file_name: &'static str) -> String {
     std::fs::read_to_string(format!("{TESTDATA_SSPCODE_PATH}/proofs/{file_name}"))
-        .unwrap_or_else(|_| panic!("error reading test code proof {}", file_name))
+        .unwrap_or_else(|_| panic!("error reading test code proof {file_name}"))
 }
 
 pub fn parse_file_fails(
@@ -59,10 +59,10 @@ pub fn parse_file_fails(
     games: &HashMap<String, Composition>,
 ) -> ParseProofError {
     let file = std::fs::File::open(format!("{TESTDATA_SSPCODE_PATH}/proofs/{file_name}"))
-        .unwrap_or_else(|_| panic!("error opening test code proof {}", file_name));
+        .unwrap_or_else(|_| panic!("error opening test code proof {file_name}"));
 
     let contents = std::io::read_to_string(file)
-        .unwrap_or_else(|_| panic!("error reading test code proof {}", file_name));
+        .unwrap_or_else(|_| panic!("error reading test code proof {file_name}"));
 
     parse_fails(&contents, file_name, pkgs, games)
 }

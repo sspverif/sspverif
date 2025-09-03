@@ -210,8 +210,8 @@ impl<
 impl Display for SmtExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SmtExpr::Comment(str) => write!(f, "; {}", str),
-            SmtExpr::Atom(str) => write!(f, "{}", str),
+            SmtExpr::Comment(str) => write!(f, "; {str}"),
+            SmtExpr::Atom(str) => write!(f, "{str}"),
             SmtExpr::List(lst) => {
                 let mut peek = lst.iter().peekable();
 
@@ -260,7 +260,7 @@ impl From<Type> for SmtExpr {
                 els
             }),
             _ => {
-                panic!("not implemented: {:?}", t)
+                panic!("not implemented: {t:?}")
             }
         }
     }
@@ -297,7 +297,7 @@ impl From<&Type> for SmtExpr {
             }),
             Type::Empty => SmtExpr::Atom("Empty".to_string()),
             _ => {
-                panic!("not implemented: {:?}", t)
+                panic!("not implemented: {t:?}")
             }
         }
     }

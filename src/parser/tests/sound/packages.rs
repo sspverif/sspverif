@@ -55,9 +55,9 @@ fn type_mismatch_in_assignment_to_statevar() {
             assert_eq!(slice_source_span(&source_code, &at), "false");
         }
         other => {
-            let msg = format!("expected a different error; got {:?}", other);
+            let msg = format!("expected a different error; got {other:?}");
             let report = miette::Report::new(other);
-            panic!("{}, which looks like this:\n{:?}", msg, report)
+            panic!("{msg}, which looks like this:\n{report:?}")
         }
     };
 }
@@ -77,8 +77,7 @@ fn wrong_return_type_fails() {
                 }
             ))
         ),
-        "expected a different error, got {:#?}",
-        err
+        "expected a different error, got {err:#?}"
     )
 }
 
@@ -113,8 +112,7 @@ fn bad_add_fails_1() {
                     }
                 )) if slice_source_span(source_code, at) == "true"
         ),
-        "got: {:#?}",
-        err
+        "got: {err:#?}"
     );
 
     println!("{:?}", miette::Report::new(err));
@@ -136,8 +134,7 @@ fn bad_add_fails_2() {
                     }
             )) if slice_source_span(source_code, at) == "true"
         ),
-        "got: {:#?}",
-        err
+        "got: {err:#?}"
     );
 
     println!("{:?}", miette::Report::new(err));
@@ -159,8 +156,7 @@ fn bad_add_fails_3() {
                     }
             )) if slice_source_span(source_code, at) == "true"
         ),
-        "got: {:#?}",
-        err
+        "got: {err:#?}"
     );
 
     println!("{:?}", miette::Report::new(err));
@@ -182,8 +178,7 @@ fn bad_add_fails_4() {
                     },
             )) if slice_source_span(source_code, at) == "(3 + 2)"
         ),
-        "got: {:#?}",
-        err
+        "got: {err:#?}"
     );
 
     println!("{:?}", miette::Report::new(err));

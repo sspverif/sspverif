@@ -182,7 +182,7 @@ mod test {
             let t_ = Expression::Identifier(ident).get_type();
             assert_eq!(t, t_, "lookup returned wrong type");
         } else {
-            panic!("t_ should be a real type, found {:?}", decl);
+            panic!("t_ should be a real type, found {decl:?}");
         }
     }
 
@@ -278,7 +278,7 @@ mod test {
             let t_ = Expression::Identifier(ident).get_type();
             assert_eq!(t, t_, "lookup returned wrong type");
         } else {
-            panic!("t_ should be a real type, found {:?}", decl);
+            panic!("t_ should be a real type, found {decl:?}");
         }
     }
 }
