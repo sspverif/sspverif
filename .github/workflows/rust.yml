@@ -15,7 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Run cargo fmt
-      run: cargo fmt --workspace --check
+      run: cargo fmt --check
   Check:
     runs-on: ubuntu-latest
     steps:
