@@ -10,12 +10,18 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  Check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run cargo check
+      run: RUSTFLAGS="-D warnings" cargo check --workspace --verbose
   Tests:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Run tests
-      run: cargo test --verbose
+    - name: Run cargo test
+      run: cargo test --workspace --verbose
   Clippy:
     runs-on: ubuntu-latest
     steps:
