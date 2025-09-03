@@ -857,10 +857,6 @@ pub enum ParseIdentifierError {
 
     #[error(transparent)]
     #[diagnostic(transparent)]
-    Undefined(UndefinedIdentifierError),
-
-    #[error(transparent)]
-    #[diagnostic(transparent)]
     TypeMismatch(TypeMismatchError),
     #[error("error parsing left-hand-side name `{0}`: expected an identifier, got {1:?}")]
     InvalidLeftHandSide(String, Declaration),
