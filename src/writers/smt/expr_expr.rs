@@ -6,14 +6,14 @@ impl From<Expression> for SmtExpr {
     fn from(expr: Expression) -> SmtExpr {
         match expr {
             Expression::EmptyTable(t) => {
-                if let Type::Table(idxtipe, valtipe) = t {
+                if let Type::Table(idxty, valty) = t {
                     (
                         (
                             "as",
                             "const",
-                            ("Array", *idxtipe, Type::Maybe(valtipe.clone())),
+                            ("Array", *idxty, Type::Maybe(valty.clone())),
                         ),
-                        ("as", "mk-none", Type::Maybe(valtipe)),
+                        ("as", "mk-none", Type::Maybe(valty)),
                     )
                         .into()
                 } else {

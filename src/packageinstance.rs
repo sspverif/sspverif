@@ -73,7 +73,7 @@ impl PackageInstance {
                 .into_iter()
                 .map(|(name, ty)| (name, self.instantiate_type(ty)))
                 .collect(),
-            tipe: self.instantiate_type(sig.tipe),
+            ty: self.instantiate_type(sig.ty),
             ..sig
         }
     }
@@ -341,7 +341,7 @@ pub(crate) mod instantiate {
             let mut type_rewrite_rules = self
                 .type_assignments
                 .iter()
-                .map(|(name, tipe)| (Type::UserDefined(name.to_string()), tipe.clone()))
+                .map(|(name, ty)| (Type::UserDefined(name.to_string()), ty.clone()))
                 .collect_vec();
 
             match self.src {
@@ -427,7 +427,7 @@ pub(crate) mod instantiate {
                         .into_iter()
                         .map(|(name, ty)| (name.clone(), self.rewrite_type(ty)))
                         .collect(),
-                    tipe: self.rewrite_type(oracle_sig.tipe),
+                    ty: self.rewrite_type(oracle_sig.ty),
                 }
             }
         }
@@ -448,7 +448,7 @@ pub(crate) mod instantiate {
         //     let type_rewrite_rules: Vec<_> = self
         //         .type_assignments
         //         .iter()
-        //         .map(|(name, tipe)| (Type::UserDefined(name.to_string()), tipe.clone()))
+        //         .map(|(name, ty)| (Type::UserDefined(name.to_string()), ty.clone()))
         //         .collect();
         //
         //     SplitOracleSig {
@@ -456,12 +456,12 @@ pub(crate) mod instantiate {
         //         args: split_oracle_sig
         //             .args
         //             .iter()
-        //             .map(|(name, tipe)| (name.clone(), tipe.rewrite(&type_rewrite_rules)))
+        //             .map(|(name, ty)| (name.clone(), ty.rewrite(&type_rewrite_rules)))
         //             .collect(),
         //         partial_vars: split_oracle_sig
         //             .partial_vars
         //             .iter()
-        //             .map(|(name, tipe)| (name.clone(), tipe.rewrite(&type_rewrite_rules)))
+        //             .map(|(name, ty)| (name.clone(), ty.rewrite(&type_rewrite_rules)))
         //             .collect(),
         //         path: SplitPath::new(
         //             split_oracle_sig
@@ -489,7 +489,7 @@ pub(crate) mod instantiate {
         //                 })
         //                 .collect(),
         //         ),
-        //         tipe: split_oracle_sig.tipe.rewrite(&type_rewrite_rules),
+        //         ty: split_oracle_sig.ty.rewrite(&type_rewrite_rules),
         //     }
         // }
         //
@@ -525,11 +525,11 @@ pub(crate) mod instantiate {
                     self.rewrite_expression(&expr),
                     pos,
                 ),
-                Statement::Sample(ident, index, sample_id, tipe, pos) => Statement::Sample(
+                Statement::Sample(ident, index, sample_id, ty, pos) => Statement::Sample(
                     self.rewrite_identifier(ident),
                     index.as_ref().map(|expr| self.rewrite_expression(expr)),
                     sample_id,
-                    self.rewrite_type(tipe),
+                    self.rewrite_type(ty),
                     pos,
                 ),
                 Statement::InvokeOracle(InvokeOracleStatement {
@@ -539,7 +539,7 @@ pub(crate) mod instantiate {
                     name,
                     args,
                     target_inst_name,
-                    tipe,
+                    ty,
                     file_pos,
                 }) => Statement::InvokeOracle(InvokeOracleStatement {
                     name,
@@ -555,9 +555,9 @@ pub(crate) mod instantiate {
                         .iter()
                         .map(|expr| self.rewrite_expression(expr))
                         .collect(),
-                    tipe: tipe
+                    ty: ty
                         .as_ref()
-                        .map(|tipe| tipe.rewrite_type(&type_rewrite_rules)),
+                        .map(|ty| ty.rewrite_type(&type_rewrite_rules)),
                 }),
 
                 Statement::IfThenElse(ite) => Statement::IfThenElse(IfThenElse {
@@ -698,19 +698,19 @@ pub(crate) mod instantiate {
                     let pkg_ident = match pkg_ident {
                         PackageIdentifier::Const(const_ident) => {
                             PackageIdentifier::Const(PackageConstIdentifier {
-                                tipe: const_ident.tipe.rewrite_type(&type_rewrite_rules),
+                                ty: const_ident.ty.rewrite_type(&type_rewrite_rules),
                                 ..const_ident
                             })
                         }
                         PackageIdentifier::State(state_ident) => {
                             PackageIdentifier::State(PackageStateIdentifier {
-                                tipe: state_ident.tipe.rewrite_type(&type_rewrite_rules),
+                                ty: state_ident.ty.rewrite_type(&type_rewrite_rules),
                                 ..state_ident
                             })
                         }
                         PackageIdentifier::Local(local_ident) => {
                             PackageIdentifier::Local(PackageLocalIdentifier {
-                                tipe: local_ident.tipe.rewrite_type(&type_rewrite_rules),
+                                ty: local_ident.ty.rewrite_type(&type_rewrite_rules),
                                 ..local_ident
                             })
                         }
@@ -721,7 +721,7 @@ pub(crate) mod instantiate {
 
                         PackageIdentifier::OracleArg(arg_ident) => {
                             PackageIdentifier::OracleArg(PackageOracleArgIdentifier {
-                                tipe: arg_ident.tipe.rewrite_type(&type_rewrite_rules),
+                                ty: arg_ident.ty.rewrite_type(&type_rewrite_rules),
                                 ..arg_ident.clone()
                             })
                         }

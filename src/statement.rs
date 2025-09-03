@@ -62,7 +62,7 @@ pub struct InvokeOracleStatement {
     pub(crate) name: String,
     pub(crate) args: Vec<Expression>,
     pub(crate) target_inst_name: Option<String>,
-    pub(crate) tipe: Option<Type>,
+    pub(crate) ty: Option<Type>,
     pub(crate) file_pos: SourceSpan,
 }
 

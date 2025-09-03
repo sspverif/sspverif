@@ -163,8 +163,8 @@ impl<'a> EquivalenceContext<'a> {
 
         let mut bits_sort_suffixes = HashSet::new();
 
-        for tipe in self.types() {
-            if let Type::Bits(id) = &tipe {
+        for ty in self.types() {
+            if let Type::Bits(id) = &ty {
                 let bits_sort_suffix = match &**id {
                     crate::types::CountSpec::Literal(num) => format!("{num}"),
                     crate::types::CountSpec::Any => "*".to_string(),
@@ -232,7 +232,7 @@ impl<'a> EquivalenceContext<'a> {
         for (func_name, arg_types, ret_type) in funcs {
             let arg_types: SmtExpr = arg_types
                 .into_iter()
-                .map(|tipe| tipe.into())
+                .map(|ty| ty.into())
                 .collect::<Vec<SmtExpr>>()
                 .into();
 
@@ -725,14 +725,14 @@ impl<'a> EquivalenceContext<'a> {
             game_inst_name: left_gctx.game_inst().name(),
             pkg_inst_name: left_pctx.pkg_inst_name(),
             oracle_name,
-            tipe: left_octx.oracle_return_type(),
+            ty: left_octx.oracle_return_type(),
         };
 
         let right_is_abort = ReturnIsAbortConst {
             game_inst_name: right_gctx.game_inst().name(),
             pkg_inst_name: right_pctx.pkg_inst_name(),
             oracle_name,
-            tipe: right_octx.oracle_return_type(),
+            ty: right_octx.oracle_return_type(),
         };
 
         let consts: [(_, SmtExpr); 3] = [
@@ -1053,7 +1053,7 @@ impl<'a> EquivalenceContext<'a> {
     //         })
     //         .collect();
     //
-    //     let postcond_call = match claim.tipe {
+    //     let postcond_call = match claim.ty {
     //         ClaimType::Lemma => build_lemma_call.clone()(&claim.name),
     //         ClaimType::Relation => build_relation_call(&claim.name),
     //         ClaimType::Invariant => build_invariant_new_call(&claim.name),
@@ -1223,7 +1223,7 @@ impl<'a> EquivalenceContext<'a> {
             })
             .collect();
 
-        let postcond_call = match claim.tipe {
+        let postcond_call = match claim.ty {
             ClaimType::Lemma => build_lemma_call.clone()(&claim.name),
             ClaimType::Relation => build_relation_call(&claim.name),
             ClaimType::Invariant => build_invariant_new_call(&claim.name),
@@ -1300,7 +1300,7 @@ impl<'a> EquivalenceContext<'a> {
                     Identifier::ProofIdentifier(ProofIdentifier::Const(ProofConstIdentifier {
                         proof_name: self.proof().name.clone(),
                         name: name.clone(),
-                        tipe: Type::Integer,
+                        ty: Type::Integer,
                         inst_info: None,
                     })),
                 )))),
@@ -1450,7 +1450,7 @@ impl<'a> EquivalenceContext<'a> {
             .flat_map(|pctx| pctx.oracle_contexts())
             .filter_map(move |octx| {
                 let pattern = octx.return_pattern();
-                let spec = pattern.datastructure_spec(&octx.oracle_sig().tipe);
+                let spec = pattern.datastructure_spec(&octx.oracle_sig().ty);
 
                 if already_defined.insert(pattern.sort_name()) {
                     Some(declare_datatype(&pattern, &spec))
@@ -1698,14 +1698,14 @@ impl<'a> EquivalenceContext<'a> {
 
         let left_types: HashSet<Type> = HashSet::from_iter(
             self.sample_info_left()
-                .tipes
+                .tys
                 .iter()
                 .cloned()
                 .map(type_use_proof_ident),
         );
         let right_types: HashSet<Type> = HashSet::from_iter(
             self.sample_info_right()
-                .tipes
+                .tys
                 .iter()
                 .cloned()
                 .map(type_use_proof_ident),
@@ -1717,7 +1717,7 @@ impl<'a> EquivalenceContext<'a> {
         let mut right_positions_by_type: HashMap<_, Vec<_>> = HashMap::new();
 
         for pos in left_positions {
-            let pos_ty = pos.tipe.clone();
+            let pos_ty = pos.ty.clone();
             let pos_proof_ty = type_use_proof_ident(pos_ty);
             left_positions_by_type
                 .entry(pos_proof_ty)
@@ -1726,7 +1726,7 @@ impl<'a> EquivalenceContext<'a> {
         }
 
         for pos in right_positions {
-            let pos_ty = pos.tipe.clone();
+            let pos_ty = pos.ty.clone();
             let pos_proof_ty = type_use_proof_ident(pos_ty);
             right_positions_by_type
                 .entry(pos_proof_ty)
@@ -1736,20 +1736,20 @@ impl<'a> EquivalenceContext<'a> {
 
         let mut body: SmtExpr = true.into();
 
-        for tipe in types {
-            let sort: SmtExpr = tipe.into();
+        for ty in types {
+            let sort: SmtExpr = ty.into();
 
             let left_has_type = left_positions_by_type
-                .get(tipe)
-                .expect("expected that left sample info has positions for type {tipe:?}")
+                .get(ty)
+                .expect("expected that left sample info has positions for type {ty:?}")
                 .iter()
                 .map(|Position { sample_id, .. }| ("=", *sample_id, "sample-id-left").into());
             let mut left_or_case: Vec<SmtExpr> = vec!["or".into()];
             left_or_case.extend(left_has_type);
 
             let right_has_type = right_positions_by_type
-                .get(tipe)
-                .expect("expected that right sample info has positions for type {tipe:?}")
+                .get(ty)
+                .expect("expected that right sample info has positions for type {ty:?}")
                 .iter()
                 .map(|Position { sample_id, .. }| ("=", *sample_id, "sample-id-right").into());
 
@@ -1814,7 +1814,7 @@ fn build_returns(game_inst: &GameInstance) -> Vec<(SmtExpr, SmtExpr)> {
         let pkg_params = &pkg_inst.params;
         let pkg_name = &pkg_inst.pkg.name;
         let oracle_name = &sig.name;
-        let return_type = &sig.tipe;
+        let return_type = &sig.ty;
 
         let octx = gctx
             .exported_oracle_ctx_by_name(&sig.name)
@@ -1838,14 +1838,14 @@ fn build_returns(game_inst: &GameInstance) -> Vec<(SmtExpr, SmtExpr)> {
             game_inst_name,
             pkg_inst_name,
             oracle_name,
-            tipe: &sig.tipe,
+            ty: &sig.ty,
         };
 
         let is_abort_const_pattern = ReturnIsAbortConst {
             game_inst_name,
             pkg_inst_name,
             oracle_name,
-            tipe: &sig.tipe,
+            ty: &sig.ty,
         };
 
         let state = octx.oracle_arg_game_state_pattern();
@@ -1871,7 +1871,7 @@ fn build_returns(game_inst: &GameInstance) -> Vec<(SmtExpr, SmtExpr)> {
             .access(
                 &return_spec,
                 &patterns::ReturnSelector::ReturnValueOrAbort {
-                    return_type: &sig.tipe,
+                    return_type: &sig.ty,
                 },
                 return_const.name(),
             )
@@ -1928,7 +1928,7 @@ fn build_rands(
         .iter()
         .map(|sample_item| {
             let sample_id = sample_item.sample_id;
-            let tipe = &sample_item.tipe;
+            let ty = &sample_item.ty;
             let game_inst_name = game_inst.name();
 
             let state = gctx
@@ -1939,7 +1939,7 @@ fn build_rands(
             let randval_name = format!("randval-{game_inst_name}-{sample_id}");
 
             let decl_randctr = declare::declare_const(randctr_name.clone(), Sort::Int);
-            let decl_randval = declare::declare_const(randval_name.clone(), tipe.clone().into());
+            let decl_randval = declare::declare_const(randval_name.clone(), ty.clone().into());
 
             // pull randomness counter for given sample_id out of the gamestate
             let randctr = gctx
@@ -1953,7 +1953,7 @@ fn build_rands(
             .into();
 
             // apply respective randomness function (based on type) to the given counter
-            let randval = gctx.smt_eval_randfn(sample_id, ("+", 0, randctr_name.as_str()), tipe);
+            let randval = gctx.smt_eval_randfn(sample_id, ("+", 0, randctr_name.as_str()), ty);
 
             let constrain_randval: SmtExpr = SmtAssert(SmtEq2 {
                 lhs: randval_name,

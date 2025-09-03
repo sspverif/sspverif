@@ -15,7 +15,7 @@ pub struct ReturnIsAbortConst<'a> {
     pub game_inst_name: &'a str,
     pub pkg_inst_name: &'a str,
     pub oracle_name: &'a str,
-    pub tipe: &'a Type,
+    pub ty: &'a Type,
 }
 
 impl ConstantPattern for ReturnIsAbortConst<'_> {
@@ -37,7 +37,7 @@ impl ConstantPattern for ReturnIsAbortConst<'_> {
 impl ReturnIsAbortConst<'_> {
     pub(crate) fn value(&self, return_value: impl Into<SmtExpr>) -> SmtExpr {
         let pattern = ReturnValue {
-            inner_type: self.tipe,
+            inner_type: self.ty,
         };
 
         let spec = pattern.datastructure_spec(&());

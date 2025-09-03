@@ -193,18 +193,18 @@ impl ClaimType {
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub struct Claim {
     pub(crate) name: String,
-    pub(crate) tipe: ClaimType,
+    pub(crate) ty: ClaimType,
     pub(crate) dependencies: Vec<String>,
 }
 
 impl Claim {
     pub fn from_tuple(data: (String, Vec<String>)) -> Self {
         let (name, dependencies) = data;
-        let tipe = ClaimType::guess_from_name(&name);
+        let ty = ClaimType::guess_from_name(&name);
 
         Self {
             name,
-            tipe,
+            ty,
             dependencies,
         }
     }
@@ -213,8 +213,8 @@ impl Claim {
         &self.name
     }
 
-    pub fn tipe(&self) -> ClaimType {
-        self.tipe
+    pub fn ty(&self) -> ClaimType {
+        self.ty
     }
 
     pub fn dependencies(&self) -> &[String] {

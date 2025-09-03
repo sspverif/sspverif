@@ -149,7 +149,7 @@ impl Unwrapifier {
                         file_pos,
                     ))
                 }
-                Statement::Sample(ref id, Some(ref expr), ref sample_id, ref tipe, file_pos) => {
+                Statement::Sample(ref id, Some(ref expr), ref sample_id, ref ty, file_pos) => {
                     let (newexpr, unwraps) = self.replace_unwrap(expr);
                     if unwraps.is_empty() {
                         newcode.push(stmt);
@@ -159,7 +159,7 @@ impl Unwrapifier {
                             id.clone(),
                             Some(newexpr),
                             *sample_id,
-                            tipe.clone(),
+                            ty.clone(),
                             file_pos,
                         ));
                     }
@@ -177,7 +177,7 @@ impl Unwrapifier {
                     name,
                     args,
                     target_inst_name,
-                    tipe,
+                    ty,
                     file_pos,
                 }) => {
                     let opt_idx = opt_idx.map(|expr| {
@@ -200,7 +200,7 @@ impl Unwrapifier {
                         name,
                         args,
                         target_inst_name,
-                        tipe,
+                        ty,
                         file_pos,
                     }));
                 }
@@ -250,7 +250,7 @@ mod test {
             pkg_name: "TestPackage".to_string(),
             oracle_name: "TestOracle".to_string(),
             name: name.to_string(),
-            tipe: ty,
+            ty: ty,
             pkg_inst_name: None,
             game_name: None,
             game_inst_name: None,

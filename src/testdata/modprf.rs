@@ -32,7 +32,7 @@ pub fn mod_prf(params: &HashMap<String, Expression>) -> PackageInstance {
                 sig: OracleSig {
                     name: "Eval".to_string(),
                     args: vec![("msg".to_string(), Type::new_bits("*"))],
-                    tipe: Type::new_bits("*"),
+                    ty: Type::new_bits("*"),
                 },
                 code: block! {
                     Statement::InvokeOracle{
@@ -41,7 +41,7 @@ pub fn mod_prf(params: &HashMap<String, Expression>) -> PackageInstance {
                         name: "Get".into(),
                         args: vec![],
                         target_inst_name: None,
-                        tipe: None,
+                        ty: None,
                     },
                     Statement::Return(Some(fncall! { "f",
                                                       Identifier::new_scalar("k").to_expression(),

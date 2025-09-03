@@ -146,15 +146,15 @@ impl<'a> DatastructurePattern<'a> for PackageStatePattern<'a> {
     }
 
     fn selector_sort(&self, sel: &Self::Selector) -> crate::writers::smt::exprs::SmtExpr {
-        let PackageStateSelector { ty: tipe, .. } = sel;
-        (*tipe).into()
+        let PackageStateSelector { ty: ty, .. } = sel;
+        (*ty).into()
     }
 
     fn datastructure_spec(&self, pkg: &'a Self::DeclareInfo) -> DatastructureSpec<'a, Self> {
         let selectors = pkg
             .state
             .iter()
-            .map(|(name, tipe, _file_pos)| PackageStateSelector { name, ty: tipe });
+            .map(|(name, ty, _file_pos)| PackageStateSelector { name, ty: ty });
 
         DatastructureSpec(vec![((), selectors.collect())])
     }

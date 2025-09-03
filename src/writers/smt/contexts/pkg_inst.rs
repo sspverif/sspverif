@@ -181,15 +181,15 @@ impl<'a> PackageInstanceContext<'a> {
         let pkg_inst = &self.game().pkgs[self.inst_offs];
 
         // return none if no field with that name exists
-        let (_, tipe, _) = pkg_inst
+        let (_, ty, _) = pkg_inst
             .pkg
             .state
             .iter()
-            .find(|(name, _tipe, _file_pos)| name == field_name)?;
+            .find(|(name, _ty, _file_pos)| name == field_name)?;
 
         Some(PackageStateSelector {
             name: field_name,
-            ty: tipe,
+            ty: ty,
         })
     }
 
@@ -209,7 +209,7 @@ impl<'a> PackageInstanceContext<'a> {
                 Identifier::PackageIdentifier(PackageIdentifier::State(PackageStateIdentifier {
                     pkg_name: pkg_name.clone(),
                     name: name.to_string(),
-                    tipe: ty.clone(),
+                    ty: ty.clone(),
                     pkg_inst_name: Some(pkg_inst.name.clone()),
                     game_name: Some(game.name.clone()),
                     game_inst_name: Some(game_inst.name.clone()),

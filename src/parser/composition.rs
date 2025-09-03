@@ -251,15 +251,15 @@ pub fn handle_comp_spec_list<'a>(
     for comp_spec in ast.into_inner() {
         match comp_spec.as_rule() {
             Rule::const_decl => {
-                let (name, tipe) = handle_const_decl(&ctx.parse_ctx(), comp_spec)?;
-                ctx.add_const(name.clone(), tipe.clone());
+                let (name, ty) = handle_const_decl(&ctx.parse_ctx(), comp_spec)?;
+                ctx.add_const(name.clone(), ty.clone());
                 ctx.declare(
                     &name,
                     Declaration::Identifier(
                         GameConstIdentifier {
                             game_name: ctx.game_name.to_string(),
                             name: name.clone(),
-                            tipe,
+                            ty,
                             inst_info: None,
                             game_inst_name: None,
                             proof_name: None,
@@ -853,7 +853,7 @@ pub fn handle_instance_assign_list(
                             PackageConstIdentifier {
                                 pkg_name: pkg.name.to_string(),
                                 name,
-                                tipe: value.get_type(),
+                                ty: value.get_type(),
                                 // we don't resolve it here yet, so we can easily find it when
                                 // searching this list when we don't have the value yet.
                                 game_name: None,
@@ -944,7 +944,7 @@ pub fn handle_instance_decl_multi_inst<'a>(
             .params
             .iter()
             .cloned()
-            .map(|(name, tipe, _)| (name, tipe))
+            .map(|(name, ty, _)| (name, ty))
             .collect();
         pkg_params.sort();
 
