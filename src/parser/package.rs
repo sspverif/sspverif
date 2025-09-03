@@ -316,7 +316,7 @@ pub fn handle_arglist(
 pub enum ParseExpressionError {
     #[error(transparent)]
     #[diagnostic(transparent)]
-    UndefinedIdentifier(UndefinedIdentifierError),
+    UndefinedIdentifier(#[from] UndefinedIdentifierError),
 
     #[error(transparent)]
     #[diagnostic(transparent)]
@@ -538,7 +538,7 @@ pub fn handle_expression(
             let ident_ast = inner.next().unwrap();
             let ident_span = ident_ast.as_span();
             let ident_name = ident_ast.as_str();
-            let ident = handle_identifier_in_code_rhs(ctx, &ident_ast, ident_name).unwrap();
+            let ident = handle_identifier_in_code_rhs(ctx, &ident_ast, ident_name)?;
 
             let Type::Table(idx_type, val_type) = ident.get_type() else {
                 return Err(ParseExpressionError::TypeMismatch(TypeMismatchError {
@@ -779,17 +779,16 @@ pub fn handle_identifier_in_code_rhs(
     ctx: &ParseContext,
     ast: &Pair<Rule>,
     name: &str,
-) -> Result<Identifier, ParseIdentifierError> {
+) -> Result<Identifier, UndefinedIdentifierError> {
     let span = ast.as_span();
-    let ident = ctx.scope
+    let ident = ctx
+        .scope
         .lookup(name)
-        .ok_or(ParseIdentifierError::Undefined(
-            UndefinedIdentifierError {
-                at: (span.start()..span.end()).into(),
-                ident_name: name.to_string(),
-                source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
-            },
-        ))?
+        .ok_or(UndefinedIdentifierError {
+            at: (span.start()..span.end()).into(),
+            ident_name: name.to_string(),
+            source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
+        })?
         .into_identifier()
         .unwrap_or_else(|decl| panic!("expected an identifier, got a clone {decl:?}", decl = decl));
 

@@ -11,6 +11,7 @@ use super::error::{
     DuplicateGameParameterDefinitionError, DuplicatePackageParameterDefinitionError,
     MissingGameParameterDefinitionError, MissingPackageParameterDefinitionError,
     NoSuchGameParameterError, NoSuchPackageParameterError, NoSuchTypeError, ParseNumberError,
+    UndefinedIdentifierError,
 };
 use super::package::{handle_identifier_in_code_rhs, ParseIdentifierError};
 use super::proof::{ParseProofContext, ParseProofError};
@@ -32,7 +33,7 @@ pub(crate) fn handle_countspec(
         match inner.as_rule() {
             Rule::identifier => {
                 let name = inner.as_str();
-                let ident = handle_identifier_in_code_rhs(ctx, &inner, name).map_err(Box::new)?;
+                let ident = handle_identifier_in_code_rhs(ctx, &inner, name)?;
                 Ok(CountSpec::Identifier(ident))
             }
             Rule::num => {
@@ -65,6 +66,10 @@ pub enum HandleTypeError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     ParseNumber(#[from] ParseNumberError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    UndefinedIdentifier(#[from] UndefinedIdentifierError),
 }
 
 pub(crate) fn handle_type(ctx: &ParseContext, tipe: Pair<Rule>) -> Result<Type, HandleTypeError> {
