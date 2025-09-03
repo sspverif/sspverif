@@ -21,7 +21,7 @@ echo "# Checking Error Reproducers still fail..."
 for project_path in example-projects/err-repro-*; do
     project=$(basename $project_path)
     (
-        echo "## Checking $project proves..."
+        echo "## Checking $project fails..."
         cd $project_path
         $SSBEE prove && fail "expected error, but succeeded: $project_path"
     )
