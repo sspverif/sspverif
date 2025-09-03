@@ -52,18 +52,18 @@ impl<'a> BlockWriter<'a> {
         }
     }
 
-    fn type_to_tex(&self, tipe: &Type) -> String {
-        match tipe {
+    fn type_to_tex(&self, ty: &Type) -> String {
+        match ty {
             Type::Bits(n) => format!("\\bin^{{{}}}", self.countspec_to_tex(n)),
-            _ => format!("\\O{{{tipe:?}}}"),
+            _ => format!("\\O{{{ty:?}}}"),
         }
     }
 
-    fn type_to_tex_short(&self, tipe: &Type) -> String {
-        match tipe {
+    fn type_to_tex_short(&self, ty: &Type) -> String {
+        match ty {
             Type::Tuple(_) => "\\O{Tuple[..]}".to_string(),
             Type::Bits(n) => format!("\\bin^{{{}}}", self.countspec_to_tex(n)),
-            _ => format!("\\O{{{tipe:?}}}"),
+            _ => format!("\\O{{{ty:?}}}"),
         }
     }
     fn forcomp_to_tex(&self, forcomp: &ForComp) -> String {
@@ -147,11 +147,11 @@ impl<'a> BlockWriter<'a> {
                     format!("\\O{{some}}\\left({}\\right)", self.expression_to_tex(expr))
                 }
             }
-            Expression::None(tipe) => {
+            Expression::None(ty) => {
                 if self.lossy {
                     "\\bot".to_string()
                 } else {
-                    format!("\\O{{none}}\\left({}\\right)", self.type_to_tex_short(tipe))
+                    format!("\\O{{none}}\\left({}\\right)", self.type_to_tex_short(ty))
                 }
             }
             Expression::Add(lhs, rhs) => format!(
@@ -316,7 +316,7 @@ impl<'a> BlockWriter<'a> {
                     unreachable!();
                 }
             }
-            Statement::Sample(ident, None, maybecnt, tipe, _) => {
+            Statement::Sample(ident, None, maybecnt, ty, _) => {
                 let cnt = maybecnt.expect("Expected samplified input");
 
                 writeln!(
@@ -325,10 +325,10 @@ impl<'a> BlockWriter<'a> {
                     genindentation(indentation),
                     self.ident_to_tex(ident),
                     cnt,
-                    self.type_to_tex(tipe)
+                    self.type_to_tex(ty)
                 )?;
             }
-            Statement::Sample(ident, Some(idxexpr), maybecnt, tipe, _) => {
+            Statement::Sample(ident, Some(idxexpr), maybecnt, ty, _) => {
                 let cnt = maybecnt.expect("Expected samplified input");
 
                 writeln!(
@@ -338,7 +338,7 @@ impl<'a> BlockWriter<'a> {
                     self.ident_to_tex(ident),
                     self.expression_to_tex(idxexpr),
                     cnt,
-                    self.type_to_tex(tipe)
+                    self.type_to_tex(ty)
                 )?;
             }
             Statement::InvokeOracle(InvokeOracleStatement {
@@ -347,7 +347,7 @@ impl<'a> BlockWriter<'a> {
                 name,
                 args,
                 target_inst_name: Some(target_inst_name),
-                tipe: _,
+                ty: _,
                 ..
             }) => {
                 writeln!(self.file,
@@ -364,7 +364,7 @@ impl<'a> BlockWriter<'a> {
                 name,
                 args,
                 target_inst_name: Some(target_inst_name),
-                tipe: _,
+                ty: _,
                 ..
             }) => {
                 writeln!(self.file,

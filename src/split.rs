@@ -12,7 +12,7 @@ pub struct SplitOracleSig {
     pub args: Vec<(String, Type)>,
     pub partial_vars: Vec<(String, Type)>,
     pub path: SplitPath,
-    pub tipe: Type,
+    pub ty: Type,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

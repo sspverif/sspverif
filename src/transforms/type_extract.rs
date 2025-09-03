@@ -44,7 +44,7 @@ impl super::Transformation for Transformation<'_> {
             sig.args
                 .iter()
                 .map(|(_, ty)| ty)
-                .chain(Some(&sig.tipe))
+                .chain(Some(&sig.ty))
                 .inspect(assert_is_populated)
                 .cloned()
         }));
@@ -54,7 +54,7 @@ impl super::Transformation for Transformation<'_> {
             sig.args
                 .iter()
                 .map(|(_, ty)| ty)
-                .chain(Some(&sig.tipe))
+                .chain(Some(&sig.ty))
                 .inspect(assert_is_populated)
                 .cloned()
         }));
@@ -71,7 +71,7 @@ impl super::Transformation for Transformation<'_> {
                 sig.args
                     .iter()
                     .map(|(_, ty)| ty)
-                    .chain(Some(&sig.tipe))
+                    .chain(Some(&sig.ty))
                     .inspect(assert_is_populated)
             });
             let oracle_definitions = pkg.oracles.iter().flat_map(|oracle_def| {
@@ -79,7 +79,7 @@ impl super::Transformation for Transformation<'_> {
                 sig.args
                     .iter()
                     .map(|(_, ty)| ty)
-                    .chain(Some(&sig.tipe))
+                    .chain(Some(&sig.ty))
                     .inspect(assert_is_populated)
             });
 
@@ -146,14 +146,14 @@ fn extract_types_from_codeblock(set: &mut HashSet<Type>, cb: CodeBlock) {
             Statement::InvokeOracle(InvokeOracleStatement {
                 opt_idx,
                 args,
-                tipe,
+                ty,
                 ..
             }) => {
                 if let Some(expr) = opt_idx {
                     record_type(set, expr.get_type());
                 }
 
-                if let Some(ty) = tipe {
+                if let Some(ty) = ty {
                     record_type(set, ty);
                 }
 

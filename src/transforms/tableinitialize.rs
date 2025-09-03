@@ -84,11 +84,11 @@ pub fn tableinitialize(
                 Identifier::Generated(ref id, ref ty),
                 Some(ref idxexpr),
                 _,
-                ref tipe,
+                ref ty,
                 ref file_pos,
             ) => {
                 let indextype = idxexpr.get_type();
-                let tabletype = Type::Table(Box::new(indextype.clone()), Box::new(tipe.clone()));
+                let tabletype = Type::Table(Box::new(indextype.clone()), Box::new(ty.clone()));
 
                 debug_assert_eq!(*ty, tabletype);
 
@@ -106,12 +106,12 @@ pub fn tableinitialize(
             Statement::InvokeOracle(InvokeOracleStatement {
                 id: Identifier::Generated(ref id, _),
                 opt_idx: Some(ref idxexpr),
-                tipe: ref opt_ret_tipe,
+                ty: ref opt_ret_ty,
                 ref file_pos,
                 ..
             }) => {
                 let indextype = idxexpr.get_type();
-                let valuetype = match opt_ret_tipe {
+                let valuetype = match opt_ret_ty {
                     Some(t) => t.to_owned(),
                     _ => Type::Empty,
                 };

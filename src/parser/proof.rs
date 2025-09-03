@@ -242,17 +242,17 @@ pub fn handle_proof<'a>(
     for ast in proof_ast.into_inner() {
         match ast.as_rule() {
             Rule::const_decl => {
-                let (const_name, tipe) = common::handle_const_decl(&ctx.parse_ctx(), ast)?;
+                let (const_name, ty) = common::handle_const_decl(&ctx.parse_ctx(), ast)?;
                 let clone = Declaration::Identifier(Identifier::ProofIdentifier(Const(
                     ProofConstIdentifier {
                         proof_name: proof_name.to_string(),
                         name: const_name.clone(),
-                        tipe: tipe.clone(),
+                        ty: ty.clone(),
                         inst_info: None,
                     },
                 )));
                 ctx.declare(&const_name, clone).unwrap();
-                ctx.add_const(const_name, tipe);
+                ctx.add_const(const_name, ty);
             }
             Rule::assumptions => {
                 handle_assumptions(&mut ctx, ast.into_inner())?;
@@ -353,7 +353,7 @@ fn handle_instance_assign_list(
                         GameConstIdentifier {
                             game_name: game.name.to_string(),
                             name,
-                            tipe: value.get_type(),
+                            ty: value.get_type(),
                             assigned_value: Some(Box::new(value.clone())),
                             inst_info: None,
                             game_inst_name: Some(game_inst_name.to_string()),

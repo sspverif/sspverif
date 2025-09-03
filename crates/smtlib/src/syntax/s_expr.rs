@@ -68,15 +68,15 @@ macro_rules! impl_spec_const_from {
         }
     };
 
-    ($variant:ident, $tipe:ty) => {
-        impl From<$tipe> for SpecConstant {
-            fn from(value: $tipe) -> Self {
+    ($variant:ident, $ty:ty) => {
+        impl From<$ty> for SpecConstant {
+            fn from(value: $ty) -> Self {
                 Self::$variant(value)
             }
         }
 
-        impl From<$tipe> for SExpr {
-            fn from(value: $tipe) -> Self {
+        impl From<$ty> for SExpr {
+            fn from(value: $ty) -> Self {
                 Self::Const(value.into())
             }
         }
@@ -98,9 +98,9 @@ macro_rules! impl_s_expr_from {
         }
     };
 
-    ($variant:ident, $tipe:ty) => {
-        impl From<$tipe> for SExpr {
-            fn from(value: $tipe) -> Self {
+    ($variant:ident, $ty:ty) => {
+        impl From<$ty> for SExpr {
+            fn from(value: $ty) -> Self {
                 Self::$variant(value)
             }
         }

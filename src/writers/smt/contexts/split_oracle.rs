@@ -137,7 +137,7 @@ impl<'a> GenericOracleContext<'a> for SplitOracleContext<'a> {
     }
 
     fn oracle_return_type(&self) -> &'a crate::types::Type {
-        &self.oracle_def().sig.tipe
+        &self.oracle_def().sig.ty
     }
 
     fn smt_game_state(&self) -> SmtExpr {

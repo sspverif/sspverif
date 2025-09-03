@@ -225,10 +225,10 @@ pub mod pkg_ident {
 
         pub(crate) fn get_type(&self) -> Type {
             match self {
-                PackageIdentifier::Const(const_ident) => const_ident.tipe.clone(),
-                PackageIdentifier::State(state_ident) => state_ident.tipe.clone(),
-                PackageIdentifier::Local(local_ident) => local_ident.tipe.clone(),
-                PackageIdentifier::OracleArg(arg_ident) => arg_ident.tipe.clone(),
+                PackageIdentifier::Const(const_ident) => const_ident.ty.clone(),
+                PackageIdentifier::State(state_ident) => state_ident.ty.clone(),
+                PackageIdentifier::Local(local_ident) => local_ident.ty.clone(),
+                PackageIdentifier::OracleArg(arg_ident) => arg_ident.ty.clone(),
                 PackageIdentifier::OracleImport(oracle_import) => oracle_import.return_type.clone(),
                 PackageIdentifier::ImportsLoopVar(_loopvar) => Type::Integer,
                 PackageIdentifier::CodeLoopVar(_loopvar) => Type::Integer,
@@ -307,7 +307,7 @@ pub mod pkg_ident {
     pub struct PackageConstIdentifier {
         pub pkg_name: String,
         pub name: String,
-        pub tipe: crate::types::Type,
+        pub ty: crate::types::Type,
         pub game_assignment: Option<Box<Expression>>,
         pub pkg_inst_name: Option<String>,
         pub game_name: Option<String>,
@@ -326,7 +326,7 @@ pub mod pkg_ident {
             Self {
                 pkg_name,
                 name,
-                tipe: ty,
+                ty: ty,
                 game_assignment: None,
                 pkg_inst_name: None,
                 game_name: None,
@@ -352,7 +352,7 @@ pub mod pkg_ident {
     pub struct PackageStateIdentifier {
         pub pkg_name: String,
         pub name: String,
-        pub tipe: crate::types::Type,
+        pub ty: crate::types::Type,
         pub pkg_inst_name: Option<String>,
         pub game_name: Option<String>,
         pub game_inst_name: Option<String>,
@@ -394,7 +394,7 @@ pub mod pkg_ident {
             Self {
                 pkg_name,
                 name,
-                tipe: ty,
+                ty: ty,
                 pkg_inst_name: None,
                 game_name: None,
                 game_inst_name: None,
@@ -408,7 +408,7 @@ pub mod pkg_ident {
         pub pkg_name: String,
         pub oracle_name: String,
         pub name: String,
-        pub tipe: crate::types::Type,
+        pub ty: crate::types::Type,
         pub pkg_inst_name: Option<String>,
         pub game_name: Option<String>,
         pub game_inst_name: Option<String>,
@@ -420,7 +420,7 @@ pub mod pkg_ident {
         pub pkg_name: String,
         pub oracle_name: String,
         pub name: String,
-        pub tipe: crate::types::Type,
+        pub ty: crate::types::Type,
         pub pkg_inst_name: Option<String>,
         pub game_name: Option<String>,
         pub game_inst_name: Option<String>,
@@ -443,7 +443,7 @@ pub mod pkg_ident {
     pub struct PackageImportsLoopVarIdentifier {
         pub pkg_name: String,
         pub name: String,
-        // tipe is always Integer
+        // ty is always Integer
         pub start: Box<Expression>,
         pub end: Box<Expression>,
         pub start_comp: ForComp,
@@ -458,7 +458,7 @@ pub mod pkg_ident {
     pub struct PackageOracleCodeLoopVarIdentifier {
         pub pkg_name: String,
         pub name: String,
-        // tipe is always Integer
+        // ty is always Integer
         pub start: Box<Expression>,
         pub end: Box<Expression>,
         pub start_comp: ForComp,
@@ -516,7 +516,7 @@ pub mod game_ident {
 
         pub(crate) fn get_type(&self) -> Type {
             match self {
-                GameIdentifier::Const(const_ident) => const_ident.tipe.clone(),
+                GameIdentifier::Const(const_ident) => const_ident.ty.clone(),
                 GameIdentifier::LoopVar(_local_ident) => Type::Integer,
             }
         }
@@ -611,7 +611,7 @@ pub mod game_ident {
     pub struct GameConstIdentifier {
         pub game_name: String,
         pub name: String,
-        pub tipe: crate::types::Type,
+        pub ty: crate::types::Type,
         pub game_inst_name: Option<String>,
         pub proof_name: Option<String>,
         pub inst_info: Option<GameIdentInstanciationInfo>,
@@ -620,7 +620,7 @@ pub mod game_ident {
 
     impl PartialEq for GameConstIdentifier {
         fn eq(&self, other: &Self) -> bool {
-            self.game_name == other.game_name && self.name == other.name && self.tipe == other.tipe
+            self.game_name == other.game_name && self.name == other.name && self.ty == other.ty
         }
     }
 
@@ -628,7 +628,7 @@ pub mod game_ident {
         fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
             self.game_name.hash(state);
             self.name.hash(state);
-            self.tipe.hash(state);
+            self.ty.hash(state);
         }
     }
 
@@ -636,7 +636,7 @@ pub mod game_ident {
     pub struct GameLoopVarIdentifier {
         pub game_name: String,
         pub name: String,
-        // tipe is always Integer
+        // ty is always Integer
         pub start: Box<Expression>,
         pub end: Box<Expression>,
         pub start_comp: ForComp,
@@ -672,7 +672,7 @@ pub mod proof_ident {
 
         pub(crate) fn get_type(&self) -> Type {
             match self {
-                ProofIdentifier::Const(const_ident) => const_ident.tipe.clone(),
+                ProofIdentifier::Const(const_ident) => const_ident.ty.clone(),
                 ProofIdentifier::LoopVar(_local_ident) => Type::Integer,
             }
         }
@@ -716,7 +716,7 @@ pub mod proof_ident {
     pub struct ProofConstIdentifier {
         pub proof_name: String,
         pub name: String,
-        pub tipe: crate::types::Type,
+        pub ty: crate::types::Type,
         pub inst_info: Option<ProofIdentInstanciationInfo>,
     }
 
@@ -724,7 +724,7 @@ pub mod proof_ident {
     pub struct ProofLoopVarIdentifier {
         pub proof_name: String,
         pub name: String,
-        // tipe is always Integer
+        // ty is always Integer
         pub start: Box<Expression>,
         pub end: Box<Expression>,
         pub start_comp: ForComp,

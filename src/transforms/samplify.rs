@@ -20,12 +20,12 @@ pub struct Position {
     pub dst_index: Option<Expression>,
 
     pub sample_id: usize,
-    pub tipe: Type,
+    pub ty: Type,
 }
 
 #[derive(Clone, Debug)]
 pub struct SampleInfo {
-    pub tipes: Vec<Type>,
+    pub tys: Vec<Type>,
     pub count: usize,
     pub positions: Vec<Position>,
 }
@@ -70,7 +70,7 @@ impl super::Transformation for Transformation<'_> {
                 ..self.0.clone()
             },
             SampleInfo {
-                tipes: Vec::from_iter(samplings),
+                tys: Vec::from_iter(samplings),
                 count: ctr,
                 positions,
             },
@@ -129,7 +129,7 @@ pub fn samplify(
                 file_pos,
             )),
 
-            Statement::Sample(id, expr, None, tipe, file_pos) => {
+            Statement::Sample(id, expr, None, ty, file_pos) => {
                 let pos = Position {
                     game_name: game_name.to_string(),
                     inst_name: inst_name.to_string(),
@@ -137,15 +137,15 @@ pub fn samplify(
                     dst_name: id.ident(),
                     dst_index: expr.clone(),
                     sample_id: *ctr,
-                    tipe: tipe.clone(),
+                    ty: ty.clone(),
                 };
-                sampletypes.insert(tipe.clone());
+                sampletypes.insert(ty.clone());
                 positions.push(pos);
                 newcode.push(Statement::Sample(
                     id.clone(),
                     expr,
                     Some(*ctr),
-                    tipe.clone(),
+                    ty.clone(),
                     file_pos,
                 ));
                 *ctr += 1;

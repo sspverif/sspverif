@@ -14,15 +14,15 @@ fn create_oracle_sig(
     suffix: &str,
     name: &str,
     args: &[String],
-    tipe: &str,
+    ty: &str,
 ) {
-    let one_line = format!("{}{}({}){}{}", prefix, name, args.join(", "), tipe, suffix);
+    let one_line = format!("{}{}({}){}{}", prefix, name, args.join(", "), ty, suffix);
     if one_line.len() > 80 {
         ctx.push_line(&format!("{prefix}{name}("));
         ctx.add_indent();
         ctx.push_lines(&args.join(",\n").split('\n').collect::<Vec<_>>());
         ctx.remove_indent();
-        ctx.push_line(&format!("){tipe}{suffix}"));
+        ctx.push_line(&format!("){ty}{suffix}"));
     } else {
         ctx.push_line(&one_line);
     }
@@ -44,14 +44,14 @@ fn format_oracle_sig(
             .map(|arg| {
                 let mut inner = arg.into_inner();
                 let id = inner.next().unwrap().as_str();
-                let tipe = format_type(inner.next().unwrap())?;
-                Ok(format!("{id}: {tipe}"))
+                let ty = format_type(inner.next().unwrap())?;
+                Ok(format!("{id}: {ty}"))
             })
             .collect::<Result<Vec<String>, project::error::Error>>()?
     };
 
-    let maybe_tipe = inner.next();
-    let tipe = match maybe_tipe {
+    let maybe_ty = inner.next();
+    let ty = match maybe_ty {
         None => "",
         Some(t) => {
             let typestr = format_type(t)?;
@@ -63,14 +63,14 @@ fn format_oracle_sig(
         }
     };
 
-    create_oracle_sig(ctx, "oracle ", " {", name, &args, tipe);
+    create_oracle_sig(ctx, "oracle ", " {", name, &args, ty);
     Ok(())
 }
 
-fn format_type(tipe_ast: Pair<Rule>) -> Result<String, project::error::Error> {
-    Ok(match tipe_ast.as_rule() {
+fn format_type(ty_ast: Pair<Rule>) -> Result<String, project::error::Error> {
+    Ok(match ty_ast.as_rule() {
         Rule::type_tuple => {
-            let inner = tipe_ast
+            let inner = ty_ast
                 .into_inner()
                 .map(|t| format_type(t))
                 .collect::<Result<Vec<_>, _>>()?
@@ -78,12 +78,12 @@ fn format_type(tipe_ast: Pair<Rule>) -> Result<String, project::error::Error> {
             format!("({inner})")
         }
         Rule::type_table => {
-            let mut inner = tipe_ast.into_inner();
+            let mut inner = ty_ast.into_inner();
             let indextype = format_type(inner.next().unwrap())?;
             let valuetype = format_type(inner.next().unwrap())?;
             format!("Table({indextype}, {valuetype})")
         }
-        _ => tipe_ast.as_str().to_owned(),
+        _ => ty_ast.as_str().to_owned(),
     })
 }
 
@@ -168,9 +168,9 @@ fn format_expr(expr_ast: Pair<Rule>) -> Result<String, project::error::Error> {
         }
         Rule::expr_newtable => {
             let mut inner = expr_ast.into_inner();
-            let idxtipe = format_type(inner.next().unwrap())?;
-            let valtipe = format_type(inner.next().unwrap())?;
-            format!("new Table({idxtipe}, {valtipe})")
+            let idxty = format_type(inner.next().unwrap())?;
+            let valty = format_type(inner.next().unwrap())?;
+            format!("new Table({idxty}, {valty})")
         }
         Rule::fn_call => {
             let mut inner = expr_ast.into_inner();
@@ -248,10 +248,10 @@ fn format_code(ctx: &mut FormatContext, code_ast: Pair<Rule>) -> Result<(), proj
             Rule::sample => {
                 let mut inner = stmt.into_inner();
                 let name_ast = inner.next().unwrap();
-                let tipe = inner.next().unwrap().as_str();
+                let ty = inner.next().unwrap().as_str();
                 let ident = name_ast.as_str();
 
-                ctx.push_line(&format!("{ident} <-$ {tipe};"));
+                ctx.push_line(&format!("{ident} <-$ {ty};"));
             }
 
             Rule::assign => {
@@ -268,9 +268,9 @@ fn format_code(ctx: &mut FormatContext, code_ast: Pair<Rule>) -> Result<(), proj
                 let name_ast = inner.next().unwrap();
                 let ident = name_ast.as_str();
                 let index = format_expr(inner.next().unwrap())?;
-                let tipe = inner.next().unwrap().as_str();
+                let ty = inner.next().unwrap().as_str();
 
-                ctx.push_line(&format!("{ident}[{index}] <-$ {tipe};"));
+                ctx.push_line(&format!("{ident}[{index}] <-$ {ty};"));
             }
 
             Rule::table_assign => {
@@ -443,8 +443,8 @@ fn format_import_oracles(
                         .map(|arg| {
                             let mut inner = arg.into_inner();
                             let arg = inner.next().unwrap().as_str();
-                            let tipe = format_type(inner.next().unwrap())?;
-                            Ok::<String, project::error::Error>(format!("{arg}: {tipe}"))
+                            let ty = format_type(inner.next().unwrap())?;
+                            Ok::<String, project::error::Error>(format!("{arg}: {ty}"))
                         })
                         .collect::<Result<Vec<String>, _>>()?
                 };

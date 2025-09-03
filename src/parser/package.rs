@@ -248,32 +248,32 @@ pub fn handle_decl_list(
         let name_ast = inner.next().unwrap();
         let name_span = name_ast.as_span();
         let name = name_ast.as_str();
-        let tipe = handle_type(&parse_ctx, inner.next().unwrap())?;
+        let ty = handle_type(&parse_ctx, inner.next().unwrap())?;
 
         let ident: Identifier = match ident_type {
             IdentType::State => {
                 ctx.state.push((
                     name.to_string(),
-                    tipe.clone(),
+                    ty.clone(),
                     (span.start()..span.end()).into(),
                 ));
                 PackageStateIdentifier::new(
                     name.to_string(),
                     ctx.pkg_name.to_string(),
-                    tipe.clone(),
+                    ty.clone(),
                 )
                 .into()
             }
             IdentType::Const => {
                 ctx.params.push((
                     name.to_string(),
-                    tipe.clone(),
+                    ty.clone(),
                     (span.start()..span.end()).into(),
                 ));
                 PackageConstIdentifier::new(
                     name.to_string(),
                     ctx.pkg_name.to_string(),
-                    tipe.clone(),
+                    ty.clone(),
                 )
                 .into()
             }
@@ -307,8 +307,8 @@ pub fn handle_arglist(
         .map(|arg| {
             let mut inner = arg.into_inner();
             let id = inner.next().unwrap().as_str();
-            let tipe = handle_type(&parse_ctx, inner.next().unwrap())?;
-            Ok((id.to_string(), tipe))
+            let ty = handle_type(&parse_ctx, inner.next().unwrap())?;
+            Ok((id.to_string(), ty))
         })
         .collect::<Result<_, _>>()
 }
@@ -462,8 +462,8 @@ pub fn handle_expression(
             )))
         }
         Rule::expr_none => {
-            let tipe = handle_type(ctx, ast.into_inner().next().unwrap())?;
-            Expression::None(tipe)
+            let ty = handle_type(ctx, ast.into_inner().next().unwrap())?;
+            Expression::None(ty)
         }
 
         Rule::expr_untyped_none => match expected_type {
@@ -543,9 +543,9 @@ pub fn handle_expression(
 
         Rule::expr_newtable => {
             let mut inner = ast.into_inner();
-            let idxtipe = handle_type(ctx, inner.next().unwrap())?;
-            let valtipe = handle_type(ctx, inner.next().unwrap())?;
-            Expression::EmptyTable(Type::Table(Box::new(idxtipe), Box::new(valtipe)))
+            let idxty = handle_type(ctx, inner.next().unwrap())?;
+            let valty = handle_type(ctx, inner.next().unwrap())?;
+            Expression::EmptyTable(Type::Table(Box::new(idxty), Box::new(valty)))
         }
         Rule::table_access => {
             let expr_span = ast.as_span();
@@ -856,7 +856,7 @@ pub fn handle_identifier_in_code_lhs(
                 pkg_name: ctx.pkg_name.to_string(),
                 oracle_name: oracle_name.to_string(),
                 name: name.to_string(),
-                tipe: expression_type.clone(),
+                ty: expression_type.clone(),
                 pkg_inst_name: None,
                 game_name: None,
                 game_inst_name: None,
@@ -965,7 +965,7 @@ pub fn handle_code(
                     let maybe_expr = inner.next();
 
 
-                    let expr = maybe_expr.map(|expr| handle_expression(&ctx.parse_ctx(), expr, Some(&oracle_sig.tipe))).transpose()?;
+                    let expr = maybe_expr.map(|expr| handle_expression(&ctx.parse_ctx(), expr, Some(&oracle_sig.ty))).transpose()?;
                     Statement::Return(expr, full_span)
                 }
                 Rule::assert => {
@@ -978,15 +978,15 @@ pub fn handle_code(
                 Rule::sample => {
                     let mut inner = stmt.into_inner();
                     let name_ast = inner.next().unwrap();
-                    let tipe = handle_type(&parse_ctx, inner.next().unwrap() )?;
+                    let ty = handle_type(&parse_ctx, inner.next().unwrap() )?;
                     let ident = handle_identifier_in_code_lhs(
                         ctx,
                         name_ast,
                         oracle_name,
-                        tipe.clone(),
+                        ty.clone(),
                     )
                     ?;
-                    Statement::Sample(ident, None, None, tipe, full_span)
+                    Statement::Sample(ident, None, None, ty, full_span)
                 }
 
                 Rule::assign => {
@@ -1016,15 +1016,15 @@ pub fn handle_code(
                     let mut inner = stmt.into_inner();
                     let name_ast = inner.next().unwrap();
                     let index = handle_expression(&parse_ctx, inner.next().unwrap(), None)?;
-                    let tipe = handle_type(&parse_ctx, inner.next().unwrap())?;
+                    let ty = handle_type(&parse_ctx, inner.next().unwrap())?;
                     let ident = handle_identifier_in_code_lhs(
                         ctx,
                         name_ast,
                         oracle_name,
-                        Type::Table(Box::new(index.get_type()),  Box::new(tipe.clone())),
+                        Type::Table(Box::new(index.get_type()),  Box::new(ty.clone())),
                     )
                         ?;
-                    Statement::Sample(ident, Some(index), None, tipe, full_span)
+                    Statement::Sample(ident, Some(index), None, ty, full_span)
                 }
 
                 Rule::table_assign => {
@@ -1154,10 +1154,10 @@ pub fn handle_code(
                     }
 
                     let expected_type = match opt_idx.clone() {
-                        None => target_oracle_sig.tipe.clone(),
+                        None => target_oracle_sig.ty.clone(),
                         Some(idx) => Type::Table(
                             Box::new(idx.get_type()),
-                            Box::new(target_oracle_sig.tipe.clone())
+                            Box::new(target_oracle_sig.ty.clone())
                         ),
                     };
 
@@ -1176,7 +1176,7 @@ pub fn handle_code(
                         name: oracle_name.to_owned(),
                         args,
                         target_inst_name: None,
-                        tipe: Some(expected_type),
+                        ty: Some(expected_type),
                         file_pos: full_span,
                     })
                 }
@@ -1186,10 +1186,10 @@ pub fn handle_code(
                     let expr = inner.next().unwrap();
 
                     let expr = handle_expression(&ctx.parse_ctx(),expr, None)?;
-                    let tipe = expr.get_type();
+                    let ty = expr.get_type();
 
-                    let tipes = match tipe {
-                        Type::Tuple(tipes) => tipes,
+                    let tys = match ty {
+                        Type::Tuple(tys) => tys,
                         other => panic!("expected tuple type in parse, but got {other:?} in {file_name}, {pkg_name}, {oracle_name}, {expr:?}", other=other, file_name=ctx.file_name, pkg_name=ctx.pkg_name, oracle_name=oracle_name, expr=expr)
                     };
 
@@ -1197,7 +1197,7 @@ pub fn handle_code(
                         .into_inner()
                         .enumerate()
                         .map(|(i, ident_name)| {
-                            handle_identifier_in_code_lhs(ctx, ident_name,  oracle_name, tipes[i].clone())
+                            handle_identifier_in_code_lhs(ctx, ident_name,  oracle_name, tys[i].clone())
                         })
                         .collect::<Result<_,_>>()?;
 
@@ -1283,7 +1283,7 @@ pub fn handle_oracle_def(
 
     ctx.scope.enter();
 
-    for (name, tipe) in &sig.args {
+    for (name, ty) in &sig.args {
         ctx.scope.declare(
             name,
             Declaration::Identifier(Identifier::PackageIdentifier(PackageIdentifier::OracleArg(
@@ -1291,7 +1291,7 @@ pub fn handle_oracle_def(
                     pkg_name: ctx.pkg_name.to_string(),
                     oracle_name: sig.name.clone(),
                     name: name.clone(),
-                    tipe: tipe.clone(),
+                    ty: ty.clone(),
                     pkg_inst_name: None,
                     game_name: None,
                     game_inst_name: None,
@@ -1329,15 +1329,15 @@ pub fn handle_oracle_sig(
         handle_arglist(ctx, maybe_arglist.into_inner().next().unwrap())?
     };
 
-    let maybe_tipe = inner.next();
-    let tipe = match maybe_tipe {
+    let maybe_ty = inner.next();
+    let ty = match maybe_ty {
         None => Type::Empty,
         Some(t) => handle_type(&ctx.parse_ctx(), t)?,
     };
 
     Ok(OracleSig {
         name: name.to_string(),
-        tipe,
+        ty,
         args,
         multi_inst_idx: MultiInstanceIndices::new(vec![]),
     })
@@ -1384,15 +1384,15 @@ pub fn handle_oracle_imports_oracle_sig(
     };
 
     let parse_ctx = ctx.parse_ctx();
-    let maybe_tipe = inner.next();
-    let tipe = match maybe_tipe {
+    let maybe_ty = inner.next();
+    let ty = match maybe_ty {
         None => Type::Empty,
         Some(t) => handle_type(&parse_ctx, t)?,
     };
 
     Ok(OracleSig {
         name: name.to_string(),
-        tipe,
+        ty,
         args,
         multi_inst_idx,
     })

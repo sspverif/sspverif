@@ -161,7 +161,7 @@ mod test {
                         crate::identifier::pkg_ident::PackageConstIdentifier {
                             pkg_name: "SomePkg".to_string(),
                             name: id.to_string(),
-                            tipe: t.clone(),
+                            ty: t.clone(),
                             game_assignment: None,
                             pkg_inst_name: None,
                             game_name: None,
@@ -202,7 +202,7 @@ mod test {
                         crate::identifier::pkg_ident::PackageConstIdentifier {
                             pkg_name: "SomePkg".to_string(),
                             name: id.to_string(),
-                            tipe: t.clone(),
+                            ty: t.clone(),
                             game_assignment: None,
                             pkg_inst_name: None,
                             game_name: None,
@@ -235,7 +235,7 @@ mod test {
                         crate::identifier::pkg_ident::PackageConstIdentifier {
                             pkg_name: "SomePkg".to_string(),
                             name: id.to_string(),
-                            tipe: t.clone(),
+                            ty: t.clone(),
                             game_assignment: None,
                             pkg_inst_name: None,
                             game_name: None,
@@ -256,7 +256,7 @@ mod test {
                         crate::identifier::pkg_ident::PackageConstIdentifier {
                             pkg_name: "SomePkg".to_string(),
                             name: id2.to_string(),
-                            tipe: t2.clone(),
+                            ty: t2.clone(),
                             game_assignment: None,
                             pkg_inst_name: None,
                             game_name: None,

@@ -24,7 +24,7 @@ pub fn key_pkg(params: &HashMap<String, Expression>) -> PackageInstance {
                     sig: OracleSig {
                         name: "Set".to_string(),
                         args: vec![("k_".to_string(), Type::new_bits("n"))],
-                        tipe: Type::Empty,
+                        ty: Type::Empty,
                     },
                     code: block! {
                         Statement::IfThenElse(
@@ -49,7 +49,7 @@ pub fn key_pkg(params: &HashMap<String, Expression>) -> PackageInstance {
                     sig: OracleSig {
                         name: "Get".to_string(),
                         args: vec![],
-                        tipe: Type::new_bits("n"),
+                        ty: Type::new_bits("n"),
                     },
                     code: block! {
                         Statement::IfThenElse(

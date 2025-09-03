@@ -62,7 +62,7 @@ impl Expression {
     pub fn get_type(&self) -> Type {
         match self {
             Expression::Bot => Type::Empty,
-            Expression::Sample(tipe) => tipe.clone(),
+            Expression::Sample(ty) => ty.clone(),
             Expression::StringLiteral(_) => Type::String,
             Expression::BooleanLiteral(_) => Type::Boolean,
             Expression::IntegerLiteral(_) => Type::Integer,
@@ -89,10 +89,10 @@ impl Expression {
                     ident.ident()
                 ),
             },
-            Expression::None(tipe) => Type::Maybe(Box::new(tipe.clone())),
+            Expression::None(ty) => Type::Maybe(Box::new(ty.clone())),
             Expression::Some(expr) => Type::Maybe(Box::new(expr.get_type())),
             Expression::Unwrap(expr) => match expr.get_type() {
-                Type::Maybe(tipe) => *tipe,
+                Type::Maybe(ty) => *ty,
                 _ => unreachable!("Unwrapping non-maybe {expr:?}", expr = expr),
             },
 

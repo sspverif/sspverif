@@ -57,7 +57,7 @@ impl<'a> IntermediateStatePattern<'a> {
         IntermediateStateConstructor<'a>,
         Vec<IntermediateStateSelector<'a>>,
     )> {
-        let return_type = &partials.real_oracle_sig.tipe;
+        let return_type = &partials.real_oracle_sig.ty;
         let mut out = vec![(
             IntermediateStateConstructor::End,
             vec![IntermediateStateSelector::Return(return_type)],
@@ -231,9 +231,9 @@ impl<'a> DatastructurePattern<'a> for IntermediateStatePattern<'a> {
         match sel {
             IntermediateStateSelector::LoopVar(_, _) => Type::Integer.into(),
             IntermediateStateSelector::Child(_) => self.sort(vec![]).into(),
-            IntermediateStateSelector::Arg(_, _, tipe)
-            | IntermediateStateSelector::Local(_, _, tipe)
-            | IntermediateStateSelector::Return(tipe) => SmtExpr::from(*tipe),
+            IntermediateStateSelector::Arg(_, _, ty)
+            | IntermediateStateSelector::Local(_, _, ty)
+            | IntermediateStateSelector::Return(ty) => SmtExpr::from(*ty),
         }
     }
 

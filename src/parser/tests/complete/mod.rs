@@ -67,7 +67,7 @@ fn tiny_package() {
     assert_eq!(pkg.params[0].1, Type::Integer);
     assert_eq!(pkg.oracles.len(), 1);
     assert_eq!(pkg.oracles[0].sig.name, "N");
-    assert_eq!(pkg.oracles[0].sig.tipe, Type::Integer);
+    assert_eq!(pkg.oracles[0].sig.ty, Type::Integer);
     assert!(pkg.oracles[0].sig.args.is_empty());
     assert!(pkg.imports.is_empty());
 }
@@ -91,7 +91,7 @@ fn small_game() {
         Expression::Identifier(Identifier::GameIdentifier(GameIdentifier::Const(
             GameConstIdentifier {
                 name: "n".to_string(),
-                tipe: Type::Integer,
+                ty: Type::Integer,
                 game_name: "SmallGame".to_string(),
                 game_inst_name: None,
                 proof_name: None,
@@ -112,7 +112,7 @@ fn small_for_package() {
     assert_eq!(pkg.params[0].1, Type::Integer);
     assert_eq!(pkg.oracles.len(), 1);
     assert_eq!(pkg.oracles[0].sig.name, "Sum");
-    assert_eq!(pkg.oracles[0].sig.tipe, Type::Integer);
+    assert_eq!(pkg.oracles[0].sig.ty, Type::Integer);
     assert!(pkg.oracles[0].sig.args.is_empty());
 }
 
@@ -164,7 +164,7 @@ fn equivalence_parses() {
             "N".into(),
             vec![Claim {
                 name: "smt_ident".into(),
-                tipe: ClaimType::Lemma,
+                ty: ClaimType::Lemma,
                 dependencies: vec![]
             }]
         )]
@@ -230,7 +230,7 @@ fn game_instantiating_with_literal_works() {
             GameConstIdentifier {
                 game_name: "ConstructionReal".to_string(),
                 name: "n".to_string(),
-                tipe: Type::Integer,
+                ty: Type::Integer,
                 game_inst_name: None,
                 proof_name: None,
                 inst_info: None,
@@ -251,7 +251,7 @@ fn package_empty_loop_works() {
     assert_eq!(pkg.params[0].1, Type::Integer);
     assert_eq!(pkg.oracles.len(), 2);
     assert_eq!(pkg.oracles[0].sig.name, "Set");
-    assert_eq!(pkg.oracles[0].sig.tipe, Type::Empty);
+    assert_eq!(pkg.oracles[0].sig.ty, Type::Empty);
 
     assert!(matches!(
             &pkg.oracles[0].sig.args[0],

@@ -186,7 +186,7 @@ impl<'a> PackageInstanceContext<'a> {
                             .real_oracle_sig
                             .args
                             .iter()
-                            .map(|(name, _tipe)| name.to_string().into()),
+                            .map(|(name, _ty)| name.to_string().into()),
                     );
                     SmtExpr::List(call)
                 }

@@ -99,7 +99,7 @@ impl GameInstanceContext<'_> {
         //            for sample instuctions, it should still behave correctly when queried for
         //            package state.
         let sample_info = SampleInfo {
-            tipes: vec![],
+            tys: vec![],
             count: 0,
             positions: vec![],
         };
@@ -203,9 +203,9 @@ impl GameInstanceContext<'_> {
         &self,
         sample_id: usize,
         ctr: CTR,
-        tipe: &Type,
+        ty: &Type,
     ) -> SmtExpr {
-        let rand_fn_name = names::fn_sample_rand_name(&self.game_inst.name, tipe);
+        let rand_fn_name = names::fn_sample_rand_name(&self.game_inst.name, ty);
         (rand_fn_name, sample_id, ctr).into()
     }
 }

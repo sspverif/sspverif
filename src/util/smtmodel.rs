@@ -18,13 +18,13 @@ impl SmtModelParser {
                 let mut inner = line.into_inner();
                 let name = inner.next().unwrap();
                 debug_assert_matches!(name.as_rule(), Rule::name);
-                let tipe = inner.next().unwrap();
-                debug_assert_matches!(tipe.as_rule(), Rule::tipe);
+                let ty = inner.next().unwrap();
+                debug_assert_matches!(ty.as_rule(), Rule::ty);
                 let value = inner.next().unwrap();
                 debug_assert_matches!(value.as_rule(), Rule::value);
                 (
                     String::from(name.as_str()),
-                    String::from(tipe.as_str()),
+                    String::from(ty.as_str()),
                     String::from(value.as_str()),
                 )
             })
@@ -55,7 +55,7 @@ impl SmtModel {
         let parsed = SmtModelParser::parse_model(from);
         let transformed = parsed
             .into_iter()
-            .map(|(name, tipe, value)| match tipe.as_str() {
+            .map(|(name, ty, value)| match ty.as_str() {
                 "Int" => SmtModelEntry::IntEntry {
                     name,
                     value: value.parse().unwrap(),

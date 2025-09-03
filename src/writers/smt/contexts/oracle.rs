@@ -102,13 +102,13 @@ impl<'a> OracleContext<'a> {
         let game_inst_name = self.game_inst_ctx().game_inst_name();
         let pkg_inst_name = self.pkg_inst_ctx().pkg_inst_name();
         let oracle_name = self.oracle_name();
-        let tipe = self.return_type();
+        let ty = self.return_type();
 
         ReturnValueConst {
             game_inst_name,
             pkg_inst_name,
             oracle_name,
-            tipe,
+            ty,
         }
     }
 
@@ -137,7 +137,7 @@ impl<'a> OracleContext<'a> {
 // Getters
 impl<'a> OracleContext<'a> {
     fn return_type(&self) -> &Type {
-        &self.oracle_def().sig.tipe
+        &self.oracle_def().sig.ty
     }
 
     pub(crate) fn oracle_def(&self) -> &'a OracleDef {
@@ -177,7 +177,7 @@ impl OracleContext<'_> {
         let pkg_inst = &game_inst.game().pkgs[self.pkg_inst_offs];
         let odef = &pkg_inst.pkg.oracles[self.oracle_offs];
         let osig = &odef.sig;
-        let return_type = &osig.tipe;
+        let return_type = &osig.ty;
 
         let return_value_pattern = ReturnValue {
             inner_type: return_type,
@@ -230,7 +230,7 @@ impl OracleContext<'_> {
         let game_inst = self.game_inst_context.game_inst();
         let pkg_inst = &game_inst.game().pkgs[self.pkg_inst_offs];
         let osig = &pkg_inst.pkg.oracles[self.oracle_offs].sig;
-        let return_type = &osig.tipe;
+        let return_type = &osig.ty;
 
         let pattern = self.return_pattern();
         let spec = pattern.datastructure_spec(return_type);
@@ -273,7 +273,7 @@ impl OracleContext<'_> {
         let game_inst = self.game_inst_context.game_inst();
         let pkg_inst = &game_inst.game().pkgs[self.pkg_inst_offs];
         let osig = &pkg_inst.pkg.oracles[self.oracle_offs].sig;
-        let return_type = &osig.tipe;
+        let return_type = &osig.ty;
 
         let pattern = self.return_pattern();
         let spec = pattern.datastructure_spec(return_type);
@@ -328,7 +328,7 @@ impl<'a> GenericOracleContext<'a> for OracleContext<'a> {
     }
 
     fn oracle_return_type(&self) -> &'a Type {
-        &self.oracle_def().sig.tipe
+        &self.oracle_def().sig.ty
     }
 
     fn smt_write_back_state(&self, sample_info: &SampleInfo) -> SmtExpr {
@@ -347,7 +347,7 @@ impl<'a> GenericOracleContext<'a> for OracleContext<'a> {
         let return_type = self.return_type();
 
         let return_value_pattern = ReturnValue {
-            inner_type: &osig.tipe,
+            inner_type: &osig.ty,
         };
         let return_value_spec = return_value_pattern.datastructure_spec(&());
 

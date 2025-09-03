@@ -89,52 +89,52 @@ impl From<HandleIdentifierRhsError> for HandleTypeError {
     }
 }
 
-pub(crate) fn handle_type(ctx: &ParseContext, tipe: Pair<Rule>) -> Result<Type, HandleTypeError> {
-    let out = match tipe.as_rule() {
+pub(crate) fn handle_type(ctx: &ParseContext, ty: Pair<Rule>) -> Result<Type, HandleTypeError> {
+    let out = match ty.as_rule() {
         Rule::type_empty => Type::Empty,
         Rule::type_bool => Type::Boolean,
         Rule::type_integer => Type::Integer,
         Rule::type_string => Type::String,
         Rule::type_maybe => Type::Maybe(Box::new(handle_type(
             ctx,
-            tipe.into_inner().next().unwrap(),
+            ty.into_inner().next().unwrap(),
         )?)),
         Rule::type_bits => Type::Bits(Box::new(handle_countspec(
             ctx,
-            tipe.into_inner().next().unwrap(),
+            ty.into_inner().next().unwrap(),
         )?)),
         Rule::type_tuple => Type::Tuple(
-            tipe.into_inner()
+            ty.into_inner()
                 .map(|t| handle_type(ctx, t))
                 .collect::<Result<_, _>>()?,
         ),
         Rule::type_table => {
-            let mut inner = tipe.into_inner();
+            let mut inner = ty.into_inner();
             let indextype = handle_type(ctx, inner.next().unwrap())?;
             let valuetype = handle_type(ctx, inner.next().unwrap())?;
             Type::Table(Box::new(indextype), Box::new(valuetype))
         }
         Rule::type_fn => {
-            let mut inner = tipe.into_inner();
-            let argtipes = inner
+            let mut inner = ty.into_inner();
+            let argtys = inner
                 .next()
                 .unwrap()
                 .into_inner()
                 .map(|spec| handle_type(ctx, spec.into_inner().next().unwrap()))
                 .collect::<Result<_, _>>()?;
-            let tipe = handle_type(ctx, inner.next().unwrap())?;
-            Type::Fn(argtipes, Box::new(tipe))
+            let ty = handle_type(ctx, inner.next().unwrap())?;
+            Type::Fn(argtys, Box::new(ty))
         }
         Rule::type_userdefined => {
-            let type_name = tipe.as_str();
+            let type_name = ty.as_str();
             if ctx
                 .types
                 .iter()
                 .any(|declared_type| declared_type == type_name)
             {
-                Type::UserDefined(tipe.as_str().to_string())
+                Type::UserDefined(ty.as_str().to_string())
             } else {
-                let span = tipe.as_span();
+                let span = ty.as_span();
                 return Err(NoSuchTypeError {
                     source_code: ctx.named_source(),
                     at: (span.start()..span.end()).into(),
@@ -144,7 +144,7 @@ pub(crate) fn handle_type(ctx: &ParseContext, tipe: Pair<Rule>) -> Result<Type, 
             }
         }
         _ => {
-            unreachable!("{:#?}", tipe)
+            unreachable!("{:#?}", ty)
         }
     };
 
@@ -224,7 +224,7 @@ pub(crate) fn handle_game_params_def_list(
                             PackageConstIdentifier {
                                 pkg_name: pkg.name.clone(),
                                 name: name.to_string(),
-                                tipe: Type::Integer,
+                                ty: Type::Integer,
                                 game_name: None,
                                 pkg_inst_name: None,
                                 game_inst_name: None,
@@ -387,7 +387,7 @@ pub(crate) fn handle_proof_params_def_list(
                 GameIdentifier::Const(GameConstIdentifier {
                     game_name: game.name.clone(),
                     name: name.to_string(),
-                    tipe: Type::Integer,
+                    ty: Type::Integer,
                     game_inst_name: None,
                     proof_name: None,
                     inst_info: None,

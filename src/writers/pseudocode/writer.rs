@@ -59,9 +59,9 @@ impl<W: Write> Writer<W> {
             Type::Tuple(types) => {
                 self.write_string("(")?;
                 let mut maybe_comma = "";
-                for tipe in types {
+                for ty in types {
                     self.write_string(maybe_comma)?;
-                    self.write_type(tipe)?;
+                    self.write_type(ty)?;
                     maybe_comma = ", ";
                 }
                 self.write_string(")")
@@ -77,9 +77,9 @@ impl<W: Write> Writer<W> {
             Type::Fn(args, ret) => {
                 self.write_string("fn ")?;
                 let mut maybe_comma = "";
-                for tipe in args {
+                for ty in args {
                     self.write_string(maybe_comma)?;
-                    self.write_type(tipe)?;
+                    self.write_type(ty)?;
                     maybe_comma = ", ";
                 }
                 self.write_string(" -> ")?;
@@ -268,7 +268,7 @@ impl<W: Write> Writer<W> {
                 name,
                 args,
                 target_inst_name,
-                tipe: opt_tipe,
+                ty: opt_ty,
                 ..
             }) => {
                 self.write_identifier(id)?;
@@ -288,8 +288,8 @@ impl<W: Write> Writer<W> {
                 } else {
                     self.write_string("; /* target instance name not assigned */")?;
                 }
-                if let Some(tipe) = opt_tipe {
-                    self.write_string(&format!(" /* return type {tipe:?} */"))?;
+                if let Some(ty) = opt_ty {
+                    self.write_string(&format!(" /* return type {ty:?} */"))?;
                 } else {
                     self.write_string(" /* return type unknown */")?;
                 }
@@ -360,7 +360,7 @@ impl<W: Write> Writer<W> {
 
     pub fn write_oraclesig(&mut self, sig: &OracleSig) -> Result {
         let OracleSig {
-            name, args, tipe, ..
+            name, args, ty, ..
         } = sig;
 
         self.write_string(name)?;
@@ -376,7 +376,7 @@ impl<W: Write> Writer<W> {
 
         self.write_string(")")?;
         self.write_string(" -> ")?;
-        self.write_type(tipe)?;
+        self.write_type(ty)?;
 
         Ok(())
     }
