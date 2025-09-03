@@ -126,7 +126,7 @@ proof Yao {
             }
             SETBIT: {
                 invariant: [
-                    ./invariant-GBLG.smt2
+                    ./proofs/invariant-GBLG.smt2
                 ]
 
                 lemmas {
@@ -148,10 +148,11 @@ proof Yao {
             }
             GBLG: {
                 invariant: [
-                    ./invariant-GBLG.smt2
+                    ./proofs/invariant-GBLG.smt2
                 ]
 
                 lemmas {
+                    equal-aborts: []
                     right-all-aborts: []
                     right-all-aborts-inverse: []
                     left-all-aborts: []
