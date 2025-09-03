@@ -21,7 +21,6 @@ package Simgate {
 
 
     oracle GBLG(
-        h: Integer,
         l: Integer,
         r: Integer,
         op: Table((Bool, Bool), Bool),

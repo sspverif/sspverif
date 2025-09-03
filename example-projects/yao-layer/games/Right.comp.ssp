@@ -20,6 +20,11 @@ composition Right {
         }
 
     }
+    instance ev = Lev {
+        params {
+            n: n,
+        }
+    }
 
     instance simgate = Simgate {
         params {
@@ -34,12 +39,6 @@ composition Right {
 
     }
 
-    instance ev = Lev {
-        params {
-            n: n,
-        }
-
-    }
     compose {
         adversary: {
             GETAOUT: keys_top,

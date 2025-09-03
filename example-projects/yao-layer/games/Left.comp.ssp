@@ -21,6 +21,16 @@ composition Left {
 
     }
 
+    instance enc = Enc1 {
+        params {
+            n: n,
+            m: m,
+            p: p,
+            encn: encn,
+            encm: encm,
+        }
+    }
+
     instance gate = Gate {
         params {
             n: n,
@@ -32,16 +42,7 @@ composition Left {
 
     }
 
-    instance enc = Enc1 {
-        params {
-            n: n,
-            m: m,
-            p: p,
-            encn: encn,
-            encm: encm,
-        }
 
-    }
     compose {
         adversary: {
             GETAOUT: keys_top,
