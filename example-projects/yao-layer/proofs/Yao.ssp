@@ -1,0 +1,205 @@
+proof Yao {
+    const w: Integer;
+    const n: Integer;
+    const m: Integer;
+    const p: Integer;
+    const d: Integer;
+    const zeron: Bits(n);
+    const zerom: Bits(m);
+    const encn: fn Bits(n),Bits(n),Bits(n) -> Bits(m);
+    const encm: fn Bits(n),Bits(m),Bits(n) -> Bits(p);
+
+  
+    instance Indcpa0_inst = Indcpa0 {
+        params {
+            n: n,
+            m: m,
+            p: p,
+            zerom: zerom,
+            zeron: zeron,
+            encm: encm,
+            encn: encn,
+        }
+    }
+
+    instance Indcpa1_inst = Indcpa1 {
+        params {
+            n: n,
+            m: m,
+            p: p,
+            zerom: zerom,
+            zeron: zeron,
+            encm: encm,
+            encn: encn,
+        }
+    }
+
+    instance VeryLeft_inst = VeryLeft {
+        params {
+            n: n,
+            m: m,
+            p: p,
+            zerom: zerom,
+            zeron: zeron,
+            encm: encm,
+            encn: encn,
+        }
+    }
+    instance Left_inst = Left {
+        params {
+            n: n,
+            m: m,
+            p: p,
+            zerom: zerom,
+            zeron: zeron,
+            encm: encm,
+            encn: encn,
+        }
+    }
+    instance Right_inst = Right {
+        params {
+            n: n,
+            m: m,
+            p: p,
+            zerom: zerom,
+            zeron: zeron,
+            encm: encm,
+            encn: encn,
+        }
+    }
+
+    instance Indcpamod0_inst = Indcpamod0 {
+        params {
+            n: n,
+            m: m,
+            p: p,
+            zerom: zerom,
+            zeron: zeron,
+            encm: encm,
+            encn: encn,
+        }
+    }
+    
+    instance Indcpamon0_inst = Indcpamon0 {
+        params {
+            n: n,
+            m: m,
+            p: p,
+            zerom: zerom,
+            zeron: zeron,
+            encm: encm,
+            encn: encn,
+        }
+    }
+
+    assumptions {
+        Indcpa: Indcpa0_inst ~ Indcpa1_inst
+    }
+
+    gamehops {
+        reduction VeryLeft_inst Left_inst {
+            assumption Indcpa
+
+            map Indcpa0_inst VeryLeft_inst {
+                keys_top: keys_top
+                enc: enc
+            }
+
+            map Indcpa1_inst Left_inst {
+                keys_top: keys_top
+                enc: enc
+            }
+        }
+
+
+        equivalence Left_inst Right_inst {
+            GETAOUT: {
+                invariant: [
+                    ./proofs/invariant-GBLG.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+            SETBIT: {
+                invariant: [
+                    ./invariant-GBLG.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+            GETKEYSIN: {
+                invariant: [
+                    ./invariant-GBLG.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+            GBLG: {
+                invariant: [
+                    ./invariant-GBLG.smt2
+                ]
+
+                lemmas {
+                    right-all-aborts: []
+                    right-all-aborts-inverse: []
+                    left-all-aborts: []
+                    left-inverse-all-aborts: []
+                    aborts-equal: [ left-all-aborts , left-inverse-all-aborts , right-all-aborts , right-all-aborts-inverse ]
+                    same-output: [no-abort , left-all-aborts , left-inverse-all-aborts, right-all-aborts, right-all-aborts-inverse]
+                    invariant-GBLG: [no-abort , left-all-aborts , left-inverse-all-aborts, right-all-aborts, right-all-aborts-inverse]
+                }
+            }
+        }
+        
+    equivalence Indcpamod0_inst Indcpamon0_inst {
+
+          SETBIT: {
+                invariant: [
+                    ./invariant-Indcpa0.smt2
+                ]
+
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+
+            GETAOUT: {
+                invariant: [
+                    ./invariant-Indcpa0.smt2
+                ]
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }
+
+            ENCN: {
+                invariant: [
+                    ./invariant-Indcpa0.smt2
+                ]
+                lemmas {
+                    equal-aborts: []
+                    invariant:    [no-abort]
+                    same-output:  [no-abort]
+                }
+            }             
+        }
+
+}
+
+}
