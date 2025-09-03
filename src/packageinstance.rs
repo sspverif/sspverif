@@ -588,6 +588,7 @@ pub(crate) mod instantiate {
                 Expression::TableAccess(ident, expr) => {
                     Expression::TableAccess(self.rewrite_identifier(ident), expr)
                 }
+                Expression::EmptyTable(ty) => Expression::EmptyTable(self.rewrite_type(ty)),
                 Expression::FnCall(ident, args) => {
                     Expression::FnCall(self.rewrite_identifier(ident), args)
                 }
