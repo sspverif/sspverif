@@ -371,7 +371,7 @@ pub struct UntypedNoneTypeInferenceError {
 
 #[derive(Debug, Diagnostic, Error)]
 #[error("Expected an expression identifier, got oracle identifier {oracle_name}`")]
-#[diagnostic(code(ssbee::code::untyped_none_type_inference))]
+#[diagnostic(code(ssbee::code::expected_expression_identifier))]
 pub struct ExpectedExpressionIdentifierError {
     #[source_code]
     pub source_code: miette::NamedSource<String>,

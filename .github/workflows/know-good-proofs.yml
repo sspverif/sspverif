@@ -20,30 +20,4 @@ jobs:
           echo "SSBEE=$(pwd)/target/release/ssbee">>$GITHUB_ENV
 
       - name: Run proofs
-        run: |
-          echo "# Checking Reproducers still prove..."
-          for project_path in example-projects/repro-*; do
-            project=$(basename $project_path)
-            (
-              echo "## Checking $project proves..."
-              cd $project_path;
-              $SSBEE prove
-            )
-          done
-
-          echo "# Checking known-good proofs still prove..."
-          while read project; do
-            project_path=example-projects/$project
-            # skip comments
-            if [ ! -d $project_path ]; then
-              echo "WARN: skipping non-existing project in known-good proofs: $project"
-              continue
-            fi
-            (
-              echo "## Checking $project proves..."
-              cd $project_path;
-              $SSBEE prove
-            )
-          done <example-projects/known-good.txt
-
-
+        run: ./scripts/test-known-examples.sh

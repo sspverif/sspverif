@@ -1,0 +1,18 @@
+composition Simple {
+    instance simple = Simple {
+        params {  }
+    }
+
+    instance callee = Callee {
+        params {  }
+    }
+
+    compose {
+        adversary: {
+            DoIt: simple
+        }
+        simple: {
+            Call: callee
+        }
+    }
+}

@@ -1,0 +1,4 @@
+package Callee {
+    oracle Call() {
+    }
+}

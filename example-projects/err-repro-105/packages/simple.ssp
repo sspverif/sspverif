@@ -1,0 +1,9 @@
+package Simple {
+    import oracles {
+        Call(),
+    }
+
+    oracle DoIt() {
+        x <- Call();
+    }
+}
