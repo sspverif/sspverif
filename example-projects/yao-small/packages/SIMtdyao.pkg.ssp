@@ -3,6 +3,7 @@ package SIMtdyao {
         w: Integer,
         d: Integer,
         p: Integer,
+        m: Integer,
         n: Integer,
         encn: fn Bits(n),Bits(n),Bits(n) -> Bits(m),
         encm: fn Bits(n),Bits(m),Bits(n) -> Bits(p),
