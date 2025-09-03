@@ -10,6 +10,12 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  Fmt:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run cargo fmt
+      run: cargo fmt --workspace --check
   Check:
     runs-on: ubuntu-latest
     steps:
