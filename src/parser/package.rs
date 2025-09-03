@@ -1,8 +1,9 @@
 use super::{
     common::*,
     error::{
-        IdentifierAlreadyDeclaredError, TypeMismatchError, UndefinedIdentifierError,
-        UntypedNoneTypeInferenceError, WrongArgumentCountInInvocationError,
+        ExpectedExpressionIdentifierError, IdentifierAlreadyDeclaredError, TypeMismatchError,
+        UndefinedIdentifierError, UntypedNoneTypeInferenceError,
+        WrongArgumentCountInInvocationError,
     },
     ParseContext, Rule,
 };
@@ -329,6 +330,21 @@ pub enum ParseExpressionError {
     #[diagnostic(transparent)]
     #[error(transparent)]
     UntypedNoneTypeInference(#[from] UntypedNoneTypeInferenceError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    ExpectedExpressionIdentifier(#[from] ExpectedExpressionIdentifierError),
+}
+
+impl From<HandleIdentifierRhsError> for ParseExpressionError {
+    fn from(value: HandleIdentifierRhsError) -> Self {
+        match value {
+            HandleIdentifierRhsError::UndefinedIdentifier(err) => Self::UndefinedIdentifier(err),
+            HandleIdentifierRhsError::ExpectedExpressionIdentifier(err) => {
+                Self::ExpectedExpressionIdentifier(err)
+            }
+        }
+    }
 }
 
 pub fn handle_expression(
@@ -584,7 +600,13 @@ pub fn handle_expression(
                         source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
                     },
                 ))?;
-            let ident = decl.into_identifier().unwrap();
+            let ident = decl
+                .into_identifier()
+                .map_err(|_| ExpectedExpressionIdentifierError {
+                    at: (ident_span.start()..ident_span.end()).into(),
+                    oracle_name: ident.to_string(),
+                    source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
+                })?;
             let Type::Fn(exp_args_tys, ret_ty) = ident.get_type() else {
                 // callee is not a function
                 return Err(TypeMismatchError {
@@ -779,7 +801,7 @@ pub fn handle_identifier_in_code_rhs(
     ctx: &ParseContext,
     ast: &Pair<Rule>,
     name: &str,
-) -> Result<Identifier, UndefinedIdentifierError> {
+) -> Result<Identifier, HandleIdentifierRhsError> {
     let span = ast.as_span();
     let ident = ctx
         .scope
@@ -790,9 +812,24 @@ pub fn handle_identifier_in_code_rhs(
             source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
         })?
         .into_identifier()
-        .unwrap_or_else(|decl| panic!("expected an identifier, got a clone {decl:?}"));
+        .map_err(|_| ExpectedExpressionIdentifierError {
+            at: (span.start()..span.end()).into(),
+            oracle_name: name.to_string(),
+            source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
+        })?;
 
     Ok(ident)
+}
+
+#[derive(Debug, Error, Diagnostic)]
+pub enum HandleIdentifierRhsError {
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    UndefinedIdentifier(#[from] UndefinedIdentifierError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    ExpectedExpressionIdentifier(#[from] ExpectedExpressionIdentifierError),
 }
 
 pub fn handle_identifier_in_code_lhs(
@@ -808,7 +845,11 @@ pub fn handle_identifier_in_code_lhs(
 
     let ident = if let Some(decl) = scope.lookup(name) {
         decl.into_identifier()
-            .map_err(|decl| ParseIdentifierError::InvalidLeftHandSide(name.to_string(), decl))?
+            .map_err(|_| ExpectedExpressionIdentifierError {
+                at: (span.start()..span.end()).into(),
+                oracle_name: name.to_string(),
+                source_code: NamedSource::new(ctx.file_name, ctx.file_content.to_string()),
+            })?
     } else {
         let ident =
             Identifier::PackageIdentifier(PackageIdentifier::Local(PackageLocalIdentifier {
@@ -858,8 +899,13 @@ pub enum ParseIdentifierError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     TypeMismatch(TypeMismatchError),
+
     #[error("error parsing left-hand-side name `{0}`: expected an identifier, got {1:?}")]
     InvalidLeftHandSide(String, Declaration),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    ExpectedExpressionIdentifier(#[from] ExpectedExpressionIdentifierError),
 }
 
 pub fn handle_code(

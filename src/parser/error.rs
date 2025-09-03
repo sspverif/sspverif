@@ -370,6 +370,19 @@ pub struct UntypedNoneTypeInferenceError {
 }
 
 #[derive(Debug, Diagnostic, Error)]
+#[error("Expected an expression identifier, got oracle identifier {oracle_name}`")]
+#[diagnostic(code(ssbee::code::untyped_none_type_inference))]
+pub struct ExpectedExpressionIdentifierError {
+    #[source_code]
+    pub source_code: miette::NamedSource<String>,
+
+    #[label("this identifier is an oracle, not an expression")]
+    pub at: SourceSpan,
+
+    pub oracle_name: String,
+}
+
+#[derive(Debug, Diagnostic, Error)]
 #[error("The package instances {assumption_pkg_inst_name} and {construction_pkg_inst_name} in a reduction mapping have different package types")]
 #[diagnostic(code(ssbee::code::proof::reduction::mapping::package_mismatch))]
 pub struct AssumptionMappingContainsDifferentPackagesError {

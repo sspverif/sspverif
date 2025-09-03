@@ -9,11 +9,13 @@ use crate::{debug_assert_matches, expressions::Expression, types::Type};
 use super::composition::ParseGameContext;
 use super::error::{
     DuplicateGameParameterDefinitionError, DuplicatePackageParameterDefinitionError,
-    MissingGameParameterDefinitionError, MissingPackageParameterDefinitionError,
-    NoSuchGameParameterError, NoSuchPackageParameterError, NoSuchTypeError, ParseNumberError,
-    UndefinedIdentifierError,
+    ExpectedExpressionIdentifierError, MissingGameParameterDefinitionError,
+    MissingPackageParameterDefinitionError, NoSuchGameParameterError, NoSuchPackageParameterError,
+    NoSuchTypeError, ParseNumberError, UndefinedIdentifierError,
 };
-use super::package::{handle_identifier_in_code_rhs, ParseIdentifierError};
+use super::package::{
+    handle_identifier_in_code_rhs, HandleIdentifierRhsError, ParseIdentifierError,
+};
 use super::proof::{ParseProofContext, ParseProofError};
 use super::{ParseContext, Rule};
 
@@ -70,6 +72,21 @@ pub enum HandleTypeError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     UndefinedIdentifier(#[from] UndefinedIdentifierError),
+
+    #[diagnostic(transparent)]
+    #[error(transparent)]
+    ExpectedExpressionIdentifier(#[from] ExpectedExpressionIdentifierError),
+}
+
+impl From<HandleIdentifierRhsError> for HandleTypeError {
+    fn from(value: HandleIdentifierRhsError) -> Self {
+        match value {
+            HandleIdentifierRhsError::UndefinedIdentifier(err) => Self::UndefinedIdentifier(err),
+            HandleIdentifierRhsError::ExpectedExpressionIdentifier(err) => {
+                Self::ExpectedExpressionIdentifier(err)
+            }
+        }
+    }
 }
 
 pub(crate) fn handle_type(ctx: &ParseContext, tipe: Pair<Rule>) -> Result<Type, HandleTypeError> {
