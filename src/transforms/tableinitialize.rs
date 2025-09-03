@@ -81,7 +81,7 @@ pub fn tableinitialize(
                 newcode.push(stmt);
             }
             Statement::Sample(
-                Identifier::Generated(ref id, ref ty),
+                Identifier::Generated(ref id, ref id_ty),
                 Some(ref idxexpr),
                 _,
                 ref ty,
@@ -90,7 +90,7 @@ pub fn tableinitialize(
                 let indextype = idxexpr.get_type();
                 let tabletype = Type::Table(Box::new(indextype.clone()), Box::new(ty.clone()));
 
-                debug_assert_eq!(*ty, tabletype);
+                debug_assert_eq!(*id_ty, tabletype);
 
                 if !new_initialized.contains(id) {
                     new_initialized.push(id.clone());
