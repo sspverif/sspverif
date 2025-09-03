@@ -8,7 +8,7 @@ use crate::statement::{CodeBlock, InvokeOracleStatement, Statement};
 use crate::transforms::samplify::SampleInfo;
 use crate::types::Type;
 
-use crate::writers::smt::exprs::{smt_to_string, SmtExpr, SmtIte, SmtLet};
+use crate::writers::smt::exprs::{SmtExpr, SmtIte, SmtLet};
 
 use super::contexts::{
     GameInstanceContext, GenericOracleContext, OracleContext, PackageInstanceContext,

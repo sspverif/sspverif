@@ -11,7 +11,6 @@ use crate::writers::smt::patterns::{
 };
 
 use super::super::exprs::SmtExpr;
-use super::super::names;
 
 use super::{GameInstanceContext, GenericOracleContext, PackageInstanceContext};
 

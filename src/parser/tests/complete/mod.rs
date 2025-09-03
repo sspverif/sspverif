@@ -13,7 +13,7 @@ use crate::{
     proof::{Claim, ClaimType},
     statement::Statement,
     types::{CountSpec, Type},
-    util::prover_process::{Communicator, ProverBackend},
+    util::prover_process::ProverBackend,
 };
 use std::{
     collections::HashMap,
@@ -22,7 +22,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crate::ui::{mock::MockTestProofUI, ProofUI};
+use crate::ui::mock::MockTestProofUI;
 
 #[test]
 fn empty_param_section_is_fine() {
