@@ -146,7 +146,7 @@ impl<'a> DatastructurePattern<'a> for PackageStatePattern<'a> {
     }
 
     fn selector_sort(&self, sel: &Self::Selector) -> crate::writers::smt::exprs::SmtExpr {
-        let PackageStateSelector { ty: ty, .. } = sel;
+        let PackageStateSelector { ty, .. } = sel;
         (*ty).into()
     }
 
