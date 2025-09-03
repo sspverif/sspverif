@@ -8,11 +8,7 @@ impl From<Expression> for SmtExpr {
             Expression::EmptyTable(t) => {
                 if let Type::Table(idxty, valty) = t {
                     (
-                        (
-                            "as",
-                            "const",
-                            ("Array", *idxty, Type::Maybe(valty.clone())),
-                        ),
+                        ("as", "const", ("Array", *idxty, Type::Maybe(valty.clone()))),
                         ("as", "mk-none", Type::Maybe(valty)),
                     )
                         .into()

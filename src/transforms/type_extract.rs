@@ -144,10 +144,7 @@ fn extract_types_from_codeblock(set: &mut HashSet<Type>, cb: CodeBlock) {
                 record_type(set, ty);
             }
             Statement::InvokeOracle(InvokeOracleStatement {
-                opt_idx,
-                args,
-                ty,
-                ..
+                opt_idx, args, ty, ..
             }) => {
                 if let Some(expr) = opt_idx {
                     record_type(set, expr.get_type());

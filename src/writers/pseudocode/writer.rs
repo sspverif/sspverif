@@ -359,9 +359,7 @@ impl<W: Write> Writer<W> {
     }
 
     pub fn write_oraclesig(&mut self, sig: &OracleSig) -> Result {
-        let OracleSig {
-            name, args, ty, ..
-        } = sig;
+        let OracleSig { name, args, ty, .. } = sig;
 
         self.write_string(name)?;
         self.write_string("(")?;

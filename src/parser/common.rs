@@ -95,10 +95,9 @@ pub(crate) fn handle_type(ctx: &ParseContext, ty: Pair<Rule>) -> Result<Type, Ha
         Rule::type_bool => Type::Boolean,
         Rule::type_integer => Type::Integer,
         Rule::type_string => Type::String,
-        Rule::type_maybe => Type::Maybe(Box::new(handle_type(
-            ctx,
-            ty.into_inner().next().unwrap(),
-        )?)),
+        Rule::type_maybe => {
+            Type::Maybe(Box::new(handle_type(ctx, ty.into_inner().next().unwrap())?))
+        }
         Rule::type_bits => Type::Bits(Box::new(handle_countspec(
             ctx,
             ty.into_inner().next().unwrap(),

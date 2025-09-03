@@ -555,9 +555,7 @@ pub(crate) mod instantiate {
                         .iter()
                         .map(|expr| self.rewrite_expression(expr))
                         .collect(),
-                    ty: ty
-                        .as_ref()
-                        .map(|ty| ty.rewrite_type(&type_rewrite_rules)),
+                    ty: ty.as_ref().map(|ty| ty.rewrite_type(&type_rewrite_rules)),
                 }),
 
                 Statement::IfThenElse(ite) => Statement::IfThenElse(IfThenElse {

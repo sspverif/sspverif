@@ -257,12 +257,8 @@ pub fn handle_decl_list(
                     ty.clone(),
                     (span.start()..span.end()).into(),
                 ));
-                PackageStateIdentifier::new(
-                    name.to_string(),
-                    ctx.pkg_name.to_string(),
-                    ty.clone(),
-                )
-                .into()
+                PackageStateIdentifier::new(name.to_string(), ctx.pkg_name.to_string(), ty.clone())
+                    .into()
             }
             IdentType::Const => {
                 ctx.params.push((
@@ -270,12 +266,8 @@ pub fn handle_decl_list(
                     ty.clone(),
                     (span.start()..span.end()).into(),
                 ));
-                PackageConstIdentifier::new(
-                    name.to_string(),
-                    ctx.pkg_name.to_string(),
-                    ty.clone(),
-                )
-                .into()
+                PackageConstIdentifier::new(name.to_string(), ctx.pkg_name.to_string(), ty.clone())
+                    .into()
             }
         };
 
