@@ -110,14 +110,14 @@ mod instantiate {
 impl GameInstance {
     pub(crate) fn new(
         game_inst_name: String,
-        proof_name: String,
+        theorem_name: String,
         game: Composition,
         types: Vec<(String, Type)>,
         params: Vec<(GameConstIdentifier, Expression)>,
     ) -> GameInstance {
         let inst_ctx: InstantiationContext = InstantiationContext::new_game_instantiation_context(
             &game_inst_name,
-            &proof_name,
+            &theorem_name,
             &params,
             &types,
         );
@@ -225,7 +225,7 @@ impl Claim {
 
 
 #[derive(Clone, Debug)]
-pub struct Proof<'a> {
+pub struct Theorem<'a> {
     pub(crate) name: String,
     pub(crate) consts: Vec<(String, Type)>,
     pub(crate) instances: Vec<GameInstance>,
@@ -235,9 +235,9 @@ pub struct Proof<'a> {
     pub(crate) pkgs: Vec<Package>,
 }
 
-impl Proof<'_> {
-    pub(crate) fn with_new_instances(&self, instances: Vec<GameInstance>) -> Proof {
-        Proof {
+impl Theorem<'_> {
+    pub(crate) fn with_new_instances(&self, instances: Vec<GameInstance>) -> Theorem {
+        Theorem {
             instances,
             ..self.clone()
         }
