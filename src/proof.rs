@@ -5,6 +5,7 @@ use crate::{
     package::{Composition, Package},
     packageinstance::instantiate::InstantiationContext,
     types::Type,
+    theorem::Theorem,
 };
 
 ////////////////////////////////////////////////////
@@ -222,12 +223,14 @@ impl Claim {
     }
 }
 
+
 #[derive(Clone, Debug)]
 pub struct Proof<'a> {
     pub(crate) name: String,
     pub(crate) consts: Vec<(String, Type)>,
     pub(crate) instances: Vec<GameInstance>,
     pub(crate) assumptions: Vec<Assumption>,
+    pub(crate) theorems: Vec<Theorem<'a>>,
     pub(crate) game_hops: Vec<GameHop<'a>>,
     pub(crate) pkgs: Vec<Package>,
 }

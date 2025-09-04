@@ -283,6 +283,7 @@ pub fn handle_proof<'a>(
         consts: consts.into_iter().collect(),
         instances,
         assumptions,
+        theorems: Vec::new(),
         game_hops,
         pkgs: pkgs.into_values().collect(),
     })
