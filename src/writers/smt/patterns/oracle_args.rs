@@ -6,12 +6,12 @@ use crate::writers::smt::sorts::Sort;
 
 mod game_consts;
 mod game_state;
-mod proof_consts;
+mod theorem_consts;
 mod value_arg;
 
 pub use game_consts::*;
 pub use game_state::*;
-pub use proof_consts::*;
+pub use theorem_consts::*;
 
 #[derive(Debug, Clone)]
 pub enum OldNewVariant {

@@ -41,8 +41,8 @@ proof = { kw_proof ~ identifier ~ "{" ~ proof_spec_list ~ "}" }
 proof_spec_list = { const_decl* ~ instance_decl* ~ assumptions? ~ theorems? ~ game_hops }
   assumptions = { kw_assumptions ~ "{" ~ ( assumption_entry )* ~ "}" }
     assumption_entry = { identifier ~ ":" ~ identifier ~ "~" ~ identifier }
-  theorems = { kw_theorems ~ "{" ~ ( theorem_entry )* ~ "}" }
-    theorem_entry = { identifier ~ ":" ~ identifier ~ "~" ~ identifier }
+  theorems = { kw_theorems ~ "{" ~ ( theorems_entry )* ~ "}" }
+    theorems_entry = { identifier ~ ":" ~ identifier ~ "~" ~ identifier }
   game_hops = { kw_gamehops ~ "{" ~ ( reduction | equivalence )* ~ "}"}
 
     reduction = { kw_reduction ~ identifier ~ identifier ~ "{" ~ reduction_spec ~ "}"}
