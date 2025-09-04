@@ -5,7 +5,7 @@ use crate::{
     package::{Composition, Package},
     packageinstance::instantiate::InstantiationContext,
     types::Type,
-    theorem::Theorem,
+    ttheorem::TTheorem,
 };
 
 ////////////////////////////////////////////////////
@@ -230,7 +230,7 @@ pub struct Proof<'a> {
     pub(crate) consts: Vec<(String, Type)>,
     pub(crate) instances: Vec<GameInstance>,
     pub(crate) assumptions: Vec<Assumption>,
-    pub(crate) theorems: Vec<Theorem<'a>>,
+    pub(crate) theorems: Vec<TTheorem<'a>>,
     pub(crate) game_hops: Vec<GameHop<'a>>,
     pub(crate) pkgs: Vec<Package>,
 }
