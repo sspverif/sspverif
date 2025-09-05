@@ -327,7 +327,9 @@ pub struct UndefinedAssumptionError {
 
 #[derive(Debug, Diagnostic, Error)]
 #[error("the first package instance name in an assumption package mapping block header must be from the assumption, but isn't")]
-#[diagnostic(code(ssbee::code::theorem::reduction::assumption_mapping::no_assumption_game_instance))]
+#[diagnostic(code(
+    ssbee::code::theorem::reduction::assumption_mapping::no_assumption_game_instance
+))]
 #[help("the mapping maps the package instances of the assumption game and the model game. Therefore the first needs to be an assumption game instance, while the other needs to be a model game instance. Game instance names from the assumption are {assumption_left_game_instance_name} and {assumption_right_game_instance_name}.")]
 pub struct AssumptionMappingLeftGameInstanceIsNotFromAssumption {
     #[source_code]
@@ -344,7 +346,9 @@ pub struct AssumptionMappingLeftGameInstanceIsNotFromAssumption {
 
 #[derive(Debug, Diagnostic, Error)]
 #[error("the second package instance name in an assumption package mapping block header must be from the model (i.e. not from the assumption), but isn't")]
-#[diagnostic(code(ssbee::code::theorem::reduction::assumption_mapping::no_assumption_game_instance))]
+#[diagnostic(code(
+    ssbee::code::theorem::reduction::assumption_mapping::no_assumption_game_instance
+))]
 pub struct AssumptionMappingRightGameInstanceIsFromAssumption {
     #[source_code]
     pub source_code: miette::NamedSource<String>,
