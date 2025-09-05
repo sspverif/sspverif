@@ -287,6 +287,10 @@ pub fn handle_theorem<'a>(
         ..
     } = ctx;
 
+    if theorems.is_empty() {
+        log::warn!("No theorems defined, only verifying gamehops");
+    }
+
     Ok(Theorem {
         name: theorem_name.to_string(),
         consts: consts.into_iter().collect(),
