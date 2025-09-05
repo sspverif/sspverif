@@ -5,7 +5,7 @@ pub mod composition;
 pub mod package;
 
 pub mod error;
-pub mod proof;
+pub mod theorem;
 // mod wire_checks;
 
 pub mod ast;
@@ -60,7 +60,7 @@ impl SspParser {
         SspParser::parse(Rule::composition, contents)
     }
 
-    pub fn parse_proof(contents: &str) -> Result<Pairs<Rule>, Error<Rule>> {
+    pub fn parse_theorem(contents: &str) -> Result<Pairs<Rule>, Error<Rule>> {
         SspParser::parse(Rule::proof, contents)
     }
 }

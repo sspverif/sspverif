@@ -235,7 +235,7 @@ impl From<Type> for SmtExpr {
             Type::Bits(length) => {
                 let length = match &*length {
                     crate::types::CountSpec::Identifier(identifier) => {
-                        identifier.as_proof_identifier().unwrap().ident()
+                        identifier.as_theorem_identifier().unwrap().ident()
                     }
                     crate::types::CountSpec::Literal(num) => format!("{num}"),
                     crate::types::CountSpec::Any => "*".to_string(),
@@ -272,7 +272,7 @@ impl From<&Type> for SmtExpr {
             Type::Bits(length) => {
                 let length = match &**length {
                     crate::types::CountSpec::Identifier(identifier) => {
-                        identifier.as_proof_identifier().unwrap().ident()
+                        identifier.as_theorem_identifier().unwrap().ident()
                     }
                     crate::types::CountSpec::Literal(num) => format!("{num}"),
                     crate::types::CountSpec::Any => "*".to_string(),
