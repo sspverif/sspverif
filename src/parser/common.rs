@@ -16,7 +16,6 @@ use super::error::{
 use super::package::{
     handle_identifier_in_code_rhs, HandleIdentifierRhsError, ParseIdentifierError,
 };
-use super::package::{handle_identifier_in_code_rhs, ParseIdentifierError};
 use super::theorem::{ParseTheoremContext, ParseTheoremError};
 use super::{ParseContext, Rule};
 
