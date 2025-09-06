@@ -84,7 +84,7 @@ impl<'a> FunctionPattern for DispatchOraclePattern<'a> {
             oracle_args
                 .iter()
                 .cloned()
-                .map(|(name, tipe)| (name, tipe.into())),
+                .map(|(name, ty)| (name, ty.into())),
         )
         .collect()
     }

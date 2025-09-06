@@ -1,8 +1,8 @@
 WHITESPACE = _{ " " | "\r" | "\n" | "\t" }
 
 model = { "(" ~ modelline*~ ")" }
-modelline = {"(define-fun" ~ name ~ "()" ~ tipe ~ value ~ ")"}
+modelline = {"(define-fun" ~ name ~ "()" ~ ty ~ value ~ ")"}
 
 name = @{ ( ASCII_ALPHA | "_" | "-" ) ~ ( ASCII_ALPHA | ASCII_DIGIT | "_" | "-" )* }
-tipe = { "Int" }
+ty = { "Int" }
 value = { ASCII_DIGIT+ }

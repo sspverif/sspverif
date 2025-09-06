@@ -107,12 +107,12 @@ mod treeify_fn_test {
 
     use super::treeify;
 
-    fn pkg_local_test_ident(name: &str, tipe: Type) -> Identifier {
+    fn pkg_local_test_ident(name: &str, ty: Type) -> Identifier {
         Identifier::PackageIdentifier(PackageIdentifier::Local(PackageLocalIdentifier {
             pkg_name: "TestPkg".to_string(),
             oracle_name: "TestOracle".to_string(),
             name: name.to_string(),
-            tipe,
+            ty,
             pkg_inst_name: Some("test-pkg".to_string()),
             game_name: Some("TestGame".to_string()),
             game_inst_name: Some("test-game".to_string()),

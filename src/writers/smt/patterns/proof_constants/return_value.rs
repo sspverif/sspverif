@@ -7,7 +7,7 @@ pub struct ReturnValueConst<'a> {
     pub game_inst_name: &'a str,
     pub pkg_inst_name: &'a str,
     pub oracle_name: &'a str,
-    pub tipe: &'a Type,
+    pub ty: &'a Type,
 }
 
 impl ConstantPattern for ReturnValueConst<'_> {
@@ -22,7 +22,7 @@ impl ConstantPattern for ReturnValueConst<'_> {
     }
 
     fn sort(&self) -> Sort {
-        let inner_sort = self.tipe.clone().into();
+        let inner_sort = self.ty.clone().into();
         Sort::Other("ReturnValue".to_string(), vec![inner_sort])
     }
 }

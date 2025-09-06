@@ -167,8 +167,8 @@ impl From<EmptyDeclaration> for Vec<SmtExpr> {
 }
 
 macro_rules! impl_IntoIterator {
-    ($tipe:ident) => {
-        impl IntoIterator for $tipe {
+    ($ty:ident) => {
+        impl IntoIterator for $ty {
             type Item = SmtExpr;
             type IntoIter = <Vec<SmtExpr> as IntoIterator>::IntoIter;
 

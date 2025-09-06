@@ -14,7 +14,7 @@ use std::fmt;
 pub struct FnSig {
     pub name: String,
     pub args: Vec<(String, Type)>,
-    pub tipe: Type,
+    pub ty: Type,
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
@@ -22,12 +22,12 @@ pub struct OracleSig {
     pub name: String,
     pub args: Vec<(String, Type)>,
     pub multi_inst_idx: MultiInstanceIndices,
-    pub tipe: Type,
+    pub ty: Type,
 }
 
 impl OracleSig {
     pub(crate) fn types_match(&self, other: &Self) -> bool {
-        self.tipe.types_match(&other.tipe)
+        self.ty.types_match(&other.ty)
             && self.args.len() == other.args.len()
             && self
                 .args
@@ -243,10 +243,10 @@ impl fmt::Display for OracleSig {
             self.name,
             self.args
                 .iter()
-                .map(|(name, tipe)| format!("{name}: {tipe:?}"))
+                .map(|(name, ty)| format!("{name}: {ty:?}"))
                 .collect::<Vec<_>>()
                 .join(", "),
-            self.tipe
+            self.ty
         )
     }
 }

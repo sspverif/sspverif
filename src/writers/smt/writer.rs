@@ -112,8 +112,8 @@ impl<'a> CompositionSmtWriter<'a> {
                                  game:{game_inst_name}(game_name) pkg:{pkg_inst_name}({pkg_name}) oracle:{oracle_name}", game_inst_name = game_inst_name, pkg_inst_name = pkg_inst_name, pkg_name = pkg_name, oracle_name = oracle_name)
                 }
                 // TODO actually use the type that we sample to know how far to advance the randomness tape
-                Statement::Sample(ident, opt_idx, sample_id, tipe, _) => {
-                    self.smt_build_sample(oracle_ctx, result, ident, opt_idx, sample_id, tipe)
+                Statement::Sample(ident, opt_idx, sample_id, ty, _) => {
+                    self.smt_build_sample(oracle_ctx, result, ident, opt_idx, sample_id, ty)
                 }
                 Statement::Parse(idents, expr, _) => {
                     self.smt_build_parse(oracle_ctx, result, idents, expr)
@@ -124,7 +124,7 @@ impl<'a> CompositionSmtWriter<'a> {
                 }) => {
                     panic!("found an unresolved oracle invocation: {stmt:#?}");
                 }
-                Statement::InvokeOracle(InvokeOracleStatement { tipe: None, .. }) => {
+                Statement::InvokeOracle(InvokeOracleStatement { ty: None, .. }) => {
                     panic!("found an unresolved oracle invocation: {stmt:#?}");
                 }
                 Statement::InvokeOracle(InvokeOracleStatement {
@@ -133,7 +133,7 @@ impl<'a> CompositionSmtWriter<'a> {
                     name,
                     args,
                     target_inst_name: Some(target),
-                    tipe: Some(_),
+                    ty: Some(_),
                     ..
                 }) => self.smt_build_invoke(oracle_ctx, result, id, opt_idx, name, args, target),
                 Statement::Assign(ident, opt_idx, expr, _) => {
@@ -187,8 +187,8 @@ impl<'a> CompositionSmtWriter<'a> {
     //                              game:{game_inst_name}(game_name) pkg:{pkg_inst_name}({pkg_name}) oracle:{oracle_name}", game_inst_name = game_inst_name, pkg_inst_name = pkg_inst_name, pkg_name =pkg_name, oracle_name = oracle_name)
     //             }
     //             // TODO actually use the type that we sample to know how far to advance the randomness tap
-    //             Statement::Sample(ident, opt_idx, sample_id, tipe, _) => {
-    //                 self.smt_build_sample(oracle_ctx, result, ident, opt_idx, sample_id, tipe)
+    //             Statement::Sample(ident, opt_idx, sample_id, ty, _) => {
+    //                 self.smt_build_sample(oracle_ctx, result, ident, opt_idx, sample_id, ty)
     //             }
     //             Statement::Parse(idents, expr, _) => {
     //                 self.smt_build_parse(oracle_ctx, result, idents, expr)
@@ -199,7 +199,7 @@ impl<'a> CompositionSmtWriter<'a> {
     //             }) => {
     //                 panic!("found an unresolved oracle invocation: {:#?}", stmt);
     //             }
-    //             Statement::InvokeOracle(InvokeOracleStatement { tipe: None, .. }) => {
+    //             Statement::InvokeOracle(InvokeOracleStatement { ty: None, .. }) => {
     //                 panic!("found an unresolved oracle invocation: {:#?}", stmt);
     //             }
     //             Statement::InvokeOracle(InvokeOracleStatement {
@@ -208,7 +208,7 @@ impl<'a> CompositionSmtWriter<'a> {
     //                 name,
     //                 args,
     //                 target_inst_name: Some(target),
-    //                 tipe: Some(_),
+    //                 ty: Some(_),
     //                 ..
     //             }) => self.smt_build_invoke(oracle_ctx, result, id, opt_idx, name, args, target),
     //             Statement::Assign(ident, opt_idx, expr, _) => {
@@ -638,7 +638,7 @@ impl<'a> CompositionSmtWriter<'a> {
         ident: &Identifier,
         opt_idx: &Option<Expression>,
         sample_id: &Option<usize>,
-        tipe: &Type,
+        ty: &Type,
     ) -> SmtExpr {
         let sample_id = sample_id.expect("found a None sample_id");
         let game_inst_ctx = self.context();
@@ -656,7 +656,7 @@ impl<'a> CompositionSmtWriter<'a> {
                 )
             });
 
-        let rand_fn_name = names::fn_sample_rand_name(game_inst_name, tipe);
+        let rand_fn_name = names::fn_sample_rand_name(game_inst_name, ty);
 
         let rand_val: SmtExpr = (rand_fn_name, format!("{sample_id}"), ctr.clone()).into();
 
@@ -1092,9 +1092,9 @@ impl<'a> CompositionSmtWriter<'a> {
         // ensure the sorts are unique so they all just exist once
         let smt_sorts: HashSet<SmtExpr> = self
             .sample_info
-            .tipes
+            .tys
             .iter()
-            .map(|tipe| tipe.clone().into())
+            .map(|ty| ty.clone().into())
             .collect();
 
         // turn them to function declarations

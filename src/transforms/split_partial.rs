@@ -314,7 +314,7 @@ fn transform_oracle(
         let new_sig = SplitOracleSig {
             name: oracle_name.clone(),
             args: osig.args.clone(),
-            tipe: Type::Empty, // <-- note the difference
+            ty: Type::Empty, // <-- note the difference
             partial_vars: oracle_locals.clone(),
             path: splitpath.clone(),
         };
@@ -329,7 +329,7 @@ fn transform_oracle(
     let sig = SplitOracleSig {
         name: oracle_name.clone(),
         args: osig.args.clone(),
-        tipe: osig.tipe.clone(), // <-- note the difference
+        ty: osig.ty.clone(), // <-- note the difference
         partial_vars: last_locals.clone(),
         path: last_splitpath.clone(),
     };
@@ -486,7 +486,7 @@ fn transform_codeblock(
                 name,
                 target_inst_name: Some(target_inst_name),
                 args,
-                tipe,
+                ty,
                 file_pos,
                 ..
             }) => {
@@ -525,7 +525,7 @@ fn transform_codeblock(
                                         pkg_name: pkg_name.to_string(),
                                         oracle_name: oracle_name.clone(),
                                         name: "_".to_string(),
-                                        tipe: Type::Empty,
+                                        ty: Type::Empty,
                                         pkg_inst_name: None,
                                         game_name: None,
                                         game_inst_name: None,
@@ -537,7 +537,7 @@ fn transform_codeblock(
                                 opt_dst_inst_idx: None,
                                 args: args.clone(),
                                 target_inst_name: Some(target_inst_name.to_string()),
-                                tipe: None,
+                                ty: None,
                                 file_pos,
                             })]),
                             split_locals.clone(),
@@ -564,7 +564,7 @@ fn transform_codeblock(
                         name: last_sig.name.clone(),
                         args: args.clone(),
                         target_inst_name: Some(target_inst_name.to_string()),
-                        tipe: tipe.clone(),
+                        ty: ty.clone(),
                         file_pos,
                     })]),
                     split_locals,
@@ -627,22 +627,22 @@ fn get_declarations(stmt: &Statement) -> Vec<(String, Type)> {
         }
         Statement::InvokeOracle(InvokeOracleStatement {
             id: Identifier::Generated(id_name, _),
-            tipe: Some(tipe),
+            ty: Some(ty),
             opt_idx: Some(idx),
             ..
         })
-        | Statement::Sample(Identifier::Generated(id_name, _), Some(idx), _, tipe, _) => vec![(
+        | Statement::Sample(Identifier::Generated(id_name, _), Some(idx), _, ty, _) => vec![(
             id_name.to_string(),
-            Type::Table(Box::new(idx.get_type().clone()), Box::new(tipe.clone())),
+            Type::Table(Box::new(idx.get_type().clone()), Box::new(ty.clone())),
         )],
         Statement::InvokeOracle(InvokeOracleStatement {
             id: Identifier::Generated(id_name, _),
-            tipe: Some(tipe),
+            ty: Some(ty),
             opt_idx: None,
             ..
         })
-        | Statement::Sample(Identifier::Generated(id_name, _), None, _, tipe, _) => {
-            vec![(id_name.to_string(), tipe.clone())]
+        | Statement::Sample(Identifier::Generated(id_name, _), None, _, ty, _) => {
+            vec![(id_name.to_string(), ty.clone())]
         }
         _ => vec![],
     }

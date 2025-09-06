@@ -29,7 +29,7 @@ impl super::GameTransform for TransformNg {
                     newinst.pkg.oracles[i].code = returnify(
                         &oracle.code,
                         oracle.file_pos,
-                        oracle.sig.tipe == Type::Empty,
+                        oracle.sig.ty == Type::Empty,
                         &inst.name,
                         &oracle.sig.name,
                     )?;
@@ -38,7 +38,7 @@ impl super::GameTransform for TransformNg {
                 //     newinst.pkg.split_oracles[i].code = returnify(
                 //         &oracle.code,
                 //         oracle.file_pos,
-                //         oracle.sig.tipe == Type::Empty,
+                //         oracle.sig.ty == Type::Empty,
                 //         &inst.name,
                 //         &oracle.sig.name,
                 //     )?;
@@ -79,7 +79,7 @@ mod old {
                         newinst.pkg.oracles[i].code = returnify(
                             &oracle.code,
                             oracle.file_pos,
-                            oracle.sig.tipe == Type::Empty,
+                            oracle.sig.ty == Type::Empty,
                             &inst.name,
                             &oracle.sig.name,
                         )?;
@@ -178,12 +178,12 @@ mod test {
     use crate::statement::{CodeBlock, IfThenElse, Statement};
     use crate::types::Type;
 
-    fn pkg_local_test_ident(name: &str, tipe: Type) -> Identifier {
+    fn pkg_local_test_ident(name: &str, ty: Type) -> Identifier {
         Identifier::PackageIdentifier(PackageIdentifier::Local(PackageLocalIdentifier {
             pkg_name: "TestPkg".to_string(),
             oracle_name: "TestOracle".to_string(),
             name: name.to_string(),
-            tipe,
+            ty,
             pkg_inst_name: Some("test-pkg".to_string()),
             game_name: Some("TestGame".to_string()),
             game_inst_name: Some("test-game".to_string()),
