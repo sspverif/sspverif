@@ -31,6 +31,7 @@ kw_assumption = _{ "assumption" }
 kw_assumptions = _{ "assumptions" }
 kw_reduction = _{ "reduction" }
 kw_equivalence = _{ "equivalence" }
+kw_conjecture = _{ "conjecture" }
 kw_gamehops = _{ "gamehops" }
 kw_map = _{ "map" }
 kw_invariant = _{ "invariant" }
@@ -40,7 +41,9 @@ proof = { kw_proof ~ identifier ~ "{" ~ proof_spec_list ~ "}" }
 proof_spec_list = { const_decl* ~ instance_decl* ~ assumptions? ~ game_hops }
   assumptions = { kw_assumptions ~ "{" ~ ( assumption_entry )* ~ "}" }
     assumption_entry = { identifier ~ ":" ~ identifier ~ "~" ~ identifier }
-  game_hops = { kw_gamehops ~ "{" ~ ( reduction | equivalence )* ~ "}"}
+  game_hops = { kw_gamehops ~ "{" ~ ( reduction | equivalence | conjecture )* ~ "}"}
+
+    conjecture = { kw_conjecture ~ identifier ~ identifier }
 
     reduction = { kw_reduction ~ identifier ~ identifier ~ "{" ~ reduction_spec ~ "}"}
       reduction_spec = { assumption_spec ~ map_spec ~ map_spec }
