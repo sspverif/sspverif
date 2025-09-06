@@ -1102,6 +1102,14 @@ pub fn tex_write_proof(
                     equiv.right_name().replace('_', "\\_")
                 )?;
             }
+            GameHop::Conjecture(conj) => {
+                writeln!(
+                    file,
+                    "\\section{{Conjectured Equivalence between {} and {}}}",
+                    conj.left_name().as_str().replace('_', "\\_"),
+                    conj.right_name().as_str().replace('_', "\\_")
+                )?;
+            }
         }
     }
 
