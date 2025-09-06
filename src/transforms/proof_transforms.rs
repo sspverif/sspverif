@@ -57,6 +57,12 @@ fn transform_game_inst(
     let (comp, types) = type_extract::Transformation(comp)
         .transform()
         .expect("type extraction transformation failed unexpectedly");
+    /**
+     * Note: we currently do samplify early so a `if foo { stuff }
+     * else { other stuff } ... x <- Integer` gets the same sample
+     * counter for the x sampling after returnify (instead of
+     * different ones depending on which branch was taken)
+     */
     let (comp, samplinginfo) = samplify::Transformation(&comp)
         .transform()
         .expect("samplify transformation failed unexpectedly");
