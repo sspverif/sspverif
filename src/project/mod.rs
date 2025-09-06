@@ -192,6 +192,13 @@ impl<'a> Project<'a> {
                             red.assumption_name()
                         );
                     }
+                    GameHop::Conjecture(conj) => {
+                        println!(
+                            "{i}: Conjecture   {} ~= {}",
+                            conj.left_name().as_str(),
+                            conj.right_name().as_str()
+                        );
+                    }
                 }
             }
         }
@@ -237,6 +244,9 @@ impl<'a> Project<'a> {
 
                 match game_hop {
                     GameHop::Reduction(_) => {
+                        ui.proofstep_is_reduction(proof.as_name(), &format!("{game_hop}"));
+                    }
+                    GameHop::Conjecture(_) => {
                         ui.proofstep_is_reduction(proof.as_name(), &format!("{game_hop}"));
                     }
                     GameHop::Equivalence(eq) => {
