@@ -7,6 +7,12 @@ pub(crate) struct Conjecture<'a> {
 }
 
 impl<'a> Conjecture<'a> {
+    pub fn new(left_game: GameInstanceName<'a>, right_game: GameInstanceName<'a>) -> Self {
+        Self {
+            left_game,
+            right_game,
+        }
+    }
     pub(crate) fn left_name(&self) -> &GameInstanceName<'a> {
         &self.left_game
     }

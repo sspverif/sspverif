@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     expressions::Expression,
+    gamehops::conjecture::Conjecture,
     gamehops::equivalence::Equivalence,
     gamehops::reduction::Assumption,
     gamehops::GameHop,
@@ -33,6 +34,7 @@ use pest::{
 use thiserror::Error;
 
 use super::{
+    ast::GameInstanceName,
     common::{self, HandleTypeError},
     error::{
         AssumptionExportsNotSufficientError, AssumptionMappingMissesPackageInstanceError,
@@ -412,6 +414,7 @@ fn handle_game_hops<'a>(
 ) -> Result<(), ParseProofError> {
     for hop_ast in ast {
         let game_hop = match hop_ast.as_rule() {
+            Rule::conjecture => handle_conjecture(ctx, hop_ast)?,
             Rule::equivalence => handle_equivalence(ctx, hop_ast)?,
             Rule::reduction => super::reduction::handle_reduction(ctx, hop_ast)?,
             otherwise => unreachable!("found {:?} in game_hops", otherwise),
@@ -420,6 +423,17 @@ fn handle_game_hops<'a>(
     }
 
     Ok(())
+}
+
+pub(crate) fn handle_conjecture<'a>(
+    ctx: &mut ParseProofContext<'a>,
+    ast: Pair<'a, Rule>,
+) -> Result<GameHop<'a>, ParseProofError> {
+    let mut ast = ast.into_inner();
+
+    let [left_game, right_game]: [GameInstanceName; 2] = handle_identifiers(&mut ast);
+
+    Ok(GameHop::Conjecture(Conjecture::new(left_game, right_game)))
 }
 
 fn handle_equivalence<'a>(
