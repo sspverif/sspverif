@@ -1,16 +1,19 @@
 use std::fmt;
 
+use conjecture::Conjecture;
 use equivalence::Equivalence;
 use reduction::Reduction;
 
 use crate::parser::ast::Identifier;
 
+pub mod conjecture;
 pub mod equivalence;
 pub mod reduction;
 //
 // TODO: add a HybridArgument variant
 #[derive(Debug, Clone)]
 pub enum GameHop<'a> {
+    Conjecture(Conjecture<'a>),
     Reduction(Reduction<'a>),
     Equivalence(Equivalence),
 }
@@ -50,6 +53,7 @@ impl<'a> GameHop<'a> {
 
     pub fn left_game_instance_name(&self) -> &str {
         match self {
+            GameHop::Conjecture(conjecture) => conjecture.left_name().as_str(),
             GameHop::Reduction(reduction) => {
                 reduction.left().construction_game_instance_name().as_str()
             }
@@ -59,6 +63,7 @@ impl<'a> GameHop<'a> {
 
     pub fn right_game_instance_name(&self) -> &str {
         match self {
+            GameHop::Conjecture(conjecture) => conjecture.right_name().as_str(),
             GameHop::Reduction(reduction) => {
                 reduction.right().construction_game_instance_name().as_str()
             }
@@ -70,6 +75,12 @@ impl<'a> GameHop<'a> {
 impl<'a> fmt::Display for GameHop<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            GameHop::Conjecture(conj) => {
+                let left_name = conj.left_name().as_str();
+                let right_name = conj.right_name().as_str();
+                write!(f, "{left_name} == {right_name}")?;
+                Ok(())
+            }
             GameHop::Equivalence(eq) => {
                 let left_name = eq.left_name();
                 let right_name = eq.right_name();
