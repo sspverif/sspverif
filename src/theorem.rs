@@ -1,6 +1,9 @@
 use crate::{
     expressions::Expression,
-    gamehops::{reduction::Assumption, GameHop},
+    gamehops::{
+        reduction::{Assumption, Reduction},
+        GameHop,
+    },
     identifier::game_ident::GameConstIdentifier,
     package::{Composition, Package},
     packageinstance::instantiate::InstantiationContext,
@@ -248,6 +251,16 @@ impl Theorem<'_> {
 
     pub(crate) fn game_hops(&self) -> &[GameHop] {
         &self.game_hops
+    }
+
+    pub(crate) fn reductions(&self) -> impl Iterator<Item = &Reduction> {
+        self.game_hops.iter().filter_map(|hop| {
+            if let GameHop::Reduction(red) = hop {
+                Some(red)
+            } else {
+                None
+            }
+        })
     }
 
     pub(crate) fn instances(&self) -> &[GameInstance] {
