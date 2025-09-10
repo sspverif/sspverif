@@ -117,12 +117,16 @@ impl<'a> Proof<'a> {
     pub(crate) fn game_hops(&self) -> impl Iterator<Item = &GameHop<'_>> {
         self.hops.iter().map(|hopid| &self.gamehops[*hopid])
     }
+
+    pub(crate) fn instances(&self) -> impl Iterator<Item = &GameInstance> {
+        self.sequence.iter().map(|instid| &self.specialization[*instid].0 )
+    }
 }
 
 impl std::fmt::Display for Proof<'_> {
-    // This trait requires `fmt` with this exact signature.
+
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        //writeln!(f, "Theorem {}:", self.theorem.name)?;
+
         writeln!(f, "Real")?;
         for i in 0..self.hops.len() {
             let left = &self.specialization[self.sequence[i]];
@@ -155,6 +159,15 @@ impl std::fmt::Display for Proof<'_> {
     }
 }
 
+
+/** There is a gamehop between generic_match and generic_other.
+ ** specialization[game] is compatible with generic_match.
+ **
+ ** Goal is to create a specialized game hop. We already have a
+ ** specialized version of generic_match at specialization[game] and
+ ** will create a specialization for generic_other and return the
+ ** position of that newly added instance.
+ */
 fn specialize<'a>(
     specialization: &mut Vec<(GameInstance, String, Vec<(String, String)>)>,
     game: usize,
@@ -179,6 +192,7 @@ fn specialize<'a>(
             generic_match.name,
             generic_other.name
         );
+        ///
         let mut new_game = generic_other.clone();
         new_game.consts = new_game
             .consts
