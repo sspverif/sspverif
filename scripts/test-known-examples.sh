@@ -27,8 +27,9 @@ for project_path in example-projects/err-repro-*; do
     )
 done
 
+# sed script from https://unix.stackexchange.com/a/244479
 echo "# Checking known-good proofs still prove..."
-while read project; do
+sed -e 's/[[:space:]]*#.*// ; /^[[:space:]]*$/d' "example-projects/known-good.txt" | while read project; do
     project_path=example-projects/$project
     # skip comments
     if [ ! -d $project_path ]; then
@@ -40,7 +41,7 @@ while read project; do
         cd $project_path
         $SSBEE prove || fail "expected success, but failed: $project_path"
     )
-done <example-projects/known-good.txt
+done
 
 if [ -f failed ]; then
     exit 1
