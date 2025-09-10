@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use crate::writers::smt::patterns::{
     proof_consts::ProofConstsPattern as ProofConstsDatatypePattern, DatastructurePattern as _,
 };

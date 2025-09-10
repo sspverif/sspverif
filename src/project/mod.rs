@@ -1,11 +1,10 @@
-use rayon::iter::ParallelIterator;
-/**
- *  project is the high-level structure of sspverif.
- *
- *  here we assemble all the users' packages, assumptions, game hops and equivalence proofs.
- *  we also facilitate individual proof steps here, and provide an interface for doing the whole proof.
- *
- */
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+//! project is the high-level structure of sspverif.
+//!
+//! here we assemble all the users' packages, assumptions, game hops and equivalence proofs.
+//! we also facilitate individual proof steps here, and provide an interface for doing the whole proof.
+
 use std::path::Path;
 use std::{collections::HashMap, path::PathBuf};
 use walkdir;
