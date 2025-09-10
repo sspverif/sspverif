@@ -250,7 +250,7 @@ impl<'a> Project<'a> {
                         ui.proofstep_is_reduction(theorem.as_name(), &format!("{game_hop}"));
                     }
                     GameHop::Conjecture(_) => {
-                        ui.proofstep_is_reduction(proof.as_name(), &format!("{game_hop}"));
+                        ui.proofstep_is_reduction(theorem.as_name(), &format!("{game_hop}"));
                     }
                     GameHop::Equivalence(eq) => {
                         if parallel > 1 {

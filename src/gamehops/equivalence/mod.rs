@@ -1729,7 +1729,7 @@ impl<'a> EquivalenceContext<'a> {
         }
 
         for pos in right_positions {
-            let pos_ty = pos.tipe.clone();
+            let pos_ty = pos.ty.clone();
             let pos_theorem_ty = type_use_theorem_ident(pos_ty);
             right_positions_by_type
                 .entry(pos_theorem_ty)
