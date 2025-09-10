@@ -119,8 +119,8 @@ impl<'a> CompositionSmtWriter<'a> {
                         ident,
                         opt_idx,
                         sample_id,
-                        sample_name,
                         ty,
+                        sample_name,
                     ),
                 Statement::Parse(idents, expr, _) => {
                     self.smt_build_parse(oracle_ctx, result, idents, expr)
@@ -669,7 +669,7 @@ impl<'a> CompositionSmtWriter<'a> {
                 )
             });
 
-        let rand_fn_name = names::fn_sample_rand_name(game_inst_name, tipe);
+        let rand_fn_name = names::fn_sample_rand_name(game_inst_name, ty);
 
         let rand_val: SmtExpr = (rand_fn_name, sample_pos, ctr.clone()).into();
 
