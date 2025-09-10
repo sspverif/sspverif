@@ -1,3 +1,4 @@
+use crate::transforms::samplify::Position as SamplePosition;
 use std::{fmt::Write, marker::PhantomData};
 
 use super::exprs::SmtExpr;
@@ -202,5 +203,17 @@ impl<'a> NameSection for usize {
         builder: NameBuilder<Delim, Stage>,
     ) -> NameBuilder<Delim, NotEmpty> {
         builder.push(*self)
+    }
+}
+
+impl NameSection for SamplePosition {
+    fn push_into<Delim: Delimiter, Stage: NameBuilderStage>(
+        &self,
+        builder: NameBuilder<Delim, Stage>,
+    ) -> NameBuilder<Delim, NotEmpty> {
+        builder
+            .push(&self.inst_name)
+            .push(&self.oracle_name)
+            .push(&self.sample_name)
     }
 }

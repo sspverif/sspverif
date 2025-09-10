@@ -3,7 +3,7 @@ use crate::{
     identifier::game_ident::GameConstIdentifier,
     package::{Composition, Export},
     proof::GameInstance,
-    transforms::samplify::SampleInfo,
+    transforms::samplify::{Position as SamplePosition, SampleInfo},
     types::Type,
     writers::smt::{
         exprs::SmtExpr,
@@ -127,7 +127,9 @@ impl GameInstanceContext<'_> {
         let spec = self
             .datastructure_game_state_pattern()
             .datastructure_spec(&declare_info);
-        let selector = GameStateSelector::Randomness { sample_id };
+        let selector = GameStateSelector::Randomness {
+            sample_pos: sample_info.positions[sample_id].clone(),
+        };
 
         self.datastructure_game_state_pattern()
             .access(&spec, &selector, state)
@@ -178,7 +180,9 @@ impl GameInstanceContext<'_> {
         let spec = self
             .datastructure_game_state_pattern()
             .datastructure_spec(&declare_info);
-        let selector = GameStateSelector::Randomness { sample_id };
+        let selector = GameStateSelector::Randomness {
+            sample_pos: sample_info.positions[sample_id].clone(),
+        };
 
         self.datastructure_game_state_pattern()
             .update(&spec, &selector, state, new_value)
@@ -201,12 +205,12 @@ impl GameInstanceContext<'_> {
 
     pub(crate) fn smt_eval_randfn<CTR: Into<SmtExpr>>(
         &self,
-        sample_id: usize,
+        sample_pos: &SamplePosition,
         ctr: CTR,
         ty: &Type,
     ) -> SmtExpr {
         let rand_fn_name = names::fn_sample_rand_name(&self.game_inst.name, ty);
-        (rand_fn_name, sample_id, ctr).into()
+        (rand_fn_name, sample_pos, ctr).into()
     }
 }
 

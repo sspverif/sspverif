@@ -245,7 +245,7 @@ impl<W: Write> Writer<W> {
                     self.write_string("return;\n")?;
                 }
             }
-            Statement::Sample(id, idx, sample_id, t, _) => {
+            Statement::Sample(id, idx, sample_id, t, _, _) => {
                 self.write_identifier(id)?;
 
                 if let Some(idx) = idx {

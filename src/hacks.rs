@@ -19,6 +19,24 @@ impl From<ReturnValueDeclaration> for SmtExpr {
     }
 }
 
+pub struct SampleIdDeclaration;
+
+impl From<SampleIdDeclaration> for SmtExpr {
+    fn from(_: SampleIdDeclaration) -> Self {
+        (
+            "declare-datatype",
+            "SampleId",
+            ((
+                "sample-id",
+                ("sample-pkg-name", "String"),
+                ("sample-oracle-name", "String"),
+                ("sample-name", "String"),
+            ),),
+        )
+            .into()
+    }
+}
+
 pub struct MaybeDeclaration;
 
 impl Display for MaybeDeclaration {

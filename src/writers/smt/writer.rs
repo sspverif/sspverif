@@ -112,9 +112,16 @@ impl<'a> CompositionSmtWriter<'a> {
                                  game:{game_inst_name}(game_name) pkg:{pkg_inst_name}({pkg_name}) oracle:{oracle_name}", game_inst_name = game_inst_name, pkg_inst_name = pkg_inst_name, pkg_name = pkg_name, oracle_name = oracle_name)
                 }
                 // TODO actually use the type that we sample to know how far to advance the randomness tape
-                Statement::Sample(ident, opt_idx, sample_id, ty, _) => {
-                    self.smt_build_sample(oracle_ctx, result, ident, opt_idx, sample_id, ty)
-                }
+                Statement::Sample(ident, opt_idx, sample_id, ty, sample_name, _) => self
+                    .smt_build_sample(
+                        oracle_ctx,
+                        result,
+                        ident,
+                        opt_idx,
+                        sample_id,
+                        ty,
+                        sample_name,
+                    ),
                 Statement::Parse(idents, expr, _) => {
                     self.smt_build_parse(oracle_ctx, result, idents, expr)
                 }
@@ -639,8 +646,14 @@ impl<'a> CompositionSmtWriter<'a> {
         opt_idx: &Option<Expression>,
         sample_id: &Option<usize>,
         ty: &Type,
+        sample_name: &Option<String>,
     ) -> SmtExpr {
         let sample_id = sample_id.expect("found a None sample_id");
+        let sample_pos = &self.sample_info.positions[sample_id];
+        debug_assert!(sample_name
+            .as_ref()
+            .is_some_and(|name| *name == sample_pos.sample_name));
+
         let game_inst_ctx = self.context();
 
         let game_inst_name = game_inst_ctx.game_inst_name();
@@ -658,7 +671,7 @@ impl<'a> CompositionSmtWriter<'a> {
 
         let rand_fn_name = names::fn_sample_rand_name(game_inst_name, ty);
 
-        let rand_val: SmtExpr = (rand_fn_name, format!("{sample_id}"), ctr.clone()).into();
+        let rand_val: SmtExpr = (rand_fn_name, sample_pos, ctr.clone()).into();
 
         let new_val = if let Some(idx) = opt_idx {
             ("store", ident.clone(), idx.clone(), rand_val.clone()).into()
@@ -1103,8 +1116,11 @@ impl<'a> CompositionSmtWriter<'a> {
             .map(|smt_sort| {
                 (
                     "declare-fun",
-                    format!("__sample-rand-{}-{}", game_inst.name, smt_sort),
-                    (SmtExpr::Atom("Int".into()), SmtExpr::Atom("Int".into())),
+                    format!("__sample-rand-{}-{}", game_inst.name, smt_sort.to_string()),
+                    (
+                        SmtExpr::Atom("SampleId".into()),
+                        SmtExpr::Atom("Int".into()),
+                    ),
                     smt_sort,
                 )
                     .into()
