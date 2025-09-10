@@ -119,14 +119,14 @@ impl<'a> Proof<'a> {
     }
 
     pub(crate) fn instances(&self) -> impl Iterator<Item = &GameInstance> {
-        self.sequence.iter().map(|instid| &self.specialization[*instid].0 )
+        self.sequence
+            .iter()
+            .map(|instid| &self.specialization[*instid].0)
     }
 }
 
 impl std::fmt::Display for Proof<'_> {
-
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-
         writeln!(f, "Real")?;
         for i in 0..self.hops.len() {
             let left = &self.specialization[self.sequence[i]];
@@ -158,7 +158,6 @@ impl std::fmt::Display for Proof<'_> {
         Ok(())
     }
 }
-
 
 /** There is a gamehop between generic_match and generic_other.
  ** specialization[game] is compatible with generic_match.
