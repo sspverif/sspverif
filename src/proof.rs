@@ -1,260 +1,353 @@
+use itertools::Itertools;
+use std::collections::{HashMap, HashSet, VecDeque};
+
 use crate::{
-    expressions::Expression,
-    gamehops::{reduction::Assumption, GameHop},
-    identifier::game_ident::GameConstIdentifier,
-    package::{Composition, Package},
-    packageinstance::instantiate::InstantiationContext,
-    types::Type,
+    expressions::Expression, gamehops::equivalence::Equivalence, gamehops::reduction::Reduction,
+    gamehops::GameHop, theorem::GameInstance,
 };
 
-////////////////////////////////////////////////////
-
 #[derive(Debug, Clone)]
-pub(crate) struct GameInstance {
-    pub(crate) name: String,
-    pub(crate) game: Composition,
-    pub(crate) types: Vec<(String, Type)>,
-    pub(crate) consts: Vec<(GameConstIdentifier, Expression)>,
+pub struct Proof<'a> {
+    name: String,
+    left_name: String,
+    right_name: String,
+
+    // Specialized Instance -> reference to more general instance in the theorem
+    specialization: Vec<(GameInstance, String, Vec<(String, String)>)>,
+    gamehops: Vec<GameHop<'a>>,
+    sequence: Vec<usize>,
+    hops: Vec<usize>,
 }
 
-mod instantiate {
-    use crate::{
-        package::Package,
-        packageinstance::{instantiate::InstantiationContext, PackageInstance},
-    };
+impl<'a> Proof<'a> {
+    pub(crate) fn try_new(
+        instances: &[GameInstance],
+        gamehops: &Vec<GameHop<'a>>,
+        name: String,
+        left_name: String,
+        right_name: String,
+    ) -> Option<Proof<'a>> {
+        let real = instances.iter().position(|inst| inst.name == left_name)?;
+        let ideal = instances.iter().position(|inst| inst.name == right_name)?;
 
-    /*
-    *
-    *This function looks funny.
-    It is doing working during a game-to-gameinstance rewrite,
-    but does things for a pacakge-to-package instance rewrite.
-    *
-    * */
-    pub(crate) fn rewrite_pkg_inst(
-        inst_ctx: InstantiationContext,
-        pkg_inst: &PackageInstance,
-    ) -> PackageInstance {
-        let mut pkg_inst = pkg_inst.clone();
-
-        let new_oracles = pkg_inst
-            .pkg
-            .oracles
+        let mut specialization: Vec<_> = instances
             .iter()
-            .map(|oracle_def| inst_ctx.rewrite_oracle_def(oracle_def.clone()))
+            .map(|inst| (inst.clone(), inst.name().to_string(), Vec::new()))
             .collect();
+        let mut workque = VecDeque::new();
+        workque.push_back(real);
+        let mut predecessors = HashMap::new();
 
-        // let new_split_oracles = pkg_inst
-        //     .pkg
-        //     .split_oracles
-        //     .iter()
-        //     .map(|split_oracle_def| inst_ctx.rewrite_split_oracle_def(split_oracle_def.clone()))
-        //     .collect();
+        while !workque.is_empty() {
+            let current_idx = workque.pop_front().unwrap();
+            log::debug!(
+                "next up: {current_idx} : {}",
+                &specialization[current_idx].0.name
+            );
 
-        let new_state = pkg_inst
-            .pkg
-            .state
-            .iter()
-            .cloned()
-            .map(|(ident, ty, span)| (ident, inst_ctx.rewrite_type(ty), span))
-            .collect();
-
-        let new_params = pkg_inst
-            .pkg
-            .params
-            .iter()
-            .cloned()
-            .map(|(ident, ty, span)| (ident, inst_ctx.rewrite_type(ty), span))
-            .collect();
-
-        let pkg = Package {
-            oracles: new_oracles,
-            state: new_state,
-            params: new_params,
-            // split_oracles: new_split_oracles,
-            ..pkg_inst.pkg.clone()
-        };
-
-        for (_, expr) in &mut pkg_inst.params {
-            *expr = inst_ctx.rewrite_expression(expr)
+            if game_is_compatible(&instances[ideal], &specialization[current_idx].0) {
+                let mut path = Vec::new();
+                let mut hops = Vec::new();
+                path.push(ideal);
+                loop {
+                    let (cur, hop) = predecessors[path.last().unwrap()];
+                    path.push(cur);
+                    hops.push(hop);
+                    if cur == real {
+                        break;
+                    }
+                }
+                path.reverse();
+                hops.reverse();
+                log::info!("found theorem; games: {path:?}, gamehops: {hops:?}");
+                return Some(Proof {
+                    name,
+                    left_name,
+                    right_name,
+                    specialization,
+                    gamehops: gamehops.clone(),
+                    sequence: path,
+                    hops,
+                });
+            } else {
+                let reach = reachable_games(instances, gamehops, &mut specialization, current_idx);
+                for (entry, hop) in reach {
+                    if predecessors.contains_key(&entry) {
+                        continue;
+                    }
+                    workque.push_back(entry);
+                    predecessors.insert(entry, (current_idx, hop));
+                }
+            }
         }
-
-        for index in &mut pkg_inst.multi_instance_indices.indices {
-            *index = inst_ctx.rewrite_expression(index);
-        }
-
-        let new_params = pkg_inst
-            .params
-            .iter()
-            .map(|(ident, expr)| {
-                (
-                    inst_ctx
-                        .rewrite_pkg_identifier(
-                            crate::identifier::pkg_ident::PackageIdentifier::Const(ident.clone()),
-                        )
-                        .into_const()
-                        .unwrap(),
-                    inst_ctx.rewrite_expression(expr),
-                )
-            })
-            .collect();
-
-        PackageInstance {
-            pkg,
-            params: new_params,
-            ..pkg_inst
-        }
-    }
-}
-
-impl GameInstance {
-    pub(crate) fn new(
-        game_inst_name: String,
-        proof_name: String,
-        game: Composition,
-        types: Vec<(String, Type)>,
-        params: Vec<(GameConstIdentifier, Expression)>,
-    ) -> GameInstance {
-        let inst_ctx: InstantiationContext = InstantiationContext::new_game_instantiation_context(
-            &game_inst_name,
-            &proof_name,
-            &params,
-            &types,
-        );
-
-        let new_pkg_instances = game
-            .pkgs
-            .iter()
-            .map(|pkg_inst| -> crate::package::PackageInstance {
-                instantiate::rewrite_pkg_inst(inst_ctx, pkg_inst)
-            })
-            .collect();
-
-        let resolved_params = game
-            .consts
-            .iter()
-            .map(|(ident, ty)| (ident.clone(), inst_ctx.rewrite_type(ty.clone())))
-            .collect();
-
-        let game = Composition {
-            name: game.name.clone(),
-            pkgs: new_pkg_instances,
-            consts: resolved_params,
-
-            ..game
-        };
-
-        GameInstance {
-            name: game_inst_name,
-            game,
-            types,
-            consts: params,
-        }
-    }
-
-    pub(crate) fn with_other_game(&self, game: Composition) -> GameInstance {
-        GameInstance {
-            game,
-            ..self.clone()
-        }
+        None
     }
 
     pub(crate) fn name(&self) -> &str {
         &self.name
     }
 
-    pub(crate) fn game_name(&self) -> &str {
-        &self.game.name
+    pub(crate) fn left_name(&self) -> &str {
+        &self.left_name
+    }
+    pub(crate) fn right_name(&self) -> &str {
+        &self.right_name
     }
 
-    pub(crate) fn game(&self) -> &Composition {
-        &self.game
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ClaimType {
-    Lemma,
-    Relation,
-    Invariant,
-}
-
-impl ClaimType {
-    pub fn guess_from_name(name: &str) -> ClaimType {
-        if name.starts_with("relation") {
-            ClaimType::Relation
-        } else if name.starts_with("invariant") {
-            ClaimType::Invariant
-        } else {
-            ClaimType::Lemma
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
-pub struct Claim {
-    pub(crate) name: String,
-    pub(crate) tipe: ClaimType,
-    pub(crate) dependencies: Vec<String>,
-}
-
-impl Claim {
-    pub fn from_tuple(data: (String, Vec<String>)) -> Self {
-        let (name, dependencies) = data;
-        let tipe = ClaimType::guess_from_name(&name);
-
-        Self {
-            name,
-            tipe,
-            dependencies,
-        }
+    pub(crate) fn reductions(&self) -> impl Iterator<Item = &Reduction> {
+        self.hops.iter().filter_map(|hopid| {
+            if let GameHop::Reduction(red) = &self.gamehops[*hopid] {
+                Some(red)
+            } else {
+                None
+            }
+        })
     }
 
-    pub fn name(&self) -> &str {
-        &self.name
+    pub(crate) fn equivalences(&self) -> impl Iterator<Item = &Equivalence> {
+        self.hops.iter().filter_map(|hopid| {
+            if let GameHop::Equivalence(eq) = &self.gamehops[*hopid] {
+                Some(eq)
+            } else {
+                None
+            }
+        })
     }
 
-    pub fn tipe(&self) -> ClaimType {
-        self.tipe
+    pub(crate) fn game_hops(&self) -> impl Iterator<Item = &GameHop<'_>> {
+        self.hops.iter().map(|hopid| &self.gamehops[*hopid])
     }
 
-    pub fn dependencies(&self) -> &[String] {
-        &self.dependencies
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Proof<'a> {
-    pub(crate) name: String,
-    pub(crate) consts: Vec<(String, Type)>,
-    pub(crate) instances: Vec<GameInstance>,
-    pub(crate) assumptions: Vec<Assumption>,
-    pub(crate) game_hops: Vec<GameHop<'a>>,
-    pub(crate) pkgs: Vec<Package>,
-}
-
-impl Proof<'_> {
-    pub(crate) fn with_new_instances(&self, instances: Vec<GameInstance>) -> Proof {
-        Proof {
-            instances,
-            ..self.clone()
-        }
-    }
-
-    pub(crate) fn as_name(&self) -> &str {
-        &self.name
-    }
-
-    pub(crate) fn game_hops(&self) -> &[GameHop] {
-        &self.game_hops
-    }
-
-    pub(crate) fn instances(&self) -> &[GameInstance] {
-        &self.instances
-    }
-
-    pub(crate) fn find_game_instance(&self, game_inst_name: &str) -> Option<&GameInstance> {
-        self.instances
+    pub(crate) fn instances(&self) -> impl Iterator<Item = &GameInstance> {
+        self.sequence
             .iter()
-            .find(|inst| inst.name == game_inst_name)
+            .map(|instid| &self.specialization[*instid].0)
     }
+}
+
+impl std::fmt::Display for Proof<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        writeln!(f, "Real")?;
+        for i in 0..self.hops.len() {
+            let left = &self.specialization[self.sequence[i]];
+            let right = &self.specialization[self.sequence[i + 1]];
+            let hop = &self.gamehops[self.hops[i]];
+
+            writeln!(
+                f,
+                "{} ({})",
+                left.1,
+                left.2
+                    .iter()
+                    .map(|(a, b)| { format!("{}={}", a, b) })
+                    .join(", ")
+            )?;
+            writeln!(f, "    {}", hop)?;
+            writeln!(
+                f,
+                "{} ({})",
+                right.1,
+                right
+                    .2
+                    .iter()
+                    .map(|(a, b)| { format!("{}={}", a, b) })
+                    .join(", ")
+            )?;
+        }
+        writeln!(f, "Ideal")?;
+        Ok(())
+    }
+}
+
+/** There is a gamehop between generic_match and generic_other.
+ ** specialization[game] is compatible with generic_match.
+ **
+ ** Goal is to create a specialized game hop. We already have a
+ ** specialized version of generic_match at specialization[game] and
+ ** will create a specialization for generic_other and return the
+ ** position of that newly added instance.
+ */
+fn specialize<'a>(
+    specialization: &mut Vec<(GameInstance, String, Vec<(String, String)>)>,
+    game: usize,
+    generic_match: &'a GameInstance,
+    generic_other: &'a GameInstance,
+) -> usize {
+    debug_assert!(game_is_compatible(&specialization[game].0, generic_match));
+
+    if game_is_equivalent(&specialization[game].0, generic_match) {
+        log::debug!(
+            "potential gamehop with exact match {} -- {}",
+            generic_match.name,
+            generic_other.name
+        );
+        specialization
+            .iter()
+            .position(|(inst, _ref, _assign)| game_is_equivalent(generic_other, inst))
+            .unwrap()
+    } else {
+        log::debug!(
+            "potential gamehop with generalized match {} -- {}",
+            generic_match.name,
+            generic_other.name
+        );
+        ///
+        let mut new_game = generic_other.clone();
+        new_game.consts = new_game
+            .consts
+            .into_iter()
+            .map(|(var, val)| {
+                if matches!(val, Expression::Identifier(_)) {
+                    let other_val = specialization[game]
+                        .0
+                        .consts
+                        .iter()
+                        .find_map(|(other_var, other_val)| {
+                            if var.name == other_var.name {
+                                Some(other_val)
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap();
+
+                    match other_val {
+                        Expression::Identifier(_) => (var, val),
+                        Expression::BooleanLiteral(_) => (var, other_val.clone()),
+                        _ => {
+                            unimplemented!()
+                        }
+                    }
+                } else {
+                    (var, val)
+                }
+            })
+            .collect();
+
+        if let Some(pos) = specialization
+            .iter()
+            .position(|(inst, _ref, _assign)| game_is_equivalent(&new_game, inst))
+        {
+            pos
+        } else {
+            let assignments = assignments(&new_game, generic_other);
+            specialization.push((new_game, generic_other.name().to_string(), assignments));
+            specialization.len() - 1
+        }
+    }
+}
+
+fn other_game(
+    instances: &[GameInstance],
+    gamehops: &[GameHop],
+    specialization: &mut Vec<(GameInstance, String, Vec<(String, String)>)>,
+    game: usize,
+    hop: &GameHop,
+) -> Option<usize> {
+    let left_game = instances
+        .iter()
+        .find(|inst| inst.name == hop.left_game_instance_name())
+        .unwrap();
+    let right_game = instances
+        .iter()
+        .find(|inst| inst.name == hop.right_game_instance_name())
+        .unwrap();
+
+    if game_is_compatible(&specialization[game].0, left_game) {
+        return Some(specialize(specialization, game, left_game, right_game));
+    }
+    if game_is_compatible(&specialization[game].0, right_game) {
+        return Some(specialize(specialization, game, right_game, left_game));
+    }
+    None
+}
+
+fn reachable_games(
+    instances: &[GameInstance],
+    gamehops: &[GameHop],
+    specialization: &mut Vec<(GameInstance, String, Vec<(String, String)>)>,
+    game: usize,
+) -> impl Iterator<Item = (usize, usize)> {
+    let mut positions = Vec::new();
+    for (idx, hop) in gamehops.iter().enumerate() {
+        if let Some(position) = other_game(instances, gamehops, specialization, game, hop) {
+            positions.push((position, idx));
+        }
+    }
+    positions.into_iter()
+}
+
+fn game_is_equivalent(lhs: &GameInstance, rhs: &GameInstance) -> bool {
+    game_is_compatible(lhs, rhs) && game_is_compatible(rhs, lhs)
+}
+
+fn game_is_compatible(specific: &GameInstance, general: &GameInstance) -> bool {
+    if specific.game.name != general.game.name {
+        return false;
+    }
+    if specific.types != general.types {
+        println!("b");
+        return false;
+    }
+
+    let specific_const_names: HashSet<_> = specific
+        .consts
+        .iter()
+        .map(|(var, _val)| &var.name)
+        .collect();
+    let general_const_names: HashSet<_> =
+        general.consts.iter().map(|(var, _val)| &var.name).collect();
+
+    if specific_const_names != general_const_names {
+        return false;
+    }
+
+    specific.consts.iter().all(|(var, val)| {
+        let other_val = general
+            .consts
+            .iter()
+            .find_map(|(other_var, other_val)| {
+                if var.name == other_var.name {
+                    Some(other_val)
+                } else {
+                    None
+                }
+            })
+            .unwrap();
+        if matches!(val, Expression::Identifier(_)) {
+            return val == other_val;
+        }
+        if matches!(val, Expression::BooleanLiteral(_))
+            || matches!(val, Expression::IntegerLiteral(_))
+        {
+            return val == other_val || matches!(other_val, Expression::Identifier(_));
+        }
+        unimplemented!()
+    })
+}
+
+fn assignments(game: &GameInstance, reference: &GameInstance) -> Vec<(String, String)> {
+    game.consts
+        .iter()
+        .filter_map(|(var, val)| {
+            let other_val = reference
+                .consts
+                .iter()
+                .find_map(|(other_var, other_val)| {
+                    if var.name == other_var.name {
+                        Some(other_val)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap();
+
+            if let Expression::Identifier(ident) = other_val {
+                if let Expression::BooleanLiteral(lit) = val {
+                    return Some((ident.ident(), lit.clone()));
+                }
+            }
+            None
+        })
+        .collect()
 }

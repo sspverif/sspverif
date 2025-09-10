@@ -112,10 +112,9 @@ This would be the contents is JSONy notation. We'll see how that looks like in t
 
 */
 
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use env_logger::Logger;
 use sspverif::project;
-use sspverif::util::prover_process::ProverBackend;
 
 mod cli;
 use crate::cli::*;
@@ -163,7 +162,14 @@ fn latex(l: &Latex) -> Result<(), project::error::Error> {
     let files = project::Files::load(&project_root)?;
     let project = project::Project::load(&files)?;
 
-    project.latex(l.prover)
+    let merged = if l.merged {
+        assert!(l.oraclename.is_some());
+        Some((l.oraclename.clone().unwrap(), l.package.clone()))
+    } else {
+        None
+    };
+
+    project.latex(l.prover, merged)
 }
 
 fn format(f: &Format) -> Result<(), project::error::Error> {
