@@ -1105,7 +1105,7 @@ pub fn tex_write_proof(
             GameHop::Conjecture(conj) => {
                 writeln!(
                     file,
-                    "\\section{{Conjectured Equivalence between {} and {}}}",
+                    "\\section{{Conjectured Indistinguishability between {} and {}}}",
                     conj.left_name().as_str().replace('_', "\\_"),
                     conj.right_name().as_str().replace('_', "\\_")
                 )?;
