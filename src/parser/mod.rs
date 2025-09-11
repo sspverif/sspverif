@@ -61,7 +61,7 @@ impl SspParser {
     }
 
     pub fn parse_theorem(contents: &str) -> Result<Pairs<Rule>, Error<Rule>> {
-        SspParser::parse(Rule::proof, contents)
+        SspParser::parse(Rule::theorem, contents)
     }
 }
 
