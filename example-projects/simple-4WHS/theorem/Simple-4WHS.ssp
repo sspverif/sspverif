@@ -1,4 +1,4 @@
-proof Simple4WHS {
+theorem Simple4WHS {
     const b: Bool;
     const n: Integer;
     const zeron: Bits(256);
@@ -14,6 +14,27 @@ proof Simple4WHS {
             mac     : mac  ,
         }
     }
+
+    instance Real = KX {
+        params {
+            b       : false ,
+            n       : n    ,
+            zeron   : zeron,
+            prf     : prf  ,
+            mac     : mac  ,
+        }
+    }
+
+    instance Ideal = KX {
+        params {
+            b       : true ,
+            n       : n    ,
+            zeron   : zeron,
+            prf     : prf  ,
+            mac     : mac  ,
+        }
+    }
+
 
     instance KX_NoKey = KX_NoKey {
         params {
@@ -95,8 +116,8 @@ proof Simple4WHS {
         equivalence KX KX_NoKey {
             Send1: {
                 invariant: [
-                    ./proofs/invariant-KX-KX_NoKey.smt2,
-                    ./proofs/randomness-KX-KX_NoKey.smt2
+                    ./theorem/invariant-KX-KX_NoKey.smt2,
+                    ./theorem/randomness-KX-KX_NoKey.smt2
                     ]
 
                 lemmas {
@@ -107,8 +128,8 @@ proof Simple4WHS {
             }
              Send2: {
                 invariant: [
-                    ./proofs/invariant-KX-KX_NoKey.smt2,
-                    ./proofs/randomness-KX-KX_NoKey.smt2
+                    ./theorem/invariant-KX-KX_NoKey.smt2,
+                    ./theorem/randomness-KX-KX_NoKey.smt2
                     ]
 
                 lemmas {
@@ -119,8 +140,8 @@ proof Simple4WHS {
             }
              Send3: {
                 invariant: [
-                    ./proofs/invariant-KX-KX_NoKey.smt2,
-                    ./proofs/randomness-KX-KX_NoKey.smt2
+                    ./theorem/invariant-KX-KX_NoKey.smt2,
+                    ./theorem/randomness-KX-KX_NoKey.smt2
                     ]
 
                 lemmas {
@@ -131,8 +152,8 @@ proof Simple4WHS {
             }
             Send4: {
                 invariant: [
-                    ./proofs/invariant-KX-KX_NoKey.smt2,
-                    ./proofs/randomness-KX-KX_NoKey.smt2
+                    ./theorem/invariant-KX-KX_NoKey.smt2,
+                    ./theorem/randomness-KX-KX_NoKey.smt2
                     ]
 
                 lemmas {
@@ -143,8 +164,8 @@ proof Simple4WHS {
             }
             Send5: {
                 invariant: [
-                    ./proofs/invariant-KX-KX_NoKey.smt2,
-                    ./proofs/randomness-KX-KX_NoKey.smt2
+                    ./theorem/invariant-KX-KX_NoKey.smt2,
+                    ./theorem/randomness-KX-KX_NoKey.smt2
                     ]
 
                 lemmas {
@@ -155,8 +176,8 @@ proof Simple4WHS {
             }
             NewKey: {
                 invariant: [
-                    ./proofs/invariant-KX-KX_NoKey.smt2,
-                    ./proofs/randomness-KX-KX_NoKey.smt2
+                    ./theorem/invariant-KX-KX_NoKey.smt2,
+                    ./theorem/randomness-KX-KX_NoKey.smt2
                     ]
 
                 lemmas {
@@ -167,8 +188,8 @@ proof Simple4WHS {
             }
             NewSession: {
                 invariant: [
-                    ./proofs/invariant-KX-KX_NoKey.smt2,
-                    ./proofs/randomness-KX-KX_NoKey.smt2
+                    ./theorem/invariant-KX-KX_NoKey.smt2,
+                    ./theorem/randomness-KX-KX_NoKey.smt2
                     ]
 
                 lemmas {
@@ -179,8 +200,8 @@ proof Simple4WHS {
             }
             Test: {
                 invariant: [
-                    ./proofs/invariant-KX-KX_NoKey.smt2,
-                    ./proofs/randomness-KX-KX_NoKey.smt2
+                    ./theorem/invariant-KX-KX_NoKey.smt2,
+                    ./theorem/randomness-KX-KX_NoKey.smt2
                     ]
 
                 lemmas {
@@ -191,8 +212,8 @@ proof Simple4WHS {
             }
             Reveal: {
                 invariant: [
-                    ./proofs/invariant-KX-KX_NoKey.smt2,
-                    ./proofs/randomness-KX-KX_NoKey.smt2
+                    ./theorem/invariant-KX-KX_NoKey.smt2,
+                    ./theorem/randomness-KX-KX_NoKey.smt2
                     ]
 
                 lemmas {
@@ -206,8 +227,8 @@ proof Simple4WHS {
         equivalence KX_NoKey KX_NoPrf_RealPrf {
             Send1: {
                 invariant: [
-                    ./proofs/invariant-KX_NoKey-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoKey-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoKey-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoKey-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -218,8 +239,8 @@ proof Simple4WHS {
             }
              Send2: {
                 invariant: [
-                    ./proofs/invariant-KX_NoKey-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoKey-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoKey-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoKey-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -230,8 +251,8 @@ proof Simple4WHS {
             }
              Send3: {
                 invariant: [
-                    ./proofs/invariant-KX_NoKey-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoKey-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoKey-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoKey-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -242,8 +263,8 @@ proof Simple4WHS {
             }
             Send4: {
                 invariant: [
-                    ./proofs/invariant-KX_NoKey-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoKey-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoKey-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoKey-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -254,8 +275,8 @@ proof Simple4WHS {
             }
             Send5: {
                 invariant: [
-                    ./proofs/invariant-KX_NoKey-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoKey-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoKey-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoKey-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -266,8 +287,8 @@ proof Simple4WHS {
             }
             NewKey: {
                 invariant: [
-                    ./proofs/invariant-KX_NoKey-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoKey-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoKey-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoKey-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -278,8 +299,8 @@ proof Simple4WHS {
             }
             NewSession: {
                 invariant: [
-                    ./proofs/invariant-KX_NoKey-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoKey-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoKey-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoKey-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -290,8 +311,8 @@ proof Simple4WHS {
             }
             Test: {
                 invariant: [
-                    ./proofs/invariant-KX_NoKey-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoKey-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoKey-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoKey-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -302,8 +323,8 @@ proof Simple4WHS {
             }
             Reveal: {
                 invariant: [
-                    ./proofs/invariant-KX_NoKey-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoKey-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoKey-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoKey-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -330,8 +351,8 @@ proof Simple4WHS {
         equivalence RealKX_NoPrf_IdealPrf IdealKX_NoPrf_IdealPrf {
             Send1: {
                 invariant: [
-                    ./proofs/invariant-KX_NoPrf-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoPrf-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoPrf-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoPrf-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -342,8 +363,8 @@ proof Simple4WHS {
             }
              Send2: {
                 invariant: [
-                    ./proofs/invariant-KX_NoPrf-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoPrf-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoPrf-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoPrf-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -354,8 +375,8 @@ proof Simple4WHS {
             }
              Send3: {
                 invariant: [
-                    ./proofs/invariant-KX_NoPrf-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoPrf-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoPrf-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoPrf-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -366,8 +387,8 @@ proof Simple4WHS {
             }
             Send4: {
                 invariant: [
-                    ./proofs/invariant-KX_NoPrf-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoPrf-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoPrf-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoPrf-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -378,8 +399,8 @@ proof Simple4WHS {
             }
             Send5: {
                 invariant: [
-                    ./proofs/invariant-KX_NoPrf-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoPrf-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoPrf-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoPrf-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -390,8 +411,8 @@ proof Simple4WHS {
             }
             NewKey: {
                 invariant: [
-                    ./proofs/invariant-KX_NoPrf-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoPrf-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoPrf-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoPrf-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -402,8 +423,8 @@ proof Simple4WHS {
             }
             NewSession: {
                 invariant: [
-                    ./proofs/invariant-KX_NoPrf-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoPrf-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoPrf-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoPrf-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -414,8 +435,8 @@ proof Simple4WHS {
             }
             Test: {
                 invariant: [
-                    ./proofs/invariant-KX_NoPrf-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoPrf-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoPrf-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoPrf-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -426,8 +447,8 @@ proof Simple4WHS {
             }
             Reveal: {
                 invariant: [
-                    ./proofs/invariant-KX_NoPrf-KX_NoPrf.smt2,
-                    ./proofs/randomness-KX_NoPrf-KX_NoPrf.smt2
+                    ./theorem/invariant-KX_NoPrf-KX_NoPrf.smt2,
+                    ./theorem/randomness-KX_NoPrf-KX_NoPrf.smt2
                     ]
 
                 lemmas {
@@ -437,5 +458,9 @@ proof Simple4WHS {
                 }
             }
         }
+    }
+
+    propositions {
+        main: Real ~ Ideal
     }
 }
